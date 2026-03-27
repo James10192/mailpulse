@@ -15,6 +15,8 @@ globs: ["**/prisma/**", "**/lib/prisma*", "**/*.prisma"]
 - **Prisma 7**: datasource `url` goes in `prisma.config.ts`, NOT in `schema.prisma`
 - **Prisma 7**: `prisma.config.ts` must load `.env.local` explicitly via `config({ path: ".env.local" })`
 - Always install `dotenv` as devDep for prisma.config.ts
+- **Prisma 7**: `new PrismaClient()` MUST receive `{ datasourceUrl: process.env.DATABASE_URL }` — empty constructor fails at runtime
+- **Prisma 7**: Add `"build": "prisma generate && next build"` to package.json for Vercel deploys
 - Enum values are UPPER_CASE
 - Json fields for flexible metadata (don't over-normalize)
 - Use `upsert` for analytics aggregation updates
