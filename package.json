@@ -11,6 +11,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",
     "@aws-sdk/s3-request-presigner": "^3.1019.0",
+    "@better-auth/infra": "^0.1.13",
     "@better-auth/prisma-adapter": "^1.5.6",
     "@prisma/client": "^7.6.0",
     "better-auth": "^1.5.6",
@@ -23,6 +24,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^6.9.4",
+    "svix": "^1.89.0",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
   },
@@ -31,6 +33,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.3.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "prisma": "^7.6.0",

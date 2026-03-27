@@ -62,9 +62,31 @@ pnpm build            # Production build
 npx prisma studio     # Database GUI
 npx prisma migrate dev # Run migrations
 npx convex dev        # Start Convex dev server
+vercel deploy         # Deploy preview to Vercel
+vercel --prod         # Deploy to production
 ```
+
+## CLI Tools (installed globally)
+- `vercel` — Deploy, env vars, domains (`vercel login`)
+- `neonctl` — Neon PostgreSQL management (`neonctl auth`)
+- `npx convex` — Convex real-time backend (`npx convex login`)
+- `wrangler` — Cloudflare R2, Workers (`wrangler login`)
+- `resend` — Resend email API (`resend login`)
+- `npx prisma` — Database migrations, studio (uses DATABASE_URL)
+
+## Infrastructure IDs
+- **Neon**: project `purple-frog-27708162` (MailPulse, aws-us-east-1)
+- **R2 bucket**: `mailpulse`
 
 ## Environment Variables
 See `.env.example` for all required variables.
 
 @AGENTS.md
+
+<!-- convex-ai-start -->
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read `convex/_generated/ai/guidelines.md` first** for important guidelines on how to correctly use Convex APIs and patterns. The file contains rules that override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
+<!-- convex-ai-end -->

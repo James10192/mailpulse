@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Webhook } from "resend";
+import { Webhook } from "svix";
 
 // Resend webhook events
 // https://resend.com/docs/dashboard/webhooks/introduction
