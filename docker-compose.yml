@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: mailpulse-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: mailpulse
+      POSTGRES_PASSWORD: mailpulse
+      POSTGRES_DB: mailpulse
+    volumes:
+      - mailpulse-data:/var/lib/postgresql/data
+
+volumes:
+  mailpulse-data:
