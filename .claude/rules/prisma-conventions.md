@@ -17,6 +17,10 @@ globs: ["**/prisma/**", "**/lib/prisma*", "**/*.prisma"]
 - Always install `dotenv` as devDep for prisma.config.ts
 - **Prisma 7**: `new PrismaClient()` MUST receive `{ datasourceUrl: process.env.DATABASE_URL }` — empty constructor fails at runtime
 - **Prisma 7**: Add `"build": "prisma generate && next build"` to package.json for Vercel deploys
+- **Prisma 7**: `output` REQUIRED in generator: `output = "../src/generated/prisma"`
+- **Prisma 7**: Import from `@/generated/prisma` NOT `@prisma/client`
+- **Prisma 7**: Driver adapter MANDATORY: `@prisma/adapter-pg` for PostgreSQL
+- **Prisma 7**: Constructor: `new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) })`
 - Enum values are UPPER_CASE
 - Json fields for flexible metadata (don't over-normalize)
 - Use `upsert` for analytics aggregation updates
