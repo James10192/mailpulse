@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { Space_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { PostHogProvider } from "@/components/PostHogProvider";
 
-const jakarta = Plus_Jakarta_Sans({
-  variable: "--font-sans",
+const spaceMono = Space_Mono({
+  variable: "--font-display",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "700"],
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-body",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -31,9 +31,9 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${jakarta.variable} ${jetbrainsMono.variable} dark h-full antialiased`}
+      className={`${spaceMono.variable} ${jakarta.variable} dark h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-50 font-sans">
+      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-50" style={{ fontFamily: "var(--font-body)" }}>
         <PostHogProvider>{children}</PostHogProvider>
       </body>
     </html>

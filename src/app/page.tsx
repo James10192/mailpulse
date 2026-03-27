@@ -166,7 +166,7 @@ export default function LandingPage() {
             </AnimatedSection>
 
             <AnimatedSection delay={0.1}>
-              <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1]">
+              <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] font-mono">
                 Vos campagnes email
                 <br />
                 <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-amber-500 bg-clip-text text-transparent">
@@ -241,7 +241,7 @@ export default function LandingPage() {
                 <span className="text-xs font-mono text-orange-500 uppercase tracking-[0.2em]">
                   Features
                 </span>
-                <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight">
+                <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
                   Tout pour vos campagnes.
                   <br />
                   <span className="text-zinc-500">Rien de superflu.</span>
@@ -281,7 +281,7 @@ export default function LandingPage() {
                 <span className="text-xs font-mono text-orange-500 uppercase tracking-[0.2em]">
                   Tracking
                 </span>
-                <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight">
+                <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
                   Chaque interaction
                   <br />
                   <span className="text-zinc-500">est mesuree.</span>
@@ -361,7 +361,7 @@ export default function LandingPage() {
                 <span className="text-xs font-mono text-orange-500 uppercase tracking-[0.2em]">
                   Pricing
                 </span>
-                <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight">
+                <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
                   Simple et transparent.
                 </h2>
                 <p className="mt-3 text-zinc-500">
@@ -433,7 +433,7 @@ export default function LandingPage() {
         <section className="py-20 md:py-32">
           <AnimatedSection>
             <div className="max-w-3xl mx-auto px-6 text-center">
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight">
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight font-mono">
                 Pret a envoyer des emails
                 <br />
                 <span className="bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
