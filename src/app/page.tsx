@@ -130,6 +130,17 @@ export default function LandingPage() {
             <a href="#pricing" className="hover:text-zinc-100 transition-colors">
               Pricing
             </a>
+            <Link href="/docs" className="hover:text-zinc-100 transition-colors">
+              Docs
+            </Link>
+            <a
+              href="https://github.com/James10192/mailpulse"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-zinc-100 transition-colors"
+            >
+              GitHub
+            </a>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -228,6 +239,58 @@ export default function LandingPage() {
               <MetricCard value={15} suffix="ms" label="Latence tracking" delay={0.2} />
               <MetricCard value={100} suffix="%" label="Open source" delay={0.3} />
             </div>
+          </div>
+        </section>
+
+        {/* ─── Made for West Africa ─── */}
+        <section className="py-20 md:py-28">
+          <div className="max-w-5xl mx-auto px-6">
+            <AnimatedSection>
+              <div className="text-center mb-12">
+                <span className="text-xs font-mono text-orange-500 uppercase tracking-[0.2em]">
+                  Afrique de l&apos;Ouest
+                </span>
+                <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
+                  Construit pour
+                  <br />
+                  <span className="text-zinc-500">les entreprises africaines.</span>
+                </h2>
+                <p className="mt-4 text-zinc-400 max-w-xl mx-auto">
+                  Pas un outil americain adapte. Une plateforme pensee des le depart
+                  pour le marche ouest-africain.
+                </p>
+              </div>
+            </AnimatedSection>
+
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                {
+                  title: "Tarifs en FCFA",
+                  desc: "Fini les conversions USD. Prix transparents en Francs CFA, paiement Orange Money et MTN Mobile Money.",
+                  badge: "XOF",
+                },
+                {
+                  title: "Support francophone",
+                  desc: "Une equipe qui parle votre langue, dans votre fuseau horaire. Support en francais par email et WhatsApp.",
+                  badge: "FR",
+                },
+                {
+                  title: "Delivrabilite locale",
+                  desc: "Infrastructure dediee pour les FAI africains. Vos emails arrivent dans la boite de reception, pas dans les spams.",
+                  badge: "99%",
+                },
+              ].map((item) => (
+                <StaggerItem key={item.title}>
+                  <div className="p-6 rounded-2xl border border-zinc-800/50 bg-zinc-900/20 h-full">
+                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-orange-500/10 text-orange-400 border border-orange-500/10 mb-4">
+                      {item.badge}
+                    </span>
+                    <h3 className="font-semibold text-lg mb-2">{item.title}</h3>
+                    <p className="text-sm text-zinc-400 leading-relaxed">{item.desc}</p>
+                  </div>
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
           </div>
         </section>
 
