@@ -141,15 +141,23 @@ async function processEvent(event: ResendWebhookEvent) {
 async function updateCampaignAnalytics(campaignId: string) {
   const recipients = await prisma.campaignRecipient.findMany({
     where: { campaignId },
+    select: {
+      deliveredAt: true,
+      openedAt: true,
+      clickedAt: true,
+      bouncedAt: true,
+      complainedAt: true,
+      unsubscribedAt: true,
+    },
   });
 
   const totalSent = recipients.length;
-  const totalDelivered = recipients.filter((r) => r.deliveredAt !== null).length;
-  const totalOpened = recipients.filter((r) => r.openedAt !== null).length;
-  const totalClicked = recipients.filter((r) => r.clickedAt !== null).length;
-  const totalBounced = recipients.filter((r) => r.bouncedAt !== null).length;
-  const totalComplaints = recipients.filter((r) => r.complainedAt !== null).length;
-  const totalUnsubscribed = recipients.filter((r) => r.unsubscribedAt !== null).length;
+  const totalDelivered = recipients.filter((r: { deliveredAt: Date | null }) => r.deliveredAt !== null).length;
+  const totalOpened = recipients.filter((r: { openedAt: Date | null }) => r.openedAt !== null).length;
+  const totalClicked = recipients.filter((r: { clickedAt: Date | null }) => r.clickedAt !== null).length;
+  const totalBounced = recipients.filter((r: { bouncedAt: Date | null }) => r.bouncedAt !== null).length;
+  const totalComplaints = recipients.filter((r: { complainedAt: Date | null }) => r.complainedAt !== null).length;
+  const totalUnsubscribed = recipients.filter((r: { unsubscribedAt: Date | null }) => r.unsubscribedAt !== null).length;
 
   await prisma.campaignAnalytics.upsert({
     where: { campaignId },
