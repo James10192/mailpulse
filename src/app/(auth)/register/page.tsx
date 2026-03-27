@@ -132,6 +132,14 @@ export default function RegisterPage() {
     }
   }
 
+  async function handleGitHub() {
+    try {
+      await signIn.social({ provider: "github" });
+    } catch {
+      setError("Erreur avec GitHub. Reessayez.");
+    }
+  }
+
   return (
     <div className="min-h-screen flex bg-zinc-950">
       {/* Left - Branding panel */}
@@ -219,7 +227,10 @@ export default function RegisterPage() {
               {googleLoading ? "Connexion..." : "Continuer avec Google"}
             </button>
 
-            <button className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800/80 transition-all text-sm font-medium">
+            <button
+              onClick={handleGitHub}
+              className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800/80 transition-all text-sm font-medium"
+            >
               <GitHubIcon />
               Continuer avec GitHub
             </button>
