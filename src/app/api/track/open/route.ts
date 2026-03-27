@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
             recipientId: data.recipientId,
             contactId: "", // resolved below
             metadata: {
-              ip: request.headers.get("x-forwarded-for") ?? request.ip,
+              ip: request.headers.get("x-forwarded-for") ?? "unknown",
               userAgent: request.headers.get("user-agent"),
               timestamp: new Date().toISOString(),
             },
