@@ -144,12 +144,12 @@ async function updateCampaignAnalytics(campaignId: string) {
   });
 
   const totalSent = recipients.length;
-  const totalDelivered = recipients.filter((r) => r.deliveredAt).length;
-  const totalOpened = recipients.filter((r) => r.openedAt).length;
-  const totalClicked = recipients.filter((r) => r.clickedAt).length;
-  const totalBounced = recipients.filter((r) => r.bouncedAt).length;
-  const totalComplaints = recipients.filter((r) => r.complainedAt).length;
-  const totalUnsubscribed = recipients.filter((r) => r.unsubscribedAt).length;
+  const totalDelivered = recipients.filter((r) => r.deliveredAt !== null).length;
+  const totalOpened = recipients.filter((r) => r.openedAt !== null).length;
+  const totalClicked = recipients.filter((r) => r.clickedAt !== null).length;
+  const totalBounced = recipients.filter((r) => r.bouncedAt !== null).length;
+  const totalComplaints = recipients.filter((r) => r.complainedAt !== null).length;
+  const totalUnsubscribed = recipients.filter((r) => r.unsubscribedAt !== null).length;
 
   await prisma.campaignAnalytics.upsert({
     where: { campaignId },
