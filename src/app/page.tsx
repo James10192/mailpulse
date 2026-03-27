@@ -74,7 +74,7 @@ const pricingPlans = [
   },
   {
     name: "Pro",
-    price: "29",
+    price: "15 000",
     desc: "Pour les equipes",
     features: [
       "25 000 contacts",
@@ -395,7 +395,7 @@ export default function LandingPage() {
                             <span className="text-4xl font-bold font-mono">
                               {plan.price}
                             </span>
-                            <span className="text-zinc-500 text-sm">&euro;/mois</span>
+                            <span className="text-zinc-500 text-sm">FCFA/mois</span>
                           </>
                         ) : (
                           <span className="text-2xl font-bold">{plan.price}</span>
