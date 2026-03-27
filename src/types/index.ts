@@ -18,7 +18,7 @@ export type {
   CampaignAnalytics,
   Organization,
   User,
-} from "@prisma/client";
+} from "@/generated/prisma";
 
 // Campaign with relations
 export interface CampaignWithRelations {
