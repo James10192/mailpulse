@@ -7,6 +7,7 @@ import Link from "next/link";
 import { createAutomation, deleteAutomation, updateAutomationStatus } from "./actions";
 import { cn } from "@/lib/utils";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import type { ActionState } from "@/types/action-state";
 
 interface AutomationData {
@@ -92,6 +93,7 @@ export function AutomationsClient({
   const [presetTrigger, setPresetTrigger] = useState("SUBSCRIBER_ADDED");
   const [presetDesc, setPresetDesc] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [pausing, setPausing] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     async (prev, formData) => {
@@ -103,7 +105,7 @@ export function AutomationsClient({
   );
 
   async function handleDelete(id: string) {
-    if (!confirm("Supprimer cette automation ?")) return;
+    setConfirmDeleteId(null);
     setDeleting(id);
     const result = await deleteAutomation(id);
     setDeleting(null);
@@ -270,7 +272,7 @@ export function AutomationsClient({
                               </button>
                             )}
                             <button
-                              onClick={() => handleDelete(auto.id)}
+                              onClick={() => setConfirmDeleteId(auto.id)}
                               disabled={deleting === auto.id}
                               className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
                               title="Supprimer"
@@ -395,6 +397,18 @@ export function AutomationsClient({
           </div>
         </div>
       )}
+
+      {/* Confirm delete dialog */}
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        title="Supprimer cette automation ?"
+        message="Cette action est irreversible. L'automation et toutes ses etapes seront supprimees definitivement."
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        destructive
+        onConfirm={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </>
   );
 }
