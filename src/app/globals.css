@@ -35,6 +35,14 @@ code {
   word-break: break-word;
 }
 
-img, svg, video, canvas, audio, iframe, embed, object {
+img, video, canvas, audio, iframe, embed, object {
   max-width: 100%;
+}
+
+/* React Flow needs SVGs without max-width constraint for edges */
+.react-flow svg {
+  max-width: none;
+}
+.react-flow__edges {
+  overflow: visible;
 }
