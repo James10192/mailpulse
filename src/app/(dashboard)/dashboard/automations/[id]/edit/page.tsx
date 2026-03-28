@@ -49,10 +49,10 @@ export default async function EditAutomationPage({
     if (firstConfig._edges) {
       initialEdges = (firstConfig._edges as Edge[]).map((e) => ({
         ...e,
-        type: "smoothstep",
+        type: "workflow",
         animated: true,
-        style: { stroke: "#525252", strokeWidth: 2 },
-        markerEnd: { type: "arrowclosed" as MarkerType, color: "#525252" },
+        style: { stroke: "#71717a", strokeWidth: 2 },
+        markerEnd: { type: "arrowclosed" as MarkerType, color: "#71717a" },
       }));
     }
   } else {

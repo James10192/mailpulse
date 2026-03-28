@@ -46,3 +46,11 @@ img, video, canvas, audio, iframe, embed, object {
 .react-flow__edges {
   overflow: visible;
 }
+/* Make edges selectable with a wider click area */
+.react-flow__edge {
+  cursor: pointer;
+}
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #f97316 !important;
+  stroke-width: 3 !important;
+}
