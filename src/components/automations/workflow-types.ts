@@ -3,8 +3,11 @@ export type WorkflowNodeType = "trigger" | "send_email" | "add_tag" | "remove_ta
 export interface TriggerConfig {
   triggerType: string;
   tagName?: string;
-  field?: string;
+  campaignName?: string;
+  linkUrl?: string;
+  dateField?: string;
   offsetDays?: number;
+  eventName?: string;
 }
 
 export interface SendEmailConfig {
@@ -40,6 +43,7 @@ export interface WorkflowNodeData {
   type: WorkflowNodeType;
   label: string;
   config: NodeConfig;
+  onAddFromNode?: (nodeId: string) => void;
 }
 
 export const NODE_CATALOG = [

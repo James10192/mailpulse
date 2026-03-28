@@ -171,27 +171,90 @@ export function NodeConfigPanel({
 
 function TriggerConfigForm({ config, onChange }: { config: TriggerConfig; onChange: (p: Record<string, unknown>) => void }) {
   return (
-    <div>
-      <FieldLabel>Type de declencheur</FieldLabel>
-      <Select
-        value={config.triggerType ?? "SUBSCRIBER_ADDED"}
-        onChange={(v) => onChange({ triggerType: v })}
-        options={[
-          { value: "SUBSCRIBER_ADDED", label: "Nouvel abonne" },
-          { value: "TAG_ADDED", label: "Tag ajoute" },
-          { value: "CAMPAIGN_OPENED", label: "Campagne ouverte" },
-          { value: "LINK_CLICKED", label: "Lien clique" },
-          { value: "DATE_BASED", label: "Base sur la date" },
-          { value: "CUSTOM_EVENT", label: "Evenement personnalise" },
-        ]}
-      />
+    <div className="space-y-3">
+      <div>
+        <FieldLabel>Type de declencheur</FieldLabel>
+        <Select
+          value={config.triggerType ?? "SUBSCRIBER_ADDED"}
+          onChange={(v) => onChange({ triggerType: v })}
+          options={[
+            { value: "SUBSCRIBER_ADDED", label: "Nouvel abonne" },
+            { value: "TAG_ADDED", label: "Tag ajoute" },
+            { value: "CAMPAIGN_OPENED", label: "Campagne ouverte" },
+            { value: "LINK_CLICKED", label: "Lien clique" },
+            { value: "DATE_BASED", label: "Base sur la date" },
+            { value: "CUSTOM_EVENT", label: "Evenement personnalise" },
+          ]}
+        />
+      </div>
+
       {config.triggerType === "TAG_ADDED" && (
-        <div className="mt-3">
+        <div>
           <FieldLabel>Nom du tag</FieldLabel>
           <Input
             value={config.tagName ?? ""}
             onChange={(v) => onChange({ tagName: v })}
             placeholder="ex: VIP"
+          />
+        </div>
+      )}
+
+      {config.triggerType === "CAMPAIGN_OPENED" && (
+        <div>
+          <FieldLabel>Campagne</FieldLabel>
+          <Input
+            value={config.campaignName ?? ""}
+            onChange={(v) => onChange({ campaignName: v })}
+            placeholder="ex: Newsletter Mars 2026"
+          />
+        </div>
+      )}
+
+      {config.triggerType === "LINK_CLICKED" && (
+        <div>
+          <FieldLabel>URL du lien</FieldLabel>
+          <Input
+            value={config.linkUrl ?? ""}
+            onChange={(v) => onChange({ linkUrl: v })}
+            placeholder="https://example.com/offre"
+          />
+        </div>
+      )}
+
+      {config.triggerType === "DATE_BASED" && (
+        <>
+          <div>
+            <FieldLabel>Champ date</FieldLabel>
+            <Select
+              value={config.dateField ?? "subscribedAt"}
+              onChange={(v) => onChange({ dateField: v })}
+              options={[
+                { value: "subscribedAt", label: "Date d'inscription" },
+                { value: "birthday", label: "Anniversaire" },
+                { value: "lastActivity", label: "Derniere activite" },
+                { value: "custom", label: "Champ personnalise" },
+              ]}
+            />
+          </div>
+          <div>
+            <FieldLabel>Delai (jours)</FieldLabel>
+            <Input
+              type="number"
+              value={config.offsetDays ?? 0}
+              onChange={(v) => onChange({ offsetDays: Number(v) })}
+              placeholder="0"
+            />
+          </div>
+        </>
+      )}
+
+      {config.triggerType === "CUSTOM_EVENT" && (
+        <div>
+          <FieldLabel>Nom de l&apos;evenement</FieldLabel>
+          <Input
+            value={config.eventName ?? ""}
+            onChange={(v) => onChange({ eventName: v })}
+            placeholder="ex: purchase_completed"
           />
         </div>
       )}

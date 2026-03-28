@@ -14,6 +14,7 @@ import {
   type Edge,
   BackgroundVariant,
   MarkerType,
+  ConnectionMode,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Plus, Power, PowerOff } from "lucide-react";
@@ -28,9 +29,24 @@ import {
 } from "./workflow-types";
 import { saveWorkflow, updateAutomationStatus } from "@/app/(dashboard)/dashboard/automations/actions";
 
+const EDGE_COLOR = "#71717a";
+
 const nodeTypes = {
   workflowNode: WorkflowNode,
 };
+
+function makeEdge(sourceId: string, targetId: string, sourceHandle?: string): Edge {
+  return {
+    id: `edge_${sourceId}_${targetId}_${sourceHandle ?? "default"}`,
+    source: sourceId,
+    target: targetId,
+    sourceHandle: sourceHandle ?? undefined,
+    type: "smoothstep",
+    animated: true,
+    style: { stroke: EDGE_COLOR, strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: EDGE_COLOR },
+  };
+}
 
 interface WorkflowEditorProps {
   automationId: string;
@@ -53,6 +69,7 @@ export function WorkflowEditor({
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [connectFromNodeId, setConnectFromNodeId] = useState<string | null>(null);
   const [status, setStatus] = useState(automationStatus);
   const [saving, setSaving] = useState(false);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -65,8 +82,8 @@ export function WorkflowEditor({
             ...connection,
             type: "smoothstep",
             animated: true,
-            style: { stroke: "#525252", strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: "#525252" },
+            style: { stroke: EDGE_COLOR, strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: EDGE_COLOR },
           },
           eds
         )
@@ -87,11 +104,34 @@ export function WorkflowEditor({
     [automationId]
   );
 
+  // Callback passed into node data so nodes can trigger "add from me"
+  const handleAddFromNode = useCallback(
+    (nodeId: string) => {
+      setConnectFromNodeId(nodeId);
+      setShowAddPanel(true);
+    },
+    []
+  );
+
+  // Inject the callback into every node's data
+  const nodesWithCallback = nodes.map((n) => ({
+    ...n,
+    data: {
+      ...n.data,
+      onAddFromNode: handleAddFromNode,
+    },
+  }));
+
   const handleAddNode = useCallback(
     (type: WorkflowNodeType) => {
-      const lastNode = nodes[nodes.length - 1];
-      const x = lastNode ? (lastNode.position?.x ?? 0) : 300;
-      const y = lastNode ? (lastNode.position?.y ?? 0) + 150 : 300;
+      // Determine source node: either the specific node from "+" button, or last node
+      const sourceNodeId = connectFromNodeId;
+      const sourceNode = sourceNodeId
+        ? nodes.find((n) => n.id === sourceNodeId)
+        : nodes[nodes.length - 1];
+
+      const x = sourceNode ? (sourceNode.position?.x ?? 0) : 300;
+      const y = sourceNode ? (sourceNode.position?.y ?? 0) + 150 : 300;
 
       const newNode: Node = {
         id: `node_${Date.now()}`,
@@ -107,25 +147,20 @@ export function WorkflowEditor({
       const updatedNodes = [...nodes, newNode];
       setNodes(updatedNodes);
 
-      // Auto-connect to last node
-      if (lastNode) {
-        const newEdge: Edge = {
-          id: `edge_${lastNode.id}_${newNode.id}`,
-          source: lastNode.id,
-          target: newNode.id,
-          type: "smoothstep",
-          animated: true,
-          style: { stroke: "#525252", strokeWidth: 2 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: "#525252" },
-        };
+      // Auto-connect to source node
+      if (sourceNode) {
+        const newEdge = makeEdge(sourceNode.id, newNode.id);
         const updatedEdges = [...edges, newEdge];
         setEdges(updatedEdges);
         scheduleSave(updatedNodes, updatedEdges);
       } else {
         scheduleSave(updatedNodes, edges);
       }
+
+      // Reset connectFromNodeId
+      setConnectFromNodeId(null);
     },
-    [nodes, edges, setNodes, setEdges, scheduleSave]
+    [nodes, edges, setNodes, setEdges, scheduleSave, connectFromNodeId]
   );
 
   const handleNodeClick = useCallback(
@@ -174,6 +209,11 @@ export function WorkflowEditor({
 
   const handlePaneClick = useCallback(() => {
     setSelectedNodeId(null);
+  }, []);
+
+  const handleCloseAddPanel = useCallback(() => {
+    setShowAddPanel(false);
+    setConnectFromNodeId(null);
   }, []);
 
   const selectedNode = selectedNodeId
@@ -232,7 +272,7 @@ export function WorkflowEditor({
       {/* Canvas */}
       <div className="relative w-full h-[calc(100vh-220px)] rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
         <ReactFlow
-          nodes={nodes}
+          nodes={nodesWithCallback}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
@@ -240,13 +280,15 @@ export function WorkflowEditor({
           onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
           nodeTypes={nodeTypes}
+          connectionMode={ConnectionMode.Loose}
           fitView
           fitViewOptions={{ padding: 0.3 }}
           defaultEdgeOptions={{
             type: "smoothstep",
             animated: true,
-            style: { stroke: "#525252", strokeWidth: 2 },
+            style: { stroke: EDGE_COLOR, strokeWidth: 2 },
           }}
+          connectionLineStyle={{ stroke: EDGE_COLOR, strokeWidth: 2 }}
           proOptions={{ hideAttribution: true }}
           className="!bg-zinc-950"
         >
@@ -269,7 +311,10 @@ export function WorkflowEditor({
 
         {/* Floating + button */}
         <button
-          onClick={() => setShowAddPanel(!showAddPanel)}
+          onClick={() => {
+            setConnectFromNodeId(null);
+            setShowAddPanel(!showAddPanel);
+          }}
           className="absolute bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 transition-all cursor-pointer hover:scale-105"
         >
           <Plus className="h-5 w-5" />
@@ -279,7 +324,7 @@ export function WorkflowEditor({
         {showAddPanel && (
           <AddNodePanel
             onAdd={handleAddNode}
-            onClose={() => setShowAddPanel(false)}
+            onClose={handleCloseAddPanel}
           />
         )}
 

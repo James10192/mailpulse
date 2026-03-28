@@ -1,8 +1,8 @@
 "use client";
 
 import { memo } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { Mail, Tag, Clock, GitBranch, Globe, Zap } from "lucide-react";
+import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
+import { Mail, Tag, Clock, GitBranch, Globe, Zap, Plus } from "lucide-react";
 import { getNodeColor, type WorkflowNodeData, type WorkflowNodeType } from "./workflow-types";
 
 function getIcon(type: WorkflowNodeType) {
@@ -49,10 +49,11 @@ function getSubtitle(data: WorkflowNodeData) {
   }
 }
 
-function WorkflowNodeComponent({ data, selected }: NodeProps & { data: WorkflowNodeData }) {
-  const colors = getNodeColor(data.type);
-  const Icon = getIcon(data.type);
-  const isCondition = data.type === "condition";
+function WorkflowNodeComponent({ data, selected, id }: NodeProps) {
+  const nodeData = data as unknown as WorkflowNodeData;
+  const colors = getNodeColor(nodeData.type);
+  const Icon = getIcon(nodeData.type);
+  const isCondition = nodeData.type === "condition";
 
   return (
     <div
@@ -60,15 +61,16 @@ function WorkflowNodeComponent({ data, selected }: NodeProps & { data: WorkflowN
         relative px-4 py-3 rounded-xl border-2 min-w-[200px] max-w-[240px]
         ${colors.bg} ${colors.border}
         ${selected ? "ring-2 ring-orange-500/50 shadow-lg shadow-orange-500/10" : ""}
-        transition-shadow
+        transition-shadow group
       `}
     >
       {/* Target handle (top) — not for trigger */}
-      {data.type !== "trigger" && (
+      {nodeData.type !== "trigger" && (
         <Handle
           type="target"
           position={Position.Top}
-          className="!w-3 !h-3 !bg-zinc-600 !border-2 !border-zinc-500 hover:!bg-orange-500 transition-colors"
+          isConnectable={true}
+          className="!w-3 !h-3 !bg-zinc-600 !border-2 !border-zinc-500 hover:!bg-orange-500 hover:!shadow-[0_0_8px_rgba(249,115,22,0.5)] !pointer-events-auto transition-all !cursor-crosshair"
         />
       )}
 
@@ -78,10 +80,10 @@ function WorkflowNodeComponent({ data, selected }: NodeProps & { data: WorkflowN
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-zinc-100 truncate">
-            {data.label}
+            {nodeData.label}
           </div>
           <div className="text-[11px] text-zinc-500 truncate mt-0.5">
-            {getSubtitle(data)}
+            {getSubtitle(nodeData)}
           </div>
         </div>
       </div>
@@ -93,14 +95,16 @@ function WorkflowNodeComponent({ data, selected }: NodeProps & { data: WorkflowN
             type="source"
             position={Position.Bottom}
             id="yes"
-            className="!w-3 !h-3 !bg-emerald-500 !border-2 !border-emerald-400 hover:!bg-emerald-400 transition-colors"
+            isConnectable={true}
+            className="!w-3 !h-3 !bg-emerald-500 !border-2 !border-emerald-400 hover:!bg-emerald-400 hover:!shadow-[0_0_8px_rgba(52,211,153,0.5)] !pointer-events-auto transition-all !cursor-crosshair"
             style={{ left: "35%" }}
           />
           <Handle
             type="source"
             position={Position.Bottom}
             id="no"
-            className="!w-3 !h-3 !bg-red-500 !border-2 !border-red-400 hover:!bg-red-400 transition-colors"
+            isConnectable={true}
+            className="!w-3 !h-3 !bg-red-500 !border-2 !border-red-400 hover:!bg-red-400 hover:!shadow-[0_0_8px_rgba(239,68,68,0.5)] !pointer-events-auto transition-all !cursor-crosshair"
             style={{ left: "65%" }}
           />
           <div className="flex justify-between px-6 mt-1">
@@ -112,8 +116,24 @@ function WorkflowNodeComponent({ data, selected }: NodeProps & { data: WorkflowN
         <Handle
           type="source"
           position={Position.Bottom}
-          className="!w-3 !h-3 !bg-zinc-600 !border-2 !border-zinc-500 hover:!bg-orange-500 transition-colors"
+          isConnectable={true}
+          className="!w-3 !h-3 !bg-zinc-600 !border-2 !border-zinc-500 hover:!bg-orange-500 hover:!shadow-[0_0_8px_rgba(249,115,22,0.5)] !pointer-events-auto transition-all !cursor-crosshair"
         />
+      )}
+
+      {/* Per-node "+" button — appears on hover below the source handle */}
+      {nodeData.onAddFromNode && (
+        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              nodeData.onAddFromNode?.(id);
+            }}
+            className="w-6 h-6 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 transition-all cursor-pointer hover:scale-110"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        </div>
       )}
     </div>
   );
