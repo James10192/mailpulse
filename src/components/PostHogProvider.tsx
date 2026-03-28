@@ -39,8 +39,8 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       api_host: host || "https://us.i.posthog.com",
       capture_pageview: false,
       capture_pageleave: true,
-      loaded: (ph) => {
-        console.info(`[PostHog] Initialise (projet: ${ph.config.token?.slice(0, 8)}..., host: ${ph.config.api_host})`);
+      loaded: () => {
+        console.info(`[PostHog] Initialise (token: ${key.slice(0, 8)}..., host: ${host || "us.i.posthog.com"})`);
       },
     });
   }, []);

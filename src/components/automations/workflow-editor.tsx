@@ -7,7 +7,6 @@ import {
   Background,
   Controls,
   MiniMap,
-  addEdge,
   useNodesState,
   useEdgesState,
   type Connection,
@@ -87,46 +86,26 @@ function WorkflowEditorInner({
   const [saving, setSaving] = useState(false);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Manual edge push — avoids addEdge() duplicate rejection
   const onConnect = useCallback(
     (connection: Connection) => {
-      console.log("[RF] onConnect fired:", JSON.stringify(connection));
-      setEdges((eds) => {
-        const result = addEdge(
-          {
-            ...connection,
-            type: "smoothstep",
-            animated: true,
-            style: { stroke: EDGE_COLOR, strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: EDGE_COLOR },
-          },
-          eds
-        );
-        console.log("[RF] edges after addEdge:", result.length, "was:", eds.length);
-        return result;
-      });
+      if (!connection.source || !connection.target) return;
+      setEdges((eds) => [
+        ...eds,
+        {
+          id: `e-${connection.source}-${connection.target}-${Date.now()}`,
+          source: connection.source,
+          target: connection.target,
+          sourceHandle: connection.sourceHandle ?? null,
+          targetHandle: connection.targetHandle ?? null,
+          type: "smoothstep",
+          animated: true,
+          style: { stroke: EDGE_COLOR, strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: EDGE_COLOR },
+        },
+      ]);
     },
     [setEdges]
-  );
-
-  // Debug: log when edges change to detect unwanted removal
-  const wrappedOnEdgesChange = useCallback(
-    (changes: Parameters<typeof onEdgesChange>[0]) => {
-      const removals = changes.filter((c: { type: string }) => c.type === "remove");
-      if (removals.length > 0) {
-        console.log("[RF] onEdgesChange REMOVE:", JSON.stringify(removals));
-      }
-      onEdgesChange(changes);
-    },
-    [onEdgesChange]
-  );
-
-  // Debug: connection end event
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const onConnectEnd = useCallback(
-    (_event: any, connectionState: any) => {
-      console.log("[RF] onConnectEnd — isValid:", connectionState?.isValid, "from:", connectionState?.fromHandle, "to:", connectionState?.toHandle);
-    },
-    []
   );
 
   const scheduleSave = useCallback(
@@ -177,12 +156,16 @@ function WorkflowEditorInner({
       const updatedNodes = [...nodes, newNode];
       setNodes(updatedNodes);
 
-      // Auto-connect to source node
+      // Auto-connect to source node — delay to let React Flow process the new node first
       if (sourceNode) {
         const newEdge = makeEdge(sourceNode.id, newNode.id);
-        const updatedEdges = [...edges, newEdge];
-        setEdges(updatedEdges);
-        scheduleSave(updatedNodes, updatedEdges);
+        requestAnimationFrame(() => {
+          setEdges((eds) => {
+            const updated = [...eds, newEdge];
+            scheduleSave(updatedNodes, updated);
+            return updated;
+          });
+        });
       } else {
         scheduleSave(updatedNodes, edges);
       }
@@ -306,9 +289,8 @@ function WorkflowEditorInner({
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
-          onEdgesChange={wrappedOnEdgesChange}
+          onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          onConnectEnd={onConnectEnd}
           onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
           nodeTypes={nodeTypes}
