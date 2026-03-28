@@ -40,73 +40,100 @@ export default function AnalyticsPage() {
           Analytics
         </h1>
         <p className="mt-3 text-zinc-400 text-lg leading-relaxed">
-          Suivez la performance de vos campagnes en temps reel, comprenez
-          le comportement de vos contacts et mesurez votre retour sur
-          investissement.
+          Dashboard temps reel via Convex, metriques de campagne,
+          page des emails transactionnels, desabonnements et flux d&apos;activite live.
         </p>
       </div>
 
-      {/* Vue d'ensemble */}
+      {/* Real-time dashboard */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Vue d&apos;ensemble du dashboard</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
+        <h2 className="text-xl font-bold mb-4 font-mono">Dashboard temps reel (Convex)</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
           <p>
-            Le tableau de bord analytique de MailPulse vous offre une vue complete de
-            vos performances email. Il se compose de plusieurs sections :
+            Le dashboard principal utilise Convex pour afficher les statistiques en temps reel
+            via <code className="text-zinc-200">useQuery</code>. Les donnees sont synchronisees
+            depuis Prisma vers Convex a chaque evenement webhook. Aucun refresh necessaire.
+          </p>
+          <p>Tables Convex utilisees :</p>
+          <ul className="space-y-2 list-none pl-0">
+            {[
+              "dashboardStats — Compteurs globaux par organisation (envoyes, delivres, ouverts...)",
+              "campaignProgress — Progression en temps reel de l'envoi d'une campagne",
+              "activityFeed — Flux d'evenements live (ouvertures, clics, bounces...)",
+              "notifications — Alertes pour l'equipe (bounce rate eleve, campagne terminee...)",
+              "presence — Utilisateurs connectes en temps reel",
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-2">
+                <span className="text-orange-500 mt-1">&#8226;</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <CodeBlock title="Sync Prisma → Convex (webhook handler)">{`// Dans /api/webhooks/email/route.ts
+// Apres mise a jour Prisma, sync vers Convex :
+await convexServer.mutation(api.dashboard.updateStats, {
+  organizationId: contact.organizationId,
+  event: "delivered" | "bounced" | "complained",
+});`}</CodeBlock>
+      </div>
+
+      {/* Campaign analytics */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Analytics par campagne</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
+          <p>
+            Chaque campagne a une table <code className="text-zinc-200">CampaignAnalytics</code>
+            (relation 1:1) qui est mise a jour a chaque evenement webhook via upsert :
           </p>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="space-y-2">
           {[
-            { label: "Emails envoyes", value: "12 450", trend: "+18%" },
-            { label: "Taux d'ouverture", value: "32.4%", trend: "+2.1%" },
-            { label: "Taux de clic", value: "4.8%", trend: "+0.6%" },
-            { label: "Revenus generes", value: "8 340 EUR", trend: "+24%" },
+            { metric: "totalSent", desc: "Nombre total d'emails envoyes", color: "text-zinc-300" },
+            { metric: "totalDelivered", desc: "Emails livres avec succes", color: "text-emerald-400" },
+            { metric: "totalOpened / uniqueOpens", desc: "Ouvertures totales et uniques", color: "text-blue-400" },
+            { metric: "totalClicked / uniqueClicks", desc: "Clics totaux et uniques", color: "text-purple-400" },
+            { metric: "totalBounced", desc: "Emails rebondis (hard + soft)", color: "text-amber-400" },
+            { metric: "totalComplaints", desc: "Signalements spam", color: "text-red-400" },
+            { metric: "totalUnsubscribed", desc: "Desabonnements suite a cette campagne", color: "text-red-400" },
           ].map((item) => (
-            <div key={item.label} className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20 text-center">
-              <div className="text-lg font-mono font-bold text-zinc-200">{item.value}</div>
-              <div className="text-[11px] text-zinc-500 mt-1">{item.label}</div>
-              <div className="text-xs font-mono text-emerald-400 mt-1">{item.trend}</div>
+            <div
+              key={item.metric}
+              className="flex items-start gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <code className={`text-xs font-mono font-bold px-2 py-0.5 rounded bg-zinc-800/50 shrink-0 mt-0.5 ${item.color}`}>
+                {item.metric}
+              </code>
+              <span className="text-sm text-zinc-400">{item.desc}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Metriques cles */}
+      {/* Rate calculations */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Metriques cles expliquees</h2>
-
+        <h2 className="text-xl font-bold mb-4 font-mono">Calcul des taux</h2>
         <div className="space-y-4">
           {[
             {
-              metric: "Taux d'ouverture",
-              formula: "(Emails ouverts / Emails delivres) x 100",
-              explanation: "Mesure combien de destinataires ont ouvert votre email. Un bon taux se situe entre 20% et 35%. Attention : les ouvertures sont detectees via un pixel de tracking. Apple Mail Privacy Protection et certains clients de messagerie peuvent bloquer ce pixel, ce qui sous-estime le chiffre reel.",
+              metric: "Taux d'ouverture (openRate)",
+              formula: "uniqueOpens / totalDelivered",
+              explanation: "Detecte via le pixel de tracking 1x1 GIF injecte avant </body>. Sous-estime a cause d'Apple Mail Privacy Protection et du blocage d'images.",
               benchmark: "20 — 35%",
             },
             {
-              metric: "Taux de clic (CTR)",
-              formula: "(Clics uniques / Emails delivres) x 100",
-              explanation: "Mesure combien de destinataires ont clique sur au moins un lien dans votre email. C'est la metrique la plus fiable car elle ne depend pas du tracking pixel. Un bon CTR se situe entre 2% et 5%.",
+              metric: "Taux de clic (clickRate)",
+              formula: "uniqueClicks / totalDelivered",
+              explanation: "Detecte via les liens wrapes avec redirect 302 (/api/track/click). Metrique la plus fiable car independante du pixel.",
               benchmark: "2 — 5%",
             },
             {
-              metric: "Taux de rebond",
-              formula: "(Rebonds / Emails envoyes) x 100",
-              explanation: "Pourcentage d'emails qui n'ont pas pu etre delivres. Les rebonds durs (adresse invalide) sont plus graves que les rebonds legers (boite pleine). Un taux superieur a 2% peut affecter votre reputation d'expediteur.",
+              metric: "Taux de rebond (bounceRate)",
+              formula: "totalBounced / totalSent",
+              explanation: "Pourcentage d'emails non delivres. Au-dessus de 2%, nettoyez votre base. Les hard bounces desactivent automatiquement le contact.",
               benchmark: "< 2%",
-            },
-            {
-              metric: "Taux de plainte",
-              formula: "(Plaintes spam / Emails delivres) x 100",
-              explanation: "Mesure combien de destinataires ont signale votre email comme spam. C'est la metrique la plus critique : un taux superieur a 0.1% peut entrainer un blocage par les fournisseurs de messagerie.",
-              benchmark: "< 0.1%",
-            },
-            {
-              metric: "Taux de desabonnement",
-              formula: "(Desabonnements / Emails delivres) x 100",
-              explanation: "Pourcentage de contacts qui se sont desabonnes apres un envoi. Un taux normal est inferieur a 0.5%. Un pic peut indiquer un contenu inadapte ou une frequence d'envoi trop elevee.",
-              benchmark: "< 0.5%",
             },
           ].map((item) => (
             <div key={item.metric} className="rounded-xl border border-zinc-800/50 bg-zinc-900/20 p-5">
@@ -125,21 +152,34 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Tracking temps reel */}
+      {/* Transactional emails */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Suivi en temps reel</h2>
+        <h2 className="text-xl font-bold mb-4 font-mono">Emails transactionnels</h2>
         <div className="prose-sm text-zinc-400 space-y-3">
           <p>
-            Grace a l&apos;integration Convex, le dashboard de MailPulse se met a jour
-            en direct. Vous pouvez suivre en temps reel :
+            La page des emails transactionnels affiche les emails envoyes hors campagne
+            (confirmation de compte, reset de mot de passe, etc.). Ces emails sont
+            envoyes directement via l&apos;API Resend et suivis dans la table{" "}
+            <code className="text-zinc-200">EmailEvent</code>.
+          </p>
+        </div>
+      </div>
+
+      {/* Unsubscribes page */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Page des desabonnements</h2>
+        <div className="prose-sm text-zinc-400 space-y-3">
+          <p>
+            La page des desabonnements affiche tous les contacts qui se sont desabonnes
+            avec la raison et la date. Un score de sante global permet de suivre
+            l&apos;evolution de votre liste :
           </p>
           <ul className="space-y-2 list-none pl-0">
             {[
-              "Les ouvertures et clics au fur et a mesure qu'ils se produisent",
-              "Le nombre de contacts ayant recu l'email (progression de l'envoi)",
-              "Les rebonds et erreurs de delivrabilite instantanement",
-              "L'activite des automations (contacts entrant dans les workflows)",
-              "Un flux d'activite en direct montrant chaque evenement",
+              "Taux de desabonnement par campagne et par periode",
+              "Raisons (lien desabonnement, plainte spam, hard bounce)",
+              "Score de sante de la base (% de contacts actifs vs inactifs)",
+              "Evolution dans le temps avec filtrage par date range",
             ].map((item) => (
               <li key={item} className="flex items-start gap-2">
                 <span className="text-orange-500 mt-1">&#8226;</span>
@@ -148,103 +188,51 @@ export default function AnalyticsPage() {
             ))}
           </ul>
         </div>
-
-        <CodeBlock title="Flux d'activite en temps reel">{`14:32:05  OUVERT   marie@exemple.fr        Newsletter Mars
-14:32:12  CLIC     jean@startup.io          Newsletter Mars → /promo
-14:32:18  DELIVRE  sophie@acme.com          Serie bienvenue #2
-14:32:25  OUVERT   pierre@tech.fr           Newsletter Mars
-14:32:31  DESABO   ancien@client.com        Newsletter Mars
-14:32:45  REBOND   invalide@faux-domaine.xx Newsletter Mars (hard)`}</CodeBlock>
       </div>
 
-      {/* Attribution de revenus */}
+      {/* Activity feed */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Attribution de revenus</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
+        <h2 className="text-xl font-bold mb-4 font-mono">Flux d&apos;activite (live)</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
           <p>
-            MailPulse peut suivre les revenus generes par vos campagnes email. Pour
-            chaque vente, MailPulse verifie si le client a ouvert ou clique sur un
-            email dans les 7 derniers jours et attribue le revenu a la campagne
-            correspondante.
+            Le flux d&apos;activite en temps reel est alimente par la table Convex{" "}
+            <code className="text-zinc-200">activityFeed</code> et affiche chaque evenement
+            au fur et a mesure qu&apos;il se produit :
           </p>
         </div>
 
-        <CodeBlock title="Rapport de revenus">{`Periode : Mars 2026
-─────────────────────────────────────────────────
-Campagne                    Revenus    Commandes
-─────────────────────────────────────────────────
-Promo printemps             4 230 EUR    47
-Newsletter Mars             2 110 EUR    23
-Serie bienvenue             1 450 EUR    18
-Relance panier abandonne      550 EUR     8
-─────────────────────────────────────────────────
-Total                       8 340 EUR    96
-
-Revenu par email envoye     : 0.67 EUR
-ROI                         : 4 200%`}</CodeBlock>
+        <CodeBlock title="Flux d'activite en temps reel">{`14:32:05  DELIVERED  marie@exemple.fr    Newsletter Mars
+14:32:12  OPENED     jean@startup.io     Newsletter Mars
+14:32:18  CLICKED    jean@startup.io     Newsletter Mars → /promo
+14:32:25  BOUNCED    invalide@faux.xx    Newsletter Mars (hard)
+14:32:31  UNSUB      ancien@client.com   Newsletter Mars`}</CodeBlock>
 
         <InfoBox>
-          <strong className="text-orange-400">Configuration :</strong> Pour activer l&apos;attribution
-          de revenus, integrez le pixel de suivi MailPulse sur votre page de confirmation de commande,
-          ou connectez votre plateforme e-commerce via l&apos;API.
+          <strong className="text-orange-400">Temps reel :</strong> Le flux est reactif grace a Convex{" "}
+          <code className="font-mono text-zinc-200">useQuery</code>. Les evenements apparaissent
+          instantanement sans polling ni WebSocket manuel.
         </InfoBox>
       </div>
 
-      {/* Score d'engagement */}
+      {/* Date range filtering */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Score d&apos;engagement global</h2>
+        <h2 className="text-xl font-bold mb-4 font-mono">Filtrage par date</h2>
         <div className="prose-sm text-zinc-400 space-y-3">
           <p>
-            En plus du score par contact, MailPulse calcule un score d&apos;engagement
-            global pour votre organisation. Ce score reflete la sante de votre base
-            de contacts et l&apos;efficacite de vos campagnes.
+            Toutes les vues analytiques supportent le filtrage par periode.
+            Les evenements sont indexes par <code className="text-zinc-200">createdAt</code>
+            dans la table <code className="text-zinc-200">EmailEvent</code> pour des requetes
+            performantes.
           </p>
-        </div>
-
-        <div className="mt-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20 p-5">
-          <div className="font-mono text-xs text-zinc-400 leading-loose whitespace-pre">{`Score d'engagement global : 72/100
-
-Repartition de votre base :
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Tres engages (71-100)  ████████████░░░░  38%
-  Moderement (31-70)     ██████████████░░  45%
-  Inactifs (0-30)        █████░░░░░░░░░░░  17%
-
-Tendance : +3 points vs mois precedent`}</div>
         </div>
       </div>
 
-      {/* Export et rapports */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Export et rapports</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
-          <p>
-            Exportez vos donnees analytiques pour les partager avec votre equipe
-            ou les integrer dans vos outils de reporting :
-          </p>
-          <ul className="space-y-2 list-none pl-0">
-            {[
-              "Export CSV — Telechargez les donnees brutes de n'importe quelle campagne ou periode",
-              "Rapport PDF — Generez un rapport visuel pret a partager avec votre equipe ou vos clients",
-              "Rapports planifies — Programmez l'envoi automatique de rapports hebdomadaires ou mensuels par email",
-              "API Analytics — Integrez les metriques dans vos propres dashboards via l'API REST",
-              "Webhook — Recevez les evenements en temps reel dans votre propre systeme",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2">
-                <span className="text-orange-500 mt-1">&#8226;</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      {/* Etape suivante */}
+      {/* Next step */}
       <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/20 p-6 text-center">
         <p className="text-zinc-400 text-sm mb-2">Vous maitrisez les analytics !</p>
         <p className="text-zinc-300 font-medium">
           Prochaine etape :{" "}
-          <a href="/docs/api/auth" className="text-orange-400 hover:text-orange-300 underline underline-offset-4 transition-colors">
+          <a href="/docs/api/auth" className="text-orange-400 hover:text-orange-300 underline underline-offset-4 transition-colors cursor-pointer">
             Explorer l&apos;API MailPulse
           </a>
         </p>

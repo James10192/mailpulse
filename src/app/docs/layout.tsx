@@ -15,6 +15,7 @@ import {
   BarChart3,
   Menu,
   X,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,7 @@ const sections = [
     items: [
       { title: "Introduction", href: "/docs", icon: BookOpen },
       { title: "Installation", href: "/docs/installation", icon: Code },
-      { title: "Premiere campagne", href: "/docs/first-campaign", icon: Mail },
+      { title: "Premiere campagne", href: "/docs/first-campaign", icon: Send },
     ],
   },
   {
@@ -39,9 +40,9 @@ const sections = [
   {
     title: "API Reference",
     items: [
-      { title: "Authentication", href: "/docs/api/auth", icon: Settings },
+      { title: "Authentification", href: "/docs/api/auth", icon: Settings },
       { title: "Endpoints", href: "/docs/api/endpoints", icon: Code },
-      { title: "Webhooks", href: "/docs/api/webhooks", icon: Webhook },
+      { title: "Webhooks & Tracking", href: "/docs/api/webhooks", icon: Webhook },
     ],
   },
 ];
@@ -56,7 +57,7 @@ function SidebarContent({
   return (
     <>
       <div className="p-5 border-b border-zinc-800/50">
-        <Link href="/" className="flex items-center gap-2.5 group mb-4">
+        <Link href="/" className="flex items-center gap-2.5 group mb-4 cursor-pointer">
           <Mail className="h-5 w-5 text-orange-500" />
           <span
             className="text-lg font-semibold"
@@ -67,7 +68,7 @@ function SidebarContent({
         </Link>
         <Link
           href="/"
-          className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
         >
           <ArrowLeft className="h-3 w-3" />
           Retour au site
@@ -89,7 +90,7 @@ function SidebarContent({
                     href={item.href}
                     onClick={onNavigate}
                     className={cn(
-                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all",
+                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all cursor-pointer",
                       isActive
                         ? "bg-orange-500/10 text-orange-400 border border-orange-500/10"
                         : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
@@ -110,7 +111,7 @@ function SidebarContent({
           href="https://github.com/James10192/mailpulse"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
         >
           <svg
             viewBox="0 0 24 24"
@@ -138,7 +139,7 @@ export default function DocsLayout({
     <div className="flex min-h-screen bg-zinc-950">
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-50 border-b border-zinc-800/50 bg-zinc-950/95 backdrop-blur-xl h-14 flex items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 cursor-pointer">
           <Mail className="h-5 w-5 text-orange-500" />
           <span
             className="text-lg font-semibold"
@@ -149,7 +150,7 @@ export default function DocsLayout({
         </Link>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 transition-all"
+          className="p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 transition-all cursor-pointer"
         >
           {sidebarOpen ? (
             <X className="h-5 w-5" />
@@ -162,7 +163,7 @@ export default function DocsLayout({
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm cursor-pointer"
           onClick={() => setSidebarOpen(false)}
         />
       )}

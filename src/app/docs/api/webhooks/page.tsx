@@ -24,6 +24,18 @@ function InfoBox({ children }: { children: React.ReactNode }) {
   );
 }
 
+function EndpointBadge({ method }: { method: string }) {
+  const colors: Record<string, string> = {
+    GET: "bg-emerald-500/10 text-emerald-400",
+    POST: "bg-blue-500/10 text-blue-400",
+  };
+  return (
+    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${colors[method] ?? "bg-zinc-800 text-zinc-400"}`}>
+      {method}
+    </span>
+  );
+}
+
 export default function ApiWebhooksPage() {
   return (
     <div>
@@ -37,103 +49,80 @@ export default function ApiWebhooksPage() {
           API Reference
         </div>
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight font-mono">
-          Webhooks
+          Webhooks &amp; Tracking
         </h1>
         <p className="mt-3 text-zinc-400 text-lg leading-relaxed">
-          Recevez les evenements email en temps reel dans votre application.
-          MailPulse envoie des notifications HTTP a chaque ouverture, clic,
-          rebond ou desabonnement.
+          Webhook Resend avec verification Svix, systeme de tracking HMAC
+          (pixel d&apos;ouverture, click redirect, desabonnement) et synchronisation
+          Prisma vers Convex.
         </p>
       </div>
 
-      {/* Qu'est-ce qu'un webhook */}
+      {/* ─── RESEND WEBHOOK ─── */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Qu&apos;est-ce qu&apos;un webhook ?</h2>
+        <h2 className="text-xl font-bold mb-4 font-mono">Webhook Resend</h2>
+        <div className="space-y-2 mb-4">
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20">
+            <EndpointBadge method="POST" />
+            <code className="text-sm font-mono text-zinc-300">/api/webhooks/email</code>
+            <span className="text-xs text-zinc-600 ml-auto hidden sm:block">Evenements Resend</span>
+          </div>
+        </div>
         <div className="prose-sm text-zinc-400 space-y-3">
           <p>
-            Un webhook est une notification HTTP envoyee automatiquement par MailPulse
-            vers une URL de votre choix lorsqu&apos;un evenement se produit. Au lieu de
-            devoir interroger l&apos;API regulierement pour verifier les changements,
-            votre application recoit les informations instantanement.
+            Resend envoie des notifications HTTP a <code className="text-zinc-200">/api/webhooks/email</code>
+            pour chaque evenement email. Le handler se trouve dans{" "}
+            <code className="text-zinc-200">src/app/api/webhooks/email/route.ts</code>.
           </p>
-          <p>
-            Cas d&apos;utilisation courants :
-          </p>
-          <ul className="space-y-2 list-none pl-0">
-            {[
-              "Mettre a jour votre CRM quand un contact ouvre un email",
-              "Declencher une action dans votre application quand un lien est clique",
-              "Supprimer un contact de votre base quand il se desabonne",
-              "Alerter votre equipe en cas de pic de rebonds",
-              "Synchroniser les evenements avec votre outil d'analytics",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2">
-                <span className="text-orange-500 mt-1">&#8226;</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       </div>
 
-      {/* Configurer un webhook */}
+      {/* Svix verification */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Configurer un webhook</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
+        <h2 className="text-xl font-bold mb-4 font-mono">Verification Svix</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
           <p>
-            Pour creer un webhook, allez dans{" "}
-            <span className="font-mono text-zinc-200">Parametres &gt; API &gt; Webhooks</span> :
+            Chaque requete webhook est signee par Svix. La verification utilise
+            la cle <code className="text-zinc-200">RESEND_WEBHOOK_SECRET</code>.
+            En dev (sans secret), la verification est desactivee.
           </p>
-          <ul className="space-y-2 list-none pl-0">
-            {[
-              "Cliquez sur \"Ajouter un webhook\"",
-              "Renseignez l'URL de votre endpoint (ex: https://votre-app.com/api/webhooks/mailpulse)",
-              "Selectionnez les evenements que vous souhaitez recevoir",
-              "Notez la cle de signature (webhook secret) pour verifier l'authenticite des requetes",
-              "Cliquez sur \"Tester\" pour envoyer un evenement de test",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2">
-                <span className="text-orange-500 mt-1">&#8226;</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
         </div>
+
+        <CodeBlock title="En-tetes de signature Svix">{`svix-id: msg_2JxYq3K8ZP...         // ID unique du message
+svix-timestamp: 1711543205          // Timestamp Unix
+svix-signature: v1,g0hM9SsE+OLP... // Signature HMAC`}</CodeBlock>
+
+        <CodeBlock title="Verification dans le handler">{`import { Webhook } from "svix";
+
+const wh = new Webhook(process.env.RESEND_WEBHOOK_SECRET);
+
+// Verifier la signature
+wh.verify(body, {
+  "svix-id": svixId,
+  "svix-timestamp": timestamp,
+  "svix-signature": signature,
+});
+// Si invalide → Response 400 "Invalid signature"`}</CodeBlock>
       </div>
 
-      {/* Evenements disponibles */}
+      {/* Event types */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Evenements disponibles</h2>
+        <h2 className="text-xl font-bold mb-4 font-mono">Types d&apos;evenements traites</h2>
         <div className="space-y-2">
           {[
             {
               event: "email.delivered",
-              desc: "L'email a ete delivre avec succes au serveur de messagerie du destinataire",
+              desc: "Email livre. Cree un EmailEvent DELIVERED, met a jour CampaignRecipient.deliveredAt.",
               color: "text-emerald-400 bg-emerald-500/10",
             },
             {
-              event: "email.opened",
-              desc: "Le destinataire a ouvert l'email (detecte via le pixel de tracking)",
-              color: "text-blue-400 bg-blue-500/10",
-            },
-            {
-              event: "email.clicked",
-              desc: "Le destinataire a clique sur un lien dans l'email",
-              color: "text-purple-400 bg-purple-500/10",
-            },
-            {
               event: "email.bounced",
-              desc: "L'email n'a pas pu etre delivre (hard bounce ou soft bounce)",
+              desc: "Email rebondi. Cree un EmailEvent BOUNCED_HARD, desabonne le contact (subscribed=false, bounceType=\"hard\").",
               color: "text-amber-400 bg-amber-500/10",
             },
             {
               event: "email.complained",
-              desc: "Le destinataire a signale l'email comme spam",
-              color: "text-red-400 bg-red-500/10",
-            },
-            {
-              event: "contact.unsubscribed",
-              desc: "Le contact s'est desabonne via le lien de desabonnement",
+              desc: "Signalement spam. Cree un EmailEvent COMPLAINED, desabonne le contact immediatement.",
               color: "text-red-400 bg-red-500/10",
             },
           ].map((item) => (
@@ -150,333 +139,244 @@ export default function ApiWebhooksPage() {
         </div>
       </div>
 
-      {/* Format du payload */}
+      {/* Prisma → Convex sync */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Format du payload</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
+        <h2 className="text-xl font-bold mb-4 font-mono">Sync Prisma vers Convex</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
           <p>
-            Chaque webhook est envoye via une requete HTTP POST avec un corps JSON.
-            Voici la structure du payload :
+            Apres chaque mise a jour Prisma, le webhook synchronise les statistiques
+            vers Convex pour le dashboard temps reel :
           </p>
         </div>
 
-        <CodeBlock title="Payload — email.delivered">{`{
-  "event": "email.delivered",
-  "timestamp": "2026-03-15T14:32:05.000Z",
-  "data": {
-    "contactId": "ct_abc123def456",
-    "email": "marie@exemple.fr",
-    "campaignId": "cmp_xyz789",
-    "campaignName": "Newsletter Mars 2026",
-    "messageId": "msg_qrs456"
-  }
-}`}</CodeBlock>
+        <CodeBlock title="Sync dans processEvent()">{`// Mapping Resend → Convex
+const convexEventMap = {
+  "email.delivered": "delivered",
+  "email.bounced":   "bounced",
+  "email.complained": "complained",
+};
 
-        <CodeBlock title="Payload — email.clicked">{`{
-  "event": "email.clicked",
-  "timestamp": "2026-03-15T14:35:12.000Z",
-  "data": {
-    "contactId": "ct_abc123def456",
-    "email": "marie@exemple.fr",
-    "campaignId": "cmp_xyz789",
-    "campaignName": "Newsletter Mars 2026",
-    "messageId": "msg_qrs456",
-    "url": "https://votre-site.com/promo-mars",
-    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-    "ip": "203.0.113.xxx"
-  }
-}`}</CodeBlock>
+// Apres mise a jour Prisma :
+await convexServer.mutation(api.dashboard.updateStats, {
+  organizationId: contact.organizationId,
+  event: convexEvent, // "delivered" | "bounced" | "complained"
+});
 
-        <CodeBlock title="Payload — email.bounced">{`{
-  "event": "email.bounced",
-  "timestamp": "2026-03-15T14:32:18.000Z",
-  "data": {
-    "contactId": "ct_def456ghi789",
-    "email": "invalide@faux-domaine.xx",
-    "campaignId": "cmp_xyz789",
-    "campaignName": "Newsletter Mars 2026",
-    "messageId": "msg_tuv789",
-    "bounceType": "hard",
-    "bounceReason": "550 5.1.1 The email account does not exist"
+// Puis mise a jour des analytics de campagne :
+await updateCampaignAnalytics(campaignId);
+// → prisma.campaignAnalytics.upsert() recalcule tous les taux`}</CodeBlock>
+      </div>
+
+      {/* ─── TRACKING SYSTEM ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Systeme de tracking</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
+          <p>
+            MailPulse utilise des tokens HMAC-SHA256 signes pour securiser le tracking.
+            Le code se trouve dans <code className="text-zinc-200">src/lib/tracking.ts</code>.
+          </p>
+        </div>
+
+        <CodeBlock title="Token structure">{`// Generation du token :
+const payload = \`\${recipientId}:\${campaignId}\`;
+const hmac = createHmac("sha256", TRACKING_SECRET)
+  .update(payload)
+  .digest("hex")
+  .slice(0, 16);
+const token = Buffer.from(\`\${payload}:\${hmac}\`).toString("base64url");
+
+// Verification du token :
+// Decode base64url → split ":" → verifier HMAC
+// Retourne { recipientId, campaignId } ou null si invalide`}</CodeBlock>
+      </div>
+
+      {/* Open tracking */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Open tracking (pixel)</h2>
+        <div className="space-y-2 mb-4">
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20">
+            <EndpointBadge method="GET" />
+            <code className="text-sm font-mono text-zinc-300">/api/track/open?t=&#123;token&#125;</code>
+            <span className="text-xs text-zinc-600 ml-auto hidden sm:block">Pixel 1x1 GIF transparent</span>
+          </div>
+        </div>
+
+        <div className="prose-sm text-zinc-400 space-y-3">
+          <p>Fonctionnement :</p>
+          <ul className="space-y-2 list-none pl-0">
+            {[
+              "Un pixel 1x1 GIF transparent est injecte avant </body> dans chaque email",
+              "Quand le destinataire ouvre l'email, le client de messagerie charge le pixel",
+              "Le serveur verifie le token HMAC, enregistre l'ouverture et retourne le GIF",
+              "Headers no-cache pour eviter la mise en cache du pixel",
+              "Limitation : Apple Mail Privacy Protection pre-charge les images → faux positifs",
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-2">
+                <span className="text-orange-500 mt-1">&#8226;</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <CodeBlock title="Injection du pixel (lib/tracking.ts)">{`function injectTrackingPixel(html: string, trackingUrl: string): string {
+  const pixel = \`<img src="\${trackingUrl}" width="1" height="1"
+    alt="" style="display:none;border:0;" />\`;
+
+  if (html.includes("</body>")) {
+    return html.replace("</body>", \`\${pixel}</body>\`);
   }
+  return html + pixel;
 }`}</CodeBlock>
       </div>
 
-      {/* Verification de signature */}
+      {/* Click tracking */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Verification de signature (Svix)</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
-          <p>
-            Chaque requete webhook est signee avec votre cle secrete via Svix.
-            Il est essentiel de verifier cette signature pour s&apos;assurer que la
-            requete provient bien de MailPulse et n&apos;a pas ete falsifiee.
-          </p>
-          <p>Les en-tetes de signature sont :</p>
+        <h2 className="text-xl font-bold mb-4 font-mono">Click tracking (redirect)</h2>
+        <div className="space-y-2 mb-4">
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20">
+            <EndpointBadge method="GET" />
+            <code className="text-sm font-mono text-zinc-300">/api/track/click?url=&#123;encodedUrl&#125;&amp;t=&#123;token&#125;</code>
+            <span className="text-xs text-zinc-600 ml-auto hidden sm:block">Redirect 302</span>
+          </div>
         </div>
 
-        <CodeBlock title="En-tetes de signature">{`svix-id: msg_2JxYq3K8ZP...
-svix-timestamp: 1711543205
-svix-signature: v1,g0hM9SsE+OLPnqGNKw...`}</CodeBlock>
+        <div className="prose-sm text-zinc-400 space-y-3">
+          <p>Fonctionnement :</p>
+          <ul className="space-y-2 list-none pl-0">
+            {[
+              "Les liens dans l'email sont wrapes avec l'URL de tracking",
+              "Au clic, le serveur verifie le token, enregistre le clic et redirige (302) vers l'URL originale",
+              "Les liens mailto: et les liens de desabonnement ne sont jamais wrapes",
+              "Redirect 302 (pas 301) pour eviter la mise en cache par le navigateur",
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-2">
+                <span className="text-orange-500 mt-1">&#8226;</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-        <CodeBlock title="Node.js — Verification avec Svix">{`import { Webhook } from "svix";
+        <CodeBlock title="Wrapping des liens (lib/tracking.ts)">{`function wrapLinksForTracking(html, trackingBaseUrl, token) {
+  const hrefRegex = /href="(https?:\\/\\/[^"]+)"/gi;
 
-// Votre cle secrete webhook (depuis les parametres)
-const webhookSecret = process.env.MAILPULSE_WEBHOOK_SECRET;
-
-export async function POST(request: Request) {
-  const body = await request.text();
-  const headers = {
-    "svix-id": request.headers.get("svix-id") ?? "",
-    "svix-timestamp": request.headers.get("svix-timestamp") ?? "",
-    "svix-signature": request.headers.get("svix-signature") ?? "",
-  };
-
-  const wh = new Webhook(webhookSecret);
-
-  try {
-    // Verifie la signature et parse le payload
-    const event = wh.verify(body, headers);
-
-    // Traiter l'evenement
-    switch (event.event) {
-      case "email.delivered":
-        // Marquer comme delivre dans votre CRM
-        break;
-      case "email.opened":
-        // Mettre a jour le score d'engagement
-        break;
-      case "email.clicked":
-        // Logger le clic dans votre analytics
-        break;
-      case "email.bounced":
-        // Desactiver le contact si hard bounce
-        break;
-      case "email.complained":
-        // Supprimer le contact immediatement
-        break;
-      case "contact.unsubscribed":
-        // Mettre a jour les preferences
-        break;
+  return html.replace(hrefRegex, (match, originalUrl) => {
+    // Ne pas wrapper les liens unsubscribe ou mailto
+    if (originalUrl.includes("unsubscribe") ||
+        originalUrl.startsWith("mailto:")) {
+      return \`href="\${originalUrl}"\`;
     }
 
-    return new Response("OK", { status: 200 });
-  } catch (err) {
-    console.error("Signature webhook invalide:", err);
-    return new Response("Signature invalide", { status: 401 });
-  }
+    const trackedUrl = \`\${trackingBaseUrl}?url=\${
+      encodeURIComponent(originalUrl)
+    }&t=\${token}\`;
+    return \`href="\${trackedUrl}"\`;
+  });
 }`}</CodeBlock>
+      </div>
 
-        <CodeBlock title="Python — Verification avec Svix">{`from svix.webhooks import Webhook, WebhookVerificationError
-from flask import Flask, request, jsonify
+      {/* Unsubscribe */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Desabonnement</h2>
+        <div className="space-y-2 mb-4">
+          {[
+            { method: "POST", path: "/api/unsubscribe?t={token}", desc: "One-click unsubscribe (RFC 8058, depuis le client de messagerie)" },
+            { method: "GET", path: "/api/unsubscribe?t={token}", desc: "Desabonnement via navigateur (lien dans le footer de l'email)" },
+          ].map((ep) => (
+            <div
+              key={ep.method + ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <EndpointBadge method={ep.method} />
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
 
-app = Flask(__name__)
-webhook_secret = os.environ["MAILPULSE_WEBHOOK_SECRET"]
+        <div className="prose-sm text-zinc-400 space-y-3">
+          <p>
+            Les deux methodes utilisent le meme token HMAC. Le token est genere
+            avec <code className="text-zinc-200">generateUnsubscribeUrl()</code> qui utilise
+            le contactId (pas le recipientId) :
+          </p>
+        </div>
 
-@app.route("/api/webhooks/mailpulse", methods=["POST"])
-def handle_webhook():
-    headers = {
-        "svix-id": request.headers.get("svix-id", ""),
-        "svix-timestamp": request.headers.get("svix-timestamp", ""),
-        "svix-signature": request.headers.get("svix-signature", ""),
-    }
+        <CodeBlock title="Generation de l'URL de desabonnement">{`function generateUnsubscribeUrl(baseUrl, contactId, campaignId) {
+  const payload = \`\${contactId}:\${campaignId}\`;
+  const hmac = createHmac("sha256", TRACKING_SECRET)
+    .update(payload).digest("hex").slice(0, 16);
+  const token = Buffer.from(\`\${payload}:\${hmac}\`)
+    .toString("base64url");
+  return \`\${baseUrl}/api/unsubscribe?t=\${token}\`;
+}
 
-    try:
-        wh = Webhook(webhook_secret)
-        event = wh.verify(request.data, headers)
-    except WebhookVerificationError:
-        return jsonify({"error": "Signature invalide"}), 401
-
-    event_type = event["event"]
-
-    if event_type == "email.bounced":
-        # Desactiver le contact
-        pass
-    elif event_type == "email.complained":
-        # Supprimer le contact
-        pass
-
-    return jsonify({"status": "ok"}), 200`}</CodeBlock>
+// Headers ajoutes a chaque email :
+// List-Unsubscribe: <https://app.mailpulse.io/api/unsubscribe?t=xxx>
+// List-Unsubscribe-Post: List-Unsubscribe=One-Click`}</CodeBlock>
 
         <InfoBox>
-          <strong className="text-orange-400">Important :</strong> Verifiez toujours la signature
-          en production. Sans verification, n&apos;importe qui pourrait envoyer de faux evenements
-          a votre endpoint et corrompre vos donnees.
+          <strong className="text-orange-400">RFC 8058 :</strong> Le header{" "}
+          <code className="font-mono text-zinc-200">List-Unsubscribe-Post</code> permet
+          aux clients de messagerie (Gmail, Yahoo, Apple Mail) d&apos;afficher un bouton
+          &quot;Se desabonner&quot; directement dans l&apos;interface. Le desabonnement est
+          instantane — pas de delai de 48h.
         </InfoBox>
       </div>
 
-      {/* Politique de retry */}
+      {/* Complete flow */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Politique de retry</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
-          <p>
-            Si votre endpoint ne repond pas avec un code HTTP 2xx, MailPulse reessaie
-            automatiquement l&apos;envoi du webhook selon le calendrier suivant :
-          </p>
-        </div>
+        <h2 className="text-xl font-bold mb-4 font-mono">Flux complet d&apos;un email</h2>
 
-        <div className="mt-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20 p-5">
-          <div className="font-mono text-xs text-zinc-400 leading-loose whitespace-pre">{`Tentative 1  : Immediatement
-Tentative 2  : Apres 5 secondes
-Tentative 3  : Apres 5 minutes
-Tentative 4  : Apres 30 minutes
-Tentative 5  : Apres 2 heures
-Tentative 6  : Apres 5 heures
-Tentative 7  : Apres 10 heures
-Tentative 8  : Apres 24 heures (derniere tentative)
+        <CodeBlock title="De l'envoi a l'analytics">{`1. ENVOI
+   Campaign SENDING → pour chaque contact :
+   ├── Generer token HMAC (recipientId:campaignId)
+   ├── Injecter pixel tracking (1x1 GIF)
+   ├── Wrapper les liens (redirect 302)
+   ├── Ajouter headers List-Unsubscribe
+   └── Envoyer via Resend API (tags: recipient_id, campaign_id)
 
-Total : 8 tentatives sur 24 heures`}</div>
-        </div>
+2. WEBHOOKS RESEND → /api/webhooks/email
+   ├── email.delivered → Prisma EmailEvent + Convex sync
+   ├── email.bounced → Contact.subscribed = false
+   └── email.complained → Contact.subscribed = false
 
-        <div className="prose-sm text-zinc-400 space-y-3 mt-4">
-          <p>Regles importantes :</p>
-          <ul className="space-y-2 list-none pl-0">
-            {[
-              "Votre endpoint doit repondre en moins de 15 secondes, sinon c'est considere comme un echec",
-              "Renvoyez un code HTTP 200 des que la requete est recue, meme si le traitement n'est pas termine",
-              "Traitez les evenements de maniere idempotente : le meme evenement peut arriver plusieurs fois",
-              "Utilisez l'en-tete svix-id comme identifiant unique pour eviter les doublons",
-              "Apres 8 echecs consecutifs, le webhook est desactive et vous recevez une notification",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2">
-                <span className="text-orange-500 mt-1">&#8226;</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+3. TRACKING → /api/track/*
+   ├── /api/track/open?t=xxx → Enregistrer ouverture
+   └── /api/track/click?url=xxx&t=xxx → Enregistrer clic + redirect
+
+4. DESABONNEMENT → /api/unsubscribe?t=xxx
+   └── Contact.subscribed = false
+
+5. ANALYTICS
+   └── CampaignAnalytics.upsert() → recalcul de tous les taux`}</CodeBlock>
       </div>
 
-      {/* Exemple complet */}
+      {/* EmailEvent types */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Exemple complet de handler</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
-          <p>
-            Voici un exemple complet de handler webhook avec verification de signature,
-            traitement des evenements et gestion d&apos;erreurs :
-          </p>
-        </div>
-
-        <CodeBlock title="Next.js App Router — route.ts">{`import { Webhook } from "svix";
-import { headers } from "next/headers";
-
-const webhookSecret = process.env.MAILPULSE_WEBHOOK_SECRET!;
-
-export async function POST(request: Request) {
-  const body = await request.text();
-  const headerPayload = await headers();
-
-  const svixHeaders = {
-    "svix-id": headerPayload.get("svix-id") ?? "",
-    "svix-timestamp": headerPayload.get("svix-timestamp") ?? "",
-    "svix-signature": headerPayload.get("svix-signature") ?? "",
-  };
-
-  // Verifier la signature
-  const wh = new Webhook(webhookSecret);
-  let event: Record<string, unknown>;
-
-  try {
-    event = wh.verify(body, svixHeaders) as Record<string, unknown>;
-  } catch {
-    console.error("Webhook: signature invalide");
-    return new Response("Signature invalide", { status: 401 });
-  }
-
-  const eventType = event.event as string;
-  const data = event.data as Record<string, unknown>;
-
-  console.log("Webhook recu:", eventType, data.email);
-
-  // Traiter selon le type d'evenement
-  try {
-    switch (eventType) {
-      case "email.delivered":
-        await handleDelivered(data);
-        break;
-
-      case "email.opened":
-        await handleOpened(data);
-        break;
-
-      case "email.clicked":
-        await handleClicked(data);
-        break;
-
-      case "email.bounced":
-        await handleBounced(data);
-        break;
-
-      case "email.complained":
-        await handleComplaint(data);
-        break;
-
-      case "contact.unsubscribed":
-        await handleUnsubscribed(data);
-        break;
-
-      default:
-        console.log("Evenement inconnu:", eventType);
-    }
-  } catch (error) {
-    // Logger l'erreur mais renvoyer 200 pour eviter les retries
-    console.error("Erreur traitement webhook:", error);
-  }
-
-  // Toujours renvoyer 200 rapidement
-  return new Response("OK", { status: 200 });
-}
-
-async function handleDelivered(data: Record<string, unknown>) {
-  // Mettre a jour le statut de delivrabilite
-}
-
-async function handleOpened(data: Record<string, unknown>) {
-  // Incrementer le compteur d'ouvertures
-  // Mettre a jour le score d'engagement
-}
-
-async function handleClicked(data: Record<string, unknown>) {
-  // Logger le clic et l'URL
-  // Incrementer le score d'engagement
-}
-
-async function handleBounced(data: Record<string, unknown>) {
-  // Si hard bounce : desactiver le contact
-  // Si soft bounce : incrementer le compteur
-}
-
-async function handleComplaint(data: Record<string, unknown>) {
-  // Supprimer le contact immediatement
-  // Ajouter a la liste de suppression
-}
-
-async function handleUnsubscribed(data: Record<string, unknown>) {
-  // Marquer le contact comme desabonne
-  // Enregistrer dans le registre RGPD
-}`}</CodeBlock>
-      </div>
-
-      {/* Debug */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Debugger vos webhooks</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
-          <p>
-            MailPulse fournit des outils pour vous aider a debugger vos webhooks :
-          </p>
-          <ul className="space-y-2 list-none pl-0">
-            {[
-              "Journal des webhooks — Consultez l'historique des envois dans Parametres > API > Webhooks > Logs",
-              "Evenement de test — Envoyez un evenement de test a votre endpoint pour verifier la configuration",
-              "Replay — Renvoyez un evenement echoue manuellement depuis les logs",
-              "Payload visible — Chaque entree du journal montre le payload envoye et la reponse recue",
-              "Alertes — Recevez un email si votre endpoint echoue 3 fois de suite",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2">
-                <span className="text-orange-500 mt-1">&#8226;</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
+        <h2 className="text-xl font-bold mb-4 font-mono">Types d&apos;EmailEvent</h2>
+        <div className="space-y-2">
+          {[
+            { type: "SENT", desc: "Email envoye a Resend", color: "text-zinc-400 bg-zinc-800/50" },
+            { type: "DELIVERED", desc: "Email livre au serveur du destinataire", color: "text-emerald-400 bg-emerald-500/10" },
+            { type: "OPENED", desc: "Email ouvert (pixel charge)", color: "text-blue-400 bg-blue-500/10" },
+            { type: "CLICKED", desc: "Lien clique (redirect 302)", color: "text-purple-400 bg-purple-500/10" },
+            { type: "BOUNCED_SOFT", desc: "Rebond temporaire (boite pleine)", color: "text-amber-400 bg-amber-500/10" },
+            { type: "BOUNCED_HARD", desc: "Rebond definitif (adresse invalide)", color: "text-amber-400 bg-amber-500/10" },
+            { type: "COMPLAINED", desc: "Signalement spam", color: "text-red-400 bg-red-500/10" },
+            { type: "UNSUBSCRIBED", desc: "Desabonnement via lien", color: "text-red-400 bg-red-500/10" },
+          ].map((item) => (
+            <div
+              key={item.type}
+              className="flex items-start gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded shrink-0 mt-0.5 ${item.color}`}>
+                {item.type}
+              </span>
+              <span className="text-sm text-zinc-400">{item.desc}</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -485,7 +385,7 @@ async function handleUnsubscribed(data: Record<string, unknown>) {
         <p className="text-zinc-400 text-sm mb-2">Vous maitrisez l&apos;API MailPulse !</p>
         <p className="text-zinc-300 font-medium">
           Retour a la{" "}
-          <a href="/docs" className="text-orange-400 hover:text-orange-300 underline underline-offset-4 transition-colors">
+          <a href="/docs" className="text-orange-400 hover:text-orange-300 underline underline-offset-4 transition-colors cursor-pointer">
             page d&apos;accueil de la documentation
           </a>
         </p>

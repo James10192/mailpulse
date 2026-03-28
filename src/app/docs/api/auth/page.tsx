@@ -40,28 +40,110 @@ export default function ApiAuthPage() {
           Authentification
         </h1>
         <p className="mt-3 text-zinc-400 text-lg leading-relaxed">
-          Securisez vos appels API avec des cles d&apos;API. Gerez vos cles,
-          comprenez les limites de debit et protegez vos identifiants.
+          Better Auth avec Prisma adapter, OAuth Google/GitHub,
+          sessions cookie et protection des routes via proxy.ts.
         </p>
       </div>
 
-      {/* Gestion des cles */}
+      {/* Better Auth setup */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Gestion des cles API</h2>
+        <h2 className="text-xl font-bold mb-4 font-mono">Configuration Better Auth</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
+          <p>
+            MailPulse utilise <strong className="text-zinc-200">Better Auth v1.5+</strong> avec
+            le Prisma adapter. La configuration se trouve dans{" "}
+            <code className="text-zinc-200">src/lib/auth.ts</code> :
+          </p>
+        </div>
+
+        <CodeBlock title="src/lib/auth.ts">{`import { betterAuth } from "better-auth";
+import { prismaAdapter } from "@better-auth/prisma-adapter";
+import { organization } from "better-auth/plugins";
+import { prisma } from "./prisma";
+
+export const auth = betterAuth({
+  baseURL: process.env.BETTER_AUTH_URL,
+  secret: process.env.BETTER_AUTH_SECRET,
+
+  database: prismaAdapter(prisma, {
+    provider: "postgresql",
+  }),
+
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 8,
+  },
+
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+  },
+
+  plugins: [
+    organization({
+      allowUserToCreateOrganization: true,
+    }),
+  ],
+
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 jours
+    updateAge: 60 * 60 * 24,      // Renouvele apres 1 jour
+  },
+});`}</CodeBlock>
+      </div>
+
+      {/* OAuth providers */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">OAuth (Google & GitHub)</h2>
         <div className="prose-sm text-zinc-400 space-y-3">
           <p>
-            Les cles API vous permettent d&apos;acceder a l&apos;API MailPulse depuis
-            vos applications, scripts ou outils tiers. Chaque cle est liee a votre
-            organisation.
+            Deux fournisseurs OAuth sont configures. Pour les activer, renseignez
+            les variables d&apos;environnement correspondantes :
           </p>
-          <p>Pour creer une cle API :</p>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
+            <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Google OAuth</div>
+            <p className="text-xs text-zinc-400 leading-relaxed mb-2">
+              Creez un projet sur <code className="text-zinc-200">console.cloud.google.com</code>,
+              activez l&apos;API Google+ et configurez les identifiants OAuth 2.0.
+              Redirect URI : <code className="text-zinc-200">{`{BETTER_AUTH_URL}/api/auth/callback/google`}</code>
+            </p>
+            <div className="text-xs font-mono text-zinc-500">GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET</div>
+          </div>
+          <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
+            <div className="text-sm font-mono font-semibold text-orange-400 mb-2">GitHub OAuth</div>
+            <p className="text-xs text-zinc-400 leading-relaxed mb-2">
+              Allez dans <code className="text-zinc-200">github.com/settings/developers</code>,
+              creez une OAuth App.
+              Redirect URI : <code className="text-zinc-200">{`{BETTER_AUTH_URL}/api/auth/callback/github`}</code>
+            </p>
+            <div className="text-xs font-mono text-zinc-500">GITHUB_CLIENT_ID + GITHUB_CLIENT_SECRET</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Session handling */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Sessions (cookie-based)</h2>
+        <div className="prose-sm text-zinc-400 space-y-3">
+          <p>
+            Better Auth utilise des sessions basees sur des cookies HTTP :
+          </p>
           <ul className="space-y-2 list-none pl-0">
             {[
-              "Allez dans Parametres > API > Cles d'API",
-              "Cliquez sur \"Generer une nouvelle cle\"",
-              "Donnez un nom descriptif a votre cle (ex: \"Integration CRM\", \"Script import\")",
-              "Choisissez les permissions : lecture seule ou lecture/ecriture",
-              "Copiez la cle immediatement — elle ne sera plus affichee ensuite",
+              "Cookie de session : better-auth.session_token (HTTP) ou __Secure-better-auth.session_token (HTTPS)",
+              "Le refresh token est un cookie httpOnly (jamais dans le body JSON)",
+              "Duree de session : 7 jours, renouvele apres 1 jour d'activite",
+              "Les sessions sont stockees dans la table session (Prisma)",
+              "Chaque session stocke activeOrganizationId pour le multi-tenant",
             ].map((item) => (
               <li key={item} className="flex items-start gap-2">
                 <span className="text-orange-500 mt-1">&#8226;</span>
@@ -72,209 +154,139 @@ export default function ApiAuthPage() {
         </div>
 
         <InfoBox>
-          <strong className="text-orange-400">Important :</strong> La cle API n&apos;est affichee
-          qu&apos;une seule fois lors de sa creation. Si vous la perdez, vous devrez en generer
-          une nouvelle. Vous pouvez avoir jusqu&apos;a 10 cles actives par organisation.
+          <strong className="text-orange-400">Important :</strong> Le refresh token est toujours
+          un cookie httpOnly. Il n&apos;est jamais renvoye dans le corps de la reponse JSON.
+          Cela empeche le vol de token via XSS.
         </InfoBox>
       </div>
 
-      {/* Format d'authentification */}
+      {/* Organization plugin */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">En-tete d&apos;authentification</h2>
+        <h2 className="text-xl font-bold mb-4 font-mono">Plugin Organization (multi-tenant)</h2>
         <div className="prose-sm text-zinc-400 space-y-3">
           <p>
-            Toutes les requetes API doivent inclure votre cle API dans l&apos;en-tete
-            HTTP <span className="font-mono text-zinc-200">Authorization</span> au
-            format Bearer :
+            Le plugin <code className="text-zinc-200">organization</code> de Better Auth
+            permet le multi-tenant. Chaque utilisateur peut creer et appartenir a
+            plusieurs organisations. Les donnees (contacts, campagnes, templates)
+            sont isolees par <code className="text-zinc-200">organizationId</code>.
           </p>
         </div>
 
-        <CodeBlock title="Format de l'en-tete">{`Authorization: Bearer mp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx`}</CodeBlock>
+        <CodeBlock title="Tables liees aux organisations">{`Organization   — Nom, slug, logo, metadata
+Member         — Relation User ↔ Organization (role: "owner", "admin", "member")
+Invitation     — Invitations par email (status: "pending", "accepted")
 
+// Toutes les tables metier ont une FK organizationId :
+Contact, Campaign, ContactList, EmailTemplate,
+SendingDomain, Automation`}</CodeBlock>
+      </div>
+
+      {/* proxy.ts */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">proxy.ts (auth middleware)</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
+          <p>
+            Le fichier <code className="text-zinc-200">src/proxy.ts</code> intercepte chaque requete
+            pour verifier l&apos;authentification. Next.js 16 utilise{" "}
+            <code className="text-zinc-200">proxy.ts</code> (au lieu de middleware.ts).
+          </p>
+        </div>
+
+        <CodeBlock title="src/proxy.ts">{`// Routes publiques (pas besoin d'auth) :
+const publicPrefixes = [
+  "/login",
+  "/register",
+  "/docs",
+  "/api/auth",
+  "/api/webhooks",
+  "/api/track",
+  "/api/unsubscribe",
+  "/api/upload",
+];
+
+// Verification du cookie de session :
+const sessionCookie =
+  request.cookies.get("__Secure-better-auth.session_token") ??
+  request.cookies.get("better-auth.session_token");
+
+// Si pas de cookie → redirect vers /login?callbackUrl={pathname}`}</CodeBlock>
+      </div>
+
+      {/* API endpoints */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Route API : /api/auth/[...all]</h2>
         <div className="prose-sm text-zinc-400 space-y-3">
-          <p>Les cles API suivent la convention de nommage suivante :</p>
+          <p>
+            Le catch-all route handler deleguant a Better Auth se trouve dans{" "}
+            <code className="text-zinc-200">src/app/api/auth/[...all]/route.ts</code>.
+            Il expose tous les endpoints d&apos;authentification :
+          </p>
         </div>
 
         <div className="mt-4 space-y-2">
           {[
-            {
-              prefix: "mp_live_",
-              desc: "Cle de production — acces complet a vos donnees reelles",
-              color: "text-emerald-400 bg-emerald-500/10",
-            },
-            {
-              prefix: "mp_test_",
-              desc: "Cle de test — environnement isole, aucun email reel n'est envoye",
-              color: "text-amber-400 bg-amber-500/10",
-            },
-          ].map((item) => (
+            { method: "POST", path: "/api/auth/sign-up/email", desc: "Inscription par email/password" },
+            { method: "POST", path: "/api/auth/sign-in/email", desc: "Connexion par email/password" },
+            { method: "POST", path: "/api/auth/sign-in/social", desc: "Connexion OAuth (Google, GitHub)" },
+            { method: "POST", path: "/api/auth/sign-out", desc: "Deconnexion (supprime la session)" },
+            { method: "GET", path: "/api/auth/session", desc: "Recuperer la session courante" },
+            { method: "POST", path: "/api/auth/organization/create", desc: "Creer une organisation" },
+            { method: "POST", path: "/api/auth/organization/set-active", desc: "Changer d'organisation active" },
+          ].map((ep) => (
             <div
-              key={item.prefix}
-              className="flex items-start gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+              key={ep.method + ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
             >
-              <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded shrink-0 mt-0.5 ${item.color}`}>
-                {item.prefix}
+              <span
+                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                  ep.method === "GET"
+                    ? "bg-emerald-500/10 text-emerald-400"
+                    : "bg-blue-500/10 text-blue-400"
+                }`}
+              >
+                {ep.method}
               </span>
-              <span className="text-sm text-zinc-400">{item.desc}</span>
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
             </div>
           ))}
         </div>
+      </div>
 
-        <CodeBlock title="Exemple avec curl">{`curl -X GET https://api.mailpulse.io/v1/contacts \\
-  -H "Authorization: Bearer mp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
-  -H "Content-Type: application/json"`}</CodeBlock>
+      {/* Client usage */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Utilisation cote client</h2>
 
-        <CodeBlock title="Exemple avec Node.js">{`const response = await fetch("https://api.mailpulse.io/v1/contacts", {
-  headers: {
-    "Authorization": "Bearer mp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "Content-Type": "application/json",
-  },
+        <CodeBlock title="src/lib/auth-client.ts">{`import { createAuthClient } from "better-auth/react";
+import { organizationClient } from "better-auth/client/plugins";
+
+export const authClient = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
+  plugins: [organizationClient()],
 });
 
-const data = await response.json();`}</CodeBlock>
+// Usage dans un composant React :
+const { signIn, signUp, signOut } = authClient;
 
-        <CodeBlock title="Exemple avec Python">{`import requests
+// Inscription
+await signUp.email({ email, password, name });
 
-response = requests.get(
-    "https://api.mailpulse.io/v1/contacts",
-    headers={
-        "Authorization": "Bearer mp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-        "Content-Type": "application/json",
-    },
-)
+// Connexion email
+await signIn.email({ email, password });
 
-data = response.json()`}</CodeBlock>
+// Connexion Google
+await signIn.social({ provider: "google" });
+
+// Deconnexion
+await signOut();`}</CodeBlock>
       </div>
 
-      {/* Limites de debit */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Limites de debit</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
-          <p>
-            L&apos;API MailPulse applique des limites de debit (rate limits) pour garantir
-            la stabilite du service. Les limites varient selon votre plan :
-          </p>
-        </div>
-
-        <div className="mt-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20 overflow-hidden">
-          <div className="grid grid-cols-3 gap-px bg-zinc-800/30">
-            <div className="p-3 bg-zinc-900/50 text-xs font-mono text-zinc-500 font-semibold">Plan</div>
-            <div className="p-3 bg-zinc-900/50 text-xs font-mono text-zinc-500 font-semibold">Requetes / min</div>
-            <div className="p-3 bg-zinc-900/50 text-xs font-mono text-zinc-500 font-semibold">Requetes / jour</div>
-            {[
-              { plan: "Gratuit", rpm: "60", rpd: "1 000" },
-              { plan: "Pro", rpm: "300", rpd: "50 000" },
-              { plan: "Enterprise", rpm: "1 000", rpd: "Illimite" },
-            ].map((row) => (
-              <>
-                <div key={`${row.plan}-plan`} className="p-3 bg-zinc-900/30 text-sm text-zinc-300 font-medium">{row.plan}</div>
-                <div key={`${row.plan}-rpm`} className="p-3 bg-zinc-900/30 text-sm font-mono text-zinc-400">{row.rpm}</div>
-                <div key={`${row.plan}-rpd`} className="p-3 bg-zinc-900/30 text-sm font-mono text-zinc-400">{row.rpd}</div>
-              </>
-            ))}
-          </div>
-        </div>
-
-        <div className="prose-sm text-zinc-400 space-y-3 mt-4">
-          <p>
-            Lorsque vous atteignez la limite, l&apos;API renvoie une erreur{" "}
-            <span className="font-mono text-zinc-200">429 Too Many Requests</span>.
-            Les en-tetes de reponse contiennent les informations suivantes :
-          </p>
-        </div>
-
-        <CodeBlock title="En-tetes de rate limit">{`X-RateLimit-Limit: 300         # Limite par minute
-X-RateLimit-Remaining: 247     # Requetes restantes
-X-RateLimit-Reset: 1711543200  # Timestamp de reinitialisation (Unix)
-Retry-After: 23                # Secondes avant de pouvoir reessayer`}</CodeBlock>
-
-        <InfoBox>
-          <strong className="text-orange-400">Conseil :</strong> Implementez un mecanisme de
-          retry avec backoff exponentiel dans vos integrations. Attendez le delai indique dans
-          l&apos;en-tete <span className="font-mono">Retry-After</span> avant de reessayer.
-        </InfoBox>
-      </div>
-
-      {/* Securite */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Bonnes pratiques de securite</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
-          <ul className="space-y-2 list-none pl-0">
-            {[
-              "Ne partagez jamais vos cles API — Traitez-les comme des mots de passe. Ne les commitez pas dans votre code source.",
-              "Utilisez des variables d'environnement — Stockez vos cles dans des fichiers .env ou dans le gestionnaire de secrets de votre plateforme d'hebergement.",
-              "Cle de test pour le developpement — Utilisez toujours une cle mp_test_ pendant le developpement pour eviter d'affecter vos donnees de production.",
-              "Permissions minimales — Creez des cles en lecture seule quand l'ecriture n'est pas necessaire.",
-              "Rotation reguliere — Regenerez vos cles tous les 90 jours. Desactivez immediatement toute cle compromise.",
-              "Surveillez l'usage — Consultez les logs d'utilisation API dans Parametres > API > Logs pour detecter toute activite suspecte.",
-              "HTTPS uniquement — L'API MailPulse n'accepte que les connexions HTTPS. Les requetes HTTP sont rejetees.",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2">
-                <span className="text-orange-500 mt-1">&#8226;</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <CodeBlock title="Exemple - Variable d'environnement">{`# .env.local (NE PAS commiter ce fichier)
-MAILPULSE_API_KEY=mp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# Utilisation dans votre code
-const apiKey = process.env.MAILPULSE_API_KEY;`}</CodeBlock>
-      </div>
-
-      {/* Erreurs d'authentification */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Erreurs d&apos;authentification</h2>
-        <div className="space-y-2">
-          {[
-            {
-              code: "401",
-              title: "Unauthorized",
-              desc: "Cle API manquante ou invalide. Verifiez l'en-tete Authorization.",
-            },
-            {
-              code: "403",
-              title: "Forbidden",
-              desc: "La cle API n'a pas les permissions necessaires pour cette action.",
-            },
-            {
-              code: "429",
-              title: "Too Many Requests",
-              desc: "Limite de debit atteinte. Attendez avant de reessayer.",
-            },
-          ].map((item) => (
-            <div
-              key={item.code}
-              className="flex items-start gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
-            >
-              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-red-500/10 text-red-400 shrink-0 mt-0.5">
-                {item.code}
-              </span>
-              <div>
-                <span className="text-sm text-zinc-200 font-medium">{item.title}</span>
-                <span className="text-sm text-zinc-400 block mt-0.5">{item.desc}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <CodeBlock title="Reponse d'erreur type">{`{
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Cle API invalide ou expiree.",
-    "status": 401
-  }
-}`}</CodeBlock>
-      </div>
-
-      {/* Etape suivante */}
+      {/* Next step */}
       <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/20 p-6 text-center">
         <p className="text-zinc-400 text-sm mb-2">L&apos;authentification est en place !</p>
         <p className="text-zinc-300 font-medium">
           Prochaine etape :{" "}
-          <a href="/docs/api/endpoints" className="text-orange-400 hover:text-orange-300 underline underline-offset-4 transition-colors">
+          <a href="/docs/api/endpoints" className="text-orange-400 hover:text-orange-300 underline underline-offset-4 transition-colors cursor-pointer">
             Decouvrir les endpoints
           </a>
         </p>

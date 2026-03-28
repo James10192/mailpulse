@@ -31,6 +31,7 @@ function EndpointBadge({ method }: { method: string }) {
     PUT: "bg-amber-500/10 text-amber-400",
     PATCH: "bg-purple-500/10 text-purple-400",
     DELETE: "bg-red-500/10 text-red-400",
+    ACTION: "bg-orange-500/10 text-orange-400",
   };
   return (
     <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${colors[method] ?? "bg-zinc-800 text-zinc-400"}`}>
@@ -55,325 +56,258 @@ export default function ApiEndpointsPage() {
           Endpoints
         </h1>
         <p className="mt-3 text-zinc-400 text-lg leading-relaxed">
-          Reference complete de tous les endpoints de l&apos;API MailPulse.
-          Gerez vos contacts, campagnes, listes et templates par programmation.
+          MailPulse utilise des Server Actions (Next.js) pour les mutations
+          et des Route Handlers pour les API publiques (tracking, upload, webhooks).
         </p>
       </div>
 
-      {/* Base URL */}
+      {/* Architecture note */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">URL de base</h2>
-        <CodeBlock title="Base URL">{`https://api.mailpulse.io/v1`}</CodeBlock>
-        <div className="prose-sm text-zinc-400">
-          <p>
-            Tous les endpoints ci-dessous sont relatifs a cette URL de base.
-            Toutes les requetes et reponses utilisent le format JSON.
-          </p>
-        </div>
-      </div>
-
-      {/* ─── CONTACTS API ─── */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Contacts</h2>
-        <div className="space-y-2 mb-6">
-          {[
-            { method: "GET", path: "/contacts", desc: "Lister tous les contacts (pagine)" },
-            { method: "GET", path: "/contacts/:id", desc: "Recuperer un contact par ID" },
-            { method: "POST", path: "/contacts", desc: "Creer un nouveau contact" },
-            { method: "PUT", path: "/contacts/:id", desc: "Mettre a jour un contact" },
-            { method: "DELETE", path: "/contacts/:id", desc: "Supprimer un contact" },
-            { method: "POST", path: "/contacts/import", desc: "Importer des contacts (CSV ou JSON)" },
-          ].map((ep) => (
-            <div
-              key={ep.method + ep.path}
-              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
-            >
-              <EndpointBadge method={ep.method} />
-              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
-              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
-            </div>
-          ))}
-        </div>
-
-        <CodeBlock title="curl — Lister les contacts">{`curl -X GET "https://api.mailpulse.io/v1/contacts?page=1&limit=50" \\
-  -H "Authorization: Bearer mp_live_xxxxx"`}</CodeBlock>
-
-        <CodeBlock title="curl — Creer un contact">{`curl -X POST "https://api.mailpulse.io/v1/contacts" \\
-  -H "Authorization: Bearer mp_live_xxxxx" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "email": "marie@exemple.fr",
-    "firstName": "Marie",
-    "lastName": "Dupont",
-    "company": "Acme Corp",
-    "tags": ["client", "vip"],
-    "properties": {
-      "plan": "pro",
-      "signup_source": "website"
-    }
-  }'`}</CodeBlock>
-
-        <CodeBlock title="Node.js — Creer un contact">{`const response = await fetch("https://api.mailpulse.io/v1/contacts", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer mp_live_xxxxx",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    email: "marie@exemple.fr",
-    firstName: "Marie",
-    lastName: "Dupont",
-    tags: ["client", "vip"],
-  }),
-});
-
-const contact = await response.json();
-console.log(contact.id); // "ct_abc123def456"`}</CodeBlock>
-
-        <CodeBlock title="Python — Creer un contact">{`import requests
-
-response = requests.post(
-    "https://api.mailpulse.io/v1/contacts",
-    headers={
-        "Authorization": "Bearer mp_live_xxxxx",
-        "Content-Type": "application/json",
-    },
-    json={
-        "email": "marie@exemple.fr",
-        "firstName": "Marie",
-        "lastName": "Dupont",
-        "tags": ["client", "vip"],
-    },
-)
-
-contact = response.json()
-print(contact["id"])  # "ct_abc123def456"`}</CodeBlock>
-
-        <CodeBlock title="Reponse type">{`{
-  "id": "ct_abc123def456",
-  "email": "marie@exemple.fr",
-  "firstName": "Marie",
-  "lastName": "Dupont",
-  "company": "Acme Corp",
-  "tags": ["client", "vip"],
-  "properties": {
-    "plan": "pro",
-    "signup_source": "website"
-  },
-  "engagementScore": 0,
-  "status": "active",
-  "createdAt": "2026-03-15T10:30:00Z",
-  "updatedAt": "2026-03-15T10:30:00Z"
-}`}</CodeBlock>
-      </div>
-
-      {/* ─── CAMPAIGNS API ─── */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Campagnes</h2>
-        <div className="space-y-2 mb-6">
-          {[
-            { method: "GET", path: "/campaigns", desc: "Lister toutes les campagnes" },
-            { method: "GET", path: "/campaigns/:id", desc: "Recuperer une campagne par ID" },
-            { method: "POST", path: "/campaigns", desc: "Creer une nouvelle campagne" },
-            { method: "PUT", path: "/campaigns/:id", desc: "Mettre a jour une campagne (brouillon)" },
-            { method: "POST", path: "/campaigns/:id/send", desc: "Envoyer une campagne" },
-            { method: "POST", path: "/campaigns/:id/schedule", desc: "Planifier une campagne" },
-            { method: "GET", path: "/campaigns/:id/stats", desc: "Statistiques d'une campagne" },
-            { method: "DELETE", path: "/campaigns/:id", desc: "Supprimer une campagne (brouillon)" },
-          ].map((ep) => (
-            <div
-              key={ep.method + ep.path}
-              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
-            >
-              <EndpointBadge method={ep.method} />
-              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
-              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
-            </div>
-          ))}
-        </div>
-
-        <CodeBlock title="curl — Creer et envoyer une campagne">{`# 1. Creer la campagne
-curl -X POST "https://api.mailpulse.io/v1/campaigns" \\
-  -H "Authorization: Bearer mp_live_xxxxx" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "name": "Newsletter Mars 2026",
-    "subject": "Les nouveautes de mars",
-    "preheader": "Decouvrez nos dernieres fonctionnalites",
-    "from": {
-      "name": "Equipe MailPulse",
-      "email": "newsletter@votre-domaine.com"
-    },
-    "templateId": "tpl_xxx",
-    "recipients": {
-      "segmentId": "seg_actifs_30j"
-    }
-  }'
-
-# Reponse : { "id": "cmp_abc123", "status": "draft" }
-
-# 2. Envoyer la campagne
-curl -X POST "https://api.mailpulse.io/v1/campaigns/cmp_abc123/send" \\
-  -H "Authorization: Bearer mp_live_xxxxx"`}</CodeBlock>
-
-        <CodeBlock title="curl — Statistiques d'une campagne">{`curl -X GET "https://api.mailpulse.io/v1/campaigns/cmp_abc123/stats" \\
-  -H "Authorization: Bearer mp_live_xxxxx"
-
-# Reponse :
-{
-  "campaignId": "cmp_abc123",
-  "sent": 5230,
-  "delivered": 5198,
-  "opened": 1612,
-  "clicked": 287,
-  "bounced": 32,
-  "complained": 3,
-  "unsubscribed": 12,
-  "rates": {
-    "delivery": 99.4,
-    "open": 31.0,
-    "click": 5.5,
-    "bounce": 0.6,
-    "complaint": 0.06,
-    "unsubscribe": 0.23
-  }
-}`}</CodeBlock>
-      </div>
-
-      {/* ─── LISTS API ─── */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Listes et segments</h2>
-        <div className="space-y-2 mb-6">
-          {[
-            { method: "GET", path: "/lists", desc: "Lister toutes les listes" },
-            { method: "POST", path: "/lists", desc: "Creer une liste" },
-            { method: "POST", path: "/lists/:id/contacts", desc: "Ajouter des contacts a une liste" },
-            { method: "DELETE", path: "/lists/:id/contacts/:contactId", desc: "Retirer un contact d'une liste" },
-            { method: "GET", path: "/segments", desc: "Lister tous les segments" },
-            { method: "GET", path: "/segments/:id/contacts", desc: "Contacts d'un segment" },
-          ].map((ep) => (
-            <div
-              key={ep.method + ep.path}
-              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
-            >
-              <EndpointBadge method={ep.method} />
-              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
-              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
-            </div>
-          ))}
-        </div>
-
-        <CodeBlock title="curl — Creer une liste">{`curl -X POST "https://api.mailpulse.io/v1/lists" \\
-  -H "Authorization: Bearer mp_live_xxxxx" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "name": "Clients 2026",
-    "description": "Tous les clients ayant achete en 2026"
-  }'`}</CodeBlock>
-      </div>
-
-      {/* ─── TEMPLATES API ─── */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Templates</h2>
-        <div className="space-y-2 mb-6">
-          {[
-            { method: "GET", path: "/templates", desc: "Lister tous les templates" },
-            { method: "GET", path: "/templates/:id", desc: "Recuperer un template" },
-            { method: "POST", path: "/templates", desc: "Creer un template" },
-            { method: "PUT", path: "/templates/:id", desc: "Mettre a jour un template" },
-            { method: "DELETE", path: "/templates/:id", desc: "Supprimer un template" },
-            { method: "POST", path: "/templates/:id/preview", desc: "Generer un apercu HTML" },
-          ].map((ep) => (
-            <div
-              key={ep.method + ep.path}
-              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
-            >
-              <EndpointBadge method={ep.method} />
-              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
-              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
-            </div>
-          ))}
-        </div>
-
-        <CodeBlock title="curl — Creer un template">{`curl -X POST "https://api.mailpulse.io/v1/templates" \\
-  -H "Authorization: Bearer mp_live_xxxxx" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "name": "Newsletter standard",
-    "subject": "{{sujet}}",
-    "html": "<html><body><h1>Bonjour {{prenom}}</h1><p>{{contenu}}</p></body></html>",
-    "variables": ["sujet", "prenom", "contenu"]
-  }'`}</CodeBlock>
-      </div>
-
-      {/* Pagination */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Pagination</h2>
+        <h2 className="text-xl font-bold mb-4 font-mono">Architecture</h2>
         <div className="prose-sm text-zinc-400 space-y-3">
           <p>
-            Tous les endpoints qui retournent des listes sont pagines. Utilisez
-            les parametres <span className="font-mono text-zinc-200">page</span> et{" "}
-            <span className="font-mono text-zinc-200">limit</span> pour naviguer :
+            Les operations CRUD (contacts, campagnes, etc.) sont implementees
+            comme des <strong className="text-zinc-200">Server Actions</strong> (fichiers{" "}
+            <code className="text-zinc-200">actions.ts</code> avec <code className="text-zinc-200">&quot;use server&quot;</code>).
+            Elles sont appelees depuis les composants React via{" "}
+            <code className="text-zinc-200">useActionState</code> ou directement.
+          </p>
+          <p>
+            Les <strong className="text-zinc-200">Route Handlers</strong> (fichiers{" "}
+            <code className="text-zinc-200">route.ts</code>) sont reserves aux endpoints
+            publics qui doivent etre accessibles sans le framework React.
           </p>
         </div>
+      </div>
 
-        <CodeBlock title="Parametres de pagination">{`GET /v1/contacts?page=2&limit=50
+      {/* ─── CONTACTS ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Contacts</h2>
+        <div className="prose-sm text-zinc-400 space-y-1 mb-4">
+          <p>
+            Fichier : <code className="text-zinc-200">src/app/(dashboard)/dashboard/contacts/actions.ts</code>
+          </p>
+        </div>
+        <div className="space-y-2 mb-6">
+          {[
+            { method: "ACTION", path: "createContact(formData)", desc: "Creer un contact (email, firstName, lastName, phone, tags)" },
+            { method: "ACTION", path: "deleteContact(id)", desc: "Supprimer un contact par ID" },
+          ].map((ep) => (
+            <div
+              key={ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <EndpointBadge method={ep.method} />
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
 
-# Reponse :
-{
-  "data": [...],
-  "pagination": {
-    "page": 2,
-    "limit": 50,
-    "total": 1247,
-    "totalPages": 25,
-    "hasMore": true
-  }
-}`}</CodeBlock>
+        <CodeBlock title="createContact — Validation Zod">{`const createContactSchema = z.object({
+  email: z.string().email("Email invalide"),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  phone: z.string().optional(),
+  tags: z.string().optional(), // Comma-separated
+});
+
+// Appele via useActionState dans le formulaire
+// Synchronise automatiquement vers Convex apres creation`}</CodeBlock>
+      </div>
+
+      {/* ─── CAMPAIGNS ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Campagnes</h2>
+        <div className="prose-sm text-zinc-400 space-y-1 mb-4">
+          <p>
+            Fichier : <code className="text-zinc-200">src/app/(dashboard)/dashboard/campaigns/actions.ts</code>
+          </p>
+        </div>
+        <div className="space-y-2 mb-6">
+          {[
+            { method: "ACTION", path: "createCampaign(formData)", desc: "Creer une campagne (name, type, subject...)" },
+            { method: "ACTION", path: "deleteCampaign(id)", desc: "Supprimer une campagne (DRAFT uniquement)" },
+          ].map((ep) => (
+            <div
+              key={ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <EndpointBadge method={ep.method} />
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── AUTOMATIONS ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Automations</h2>
+        <div className="prose-sm text-zinc-400 space-y-1 mb-4">
+          <p>
+            Fichier : <code className="text-zinc-200">src/app/(dashboard)/dashboard/automations/actions.ts</code>
+          </p>
+        </div>
+        <div className="space-y-2 mb-6">
+          {[
+            { method: "ACTION", path: "createAutomation(formData)", desc: "Creer une automation (name, trigger)" },
+            { method: "ACTION", path: "deleteAutomation(id)", desc: "Supprimer une automation" },
+          ].map((ep) => (
+            <div
+              key={ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <EndpointBadge method={ep.method} />
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── SNIPPETS ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Snippets</h2>
+        <div className="prose-sm text-zinc-400 space-y-1 mb-4">
+          <p>
+            Fichier : <code className="text-zinc-200">src/app/(dashboard)/dashboard/snippets/actions.ts</code>
+          </p>
+          <p className="text-xs text-zinc-500">
+            Les snippets sont stockes comme des EmailTemplate avec category = &quot;snippet&quot;.
+          </p>
+        </div>
+        <div className="space-y-2 mb-6">
+          {[
+            { method: "ACTION", path: "createSnippetAndRedirect(formData)", desc: "Creer un snippet et rediriger vers l'editeur" },
+            { method: "ACTION", path: "updateSnippet(id, data)", desc: "Mettre a jour nom, description ou contenu HTML" },
+            { method: "ACTION", path: "deleteSnippet(id)", desc: "Supprimer un snippet" },
+          ].map((ep) => (
+            <div
+              key={ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <EndpointBadge method={ep.method} />
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── TEMPLATES ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Templates</h2>
+        <div className="prose-sm text-zinc-400 space-y-1 mb-4">
+          <p>
+            Fichier : <code className="text-zinc-200">src/app/(dashboard)/dashboard/templates/actions.ts</code>
+          </p>
+        </div>
+        <div className="space-y-2 mb-6">
+          {[
+            { method: "ACTION", path: "createTemplate(formData)", desc: "Creer un template email" },
+            { method: "ACTION", path: "updateTemplate(id, data)", desc: "Mettre a jour un template" },
+            { method: "ACTION", path: "deleteTemplate(id)", desc: "Supprimer un template" },
+          ].map((ep) => (
+            <div
+              key={ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <EndpointBadge method={ep.method} />
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── OTHER SERVER ACTIONS ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Autres Server Actions</h2>
+        <div className="space-y-2 mb-6">
+          {[
+            { method: "ACTION", path: "tags/actions.ts", desc: "CRUD des tags de contact" },
+            { method: "ACTION", path: "segments/actions.ts", desc: "CRUD des segments dynamiques" },
+            { method: "ACTION", path: "domains/actions.ts", desc: "Gestion des domaines d'envoi (SendingDomain)" },
+          ].map((ep) => (
+            <div
+              key={ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <EndpointBadge method={ep.method} />
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
 
         <InfoBox>
-          <strong className="text-orange-400">Limite :</strong> La valeur maximale
-          pour <span className="font-mono">limit</span> est 100 elements par page.
-          La valeur par defaut est 25.
+          <strong className="text-orange-400">Pattern commun :</strong> Chaque Server Action verifie
+          l&apos;authentification via <code className="font-mono text-zinc-200">getCurrentUserAndOrg()</code>,
+          valide les donnees avec Zod, execute la mutation Prisma, puis appelle{" "}
+          <code className="font-mono text-zinc-200">revalidatePath()</code> pour rafraichir le cache.
         </InfoBox>
       </div>
 
-      {/* Codes d'erreur */}
+      {/* ─── UPLOAD ROUTE ─── */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Codes d&apos;erreur</h2>
-        <div className="space-y-2">
-          {[
-            { code: "200", desc: "Succes", color: "text-emerald-400 bg-emerald-500/10" },
-            { code: "201", desc: "Ressource creee avec succes", color: "text-emerald-400 bg-emerald-500/10" },
-            { code: "400", desc: "Requete invalide (parametres manquants ou incorrects)", color: "text-amber-400 bg-amber-500/10" },
-            { code: "401", desc: "Non authentifie (cle API manquante ou invalide)", color: "text-red-400 bg-red-500/10" },
-            { code: "403", desc: "Acces refuse (permissions insuffisantes)", color: "text-red-400 bg-red-500/10" },
-            { code: "404", desc: "Ressource non trouvee", color: "text-red-400 bg-red-500/10" },
-            { code: "409", desc: "Conflit (ex: email deja existant)", color: "text-amber-400 bg-amber-500/10" },
-            { code: "422", desc: "Entite non traitable (validation echouee)", color: "text-amber-400 bg-amber-500/10" },
-            { code: "429", desc: "Limite de debit atteinte", color: "text-red-400 bg-red-500/10" },
-            { code: "500", desc: "Erreur interne du serveur", color: "text-red-400 bg-red-500/10" },
-          ].map((item) => (
-            <div
-              key={item.code}
-              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
-            >
-              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${item.color}`}>
-                {item.code}
-              </span>
-              <span className="text-sm text-zinc-400">{item.desc}</span>
-            </div>
-          ))}
+        <h2 className="text-xl font-bold mb-4 font-mono">Upload (Route Handler)</h2>
+        <div className="space-y-2 mb-6">
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20">
+            <EndpointBadge method="POST" />
+            <code className="text-sm font-mono text-zinc-300">/api/upload</code>
+            <span className="text-xs text-zinc-600 ml-auto hidden sm:block">Upload fichier vers Cloudflare R2</span>
+          </div>
+        </div>
+
+        <CodeBlock title="Requete — multipart/form-data">{`POST /api/upload
+Content-Type: multipart/form-data
+
+Body:
+  file: <fichier binaire>
+
+Reponse (200) :
+{
+  "url": "https://assets.votredomaine.com/uploads/1711543200-image.png",
+  "key": "uploads/1711543200-image.png"
+}`}</CodeBlock>
+
+        <div className="prose-sm text-zinc-400 space-y-3">
+          <p>
+            Le fichier est uploade directement vers Cloudflare R2 via le SDK{" "}
+            <code className="text-zinc-200">@aws-sdk/client-s3</code>. La cle d&apos;objet
+            est prefixee avec un timestamp pour eviter les collisions.
+          </p>
         </div>
       </div>
 
-      {/* Etape suivante */}
+      {/* ─── ACTION RETURN TYPE ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Type de retour (ActionState)</h2>
+
+        <CodeBlock title="types/action-state.ts">{`export type ActionState = {
+  success?: boolean;
+  error?: string;
+};
+
+// Utilisation dans un composant React :
+const [state, formAction, isPending] = useActionState(
+  createContact,
+  { success: false }
+);
+
+// Affichage :
+{state.error && <p className="text-red-400">{state.error}</p>}
+{state.success && <p className="text-emerald-400">Contact cree !</p>}`}</CodeBlock>
+      </div>
+
+      {/* Next step */}
       <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/20 p-6 text-center">
         <p className="text-zinc-400 text-sm mb-2">Vous connaissez les endpoints !</p>
         <p className="text-zinc-300 font-medium">
           Prochaine etape :{" "}
-          <a href="/docs/api/webhooks" className="text-orange-400 hover:text-orange-300 underline underline-offset-4 transition-colors">
-            Configurer les webhooks
+          <a href="/docs/api/webhooks" className="text-orange-400 hover:text-orange-300 underline underline-offset-4 transition-colors cursor-pointer">
+            Webhooks &amp; Tracking
           </a>
         </p>
       </div>

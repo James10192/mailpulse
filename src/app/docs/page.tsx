@@ -1,4 +1,16 @@
-import { Mail, ArrowRight, Terminal, Zap, BarChart3, Shield } from "lucide-react";
+import {
+  Mail,
+  ArrowRight,
+  Terminal,
+  Zap,
+  BarChart3,
+  Shield,
+  Users,
+  Code,
+  Webhook,
+  Send,
+  Settings,
+} from "lucide-react";
 import Link from "next/link";
 
 function CodeBlock({ children, title }: { children: string; title?: string }) {
@@ -31,7 +43,7 @@ function QuickLink({
   return (
     <Link
       href={href}
-      className="group p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20 hover:bg-zinc-900/50 hover:border-zinc-700/50 transition-all"
+      className="group p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20 hover:bg-zinc-900/50 hover:border-zinc-700/50 transition-all cursor-pointer"
     >
       <div className="flex items-center gap-3 mb-2">
         <div className="p-1.5 rounded-lg bg-orange-500/10">
@@ -63,83 +75,34 @@ export default function DocsPage() {
           Documentation
         </h1>
         <p className="mt-3 text-zinc-400 text-lg leading-relaxed">
-          Tout ce qu&apos;il faut pour integrer MailPulse a votre application
-          et envoyer vos premieres campagnes.
+          MailPulse est une plateforme d&apos;email marketing concue pour
+          l&apos;Afrique francophone. Envoyez des campagnes, suivez
+          l&apos;engagement en temps reel et automatisez vos workflows.
         </p>
       </div>
 
-      {/* Quick install */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Installation rapide</h2>
-        <CodeBlock title="Terminal">{`# Cloner le projet
-git clone https://github.com/James10192/mailpulse.git
-cd mailpulse
-
-# Installer les dependances
-pnpm install
-
-# Configurer l'environnement
-cp .env.example .env.local
-
-# Lancer la base de donnees + migrations
-docker compose up -d
-npx prisma migrate dev --name init
-
-# Demarrer le serveur
-pnpm dev`}</CodeBlock>
-      </div>
-
-      {/* Quick links grid */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Guides</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <QuickLink
-            href="/docs/first-campaign"
-            title="Premiere campagne"
-            desc="Envoyez votre premier email en 5 minutes avec le tracking complet."
-            icon={Mail}
-          />
-          <QuickLink
-            href="/docs/contacts"
-            title="Gerer les contacts"
-            desc="Import CSV, tags, segments dynamiques et scoring d'engagement."
-            icon={Zap}
-          />
-          <QuickLink
-            href="/docs/analytics"
-            title="Analytics"
-            desc="Dashboard temps reel, open rate, CTR, bounces et revenue attribution."
-            icon={BarChart3}
-          />
-          <QuickLink
-            href="/docs/api/webhooks"
-            title="Webhooks"
-            desc="Recevez les evenements email en temps reel (delivered, opened, clicked)."
-            icon={Shield}
-          />
-        </div>
-      </div>
-
-      {/* Architecture overview */}
+      {/* Architecture */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">Architecture</h2>
         <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/20 p-6">
-          <div className="font-mono text-xs text-zinc-400 leading-loose whitespace-pre">{`┌────────────────────────────────────────────┐
-│              Next.js 16 App                │
-│         (App Router + Turbopack)           │
-├──────────┬──────────┬──────────────────────┤
-│  Prisma  │  Convex  │   Cloudflare R2      │
-│ (Neon DB)│(Realtime)│    (Storage)         │
-├──────────┴──────────┴──────────────────────┤
-│              Resend API                    │
-│     (Email + Webhooks + Tracking)          │
-└────────────────────────────────────────────┘`}</div>
+          <div className="font-mono text-xs text-zinc-400 leading-loose whitespace-pre">{`┌──────────────────────────────────────────────────┐
+│            Next.js 16 (App Router + Turbopack)   │
+│        proxy.ts ── auth guard (cookie-based)     │
+├────────────┬────────────┬────────────────────────┤
+│  Prisma 7  │   Convex   │    Cloudflare R2       │
+│  (Neon PG) │ (Realtime) │     (Storage)          │
+├────────────┴────────────┴────────────────────────┤
+│  Better Auth (Prisma adapter + Organization)     │
+├──────────────────────────────────────────────────┤
+│               Resend API                         │
+│      (Envoi + Webhooks + Tracking HMAC)          │
+└──────────────────────────────────────────────────┘`}</div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-3 text-center">
           {[
-            { label: "Prisma + Neon", desc: "Donnees relationnelles" },
-            { label: "Convex", desc: "Dashboard live" },
-            { label: "Cloudflare R2", desc: "Fichiers & assets" },
+            { label: "Prisma 7 + Neon", desc: "Donnees relationnelles" },
+            { label: "Convex", desc: "Dashboard & activite live" },
+            { label: "Cloudflare R2", desc: "Fichiers & assets email" },
           ].map((item) => (
             <div key={item.label} className="p-3 rounded-lg bg-zinc-900/30 border border-zinc-800/30">
               <div className="text-xs font-mono text-orange-400">{item.label}</div>
@@ -149,18 +112,98 @@ pnpm dev`}</CodeBlock>
         </div>
       </div>
 
-      {/* API quick reference */}
+      {/* Quick install */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Demarrage rapide</h2>
+        <CodeBlock title="Terminal">{`git clone https://github.com/James10192/mailpulse.git
+cd mailpulse
+pnpm install
+cp .env.example .env.local
+# Renseignez les variables d'environnement dans .env.local
+npx prisma migrate dev --name init
+pnpm dev`}</CodeBlock>
+      </div>
+
+      {/* Quick links grid */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Guides</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <QuickLink
+            href="/docs/installation"
+            title="Installation"
+            desc="Prerequisites, variables d'environnement, base de donnees et serveur de dev."
+            icon={Code}
+          />
+          <QuickLink
+            href="/docs/first-campaign"
+            title="Premiere campagne"
+            desc="Creez un compte, ajoutez un contact et envoyez votre premier email en 5 minutes."
+            icon={Send}
+          />
+          <QuickLink
+            href="/docs/contacts"
+            title="Contacts & Listes"
+            desc="Import CSV, tags colores, segments dynamiques et scoring d'engagement."
+            icon={Users}
+          />
+          <QuickLink
+            href="/docs/campaigns"
+            title="Campagnes"
+            desc="Editeur TipTap, A/B testing, variables de personnalisation et snippets."
+            icon={Mail}
+          />
+          <QuickLink
+            href="/docs/automations"
+            title="Automations"
+            desc="Workflows multi-etapes avec triggers, conditions et actions automatiques."
+            icon={Zap}
+          />
+          <QuickLink
+            href="/docs/analytics"
+            title="Analytics"
+            desc="Dashboard temps reel via Convex, taux d'ouverture, CTR et flux d'activite."
+            icon={BarChart3}
+          />
+        </div>
+      </div>
+
+      {/* API Reference links */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">API Reference</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <QuickLink
+            href="/docs/api/auth"
+            title="Authentification"
+            desc="Better Auth, OAuth Google/GitHub, sessions cookie, proxy.ts."
+            icon={Settings}
+          />
+          <QuickLink
+            href="/docs/api/endpoints"
+            title="Endpoints"
+            desc="Server Actions pour contacts, campagnes, templates, tags et plus."
+            icon={Code}
+          />
+          <QuickLink
+            href="/docs/api/webhooks"
+            title="Webhooks & Tracking"
+            desc="Resend webhooks, pixel d'ouverture, click redirect et tokens HMAC."
+            icon={Webhook}
+          />
+        </div>
+      </div>
 
+      {/* API quick reference */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Routes API</h2>
         <div className="space-y-2">
           {[
-            { method: "POST", path: "/api/auth/**", desc: "Authentication (Better Auth)" },
-            { method: "GET", path: "/api/track/open", desc: "Open tracking pixel" },
-            { method: "GET", path: "/api/track/click", desc: "Click tracking redirect" },
-            { method: "POST", path: "/api/webhooks/email", desc: "Resend webhook events" },
-            { method: "POST", path: "/api/unsubscribe", desc: "One-click unsubscribe" },
-            { method: "GET", path: "/api/unsubscribe", desc: "Browser unsubscribe" },
+            { method: "POST", path: "/api/auth/[...all]", desc: "Better Auth (login, register, session)" },
+            { method: "GET", path: "/api/track/open?t={token}", desc: "Pixel de tracking (1x1 GIF)" },
+            { method: "GET", path: "/api/track/click?url={url}&t={token}", desc: "Click redirect (302)" },
+            { method: "POST", path: "/api/webhooks/email", desc: "Resend webhook (Svix)" },
+            { method: "POST", path: "/api/upload", desc: "Upload fichier vers R2" },
+            { method: "POST", path: "/api/unsubscribe?t={token}", desc: "One-click unsubscribe (RFC 8058)" },
+            { method: "GET", path: "/api/unsubscribe?t={token}", desc: "Desabonnement navigateur" },
           ].map((endpoint) => (
             <div
               key={endpoint.path + endpoint.method}
@@ -182,52 +225,20 @@ pnpm dev`}</CodeBlock>
         </div>
       </div>
 
-      {/* Tracking system */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Systeme de tracking</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
-          <p>
-            MailPulse utilise un systeme de tracking signe par HMAC pour garantir
-            l&apos;integrite des evenements. Chaque email envoye contient :
-          </p>
-          <ul className="space-y-2 list-none pl-0">
-            {[
-              "Un pixel invisible 1x1 GIF pour le suivi des ouvertures",
-              "Des liens wrapes avec redirect 302 pour le suivi des clics",
-              "Un header List-Unsubscribe (RFC 8058) pour la conformite",
-              "Des tokens HMAC-SHA256 signes pour securiser les callbacks",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2">
-                <span className="text-orange-500 mt-1">&#8226;</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <CodeBlock title="Token structure">{`// Token = base64url(recipientId:campaignId:hmac)
-const token = generateTrackingToken(recipientId, campaignId);
-
-// Tracking URLs
-const openUrl  = \`\${APP_URL}/api/track/open?t=\${token}\`;
-const clickUrl = \`\${APP_URL}/api/track/click?url=\${encodedUrl}&t=\${token}\`;
-const unsubUrl = \`\${APP_URL}/api/unsubscribe?t=\${token}\`;`}</CodeBlock>
-      </div>
-
       {/* Stack */}
       <div>
         <h2 className="text-xl font-bold mb-4 font-mono">Stack technique</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {[
-            { name: "Next.js 16", desc: "Framework" },
-            { name: "Better Auth", desc: "Authentification" },
-            { name: "Prisma 7", desc: "ORM" },
-            { name: "Neon", desc: "PostgreSQL" },
-            { name: "Convex", desc: "Temps reel" },
-            { name: "Resend", desc: "Email API" },
-            { name: "Cloudflare R2", desc: "Stockage" },
-            { name: "Tailwind v4", desc: "CSS" },
-            { name: "PostHog", desc: "Analytics" },
+            { name: "Next.js 16", desc: "App Router + Turbopack" },
+            { name: "Better Auth", desc: "Auth + Organizations" },
+            { name: "Prisma 7", desc: "ORM + driver adapter" },
+            { name: "Neon", desc: "PostgreSQL serverless" },
+            { name: "Convex", desc: "Temps reel (dashboard)" },
+            { name: "Resend", desc: "Email API + webhooks" },
+            { name: "Cloudflare R2", desc: "Stockage S3-compatible" },
+            { name: "Tailwind v4", desc: "CSS + shadcn/ui" },
+            { name: "TipTap", desc: "Editeur email riche" },
           ].map((tech) => (
             <div
               key={tech.name}
