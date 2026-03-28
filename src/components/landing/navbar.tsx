@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Mail, Menu, X, BookOpen } from "lucide-react";
+import { Mail, Menu, X, BookOpen, User } from "lucide-react";
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
@@ -71,7 +71,16 @@ export function Navbar() {
           {/* Separator */}
           <div className="hidden md:block w-px h-5 bg-zinc-800 mx-1" />
 
-          {/* Auth buttons — hidden on mobile */}
+          {/* Connexion icon — mobile only */}
+          <Link
+            href="/login"
+            className="md:hidden p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50 transition-all"
+            title="Connexion"
+          >
+            <User className="h-[18px] w-[18px]" />
+          </Link>
+
+          {/* Auth buttons — desktop only */}
           <Link
             href="/login"
             className="hidden md:block text-sm text-zinc-400 hover:text-zinc-100 transition-colors px-3 py-1.5"
@@ -95,7 +104,7 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile menu — only page links + auth buttons (no Docs/GitHub duplication) */}
       {open && (
         <div className="md:hidden border-t border-zinc-800/50 bg-zinc-950/95 backdrop-blur-xl">
           <div className="px-6 py-4 space-y-1">
@@ -109,24 +118,6 @@ export function Navbar() {
                 {link.label}
               </a>
             ))}
-            <Link
-              href="/docs"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2 py-2.5 text-sm text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              <BookOpen className="h-4 w-4" />
-              Documentation
-            </Link>
-            <a
-              href="https://github.com/James10192/mailpulse"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2 py-2.5 text-sm text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              <GitHubIcon className="h-4 w-4" />
-              GitHub
-            </a>
 
             <div className="pt-3 mt-3 border-t border-zinc-800/50 space-y-2">
               <Link
