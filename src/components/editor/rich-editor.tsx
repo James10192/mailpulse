@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHand
 import { cn } from "@/lib/utils";
 import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
+import { Plugin, PluginKey, NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Link as LinkExt } from "@tiptap/extension-link";
 import { TextAlign } from "@tiptap/extension-text-align";
@@ -233,6 +234,44 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
             width: { default: null, renderHTML: (attrs) => attrs.width ? { width: attrs.width } : {} },
             style: { default: null, renderHTML: (attrs) => attrs.style ? { style: attrs.style } : {} },
           };
+        },
+        // Prevent typing from replacing the image — move cursor after image instead
+        addProseMirrorPlugins() {
+          return [
+            new Plugin({
+              key: new PluginKey("imageProtect"),
+              props: {
+                handleTextInput(view, _from, _to, text) {
+                  const { state } = view;
+                  if (state.selection instanceof NodeSelection && state.selection.node.type.name === "image") {
+                    const pos = state.selection.from + state.selection.node.nodeSize;
+                    let tr = state.tr.insert(pos, state.schema.nodes.paragraph.create(null, state.schema.text(text)));
+                    // Resolve position in the new document after insert
+                    const resolvedPos = tr.doc.resolve(pos + 1 + text.length);
+                    tr = tr.setSelection(TextSelection.create(tr.doc, resolvedPos.pos));
+                    view.dispatch(tr);
+                    return true;
+                  }
+                  return false;
+                },
+                handleKeyDown(view, event) {
+                  const { state } = view;
+                  if (state.selection instanceof NodeSelection && state.selection.node.type.name === "image") {
+                    // On Delete/Backspace with image selected, allow default behavior (delete image)
+                    if (event.key === "Delete" || event.key === "Backspace") return false;
+                    // On Enter, create paragraph after image and move cursor there
+                    if (event.key === "Enter") {
+                      const pos = state.selection.from + state.selection.node.nodeSize;
+                      const tr = state.tr.insert(pos, state.schema.nodes.paragraph.create());
+                      view.dispatch(tr);
+                      return true;
+                    }
+                  }
+                  return false;
+                },
+              },
+            }),
+          ];
         },
       }).configure({
         inline: false,
