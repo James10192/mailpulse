@@ -4,6 +4,7 @@ import { DomainsClient } from "./domains-client";
 async function getDomains() {
   const domains = await prisma.sendingDomain.findMany({
     orderBy: { createdAt: "desc" },
+    take: 100,
   });
   // Serialize Date to string for client component
   return domains.map((d) => ({

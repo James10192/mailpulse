@@ -2,13 +2,14 @@
 
 import { useActionState, useState, useEffect } from "react";
 import { Plus, Tag, Trash2, X } from "lucide-react";
-import { createTag, deleteTag, type TagActionState } from "./actions";
+import { createTag, deleteTag } from "./actions";
+import type { ActionState } from "@/types/action-state";
 
 type TagData = { name: string; count: number };
 
 export function TagsClient({ tags }: { tags: TagData[] }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction, pending] = useActionState<TagActionState, FormData>(
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(
     createTag,
     null
   );
@@ -146,8 +147,12 @@ function TagRow({ tag }: { tag: TagData }) {
 
   async function handleDelete() {
     setDeleting(true);
-    await deleteTag(tag.name);
-    setDeleting(false);
+    try {
+      const result = await deleteTag(tag.name);
+      if (result?.error) alert(result.error);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (

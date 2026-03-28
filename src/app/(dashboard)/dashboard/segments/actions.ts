@@ -4,8 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { z } from "zod";
-
-export type SegmentActionState = { success?: boolean; error?: string } | null;
+import type { ActionState } from "@/types/action-state";
 
 const segmentSchema = z.object({
   name: z.string().min(1),
@@ -13,9 +12,9 @@ const segmentSchema = z.object({
 });
 
 export async function createSegment(
-  _prev: SegmentActionState,
+  _prev: ActionState,
   formData: FormData
-): Promise<SegmentActionState> {
+): Promise<ActionState> {
   const result = segmentSchema.safeParse({
     name: formData.get("name"),
     description: formData.get("description"),
@@ -25,23 +24,25 @@ export async function createSegment(
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifie." };
 
-  await prisma.contactList.create({
-    data: {
-      name: result.data.name,
-      description: result.data.description || null,
-      type: "dynamic",
-      userId: user.id,
-      organizationId: org.id,
-    },
-  });
+  try {
+    await prisma.contactList.create({
+      data: {
+        name: result.data.name,
+        description: result.data.description || null,
+        type: "dynamic",
+        userId: user.id,
+        organizationId: org.id,
+      },
+    });
 
-  revalidatePath("/dashboard/segments");
-  return { success: true };
+    revalidatePath("/dashboard/segments");
+    return { success: true };
+  } catch {
+    return { error: "Erreur lors de la creation du segment." };
+  }
 }
 
-export async function deleteSegment(
-  id: string
-): Promise<SegmentActionState> {
+export async function deleteSegment(id: string): Promise<ActionState> {
   try {
     await prisma.contactList.delete({ where: { id } });
     revalidatePath("/dashboard/segments");

@@ -24,8 +24,7 @@ async function getContacts() {
 }
 
 export default async function ContactsPage() {
-  const stats = await getContactStats();
-  const contacts = await getContacts();
+  const [stats, contacts] = await Promise.all([getContactStats(), getContacts()]);
 
   return <ContactsClient stats={stats} contacts={contacts} />;
 }
