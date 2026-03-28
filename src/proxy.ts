@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicPaths = ["/", "/login", "/register", "/api/auth", "/api/webhooks", "/api/track", "/api/unsubscribe"];
+const publicPaths = [
+  "/",
+  "/login",
+  "/register",
+  "/docs",
+  "/api/auth",
+  "/api/webhooks",
+  "/api/track",
+  "/api/unsubscribe",
+];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -14,7 +23,9 @@ export function proxy(request: NextRequest) {
   // Check for auth session cookie
   const sessionCookie = request.cookies.get("better-auth.session_token");
   if (!sessionCookie) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();

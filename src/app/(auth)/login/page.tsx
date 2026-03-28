@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
 
@@ -27,6 +27,8 @@ function GitHubIcon() {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -39,7 +41,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signIn.email({ email, password });
-      router.push("/dashboard");
+      router.push(callbackUrl);
     } catch {
       setError("Email ou mot de passe incorrect.");
     } finally {
@@ -49,7 +51,7 @@ export default function LoginPage() {
 
   async function handleGoogle() {
     try {
-      await signIn.social({ provider: "google", callbackURL: "/dashboard" });
+      await signIn.social({ provider: "google", callbackURL: callbackUrl });
     } catch {
       setError("Erreur avec Google. Reessayez.");
     }
@@ -57,7 +59,7 @@ export default function LoginPage() {
 
   async function handleGitHub() {
     try {
-      await signIn.social({ provider: "github", callbackURL: "/dashboard" });
+      await signIn.social({ provider: "github", callbackURL: callbackUrl });
     } catch {
       setError("Erreur avec GitHub. Reessayez.");
     }
