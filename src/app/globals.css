@@ -54,3 +54,57 @@ img, video, canvas, audio, iframe, embed, object {
   stroke: #f97316 !important;
   stroke-width: 3 !important;
 }
+
+/* ─── TipTap Table Styles ─── */
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0.5rem 0;
+  overflow: hidden;
+}
+.ProseMirror th,
+.ProseMirror td {
+  min-width: 1em;
+  border: 1px solid #d4d4d8;
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+.dark .ProseMirror th,
+.dark .ProseMirror td {
+  border-color: #3f3f46;
+}
+.ProseMirror th {
+  font-weight: 600;
+  text-align: left;
+  background-color: #f4f4f5;
+}
+.dark .ProseMirror th {
+  background-color: #27272a;
+}
+.ProseMirror .selectedCell {
+  background-color: rgba(249, 115, 22, 0.1);
+}
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background-color: #f97316;
+  pointer-events: none;
+}
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
+/* TipTap placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #a1a1aa;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
