@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--fg);
@@ -23,7 +25,6 @@ body {
   color: var(--fg);
 }
 
-/* Force code blocks and pre to be scrollable on mobile */
 pre {
   overflow-x: auto;
   max-width: 100%;
