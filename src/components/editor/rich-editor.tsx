@@ -223,15 +223,6 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
 
   return (
     <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-      {/* Hidden file input for image upload */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleImageUpload}
-      />
-
       {/* Toolbar */}
       <div className="flex items-center gap-0.5 p-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 rounded-t-xl flex-wrap">
         {/* Heading dropdown */}
@@ -307,9 +298,19 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
         <ToolbarButton onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Ligne horizontale">
           <Minus className="w-4 h-4" />
         </ToolbarButton>
-        <ToolbarButton onClick={() => fileInputRef.current?.click()} title="Inserer une image">
+        <label
+          title="Inserer une image"
+          className="p-2 rounded-lg transition-colors cursor-pointer text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 inline-flex"
+        >
           <ImagePlus className="w-4 h-4" />
-        </ToolbarButton>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageUpload}
+          />
+        </label>
 
         <Separator />
 
@@ -356,7 +357,7 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
         </div>
 
         {/* Insert snippet dropdown */}
-        {snippets && snippets.length > 0 && (
+        {snippets && (
           <div className="relative" ref={snippetsRef}>
             <button
               type="button"
@@ -374,6 +375,9 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
               <ChevronDown className="w-3 h-3" />
             </button>
             <Dropdown open={snippetsOpen} onClose={() => setSnippetsOpen(false)} dropdownRef={snippetsRef}>
+              {snippets.length === 0 ? (
+                <div className="px-3 py-3 text-xs text-zinc-500 text-center">Aucun autre snippet disponible</div>
+              ) : null}
               {snippets.map((s) => (
                 <button
                   key={s.id}
