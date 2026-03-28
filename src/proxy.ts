@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicPaths = [
-  "/",
+/**
+ * Paths that do not require authentication.
+ * "/" is the marketing landing page — matched exactly (not with startsWith).
+ * All others are prefix-matched.
+ */
+const publicPrefixes = [
   "/login",
   "/register",
   "/docs",
@@ -13,16 +17,31 @@ const publicPaths = [
   "/api/upload",
 ];
 
+function isPublicPath(pathname: string): boolean {
+  // Exact match for landing page
+  if (pathname === "/") return true;
+
+  // Prefix match for other public routes
+  return publicPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
+  );
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths
-  if (publicPaths.some((path) => pathname.startsWith(path))) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
-  // Check for auth session cookie
-  const sessionCookie = request.cookies.get("better-auth.session_token");
+  // Check for auth session cookie.
+  // Better Auth uses "__Secure-" prefix on HTTPS (production),
+  // and plain name on HTTP (local dev).
+  const sessionCookie =
+    request.cookies.get("__Secure-better-auth.session_token") ??
+    request.cookies.get("better-auth.session_token");
+
   if (!sessionCookie?.value) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
