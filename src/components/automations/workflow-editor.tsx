@@ -3,6 +3,7 @@
 import { useCallback, useState, useRef, createContext } from "react";
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
@@ -14,7 +15,6 @@ import {
   type Edge,
   BackgroundVariant,
   MarkerType,
-  ConnectionMode,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Plus, Power, PowerOff } from "lucide-react";
@@ -61,7 +61,15 @@ interface WorkflowEditorProps {
   initialEdges: Edge[];
 }
 
-export function WorkflowEditor({
+export function WorkflowEditor(props: WorkflowEditorProps) {
+  return (
+    <ReactFlowProvider>
+      <WorkflowEditorInner {...props} />
+    </ReactFlowProvider>
+  );
+}
+
+function WorkflowEditorInner({
   automationId,
   automationName,
   automationStatus,
@@ -278,7 +286,6 @@ export function WorkflowEditor({
           onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
           nodeTypes={nodeTypes}
-          connectionMode={ConnectionMode.Loose}
           fitView
           fitViewOptions={{ padding: 0.3 }}
           defaultEdgeOptions={{
