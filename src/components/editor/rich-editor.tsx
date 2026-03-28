@@ -226,10 +226,18 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
       LinkExt.configure({ openOnClick: false, HTMLAttributes: { class: "text-orange-600 underline cursor-pointer" } }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Underline,
-      ImageExt.configure({
+      ImageExt.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            width: { default: null, renderHTML: (attrs) => attrs.width ? { width: attrs.width } : {} },
+            style: { default: null, renderHTML: (attrs) => attrs.style ? { style: attrs.style } : {} },
+          };
+        },
+      }).configure({
         inline: false,
         allowBase64: false,
-        HTMLAttributes: { class: "rounded-lg max-w-full h-auto my-2 block" },
+        HTMLAttributes: { class: "rounded-lg max-w-full h-auto my-4 block mx-auto" },
       }),
       Mention.configure({
         HTMLAttributes: { class: "bg-orange-500/10 text-orange-600 px-1 rounded font-mono text-sm" },
@@ -282,22 +290,14 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
       if (!res.ok) { alert("Erreur upload"); return; }
       const data = await res.json();
       if (data.url) {
-        editor.chain().focus().setImage({ src: data.url, alt: file.name }).run();
-        // Fix: place cursor AFTER the image node to avoid overwrite-on-type
-        requestAnimationFrame(() => {
-          if (!editor) return;
-          const { doc } = editor.state;
-          let imagePos = -1;
-          doc.descendants((node, pos) => {
-            if (node.type.name === "image" && node.attrs.src === data.url) {
-              imagePos = pos;
-            }
-          });
-          if (imagePos >= 0) {
-            const after = imagePos + 1;
-            editor.chain().focus().setTextSelection(after).insertContent({ type: "paragraph" }).run();
-          }
-        });
+        // Insert image as a new block after current position (never replaces selection)
+        const endPos = editor.state.selection.$to.pos;
+        editor.chain().focus()
+          .insertContentAt(endPos, [
+            { type: "image", attrs: { src: data.url, alt: file.name } },
+            { type: "paragraph" },
+          ])
+          .run();
       } else alert(data.error || "Erreur upload");
     } catch { alert("Erreur upload"); }
     if (fileRef.current) fileRef.current.value = "";
@@ -588,34 +588,45 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
       {/* ─── Image Bubble Menu ─── */}
       <BubbleMenu editor={editor}
         shouldShow={({ editor: ed }) => ed.isActive("image")}
+        options={{ placement: "bottom", offset: 8 }}
       >
-        <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xl">
-          {/* Alignment */}
-          {(["left", "center", "right"] as const).map((align) => (
-            <button key={align} type="button" title={`Aligner ${align === "left" ? "a gauche" : align === "center" ? "au centre" : "a droite"}`}
-              onClick={() => editor.chain().focus().setTextAlign(align).run()}
-              className={cn("p-1 rounded cursor-pointer transition-colors",
-                editor.isActive({ textAlign: align }) ? "bg-orange-500/20 text-orange-500" : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              )}>
-              {align === "left" ? <AlignLeft className="w-3.5 h-3.5" /> : align === "center" ? <AlignCenter className="w-3.5 h-3.5" /> : <AlignRight className="w-3.5 h-3.5" />}
-            </button>
-          ))}
-          <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
+        <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-zinc-700 bg-zinc-900 shadow-2xl">
           {/* Width presets */}
           {[25, 50, 75, 100].map((w) => (
-            <button key={w} type="button" title={`${w}%`}
+            <button key={w} type="button" title={`Largeur ${w}%`}
               onClick={() => {
-                editor.chain().focus().updateAttributes("image", { style: `width: ${w}%` }).run();
+                const { state, dispatch } = editor.view;
+                const { from } = state.selection;
+                const node = state.doc.nodeAt(from);
+                if (node?.type.name === "image") {
+                  dispatch(state.tr.setNodeMarkup(from, undefined, { ...node.attrs, width: `${w}%` }));
+                }
               }}
-              className="px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+              className="px-2 py-1 rounded text-xs font-mono cursor-pointer text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
               {w}%
             </button>
           ))}
-          <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
+          <div className="w-px h-4 bg-zinc-700 mx-1" />
+          {/* Alignment */}
+          {(["left", "center", "right"] as const).map((align) => (
+            <button key={align} type="button" title={`Aligner ${align === "left" ? "a gauche" : align === "center" ? "au centre" : "a droite"}`}
+              onClick={() => {
+                const { state, dispatch } = editor.view;
+                const { from } = state.selection;
+                const node = state.doc.nodeAt(from);
+                if (node?.type.name === "image") {
+                  dispatch(state.tr.setNodeMarkup(from, undefined, { ...node.attrs, style: `display:block;margin:${align === "center" ? "0 auto" : align === "right" ? "0 0 0 auto" : "0 auto 0 0"}` }));
+                }
+              }}
+              className={cn("p-1 rounded cursor-pointer transition-colors text-zinc-400 hover:text-white hover:bg-zinc-700")}>
+              {align === "left" ? <AlignLeft className="w-3.5 h-3.5" /> : align === "center" ? <AlignCenter className="w-3.5 h-3.5" /> : <AlignRight className="w-3.5 h-3.5" />}
+            </button>
+          ))}
+          <div className="w-px h-4 bg-zinc-700 mx-1" />
           {/* Delete */}
           <button type="button" title="Supprimer l'image"
             onClick={() => editor.chain().focus().deleteSelection().run()}
-            className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer text-red-500">
+            className="p-1 rounded hover:bg-red-500/20 cursor-pointer text-red-400 hover:text-red-300">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
