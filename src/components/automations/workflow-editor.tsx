@@ -89,6 +89,7 @@ function WorkflowEditorInner({
   // Manual edge push — avoids addEdge() duplicate rejection
   const onConnect = useCallback(
     (connection: Connection) => {
+      console.log("[RF] onConnect:", connection.source, "→", connection.target);
       if (!connection.source || !connection.target) return;
       setEdges((eds) => [
         ...eds,

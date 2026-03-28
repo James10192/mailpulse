@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useContext } from "react";
-import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
+import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Mail, Tag, Clock, GitBranch, Globe, Zap, Plus } from "lucide-react";
 import { getNodeColor, type WorkflowNodeData, type WorkflowNodeType } from "./workflow-types";
 import { WorkflowContext } from "./workflow-editor";
@@ -50,6 +50,25 @@ function getSubtitle(data: WorkflowNodeData) {
   }
 }
 
+const handleStyle = {
+  width: 12,
+  height: 12,
+  background: "#52525b",
+  border: "2px solid #71717a",
+};
+
+const handleStyleGreen = {
+  ...handleStyle,
+  background: "#10b981",
+  border: "2px solid #34d399",
+};
+
+const handleStyleRed = {
+  ...handleStyle,
+  background: "#ef4444",
+  border: "2px solid #f87171",
+};
+
 function WorkflowNodeComponent({ data, selected, id }: NodeProps) {
   const nodeData = data as unknown as WorkflowNodeData;
   const { onAddFromNode } = useContext(WorkflowContext);
@@ -71,8 +90,7 @@ function WorkflowNodeComponent({ data, selected, id }: NodeProps) {
         <Handle
           type="target"
           position={Position.Top}
-          isConnectable={true}
-          className="!w-3 !h-3 !bg-zinc-600 !border-2 !border-zinc-500 hover:!bg-orange-500 hover:!shadow-[0_0_8px_rgba(249,115,22,0.5)] !pointer-events-auto transition-all !cursor-crosshair"
+          style={handleStyle}
         />
       )}
 
@@ -97,17 +115,13 @@ function WorkflowNodeComponent({ data, selected, id }: NodeProps) {
             type="source"
             position={Position.Bottom}
             id="yes"
-            isConnectable={true}
-            className="!w-3 !h-3 !bg-emerald-500 !border-2 !border-emerald-400 hover:!bg-emerald-400 hover:!shadow-[0_0_8px_rgba(52,211,153,0.5)] !pointer-events-auto transition-all !cursor-crosshair"
-            style={{ left: "35%" }}
+            style={{ ...handleStyleGreen, left: "35%" }}
           />
           <Handle
             type="source"
             position={Position.Bottom}
             id="no"
-            isConnectable={true}
-            className="!w-3 !h-3 !bg-red-500 !border-2 !border-red-400 hover:!bg-red-400 hover:!shadow-[0_0_8px_rgba(239,68,68,0.5)] !pointer-events-auto transition-all !cursor-crosshair"
-            style={{ left: "65%" }}
+            style={{ ...handleStyleRed, left: "65%" }}
           />
           <div className="flex justify-between px-6 mt-1">
             <span className="text-[9px] text-emerald-500 font-mono">OUI</span>
@@ -118,25 +132,22 @@ function WorkflowNodeComponent({ data, selected, id }: NodeProps) {
         <Handle
           type="source"
           position={Position.Bottom}
-          isConnectable={true}
-          className="!w-3 !h-3 !bg-zinc-600 !border-2 !border-zinc-500 hover:!bg-orange-500 hover:!shadow-[0_0_8px_rgba(249,115,22,0.5)] !pointer-events-auto transition-all !cursor-crosshair"
+          style={handleStyle}
         />
       )}
 
-      {/* Per-node "+" button — appears on hover below the source handle */}
-      {onAddFromNode && (
-        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddFromNode(id);
-            }}
-            className="w-6 h-6 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 transition-all cursor-pointer hover:scale-110"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        </div>
-      )}
+      {/* Per-node "+" button */}
+      <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddFromNode(id);
+          }}
+          className="w-6 h-6 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 transition-all cursor-pointer hover:scale-110"
+        >
+          <Plus className="h-3 w-3" />
+        </button>
+      </div>
     </div>
   );
 }
