@@ -3,7 +3,8 @@
 import { useActionState, useState, useEffect } from "react";
 import { Plus, Globe, CheckCircle, Clock, Trash2, X } from "lucide-react";
 import { createDomain, deleteDomain } from "./actions";
-import { FeatureGate, UpgradeBanner } from "@/components/dashboard/feature-gate";
+import Link from "next/link";
+import { UpgradeBanner } from "@/components/dashboard/feature-gate";
 import type { ActionState } from "@/types/action-state";
 
 type DomainData = {
@@ -62,7 +63,7 @@ export function DomainsClient({
             Configurez et verifiez vos domaines d&apos;envoi
           </p>
         </div>
-        <FeatureGate allowed={canUseDomains} featureName="Domaines personnalises">
+        {canUseDomains ? (
           <button
             onClick={() => setOpen(true)}
             className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
@@ -70,7 +71,14 @@ export function DomainsClient({
             <Plus className="h-4 w-4" />
             Ajouter un domaine
           </button>
-        </FeatureGate>
+        ) : (
+          <Link
+            href="/dashboard/settings/billing"
+            className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
+          >
+            Passer au Pro
+          </Link>
+        )}
       </div>
 
       {domains.length > 0 ? (
