@@ -509,13 +509,13 @@ export default function LandingPage() {
               <div className="group relative p-6 rounded-2xl border border-zinc-800/50 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300 h-full">
                 <div className="flex items-start gap-5">
                   <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-orange-500/10 border border-orange-500/10 text-orange-500 font-mono font-bold text-lg">
-                    JD
+                    MD
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-lg">James Djedjeli Patrick</h3>
+                    <h3 className="font-semibold text-lg">Marcel DJEDJELI-Patrick</h3>
                     <p className="text-sm text-orange-400 font-mono mt-0.5">Fondateur & Full-Stack Developer</p>
                     <p className="text-sm text-zinc-400 mt-3 leading-relaxed">
-                      Lead developer et createur de MailPulse. Architecte full-stack, passione par les outils d&apos;email marketing modernes.
+                      Fondateur et architecte de MailPulse. Full-stack developer base a Abidjan, passione par les solutions tech pour l&apos;Afrique francophone.
                     </p>
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       {["Next.js", "Prisma", "Convex", "Python", "TypeScript"].map((tech) => (
@@ -538,7 +538,7 @@ export default function LandingPage() {
                         GitHub
                       </a>
                       <a
-                        href="https://linkedin.com/in/james-djedjeli"
+                        href="https://linkedin.com/in/marcel-djedjeli"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
@@ -577,7 +577,7 @@ export default function LandingPage() {
                     </div>
                     <div className="flex items-center gap-3 mt-4">
                       <a
-                        href="https://github.com/rubenvirgil"
+                        href="https://github.com/yab21"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
