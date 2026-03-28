@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Loader2, Check, Cloud, CloudOff } from "lucide-react";
 import { updateSnippet } from "../../actions";
 import { RichEditor } from "@/components/editor/rich-editor";
@@ -24,6 +25,7 @@ type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData; snippets?: SnippetOption[] }) {
   const [name, setName] = useState(snippet.name);
   const [description, setDescription] = useState(snippet.description ?? "");
+  const router = useRouter();
   const [htmlContent, setHtmlContent] = useState(snippet.htmlContent);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -99,9 +101,7 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
     if (result?.error) {
       setError(result.error);
     } else {
-      setSaved(true);
-      setAutoStatus("saved");
-      setTimeout(() => { setSaved(false); setAutoStatus("idle"); }, 2000);
+      router.push("/dashboard/snippets");
     }
   }
 
@@ -151,17 +151,12 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
           {saving ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Sauvegarde...
-            </>
-          ) : saved ? (
-            <>
-              <Check className="h-4 w-4" />
-              Sauvegarde
+              Enregistrement...
             </>
           ) : (
             <>
               <Save className="h-4 w-4" />
-              Sauvegarder
+              Enregistrer et quitter
             </>
           )}
         </button>

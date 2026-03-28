@@ -27,7 +27,7 @@ function wrapHtmlForPreview(html: string): string {
     font-size: 13px;
     line-height: 1.5;
     color: #d4d4d8;
-    background: transparent;
+    background: #09090b;
     padding: 12px;
     overflow: hidden;
   }
@@ -78,7 +78,7 @@ function SnippetCard({
       <button
         type="button"
         onClick={() => onPreview(snippet)}
-        className="relative h-36 bg-zinc-50 dark:bg-zinc-800/30 overflow-hidden cursor-pointer text-left w-full"
+        className="relative h-36 bg-zinc-950 overflow-hidden cursor-pointer text-left w-full"
       >
         {hasContent ? (
           <iframe
@@ -200,7 +200,7 @@ function PreviewModal({
             srcDoc={wrapHtmlForPreview(snippet.htmlContent)}
             sandbox="allow-same-origin"
             title={`Apercu complet de ${snippet.name}`}
-            className="w-full h-full min-h-[300px] border-0 rounded-lg bg-zinc-50 dark:bg-zinc-800/30"
+            className="w-full h-full min-h-[300px] border-0 rounded-lg bg-zinc-950"
           />
         </div>
 
