@@ -9,10 +9,10 @@ import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import ImageExt from "@tiptap/extension-image";
 import Mention from "@tiptap/extension-mention";
-import Color from "@tiptap/extension-color";
-import TextStyle from "@tiptap/extension-text-style";
-import Highlight from "@tiptap/extension-highlight";
-import Placeholder from "@tiptap/extension-placeholder";
+import { Color } from "@tiptap/extension-color";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Highlight } from "@tiptap/extension-highlight";
+import { Placeholder } from "@tiptap/extension-placeholder";
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
   Link as LinkIcon, RemoveFormatting, AlignLeft, AlignCenter, AlignRight,
