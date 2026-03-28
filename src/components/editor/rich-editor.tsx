@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExt from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import Image from "@tiptap/extension-image";
+import Mention from "@tiptap/extension-mention";
 import {
   Bold,
   Italic,
@@ -119,6 +120,120 @@ function Dropdown({
   );
 }
 
+// @ Mention suggestion list component
+interface MentionListProps {
+  items: { name: string; label: string }[];
+  command: (item: { id: string; label: string }) => void;
+}
+
+interface MentionListRef {
+  onKeyDown: (props: { event: KeyboardEvent }) => boolean;
+}
+
+const MentionList = forwardRef<MentionListRef, MentionListProps>(
+  ({ items, command }, ref) => {
+    const [selectedIndex, setSelectedIndex] = useState(0);
+
+    useEffect(() => setSelectedIndex(0), [items]);
+
+    useImperativeHandle(ref, () => ({
+      onKeyDown: ({ event }) => {
+        if (event.key === "ArrowUp") {
+          setSelectedIndex((i) => (i + items.length - 1) % items.length);
+          return true;
+        }
+        if (event.key === "ArrowDown") {
+          setSelectedIndex((i) => (i + 1) % items.length);
+          return true;
+        }
+        if (event.key === "Enter") {
+          const item = items[selectedIndex];
+          if (item) command({ id: item.name, label: item.label });
+          return true;
+        }
+        return false;
+      },
+    }));
+
+    return (
+      <div className="z-50 w-56 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xl py-1 max-h-48 overflow-y-auto">
+        {items.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-zinc-500">Aucune variable</div>
+        ) : (
+          items.map((item, index) => (
+            <button
+              key={item.name}
+              type="button"
+              onClick={() => command({ id: item.name, label: item.label })}
+              className={cn(
+                "w-full text-left px-3 py-1.5 text-sm cursor-pointer flex items-center justify-between gap-2",
+                index === selectedIndex
+                  ? "bg-orange-500/10 text-orange-600"
+                  : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
+              )}
+            >
+              <span>{item.label}</span>
+              <code className="text-[10px] text-orange-500 font-mono">{`{{ ${item.name} }}`}</code>
+            </button>
+          ))
+        )}
+      </div>
+    );
+  }
+);
+MentionList.displayName = "MentionList";
+
+const mentionSuggestion = {
+  char: "@",
+  items: ({ query }: { query: string }) =>
+    VARIABLES.filter((v) =>
+      v.label.toLowerCase().includes(query.toLowerCase()) ||
+      v.name.toLowerCase().includes(query.toLowerCase())
+    ),
+  render: () => {
+    let component: ReactRenderer<MentionListRef>;
+    let container: HTMLDivElement;
+
+    return {
+      onStart: (props: { editor: any; clientRect: () => DOMRect | null }) => {
+        container = document.createElement("div");
+        container.style.position = "absolute";
+        container.style.zIndex = "9999";
+        document.body.appendChild(container);
+
+        component = new ReactRenderer(MentionList, {
+          props: { items: props.items, command: props.command },
+          editor: props.editor,
+        });
+
+        container.appendChild(component.element);
+
+        const rect = props.clientRect?.();
+        if (rect) {
+          container.style.left = `${rect.left}px`;
+          container.style.top = `${rect.bottom + 4}px`;
+        }
+      },
+      onUpdate: (props: { items: any; command: any; clientRect: () => DOMRect | null }) => {
+        component?.updateProps({ items: props.items, command: props.command });
+        const rect = props.clientRect?.();
+        if (rect && container) {
+          container.style.left = `${rect.left}px`;
+          container.style.top = `${rect.bottom + 4}px`;
+        }
+      },
+      onKeyDown: (props: { event: KeyboardEvent }) => {
+        if (props.event.key === "Escape") return true;
+        return component?.ref?.onKeyDown(props) ?? false;
+      },
+      onExit: () => {
+        component?.destroy();
+        container?.remove();
+      },
+    };
+  },
+};
+
 export function RichEditor({ content, onChange, placeholder, snippets }: RichEditorProps) {
   const [variablesOpen, setVariablesOpen] = useState(false);
   const [snippetsOpen, setSnippetsOpen] = useState(false);
@@ -150,6 +265,15 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
       Underline,
       Image.configure({
         HTMLAttributes: { class: "rounded-lg max-w-full h-auto my-2" },
+      }),
+      Mention.configure({
+        HTMLAttributes: {
+          class: "bg-orange-500/10 text-orange-600 px-1 rounded font-mono text-sm",
+        },
+        renderText({ node }) {
+          return `{{ ${node.attrs.id} }}`;
+        },
+        suggestion: mentionSuggestion,
       }),
     ],
     content,
