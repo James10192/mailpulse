@@ -49,7 +49,7 @@ export default function LoginPage() {
 
   async function handleGoogle() {
     try {
-      await signIn.social({ provider: "google" });
+      await signIn.social({ provider: "google", callbackURL: "/dashboard" });
     } catch {
       setError("Erreur avec Google. Reessayez.");
     }
@@ -57,7 +57,7 @@ export default function LoginPage() {
 
   async function handleGitHub() {
     try {
-      await signIn.social({ provider: "github" });
+      await signIn.social({ provider: "github", callbackURL: "/dashboard" });
     } catch {
       setError("Erreur avec GitHub. Reessayez.");
     }

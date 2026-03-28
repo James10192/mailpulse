@@ -125,7 +125,7 @@ export default function RegisterPage() {
   async function handleGoogle() {
     setGoogleLoading(true);
     try {
-      await signIn.social({ provider: "google" });
+      await signIn.social({ provider: "google", callbackURL: "/dashboard" });
     } catch {
       setError("Erreur avec Google. Reessayez.");
       setGoogleLoading(false);
@@ -134,7 +134,7 @@ export default function RegisterPage() {
 
   async function handleGitHub() {
     try {
-      await signIn.social({ provider: "github" });
+      await signIn.social({ provider: "github", callbackURL: "/dashboard" });
     } catch {
       setError("Erreur avec GitHub. Reessayez.");
     }
