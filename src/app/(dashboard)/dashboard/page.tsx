@@ -11,6 +11,7 @@ import {
   Search,
   Filter,
 } from "lucide-react";
+import { DateRangeButton } from "@/components/dashboard/date-range-button";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getEmailEventStats } from "@/lib/queries/email-stats";
@@ -86,11 +87,24 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Dashboard</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Vue d&apos;ensemble de vos campagnes email
-          </p>
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-sm">
+            <Link
+              href="/dashboard/transactional"
+              className="text-zinc-400 hover:text-orange-500 transition-colors cursor-pointer"
+            >
+              Transactional
+            </Link>
+            <span className="text-zinc-600 dark:text-zinc-500">&middot;</span>
+            <Link
+              href="/dashboard/unsubscribes"
+              className="text-zinc-400 hover:text-orange-500 transition-colors cursor-pointer"
+            >
+              Unsubscribes
+            </Link>
+          </div>
+          <DateRangeButton />
         </div>
       </div>
 

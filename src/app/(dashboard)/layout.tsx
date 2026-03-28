@@ -26,6 +26,8 @@ import {
   Calendar,
   Code,
   Search,
+  SendHorizonal,
+  UserMinus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut, useSession } from "@/lib/auth-client";
@@ -65,6 +67,15 @@ const navigation: NavItem[] = [
       { name: "Tags", href: "/dashboard/tags", icon: Tag },
       { name: "Champs", href: "/dashboard/fields", icon: FormInput },
       { name: "Segments", href: "/dashboard/segments", icon: Filter },
+    ],
+  },
+  {
+    name: "Emails",
+    href: "/dashboard/transactional",
+    icon: Mail,
+    children: [
+      { name: "Transactional", href: "/dashboard/transactional", icon: SendHorizonal },
+      { name: "Unsubscribes", href: "/dashboard/unsubscribes", icon: UserMinus },
     ],
   },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
