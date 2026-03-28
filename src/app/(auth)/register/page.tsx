@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { signUp, signIn } from "@/lib/auth-client";
 import { usePostHog } from "posthog-js/react";
-import { EVENTS } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 const features = [
   { icon: Zap, text: "Campagnes illimitees" },

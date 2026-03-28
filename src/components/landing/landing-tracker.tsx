@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePostHog } from "posthog-js/react";
-import { EVENTS } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 export function LandingCTATracker({
   children,

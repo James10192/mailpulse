@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { usePostHog } from "posthog-js/react";
-import { EVENTS } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 // ---------------------------------------------------------------------------
 // Types

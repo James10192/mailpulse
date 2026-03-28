@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
 import { usePostHog } from "posthog-js/react";
-import { EVENTS } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 function GoogleIcon() {
   return (
