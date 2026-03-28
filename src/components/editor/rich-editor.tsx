@@ -264,7 +264,9 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
       }),
       Underline,
       Image.configure({
-        HTMLAttributes: { class: "rounded-lg max-w-full h-auto my-2" },
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: { class: "rounded-lg max-w-full h-auto my-2 block" },
       }),
       Mention.configure({
         HTMLAttributes: {
