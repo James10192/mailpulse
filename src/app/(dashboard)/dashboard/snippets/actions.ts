@@ -7,6 +7,7 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { checkSnippetLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
+import { trackServerEvent, EVENTS } from "@/lib/analytics";
 
 const snippetSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -46,6 +47,7 @@ export async function createSnippetAndRedirect(
       },
     });
     snippetId = snippet.id;
+    trackServerEvent(user.id, EVENTS.SNIPPET_CREATED, { snippet_name: result.data.name }, org.id);
   } catch {
     return { error: "Erreur lors de la creation." };
   }
@@ -72,6 +74,7 @@ export async function updateSnippet(
         ...(result.data.htmlContent !== undefined && { htmlContent: result.data.htmlContent }),
       },
     });
+    trackServerEvent(user.id, EVENTS.SNIPPET_UPDATED, { snippet_id: id }, org.id);
     revalidatePath("/dashboard/snippets");
     revalidatePath(`/dashboard/snippets/${id}/edit`);
     return { success: true };
@@ -86,6 +89,7 @@ export async function deleteSnippet(id: string): Promise<ActionState> {
 
   try {
     await prisma.emailTemplate.delete({ where: { id, organizationId: org.id } });
+    trackServerEvent(user.id, EVENTS.SNIPPET_DELETED, { snippet_id: id }, org.id);
     revalidatePath("/dashboard/snippets");
     return { success: true };
   } catch {

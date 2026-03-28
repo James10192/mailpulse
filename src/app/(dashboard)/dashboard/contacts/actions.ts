@@ -8,6 +8,7 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { checkContactLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
+import { trackServerEvent, EVENTS } from "@/lib/analytics";
 
 const createContactSchema = z.object({
   email: z.string().email("Email invalide"),
@@ -71,6 +72,8 @@ export async function createContact(
       }
     }
 
+    trackServerEvent(user.id, EVENTS.CONTACT_CREATED, { email: data.email }, org.id);
+
     // Sync to Convex activity feed
     convexServer.mutation(api.dashboard.logActivity, {
       organizationId: org.id,
@@ -102,6 +105,7 @@ export async function deleteContact(contactId: string): Promise<ActionState> {
     await prisma.contact.delete({ where: { id: contactId } });
 
     if (contact) {
+      trackServerEvent(contact.userId, EVENTS.CONTACT_DELETED, { email: contact.email }, contact.organizationId);
       convexServer.mutation(api.dashboard.logActivity, {
         organizationId: contact.organizationId,
         userId: contact.userId,

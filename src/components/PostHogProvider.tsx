@@ -3,7 +3,8 @@
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider, usePostHog } from "posthog-js/react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, Suspense } from "react";
+import { useEffect, useRef, Suspense } from "react";
+import { useSession, useActiveOrganization } from "@/lib/auth-client";
 
 function PostHogPageView() {
   const pathname = usePathname();
@@ -18,6 +19,44 @@ function PostHogPageView() {
       ph.capture("$pageview", { $current_url: url });
     }
   }, [pathname, searchParams, ph]);
+
+  return null;
+}
+
+function PostHogIdentify() {
+  const ph = usePostHog();
+  const { data: session } = useSession();
+  const { data: activeOrg } = useActiveOrganization();
+  const identifiedRef = useRef<string | null>(null);
+  const groupRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!ph || !session?.user) return;
+
+    const userId = session.user.id;
+    if (identifiedRef.current === userId) return;
+
+    ph.identify(userId, {
+      email: session.user.email,
+      name: session.user.name,
+      image: session.user.image,
+      created_at: session.user.createdAt,
+    });
+    identifiedRef.current = userId;
+  }, [ph, session]);
+
+  useEffect(() => {
+    if (!ph || !activeOrg) return;
+
+    const orgId = activeOrg.id;
+    if (groupRef.current === orgId) return;
+
+    ph.group("organization", orgId, {
+      name: activeOrg.name,
+      slug: activeOrg.slug,
+    });
+    groupRef.current = orgId;
+  }, [ph, activeOrg]);
 
   return null;
 }
@@ -50,6 +89,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       <Suspense fallback={null}>
         <PostHogPageView />
       </Suspense>
+      <PostHogIdentify />
       {children}
     </PHProvider>
   );

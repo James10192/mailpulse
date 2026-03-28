@@ -14,6 +14,8 @@ import {
   Shield,
 } from "lucide-react";
 import { signUp, signIn } from "@/lib/auth-client";
+import { usePostHog } from "posthog-js/react";
+import { EVENTS } from "@/lib/analytics";
 
 const features = [
   { icon: Zap, text: "Campagnes illimitees" },
@@ -107,6 +109,7 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const posthog = usePostHog();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -114,6 +117,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await signUp.email({ name, email, password });
+      posthog?.capture(EVENTS.USER_SIGNED_UP, { method: "email" });
       router.push("/dashboard");
     } catch {
       setError("Impossible de creer le compte. Verifiez vos informations.");
@@ -125,6 +129,7 @@ export default function RegisterPage() {
   async function handleGoogle() {
     setGoogleLoading(true);
     try {
+      posthog?.capture(EVENTS.USER_SIGNED_UP, { method: "google" });
       await signIn.social({ provider: "google", callbackURL: "/dashboard" });
     } catch {
       setError("Erreur avec Google. Reessayez.");
@@ -134,6 +139,7 @@ export default function RegisterPage() {
 
   async function handleGitHub() {
     try {
+      posthog?.capture(EVENTS.USER_SIGNED_UP, { method: "github" });
       await signIn.social({ provider: "github", callbackURL: "/dashboard" });
     } catch {
       setError("Erreur avec GitHub. Reessayez.");

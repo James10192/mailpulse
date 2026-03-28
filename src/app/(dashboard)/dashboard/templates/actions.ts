@@ -6,6 +6,7 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { checkTemplateLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
+import { trackServerEvent, EVENTS } from "@/lib/analytics";
 
 const templateSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -52,6 +53,11 @@ export async function createTemplate(
       },
     });
 
+    trackServerEvent(user.id, EVENTS.TEMPLATE_CREATED, {
+      template_name: result.data.name,
+      category: result.data.category,
+    }, org.id);
+
     revalidatePath("/dashboard/templates");
     return { success: true };
   } catch {
@@ -64,6 +70,7 @@ export async function deleteTemplate(
 ): Promise<ActionState> {
   try {
     await prisma.emailTemplate.delete({ where: { id: templateId } });
+    trackServerEvent("system", EVENTS.TEMPLATE_DELETED, { template_id: templateId });
     revalidatePath("/dashboard/templates");
     return { success: true };
   } catch {

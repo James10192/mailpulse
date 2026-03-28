@@ -9,6 +9,7 @@ import { checkCampaignLimit, canAccessFeature, type PlanTier } from "@/lib/plans
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
+import { trackServerEvent, EVENTS } from "@/lib/analytics";
 
 const campaignSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -75,6 +76,11 @@ export async function createCampaign(
       },
     });
 
+    trackServerEvent(user.id, EVENTS.CAMPAIGN_CREATED, {
+      campaign_name: data.name,
+      campaign_type: data.type,
+    }, org.id);
+
     convexServer.mutation(api.dashboard.logActivity, {
       organizationId: org.id,
       userId: user.id,
@@ -103,6 +109,7 @@ export async function deleteCampaign(campaignId: string): Promise<ActionState> {
     await prisma.campaign.delete({ where: { id: campaignId } });
 
     if (campaign) {
+      trackServerEvent(campaign.userId, EVENTS.CAMPAIGN_DELETED, { campaign_name: campaign.name }, campaign.organizationId);
       convexServer.mutation(api.dashboard.logActivity, {
         organizationId: campaign.organizationId,
         userId: campaign.userId,

@@ -9,6 +9,7 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { checkAutomationLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
+import { trackServerEvent, EVENTS } from "@/lib/analytics";
 
 const automationSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -62,6 +63,11 @@ export async function createAutomation(
     });
 
     automationId = automation.id;
+
+    trackServerEvent(user.id, EVENTS.AUTOMATION_CREATED, {
+      automation_name: result.data.name,
+      trigger: result.data.trigger,
+    }, org.id);
 
     convexServer.mutation(api.dashboard.logActivity, {
       organizationId: org.id,
@@ -121,6 +127,12 @@ export async function saveWorkflow(
       });
     }
 
+    trackServerEvent("system", EVENTS.WORKFLOW_SAVED, {
+      automation_id: automationId,
+      node_count: nodes.length,
+      edge_count: edges.length,
+    });
+
     revalidatePath(`/dashboard/automations/${automationId}/edit`);
     return { success: true };
   } catch {
@@ -164,6 +176,12 @@ export async function updateAutomationStatus(
       where: { id: automationId },
       data: { status: status as "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED" },
     });
+
+    trackServerEvent("system", EVENTS.AUTOMATION_STATUS_CHANGED, {
+      automation_id: automationId,
+      new_status: status,
+    });
+
     revalidatePath("/dashboard/automations");
     revalidatePath(`/dashboard/automations/${automationId}/edit`);
     return { success: true };
@@ -183,6 +201,7 @@ export async function deleteAutomation(
     await prisma.automation.delete({ where: { id: automationId } });
 
     if (automation) {
+      trackServerEvent(automation.userId, EVENTS.AUTOMATION_DELETED, { automation_name: automation.name }, automation.organizationId);
       convexServer.mutation(api.dashboard.logActivity, {
         organizationId: automation.organizationId,
         userId: automation.userId,

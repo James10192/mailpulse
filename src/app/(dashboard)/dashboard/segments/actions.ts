@@ -6,6 +6,7 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { checkSegmentLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
+import { trackServerEvent, EVENTS } from "@/lib/analytics";
 
 const segmentSchema = z.object({
   name: z.string().min(1),
@@ -42,6 +43,8 @@ export async function createSegment(
       },
     });
 
+    trackServerEvent(user.id, EVENTS.SEGMENT_CREATED, { segment_name: result.data.name }, org.id);
+
     revalidatePath("/dashboard/segments");
     return { success: true };
   } catch {
@@ -52,6 +55,7 @@ export async function createSegment(
 export async function deleteSegment(id: string): Promise<ActionState> {
   try {
     await prisma.contactList.delete({ where: { id } });
+    trackServerEvent("system", EVENTS.SEGMENT_DELETED, { segment_id: id });
     revalidatePath("/dashboard/segments");
     return { success: true };
   } catch {

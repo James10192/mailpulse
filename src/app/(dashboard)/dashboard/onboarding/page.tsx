@@ -26,6 +26,8 @@ import {
   Reply,
 } from "lucide-react";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
+import { usePostHog } from "posthog-js/react";
+import { EVENTS } from "@/lib/analytics";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -470,6 +472,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [data, setData] = useState<OnboardingData>(INITIAL_DATA);
+  const posthog = usePostHog();
 
   function handleChange(patch: Partial<OnboardingData>) {
     setData((prev) => ({ ...prev, ...patch }));
@@ -481,8 +484,17 @@ export default function OnboardingPage() {
 
   function handleContinue() {
     if (step < STEPS.length - 1) {
+      posthog?.capture(EVENTS.ONBOARDING_STEP_COMPLETED, {
+        step: step + 1,
+        step_name: STEPS[step].label,
+      });
       setStep((s) => s + 1);
     } else {
+      posthog?.capture(EVENTS.ONBOARDING_COMPLETED, {
+        subscriber_range: data.subscriberRange,
+        goals: data.goals,
+        discovery_source: data.discoverySource,
+      });
       // Final step — redirect to dashboard
       // TODO: persist onboarding data via API call
       router.push("/dashboard");

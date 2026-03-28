@@ -33,6 +33,7 @@ import { Navbar } from "@/components/landing/navbar";
 import { AnimatedSection, StaggerContainer, StaggerItem } from "@/components/landing/animated-section";
 import { PulseLine } from "@/components/landing/pulse-line";
 import { MetricCard } from "@/components/landing/metric-card";
+import { LandingCTATracker, PricingSectionTracker } from "@/components/landing/landing-tracker";
 
 const features = [
   {
@@ -162,13 +163,15 @@ export default function LandingPage() {
 
             <AnimatedSection delay={0.3}>
               <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link
-                  href="/register"
-                  className="group inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-7 py-3.5 rounded-xl font-medium transition-all hover:shadow-xl hover:shadow-orange-500/25 hover:-translate-y-0.5"
-                >
-                  Commencer gratuitement
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </Link>
+                <LandingCTATracker location="hero">
+                  <Link
+                    href="/register"
+                    className="group inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-7 py-3.5 rounded-xl font-medium transition-all hover:shadow-xl hover:shadow-orange-500/25 hover:-translate-y-0.5"
+                  >
+                    Commencer gratuitement
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+                </LandingCTATracker>
                 <a
                   href="#features"
                   className="inline-flex items-center gap-2 text-zinc-400 hover:text-zinc-200 px-6 py-3.5 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-all text-sm"
@@ -382,6 +385,7 @@ export default function LandingPage() {
 
         <PulseLine />
 
+        <PricingSectionTracker />
         {/* ─── Pricing ─── */}
         <section id="pricing" className="py-20 md:py-32">
           <div className="max-w-5xl mx-auto px-6">
@@ -441,16 +445,18 @@ export default function LandingPage() {
                       ))}
                     </ul>
 
-                    <Link
-                      href="/register"
-                      className={`block text-center py-2.5 rounded-lg text-sm font-medium transition-all ${
-                        plan.highlighted
-                          ? "bg-orange-600 hover:bg-orange-500 text-white hover:shadow-lg hover:shadow-orange-500/20"
-                          : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
-                      }`}
-                    >
-                      {plan.cta}
-                    </Link>
+                    <LandingCTATracker location="pricing">
+                      <Link
+                        href="/register"
+                        className={`block text-center py-2.5 rounded-lg text-sm font-medium transition-all ${
+                          plan.highlighted
+                            ? "bg-orange-600 hover:bg-orange-500 text-white hover:shadow-lg hover:shadow-orange-500/20"
+                            : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+                        }`}
+                      >
+                        {plan.cta}
+                      </Link>
+                    </LandingCTATracker>
                   </div>
                 </StaggerItem>
               ))}
@@ -473,13 +479,15 @@ export default function LandingPage() {
                 Rejoignez MailPulse et transformez vos campagnes.
               </p>
               <div className="mt-8">
-                <Link
-                  href="/register"
-                  className="group inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-xl font-medium text-lg transition-all hover:shadow-xl hover:shadow-orange-500/25 hover:-translate-y-0.5"
-                >
-                  Creer mon compte
-                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Link>
+                <LandingCTATracker location="footer_cta">
+                  <Link
+                    href="/register"
+                    className="group inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-xl font-medium text-lg transition-all hover:shadow-xl hover:shadow-orange-500/25 hover:-translate-y-0.5"
+                  >
+                    Creer mon compte
+                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </LandingCTATracker>
               </div>
             </div>
           </AnimatedSection>

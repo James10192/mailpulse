@@ -6,6 +6,7 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { canAccessFeature, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
+import { trackServerEvent, EVENTS } from "@/lib/analytics";
 
 const domainSchema = z.object({
   domain: z
@@ -38,6 +39,7 @@ export async function createDomain(
         organizationId: org.id,
       },
     });
+    trackServerEvent(user.id, EVENTS.DOMAIN_CREATED, { domain: result.data.domain }, org.id);
     revalidatePath("/dashboard/domains");
     return { success: true };
   } catch (e) {
@@ -52,6 +54,7 @@ export async function deleteDomain(
 ): Promise<ActionState> {
   try {
     await prisma.sendingDomain.delete({ where: { id } });
+    trackServerEvent("system", EVENTS.DOMAIN_DELETED, { domain_id: id });
     revalidatePath("/dashboard/domains");
     return { success: true };
   } catch {

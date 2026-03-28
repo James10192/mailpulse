@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
+import { usePostHog } from "posthog-js/react";
+import { EVENTS } from "@/lib/analytics";
 
 function GoogleIcon() {
   return (
@@ -42,6 +44,7 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const posthog = usePostHog();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,8 +52,10 @@ function LoginForm() {
     setLoading(true);
     try {
       await signIn.email({ email, password });
+      posthog?.capture(EVENTS.USER_LOGGED_IN, { method: "email" });
       router.push(callbackUrl);
     } catch {
+      posthog?.capture(EVENTS.LOGIN_FAILED, { method: "email" });
       setError("Email ou mot de passe incorrect.");
     } finally {
       setLoading(false);
@@ -59,16 +64,20 @@ function LoginForm() {
 
   async function handleGoogle() {
     try {
+      posthog?.capture(EVENTS.USER_LOGGED_IN, { method: "google" });
       await signIn.social({ provider: "google", callbackURL: callbackUrl });
     } catch {
+      posthog?.capture(EVENTS.LOGIN_FAILED, { method: "google" });
       setError("Erreur avec Google. Reessayez.");
     }
   }
 
   async function handleGitHub() {
     try {
+      posthog?.capture(EVENTS.USER_LOGGED_IN, { method: "github" });
       await signIn.social({ provider: "github", callbackURL: callbackUrl });
     } catch {
+      posthog?.capture(EVENTS.LOGIN_FAILED, { method: "github" });
       setError("Erreur avec GitHub. Reessayez.");
     }
   }

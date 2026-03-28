@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
+import { trackServerEvent, EVENTS } from "@/lib/analytics";
 
 const tagSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -50,6 +51,8 @@ export async function createTag(
       });
     }
 
+    trackServerEvent(user.id, EVENTS.TAG_CREATED, { tag_name: result.data.name }, org.id);
+
     revalidatePath("/dashboard/tags");
     return { success: true };
   } catch {
@@ -60,6 +63,7 @@ export async function createTag(
 export async function deleteTag(tagName: string): Promise<ActionState> {
   try {
     await prisma.contactTag.deleteMany({ where: { name: tagName } });
+    trackServerEvent("system", EVENTS.TAG_DELETED, { tag_name: tagName });
     revalidatePath("/dashboard/tags");
     return { success: true };
   } catch {
