@@ -87,7 +87,7 @@ const MentionList = forwardRef<MentionListRef, { items: typeof VARIABLES; comman
         if (event.key === "Enter") { const it = items[sel]; if (it) command({ id: it.name, label: it.label }); return true; }
         return false;
       },
-    }));
+    }), [items, sel, command]);
     return (
       <div className="z-50 w-56 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xl py-1 max-h-48 overflow-y-auto">
         {items.length === 0 ? <div className="px-3 py-2 text-xs text-zinc-500">Aucune variable</div> : items.map((it, i) => (
@@ -196,6 +196,7 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
     const fd = new FormData(); fd.append("file", file);
     try {
       const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) { alert("Erreur upload"); return; }
       const data = await res.json();
       if (data.url) {
         editor.chain().focus().setImage({ src: data.url, alt: file.name }).run();
