@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
@@ -55,7 +55,11 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const shortcutLabel = useShortcutLabel();
+  const dialogRef = useRef<HTMLDivElement>(null);
 
+  const close = useCallback(() => setOpen(false), []);
+
+  // Ctrl+K / Cmd+K to toggle + custom event to open
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -74,23 +78,45 @@ export function CommandPalette() {
     };
   }, []);
 
+  // ESC to close (separate listener since cmdk may swallow it)
+  useEffect(() => {
+    if (!open) return;
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+      }
+    }
+    // Use capture phase to intercept before cmdk
+    window.addEventListener("keydown", handleEsc, true);
+    return () => window.removeEventListener("keydown", handleEsc, true);
+  }, [open]);
+
   function navigate(href: string) {
     setOpen(false);
     router.push(href);
   }
 
+  // Click outside the dialog panel to close
+  function handleOverlayClick(e: React.MouseEvent) {
+    // Only close if click is on the overlay itself, not the dialog
+    if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
+      setOpen(false);
+    }
+  }
+
   if (!open) return null;
 
   return (
-    <>
-      <div
-        className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
-        onClick={() => setOpen(false)}
-        onPointerDown={() => setOpen(false)}
-      />
-      <div className="fixed inset-0 z-[61] flex items-start justify-center pt-[20vh] px-4">
+    <div
+      className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-start justify-center pt-[20vh] px-4"
+      onClick={handleOverlayClick}
+      onMouseDown={handleOverlayClick}
+    >
+      <div ref={dialogRef} className="w-full max-w-lg" role="dialog" aria-modal="true">
         <Command
-          className="w-full max-w-lg rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-2xl overflow-hidden"
+          className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-2xl overflow-hidden"
           label="Navigation rapide"
         >
           <div className="flex items-center gap-3 px-4 border-b border-zinc-200 dark:border-zinc-800">
@@ -100,9 +126,12 @@ export function CommandPalette() {
               className="w-full py-3.5 text-sm bg-transparent border-none outline-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
               autoFocus
             />
-            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700">
+            <button
+              onClick={close}
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+            >
               ESC
-            </kbd>
+            </button>
           </div>
 
           <Command.List className="max-h-80 overflow-y-auto p-2">
@@ -159,6 +188,6 @@ export function CommandPalette() {
           </div>
         </Command>
       </div>
-    </>
+    </div>
   );
 }
