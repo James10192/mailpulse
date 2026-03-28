@@ -6,11 +6,23 @@ async function getDomains() {
   const domains = await prisma.sendingDomain.findMany({
     orderBy: { createdAt: "desc" },
     take: 100,
+    select: {
+      id: true,
+      domain: true,
+      resendDomainId: true,
+      status: true,
+      verified: true,
+      spfRecord: true,
+      spfStatus: true,
+      dkimRecord: true,
+      dkimName: true,
+      dkimStatus: true,
+      createdAt: true,
+    },
   });
   return domains.map((d) => ({
     ...d,
     createdAt: d.createdAt.toISOString(),
-    verifiedAt: d.verifiedAt?.toISOString() ?? null,
   }));
 }
 

@@ -382,17 +382,23 @@ model EmailTemplate {
 // ============================================
 
 model SendingDomain {
-  id             String       @id @default(cuid())
-  domain         String
-  verified       Boolean      @default(false)
-  spfRecord      String?
-  dkimRecord     String?
-  dmarcRecord    String?
-  verifiedAt     DateTime?
-  createdAt      DateTime     @default(now())
+  id              String       @id @default(cuid())
+  domain          String
+  resendDomainId  String?
+  status          String       @default("not_started")
+  verified        Boolean      @default(false)
+  spfRecord       String?
+  spfStatus       String?
+  dkimRecord      String?
+  dkimName        String?
+  dkimStatus      String?
+  dmarcRecord     String?
+  region          String       @default("us-east-1")
+  verifiedAt      DateTime?
+  createdAt       DateTime     @default(now())
 
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([domain, organizationId])
   @@map("sending_domain")
