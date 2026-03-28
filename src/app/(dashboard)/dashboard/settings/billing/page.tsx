@@ -43,7 +43,7 @@ const plans = [
       "Domaines personnalises",
       "Acces API & Webhooks",
       "Analytics avances",
-      "Bibliotheque de templates",
+      "Snippets illimites",
     ],
   },
   {
@@ -71,7 +71,7 @@ export default async function BillingPage() {
   const limits = PLAN_LIMITS[currentPlan];
 
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="space-y-8 max-w-4xl mx-auto">
       <Breadcrumb
         items={[
           { label: "", href: "/dashboard" },

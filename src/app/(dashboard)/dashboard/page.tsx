@@ -77,29 +77,6 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       <Breadcrumb items={[{ label: "" }]} />
-
-      {hasOverLimitResources && (
-        <UpgradeBanner
-          message={`Limites depassees: ${overLimitResources.map((r) => `${r.label} (${r.current}/${r.limit})`).join(", ")}`}
-          details="Certaines ressources sont gelees ou vous ne pouvez plus en creer. Passez au Pro pour lever ces restrictions."
-        />
-      )}
-
-      {!hasOverLimitResources && isApproachingLimit && (
-        <UpgradeBanner message="Vous approchez de vos limites du plan Starter" />
-      )}
-
-      {isFreePlan && usage && emailUsage && (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Utilisation</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <UsageBar label="Contacts" current={usage.contactCount} limit={limits.contacts} />
-            <UsageBar label="Emails ce mois" current={emailUsage.sent} limit={emailUsage.limit} />
-            <UsageBar label="Campagnes actives" current={usage.activeCampaigns} limit={limits.activeCampaigns} />
-            <UsageBar label="Automations" current={usage.automationCount} limit={limits.automations} />
-          </div>
-        </div>
-      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Dashboard</h1>
         <div className="flex items-center gap-3">
@@ -198,6 +175,30 @@ export default async function DashboardPage() {
         {/* Activity Feed — Real-time via Convex */}
         <LiveActivityFeed />
       </div>
+
+      {/* Plan usage — bottom of page */}
+      {isFreePlan && usage && emailUsage && (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
+          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Utilisation du plan {limits.label}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <UsageBar label="Contacts" current={usage.contactCount} limit={limits.contacts} />
+            <UsageBar label="Emails ce mois" current={emailUsage.sent} limit={emailUsage.limit} />
+            <UsageBar label="Campagnes actives" current={usage.activeCampaigns} limit={limits.activeCampaigns} />
+            <UsageBar label="Automations" current={usage.automationCount} limit={limits.automations} />
+          </div>
+        </div>
+      )}
+
+      {hasOverLimitResources && (
+        <UpgradeBanner
+          message={`Limites depassees: ${overLimitResources.map((r) => `${r.label} (${r.current}/${r.limit})`).join(", ")}`}
+          details="Certaines ressources sont gelees ou vous ne pouvez plus en creer. Passez au Pro pour lever ces restrictions."
+        />
+      )}
+
+      {!hasOverLimitResources && isApproachingLimit && (
+        <UpgradeBanner message="Vous approchez de vos limites du plan Starter" />
+      )}
     </div>
   );
 }
