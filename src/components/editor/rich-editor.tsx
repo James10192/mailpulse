@@ -195,7 +195,7 @@ const mentionSuggestion = {
     let container: HTMLDivElement;
 
     return {
-      onStart: (props: { editor: any; clientRect: () => DOMRect | null }) => {
+      onStart: (props: any) => {
         container = document.createElement("div");
         container.style.position = "absolute";
         container.style.zIndex = "9999";
@@ -214,7 +214,7 @@ const mentionSuggestion = {
           container.style.top = `${rect.bottom + 4}px`;
         }
       },
-      onUpdate: (props: { items: any; command: any; clientRect: () => DOMRect | null }) => {
+      onUpdate: (props: any) => {
         component?.updateProps({ items: props.items, command: props.command });
         const rect = props.clientRect?.();
         if (rect && container) {
