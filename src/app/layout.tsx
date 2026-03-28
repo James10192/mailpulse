@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import { PostHogProvider } from "@/components/PostHogProvider";
+import { Providers } from "@/components/providers";
 
 const spaceMono = Space_Mono({
   variable: "--font-display",
@@ -31,10 +31,14 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${spaceMono.variable} ${jakarta.variable} dark h-full antialiased`}
+      className={`${spaceMono.variable} ${jakarta.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-50" style={{ fontFamily: "var(--font-body)" }}>
-        <PostHogProvider>{children}</PostHogProvider>
+      <body
+        className="min-h-full flex flex-col bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50"
+        style={{ fontFamily: "var(--font-body)" }}
+      >
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

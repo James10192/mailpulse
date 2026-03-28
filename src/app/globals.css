@@ -1,16 +1,26 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-background: #09090b;
-  --color-foreground: #fafafa;
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
   --color-accent: #f97316;
   --font-sans: var(--font-body);
   --font-mono: var(--font-display);
 }
 
+:root {
+  --bg: #ffffff;
+  --fg: #09090b;
+}
+
+.dark {
+  --bg: #09090b;
+  --fg: #fafafa;
+}
+
 body {
-  background: var(--color-background);
-  color: var(--color-foreground);
+  background: var(--bg);
+  color: var(--fg);
 }
 
 /* Force code blocks and pre to be scrollable on mobile */
@@ -24,7 +34,6 @@ code {
   word-break: break-word;
 }
 
-/* Prevent any element from overflowing viewport */
 img, svg, video, canvas, audio, iframe, embed, object {
   max-width: 100%;
 }
