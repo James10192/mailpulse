@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
+import { cn } from "@/lib/utils";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -76,6 +77,13 @@ function Separator() {
 export function RichEditor({ content, onChange, placeholder }: RichEditorProps) {
   const [variablesOpen, setVariablesOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const onChangeRef = useRef(onChange);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { onChangeRef.current = onChange; });
+  useEffect(() => {
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -103,7 +111,10 @@ export function RichEditor({ content, onChange, placeholder }: RichEditorProps) 
       },
     },
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        onChangeRef.current(editor.getHTML());
+      }, 300);
     },
   });
 

@@ -22,7 +22,7 @@ export function proxy(request: NextRequest) {
 
   // Check for auth session cookie
   const sessionCookie = request.cookies.get("better-auth.session_token");
-  if (!sessionCookie) {
+  if (!sessionCookie?.value) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
