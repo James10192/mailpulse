@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useActionState, useCallback } from "react";
-import { Plus, X, Trash2, Code, Pencil, Eye, Calendar, Sparkles } from "lucide-react";
+import { Plus, X, Trash2, Code, Pencil, Eye, Calendar, Sparkles, Info } from "lucide-react";
 import Link from "next/link";
 import { createSnippetAndRedirect, deleteSnippet } from "./actions";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
@@ -307,6 +307,13 @@ export function SnippetsClient({
               </Link>
             </div>
           )}
+        </div>
+
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+          <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-300/80">
+            Les snippets sont des blocs de contenu reutilisables dans vos campagnes. Creez des en-tetes, pieds de page, ou sections recurrentes que vous pouvez inserer facilement.
+          </p>
         </div>
 
         {snippets.length > 0 ? (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect } from "react";
-import { Plus, Globe, CheckCircle, Clock, Trash2, X } from "lucide-react";
+import { Plus, Globe, CheckCircle, Clock, Trash2, X, Info } from "lucide-react";
 import { createDomain, deleteDomain } from "./actions";
 import Link from "next/link";
 import { UpgradeBanner } from "@/components/dashboard/feature-gate";
@@ -79,6 +79,13 @@ export function DomainsClient({
             Passer au Pro
           </Link>
         )}
+      </div>
+
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+        <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+        <p className="text-sm text-blue-300/80">
+          Ajoutez votre domaine d&apos;envoi et configurez les enregistrements DNS (SPF, DKIM, DMARC) pour ameliorer la delivrabilite de vos emails. Votre fournisseur DNS vous fournira les instructions.
+        </p>
       </div>
 
       {domains.length > 0 ? (

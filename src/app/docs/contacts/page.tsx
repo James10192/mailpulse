@@ -86,7 +86,7 @@ export default function ContactsPage() {
           </p>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
             <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Formulaire</div>
             <p className="text-xs text-zinc-400 leading-relaxed">
@@ -101,6 +101,14 @@ export default function ContactsPage() {
               Uploadez un fichier CSV via le bouton d&apos;import. Le fichier est
               stocke temporairement sur Cloudflare R2. MailPulse detecte les colonnes,
               deduplique par email et applique les tags.
+            </p>
+          </div>
+          <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
+            <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Pages de capture</div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Formulaires publics qui ajoutent automatiquement les abonnes.
+              Creez une page de capture depuis le dashboard, personnalisez les champs
+              et partagez le lien. Les nouveaux contacts sont ajoutes a la liste choisie.
             </p>
           </div>
         </div>

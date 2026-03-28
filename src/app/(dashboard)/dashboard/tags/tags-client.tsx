@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect } from "react";
-import { Plus, Tag, Trash2, X } from "lucide-react";
+import { Plus, Tag, Trash2, X, Info } from "lucide-react";
 import { createTag, deleteTag } from "./actions";
 import type { ActionState } from "@/types/action-state";
 
@@ -36,6 +36,13 @@ export function TagsClient({ tags }: { tags: TagData[] }) {
           <Plus className="h-4 w-4" />
           Creer un tag
         </button>
+      </div>
+
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+        <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+        <p className="text-sm text-blue-300/80">
+          Les tags categorisent vos contacts pour faciliter le ciblage. Ajoutez des tags lors de la creation de contacts ou via les pages de capture.
+        </p>
       </div>
 
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">

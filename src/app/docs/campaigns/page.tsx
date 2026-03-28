@@ -107,7 +107,7 @@ CANCELLED   → Campagne annulee`}</CodeBlock>
           <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
             <div className="text-sm font-mono font-semibold text-orange-400 mb-2">2. Contenu (editeur TipTap)</div>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Redigez avec l&apos;editeur riche ou partez d&apos;un template. Ajoutez des images
+              Redigez avec l&apos;editeur riche. Ajoutez des images
               (upload R2), inserez des variables et des snippets. Le HTML genere est stocke dans
               htmlContent. Un contenu texte brut (textContent) est aussi genere.
             </p>

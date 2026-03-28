@@ -145,7 +145,7 @@ export default function FirstCampaignPage() {
             <p className="text-xs text-zinc-400 leading-relaxed">
               Redigez votre email avec l&apos;editeur TipTap. Formatage riche, images
               (upload vers R2), variables de personnalisation et insertion de snippets
-              reutilisables. Vous pouvez aussi partir d&apos;un template existant.
+              reutilisables. Vous pouvez inserer des snippets reutilisables dans votre contenu.
             </p>
           </div>
           <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">

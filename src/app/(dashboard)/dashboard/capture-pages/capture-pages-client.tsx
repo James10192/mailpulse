@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Plus, Globe, Trash2, X, ExternalLink, Eye, EyeOff } from "lucide-react";
+import { Plus, Globe, Trash2, X, ExternalLink, Eye, EyeOff, Info } from "lucide-react";
 import Link from "next/link";
 import { createCapturePage, deleteCapturePage, toggleCapturePagePublished } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
@@ -62,6 +62,13 @@ export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
             <Plus className="h-4 w-4" />
             Creer une page
           </button>
+        </div>
+
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+          <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-300/80">
+            Creez des formulaires d&apos;inscription publics pour collecter des abonnes. Partagez le lien de votre page ou integrez-la sur votre site web.
+          </p>
         </div>
 
         {pages.length > 0 ? (

@@ -195,19 +195,45 @@ export default function ApiEndpointsPage() {
         </div>
       </div>
 
-      {/* ─── TEMPLATES ─── */}
+      {/* ─── SENDERS ─── */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Templates</h2>
+        <h2 className="text-xl font-bold mb-4 font-mono">Senders</h2>
         <div className="prose-sm text-zinc-400 space-y-1 mb-4">
           <p>
-            Fichier : <code className="text-zinc-200">src/app/(dashboard)/dashboard/templates/actions.ts</code>
+            Fichier : <code className="text-zinc-200">src/app/(dashboard)/dashboard/senders/actions.ts</code>
           </p>
         </div>
         <div className="space-y-2 mb-6">
           {[
-            { method: "ACTION", path: "createTemplate(formData)", desc: "Creer un template email" },
-            { method: "ACTION", path: "updateTemplate(id, data)", desc: "Mettre a jour un template" },
-            { method: "ACTION", path: "deleteTemplate(id)", desc: "Supprimer un template" },
+            { method: "ACTION", path: "createSender(formData)", desc: "Creer un expediteur" },
+            { method: "ACTION", path: "deleteSender(id)", desc: "Supprimer un expediteur" },
+          ].map((ep) => (
+            <div
+              key={ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <EndpointBadge method={ep.method} />
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── CAPTURE PAGES ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Capture Pages</h2>
+        <div className="prose-sm text-zinc-400 space-y-1 mb-4">
+          <p>
+            Fichier : <code className="text-zinc-200">src/app/(dashboard)/dashboard/capture-pages/actions.ts</code>
+          </p>
+        </div>
+        <div className="space-y-2 mb-6">
+          {[
+            { method: "ACTION", path: "createCapturePage(formData)", desc: "Creer une page de capture" },
+            { method: "ACTION", path: "deleteCapturePage(id)", desc: "Supprimer une page de capture" },
+            { method: "ACTION", path: "toggleCapturePagePublished(id, published)", desc: "Publier / depublier une page" },
+            { method: "ACTION", path: "updateCapturePageFields(id, data)", desc: "Mettre a jour les champs d'une page" },
           ].map((ep) => (
             <div
               key={ep.path}

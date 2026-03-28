@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Send, FileEdit, Clock, CheckCircle, PauseCircle, XCircle, Trash2, Sparkles } from "lucide-react";
+import { Plus, Send, FileEdit, Clock, CheckCircle, PauseCircle, XCircle, Trash2, Sparkles, Info } from "lucide-react";
 import { deleteCampaign } from "./actions";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 
@@ -104,6 +104,13 @@ export function CampaignsClient({
             </Link>
           </div>
         )}
+      </div>
+
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+        <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+        <p className="text-sm text-blue-300/80">
+          Creez et envoyez des campagnes email. Choisissez un expediteur, redigez votre contenu, selectionnez votre audience et planifiez l&apos;envoi.
+        </p>
       </div>
 
       {/* Filters */}

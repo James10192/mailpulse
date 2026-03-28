@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Plus, Zap, X, Trash2, Pencil, PauseCircle } from "lucide-react";
+import { Plus, Zap, X, Trash2, Pencil, PauseCircle, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createAutomation, deleteAutomation, updateAutomationStatus } from "./actions";
@@ -166,6 +166,13 @@ export function AutomationsClient({
               </Link>
             </div>
           )}
+        </div>
+
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+          <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-300/80">
+            Les automations declenchent des sequences d&apos;emails automatiques en reponse a des evenements (nouvel abonne, tag ajoute, date). Creez un workflow visuel pour definir les etapes.
+          </p>
         </div>
 
         {/* Preset cards */}

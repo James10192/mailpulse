@@ -167,7 +167,7 @@ export const auth = betterAuth({
           <p>
             Le plugin <code className="text-zinc-200">organization</code> de Better Auth
             permet le multi-tenant. Chaque utilisateur peut creer et appartenir a
-            plusieurs organisations. Les donnees (contacts, campagnes, templates)
+            plusieurs organisations. Les donnees (contacts, campagnes, snippets)
             sont isolees par <code className="text-zinc-200">organizationId</code>.
           </p>
         </div>
@@ -178,7 +178,7 @@ Invitation     — Invitations par email (status: "pending", "accepted")
 
 // Toutes les tables metier ont une FK organizationId :
 Contact, Campaign, ContactList, EmailTemplate,
-SendingDomain, Automation`}</CodeBlock>
+SendingDomain, Automation, EmailSender, CapturePage`}</CodeBlock>
       </div>
 
       {/* proxy.ts */}

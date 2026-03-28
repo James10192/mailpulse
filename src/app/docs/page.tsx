@@ -180,7 +180,7 @@ pnpm dev`}</CodeBlock>
           <QuickLink
             href="/docs/api/endpoints"
             title="Endpoints"
-            desc="Server Actions pour contacts, campagnes, templates, tags et plus."
+            desc="Server Actions pour contacts, campagnes, snippets, tags et plus."
             icon={Code}
           />
           <QuickLink

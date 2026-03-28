@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Plus, AtSign, Trash2, X } from "lucide-react";
+import { Plus, AtSign, Trash2, X, Info } from "lucide-react";
 import { createSender, deleteSender } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import type { ActionState } from "@/types/action-state";
@@ -55,6 +55,13 @@ export function SendersClient({ senders }: { senders: SenderData[] }) {
             <Plus className="h-4 w-4" />
             Creer un expediteur
           </button>
+        </div>
+
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+          <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-300/80">
+            Pour envoyer des campagnes, configurez au moins un expediteur. L&apos;adresse email doit etre verifiee via votre domaine configure dans la section Domaines.
+          </p>
         </div>
 
         {senders.length > 0 ? (
