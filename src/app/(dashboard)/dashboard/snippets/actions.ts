@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { checkSnippetLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 
@@ -26,6 +27,12 @@ export async function createSnippetAndRedirect(
 
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifie." };
+
+  // Check snippet limit
+  const snippetCheck = await checkSnippetLimit(org.id, org.plan as PlanTier);
+  if (!snippetCheck.allowed) {
+    return { error: `Limite de snippets atteinte (${snippetCheck.limit}). Passez au plan Pro pour en creer davantage.` };
+  }
 
   let snippetId: string;
   try {

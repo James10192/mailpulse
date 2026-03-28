@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { checkSegmentLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 
@@ -23,6 +24,12 @@ export async function createSegment(
 
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifie." };
+
+  // Check segment limit
+  const segmentCheck = await checkSegmentLimit(org.id, org.plan as PlanTier);
+  if (!segmentCheck.allowed) {
+    return { error: `Limite de segments atteinte (${segmentCheck.limit}). Passez au plan Pro pour en creer davantage.` };
+  }
 
   try {
     await prisma.contactList.create({

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { checkCampaignLimit, type PlanTier } from "@/lib/plans";
+import { checkCampaignLimit, canAccessFeature, type PlanTier } from "@/lib/plans";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
@@ -17,6 +17,7 @@ const campaignSchema = z.object({
   fromName: z.string().optional(),
   fromEmail: z.string().email("Email invalide").optional().or(z.literal("")),
   htmlContent: z.string().optional(),
+  type: z.enum(["REGULAR", "AB_TEST"]).default("REGULAR"),
 });
 
 export async function createCampaign(
@@ -30,6 +31,7 @@ export async function createCampaign(
     fromName: formData.get("fromName") as string,
     fromEmail: formData.get("fromEmail") as string,
     htmlContent: formData.get("htmlContent") as string,
+    type: (formData.get("type") as string) || "REGULAR",
   };
 
   const result = campaignSchema.safeParse(raw);
@@ -53,6 +55,11 @@ export async function createCampaign(
       return { error: `Limite de campagnes actives atteinte (${campaignCheck.limit}). Passez au plan Pro.` };
     }
 
+    // A/B testing requires PRO plan
+    if (data.type === "AB_TEST" && !canAccessFeature(org.plan as PlanTier, "ab_testing")) {
+      return { error: "L'A/B testing est disponible avec le plan Pro. Passez au Pro pour tester vos campagnes." };
+    }
+
     const campaign = await prisma.campaign.create({
       data: {
         name: data.name,
@@ -62,7 +69,7 @@ export async function createCampaign(
         fromEmail: data.fromEmail || null,
         htmlContent: data.htmlContent || null,
         status: "DRAFT",
-        type: "REGULAR",
+        type: data.type,
         userId: user.id,
         organizationId: org.id,
       },

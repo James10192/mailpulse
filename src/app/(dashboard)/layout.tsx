@@ -89,7 +89,7 @@ const navigation: NavItem[] = [
     icon: AtSign,
     children: [
       { name: "Expediteurs", href: "/dashboard/senders", icon: AtSign },
-      { name: "Domaines", href: "/dashboard/domains", icon: Globe },
+      { name: "Domaines", href: "/dashboard/domains", icon: Globe, pro: true },
     ],
   },
   { name: "Parametres", href: "/dashboard/settings", icon: Settings },
@@ -151,7 +151,10 @@ function SidebarNavItem({
                   )}
                 >
                   <child.icon className="h-3.5 w-3.5 shrink-0" />
-                  {child.name}
+                  <span className="flex-1">{child.name}</span>
+                  {child.pro && (
+                    <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase">Pro</span>
+                  )}
                 </Link>
               );
             })}

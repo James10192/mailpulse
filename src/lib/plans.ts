@@ -18,6 +18,9 @@ export const PLAN_LIMITS: Record<PlanTier, {
   emailsPerMonth: number;
   activeCampaigns: number;
   automations: number;
+  snippets: number;
+  templates: number;
+  segments: number;
   label: string;
   priceFCFA: number;
 }> = {
@@ -26,6 +29,9 @@ export const PLAN_LIMITS: Record<PlanTier, {
     emailsPerMonth: 5000,
     activeCampaigns: 3,
     automations: 1,
+    snippets: 10,
+    templates: 5,
+    segments: 3,
     label: "Starter",
     priceFCFA: 0,
   },
@@ -34,6 +40,9 @@ export const PLAN_LIMITS: Record<PlanTier, {
     emailsPerMonth: -1, // unlimited
     activeCampaigns: -1,
     automations: -1,
+    snippets: -1,
+    templates: -1,
+    segments: -1,
     label: "Pro",
     priceFCFA: 15000,
   },
@@ -42,6 +51,9 @@ export const PLAN_LIMITS: Record<PlanTier, {
     emailsPerMonth: -1,
     activeCampaigns: -1,
     automations: -1,
+    snippets: -1,
+    templates: -1,
+    segments: -1,
     label: "Enterprise",
     priceFCFA: -1, // custom
   },
@@ -146,4 +158,28 @@ export async function checkEmailLimit(orgId: string, plan: PlanTier): Promise<{ 
   }
 
   return { allowed: org.emailsSentThisMonth < limit, sent: org.emailsSentThisMonth, limit };
+}
+
+export async function checkSnippetLimit(orgId: string, plan: PlanTier): Promise<{ allowed: boolean; current: number; limit: number }> {
+  const limit = PLAN_LIMITS[plan].snippets;
+  if (limit === -1) return { allowed: true, current: 0, limit: -1 };
+
+  const current = await prisma.emailTemplate.count({ where: { organizationId: orgId, category: "snippet" } });
+  return { allowed: current < limit, current, limit };
+}
+
+export async function checkTemplateLimit(orgId: string, plan: PlanTier): Promise<{ allowed: boolean; current: number; limit: number }> {
+  const limit = PLAN_LIMITS[plan].templates;
+  if (limit === -1) return { allowed: true, current: 0, limit: -1 };
+
+  const current = await prisma.emailTemplate.count({ where: { organizationId: orgId, category: { not: "snippet" } } });
+  return { allowed: current < limit, current, limit };
+}
+
+export async function checkSegmentLimit(orgId: string, plan: PlanTier): Promise<{ allowed: boolean; current: number; limit: number }> {
+  const limit = PLAN_LIMITS[plan].segments;
+  if (limit === -1) return { allowed: true, current: 0, limit: -1 };
+
+  const current = await prisma.contactList.count({ where: { organizationId: orgId } });
+  return { allowed: current < limit, current, limit };
 }

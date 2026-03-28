@@ -11,6 +11,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getEmailEventStats } from "@/lib/queries/email-stats";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { PLAN_LIMITS, getOrgUsage, checkEmailLimit, type PlanTier } from "@/lib/plans";
+import { UpgradeBanner, UsageBar } from "@/components/dashboard/feature-gate";
 
 async function getStats() {
   const [contactStats, emailStats, totalCampaigns] = await Promise.all([
@@ -35,14 +38,55 @@ async function getRecentCampaigns() {
 }
 
 export default async function DashboardPage() {
-  const [stats, campaigns] = await Promise.all([
+  const [stats, campaigns, { org }] = await Promise.all([
     getStats(),
     getRecentCampaigns(),
+    getCurrentUserAndOrg(),
   ]);
+
+  const plan = (org?.plan ?? "FREE") as PlanTier;
+  const limits = PLAN_LIMITS[plan];
+  const isFreePlan = plan === "FREE";
+
+  // Fetch usage data for FREE plan users
+  let usage: { contactCount: number; activeCampaigns: number; automationCount: number } | null = null;
+  let emailUsage: { sent: number; limit: number } | null = null;
+  if (isFreePlan && org) {
+    const [orgUsage, emailCheck] = await Promise.all([
+      getOrgUsage(org.id),
+      checkEmailLimit(org.id, plan),
+    ]);
+    usage = orgUsage;
+    emailUsage = { sent: emailCheck.sent, limit: emailCheck.limit };
+  }
+
+  // Check if any limit is above 80%
+  const isApproachingLimit = isFreePlan && usage && (
+    (usage.contactCount / limits.contacts >= 0.8) ||
+    (usage.activeCampaigns / limits.activeCampaigns >= 0.8) ||
+    (usage.automationCount / limits.automations >= 0.8) ||
+    (emailUsage && emailUsage.limit > 0 && emailUsage.sent / emailUsage.limit >= 0.8)
+  );
 
   return (
     <div className="space-y-8">
       <Breadcrumb items={[{ label: "" }]} />
+
+      {isApproachingLimit && (
+        <UpgradeBanner message="Vous approchez de vos limites du plan Starter" />
+      )}
+
+      {isFreePlan && usage && emailUsage && (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
+          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Utilisation</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <UsageBar label="Contacts" current={usage.contactCount} limit={limits.contacts} />
+            <UsageBar label="Emails ce mois" current={emailUsage.sent} limit={emailUsage.limit} />
+            <UsageBar label="Campagnes actives" current={usage.activeCampaigns} limit={limits.activeCampaigns} />
+            <UsageBar label="Automations" current={usage.automationCount} limit={limits.automations} />
+          </div>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Dashboard</h1>
         <div className="flex items-center gap-3">

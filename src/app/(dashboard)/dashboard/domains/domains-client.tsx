@@ -3,6 +3,7 @@
 import { useActionState, useState, useEffect } from "react";
 import { Plus, Globe, CheckCircle, Clock, Trash2, X } from "lucide-react";
 import { createDomain, deleteDomain } from "./actions";
+import { FeatureGate, UpgradeBanner } from "@/components/dashboard/feature-gate";
 import type { ActionState } from "@/types/action-state";
 
 type DomainData = {
@@ -15,7 +16,7 @@ type DomainData = {
   createdAt: string;
 };
 
-export function DomainsClient({ domains }: { domains: DomainData[] }) {
+export function DomainsClient({ domains, canUseDomains }: { domains: DomainData[]; canUseDomains: boolean }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<
     ActionState,
@@ -28,6 +29,9 @@ export function DomainsClient({ domains }: { domains: DomainData[] }) {
 
   return (
     <div className="space-y-6">
+      {!canUseDomains && (
+        <UpgradeBanner message="Les domaines personnalises sont disponibles avec le plan Pro" />
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
@@ -37,13 +41,15 @@ export function DomainsClient({ domains }: { domains: DomainData[] }) {
             Configurez et verifiez vos domaines d&apos;envoi
           </p>
         </div>
-        <button
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-        >
-          <Plus className="h-4 w-4" />
-          Ajouter un domaine
-        </button>
+        <FeatureGate allowed={canUseDomains} featureName="Domaines personnalises">
+          <button
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            Ajouter un domaine
+          </button>
+        </FeatureGate>
       </div>
 
       {domains.length > 0 ? (

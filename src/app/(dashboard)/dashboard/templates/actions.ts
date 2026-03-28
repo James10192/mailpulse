@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { checkTemplateLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 
@@ -32,6 +33,12 @@ export async function createTemplate(
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) {
       return { error: "Utilisateur non trouve." };
+    }
+
+    // Check template limit
+    const templateCheck = await checkTemplateLimit(org.id, org.plan as PlanTier);
+    if (!templateCheck.allowed) {
+      return { error: `Limite de templates atteinte (${templateCheck.limit}). Passez au plan Pro pour en creer davantage.` };
     }
 
     await prisma.emailTemplate.create({
