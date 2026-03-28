@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
@@ -35,6 +36,8 @@ export async function createAutomation(
     return { error: "Donnees invalides. Verifiez le nom et le declencheur." };
   }
 
+  let automationId: string;
+
   try {
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) {
@@ -52,6 +55,8 @@ export async function createAutomation(
       },
     });
 
+    automationId = automation.id;
+
     convexServer.mutation(api.dashboard.logActivity, {
       organizationId: org.id,
       userId: user.id,
@@ -63,9 +68,74 @@ export async function createAutomation(
     });
 
     revalidatePath("/dashboard/automations");
-    return { success: true };
   } catch {
     return { error: "Erreur lors de la creation de l'automation." };
+  }
+
+  redirect(`/dashboard/automations/${automationId}/edit`);
+}
+
+export async function saveWorkflow(
+  automationId: string,
+  nodesJson: string,
+  edgesJson: string
+): Promise<ActionState> {
+  try {
+    // Delete existing steps
+    await prisma.automationStep.deleteMany({ where: { automationId } });
+
+    const nodes = JSON.parse(nodesJson) as Array<{
+      id: string;
+      position: { x: number; y: number };
+      data: { type: string; label: string; config: Record<string, unknown> };
+    }>;
+    const edges = JSON.parse(edgesJson) as Array<{
+      id: string;
+      source: string;
+      target: string;
+      sourceHandle?: string | null;
+    }>;
+
+    // Save nodes as steps + store edges in the first step's config
+    if (nodes.length > 0) {
+      await prisma.automationStep.createMany({
+        data: nodes.map((node, index) => ({
+          automationId,
+          type: node.data.type,
+          position: index,
+          config: {
+            ...node.data.config,
+            _nodeId: node.id,
+            _label: node.data.label,
+            _x: node.position.x,
+            _y: node.position.y,
+            ...(index === 0 ? { _edges: edges } : {}),
+          },
+        })),
+      });
+    }
+
+    revalidatePath(`/dashboard/automations/${automationId}/edit`);
+    return { success: true };
+  } catch {
+    return { error: "Erreur lors de la sauvegarde du workflow." };
+  }
+}
+
+export async function updateAutomationStatus(
+  automationId: string,
+  status: string
+): Promise<ActionState> {
+  try {
+    await prisma.automation.update({
+      where: { id: automationId },
+      data: { status: status as "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED" },
+    });
+    revalidatePath("/dashboard/automations");
+    revalidatePath(`/dashboard/automations/${automationId}/edit`);
+    return { success: true };
+  } catch {
+    return { error: "Erreur lors du changement de statut." };
   }
 }
 

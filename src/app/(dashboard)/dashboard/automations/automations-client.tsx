@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Plus, Zap, X, Trash2 } from "lucide-react";
+import { Plus, Zap, X, Trash2, Pencil } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createAutomation, deleteAutomation } from "./actions";
 import type { ActionState } from "@/types/action-state";
 
@@ -69,6 +71,7 @@ export function AutomationsClient({
 }: {
   automations: AutomationData[];
 }) {
+  const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
@@ -160,9 +163,12 @@ export function AutomationsClient({
                         className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
                       >
                         <td className="px-4 py-3">
-                          <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                          <Link
+                            href={`/dashboard/automations/${auto.id}/edit`}
+                            className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors cursor-pointer"
+                          >
                             {auto.name}
-                          </div>
+                          </Link>
                           {auto.description && (
                             <div className="text-xs text-zinc-500 mt-0.5 truncate max-w-xs">
                               {auto.description}
