@@ -308,9 +308,9 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
 
         {/* HR + Image */}
         <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Ligne horizontale"><Minus className="w-4 h-4" /></Btn>
-        <label title="Image" className="p-1.5 rounded-md transition-colors cursor-pointer text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 inline-flex">
+        <label title="Image" className="p-1.5 rounded-md transition-colors cursor-pointer text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 inline-flex relative overflow-hidden">
           <ImagePlus className="w-4 h-4" />
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={doImage} />
+          <input ref={fileRef} type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={doImage} />
         </label>
 
         <Sep />
