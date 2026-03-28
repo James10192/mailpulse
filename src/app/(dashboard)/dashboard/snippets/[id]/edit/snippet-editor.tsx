@@ -13,7 +13,13 @@ interface SnippetData {
   htmlContent: string;
 }
 
-export function SnippetEditor({ snippet }: { snippet: SnippetData }) {
+interface SnippetOption {
+  id: string;
+  name: string;
+  htmlContent: string;
+}
+
+export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData; snippets?: SnippetOption[] }) {
   const [name, setName] = useState(snippet.name);
   const [description, setDescription] = useState(snippet.description ?? "");
   const [htmlContent, setHtmlContent] = useState(snippet.htmlContent);
@@ -144,6 +150,7 @@ export function SnippetEditor({ snippet }: { snippet: SnippetData }) {
           content={htmlContent}
           onChange={handleContentChange}
           placeholder="Ecrivez votre contenu ici... Utilisez le bouton Variables pour inserer des champs dynamiques."
+          snippets={snippets}
         />
       </div>
     </div>
