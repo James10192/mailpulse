@@ -5,6 +5,7 @@ import { Plus, Zap, X, Trash2, Pencil, PauseCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createAutomation, deleteAutomation, updateAutomationStatus } from "./actions";
+import { cn } from "@/lib/utils";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import type { ActionState } from "@/types/action-state";
 
@@ -53,17 +54,20 @@ const presets = [
   {
     name: "Serie de bienvenue",
     desc: "Envoyez une sequence d'emails aux nouveaux abonnes",
-    trigger: "Nouvel abonne",
+    triggerLabel: "Nouvel abonne",
+    triggerValue: "SUBSCRIBER_ADDED",
   },
   {
     name: "Re-engagement",
     desc: "Ciblez les contacts inactifs depuis 30 jours",
-    trigger: "Inactivite",
+    triggerLabel: "Inactivite",
+    triggerValue: "DATE_BASED",
   },
   {
     name: "Anniversaire",
     desc: "Email automatique pour l'anniversaire du contact",
-    trigger: "Date",
+    triggerLabel: "Date",
+    triggerValue: "DATE_BASED",
   },
 ];
 
@@ -84,6 +88,9 @@ export function AutomationsClient({
 }) {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const [presetTrigger, setPresetTrigger] = useState("SUBSCRIBER_ADDED");
+  const [presetDesc, setPresetDesc] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [pausing, setPausing] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
@@ -119,7 +126,7 @@ export function AutomationsClient({
             current={currentCount}
             limit={limit}
             planLabel={planLabel}
-            actionLabel={`Choisissez ${limit} automation${limit > 1 ? "s" : ""} a garder active${limit > 1 ? "s" : ""}.`}
+            actionLabel="Les automations en exces ont ete mises en pause automatiquement. Passez au Pro pour toutes les reactiver."
           />
         )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -133,7 +140,12 @@ export function AutomationsClient({
           </div>
           {canCreate ? (
             <button
-              onClick={() => setModalOpen(true)}
+              onClick={() => {
+                setPresetName("");
+                setPresetTrigger("SUBSCRIBER_ADDED");
+                setPresetDesc("");
+                setModalOpen(true);
+              }}
               className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
               <Plus className="h-4 w-4" />
@@ -160,7 +172,20 @@ export function AutomationsClient({
             <button
               key={preset.name}
               type="button"
-              className="p-5 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 hover:border-orange-500/50 text-left transition-colors group bg-white dark:bg-transparent cursor-pointer"
+              onClick={() => {
+                if (!canCreate) return;
+                setPresetName(preset.name);
+                setPresetTrigger(preset.triggerValue);
+                setPresetDesc(preset.desc);
+                setModalOpen(true);
+              }}
+              disabled={!canCreate}
+              className={cn(
+                "p-5 rounded-xl border border-dashed text-left transition-colors group bg-white dark:bg-transparent",
+                canCreate
+                  ? "border-zinc-300 dark:border-zinc-700 hover:border-orange-500/50 cursor-pointer"
+                  : "border-zinc-200 dark:border-zinc-800 opacity-50 cursor-not-allowed"
+              )}
             >
               <Zap className="h-5 w-5 text-zinc-400 dark:text-zinc-500 group-hover:text-orange-500 mb-3 transition-colors" />
               <h3 className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
@@ -168,7 +193,7 @@ export function AutomationsClient({
               </h3>
               <p className="text-xs text-zinc-500 mt-1">{preset.desc}</p>
               <div className="mt-3 inline-block text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
-                {preset.trigger}
+                {preset.triggerLabel}
               </div>
             </button>
           ))}
@@ -300,6 +325,8 @@ export function AutomationsClient({
                   name="name"
                   type="text"
                   required
+                  defaultValue={presetName}
+                  key={`name-${presetName}`}
                   placeholder="Serie de bienvenue"
                   className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
                 />
@@ -315,6 +342,8 @@ export function AutomationsClient({
                   id="automation-description"
                   name="description"
                   type="text"
+                  defaultValue={presetDesc}
+                  key={`desc-${presetDesc}`}
                   placeholder="Description optionnelle"
                   className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
                 />
@@ -330,7 +359,8 @@ export function AutomationsClient({
                   id="automation-trigger"
                   name="trigger"
                   required
-                  defaultValue="SUBSCRIBER_ADDED"
+                  defaultValue={presetTrigger}
+                  key={`trigger-${presetTrigger}`}
                   className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 cursor-pointer"
                 >
                   {Object.entries(triggerLabels).map(([value, label]) => (
