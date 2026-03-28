@@ -12,3 +12,19 @@ body {
   background: var(--color-background);
   color: var(--color-foreground);
 }
+
+/* Force code blocks and pre to be scrollable on mobile */
+pre {
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+code {
+  word-break: break-word;
+}
+
+/* Prevent any element from overflowing viewport */
+img, svg, video, canvas, audio, iframe, embed, object {
+  max-width: 100%;
+}
