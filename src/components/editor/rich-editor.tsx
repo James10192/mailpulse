@@ -292,8 +292,11 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
     },
   });
 
-  function insertVariable(varName: string) {
-    editor?.chain().focus().insertContent(`{{ ${varName} }}`).run();
+  function insertVariable(varName: string, label: string) {
+    editor?.chain().focus().insertContent({
+      type: "mention",
+      attrs: { id: varName, label },
+    }).run();
     setVariablesOpen(false);
   }
 
@@ -470,7 +473,7 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
               <button
                 key={v.name}
                 type="button"
-                onClick={() => insertVariable(v.name)}
+                onClick={() => insertVariable(v.name, v.label)}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer flex items-center justify-between gap-2"
               >
                 <span className="text-zinc-700 dark:text-zinc-300">{v.label}</span>
