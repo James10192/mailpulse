@@ -53,11 +53,14 @@ export async function updateSnippet(
   const result = updateSnippetSchema.safeParse(data);
   if (!result.success) return { error: "Donnees invalides" };
 
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: "Non authentifie." };
+
   try {
     await prisma.emailTemplate.update({
-      where: { id },
+      where: { id, organizationId: org.id },
       data: {
-        ...(result.data.name && { name: result.data.name }),
+        ...(result.data.name !== undefined && { name: result.data.name }),
         ...(result.data.description !== undefined && { description: result.data.description }),
         ...(result.data.htmlContent !== undefined && { htmlContent: result.data.htmlContent }),
       },
@@ -71,8 +74,11 @@ export async function updateSnippet(
 }
 
 export async function deleteSnippet(id: string): Promise<ActionState> {
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: "Non authentifie." };
+
   try {
-    await prisma.emailTemplate.delete({ where: { id } });
+    await prisma.emailTemplate.delete({ where: { id, organizationId: org.id } });
     revalidatePath("/dashboard/snippets");
     return { success: true };
   } catch {

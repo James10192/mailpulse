@@ -27,7 +27,7 @@ function GitHubIcon() {
 
 export default function LoginPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<div className="min-h-screen bg-zinc-950" />}>
       <LoginForm />
     </Suspense>
   );

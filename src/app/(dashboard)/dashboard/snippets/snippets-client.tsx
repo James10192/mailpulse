@@ -59,12 +59,11 @@ export function SnippetsClient({ snippets }: { snippets: SnippetData[] }) {
               >
                 {/* Preview area */}
                 <div className="h-28 bg-zinc-50 dark:bg-zinc-800/30 p-4 overflow-hidden">
-                  <div
-                    className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-4"
-                    dangerouslySetInnerHTML={{
-                      __html: snippet.htmlContent || "<p class='text-zinc-400'>Contenu vide</p>",
-                    }}
-                  />
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-4">
+                    {snippet.htmlContent
+                      ? snippet.htmlContent.replace(/<[^>]*>/g, "").slice(0, 200)
+                      : "Contenu vide"}
+                  </p>
                 </div>
 
                 {/* Info */}
