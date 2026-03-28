@@ -37,11 +37,12 @@ export async function subscribeViaCapturePage(
 
     // Resolve org owner for userId
     const member = await prisma.member.findFirst({
-      where: { organizationId, role: "owner" },
+      where: { organizationId },
+      orderBy: { createdAt: "asc" },
       select: { userId: true },
     });
-    const userId = member?.userId ?? (await prisma.user.findFirst({ where: {}, select: { id: true } }))?.id;
-    if (!userId) return { error: "Configuration incomplete." };
+    if (!member) return { error: "Configuration incomplete." };
+    const userId = member.userId;
 
     // Upsert contact (avoids race condition + reduces queries)
     const existing = await prisma.contact.findFirst({
@@ -73,8 +74,45 @@ export async function subscribeViaCapturePage(
       email_domain: email.split("@")[1],
     }, organizationId);
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    await Promise.all([
+      prisma.capturePage.update({
+        where: { id: pageId },
+        data: { conversions: { increment: 1 } },
+      }),
+      prisma.capturePageDailyStat.upsert({
+        where: { capturePageId_date: { capturePageId: pageId, date: today } },
+        update: { conversions: { increment: 1 } },
+        create: { capturePageId: pageId, date: today, conversions: 1 },
+      }),
+    ]);
+
     return { success: true };
   } catch {
     return { error: "Erreur lors de l'inscription." };
+  }
+}
+
+export async function trackCapturePageView(pageId: string): Promise<void> {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    await Promise.all([
+      prisma.capturePage.update({
+        where: { id: pageId },
+        data: {
+          totalViews: { increment: 1 },
+          uniqueViews: { increment: 1 },
+        },
+      }),
+      prisma.capturePageDailyStat.upsert({
+        where: { capturePageId_date: { capturePageId: pageId, date: today } },
+        update: { views: { increment: 1 }, uniqueViews: { increment: 1 } },
+        create: { capturePageId: pageId, date: today, views: 1, uniqueViews: 1 },
+      }),
+    ]);
+  } catch {
+    // Fire and forget
   }
 }

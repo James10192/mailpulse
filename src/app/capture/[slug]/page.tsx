@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { Mail } from "lucide-react";
 import { CaptureForm } from "./capture-form";
+import { ViewTracker } from "./view-tracker";
 
 export default async function CapturePublicPage({
   params,
@@ -53,6 +54,7 @@ export default async function CapturePublicPage({
           </p>
         </div>
 
+        <ViewTracker pageId={page.id} />
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
           <CaptureForm
             pageId={page.id}

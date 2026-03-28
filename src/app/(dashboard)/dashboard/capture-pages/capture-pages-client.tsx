@@ -2,6 +2,7 @@
 
 import { useState, useActionState } from "react";
 import { Plus, Globe, Trash2, X, ExternalLink, Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 import { createCapturePage, deleteCapturePage, toggleCapturePagePublished } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import type { ActionState } from "@/types/action-state";
@@ -89,11 +90,14 @@ export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
                     key={page.id}
                     className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/dashboard/capture-pages/${page.id}`}
+                        className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors"
+                      >
                         <Globe className="h-4 w-4 text-zinc-400" />
                         {page.name}
-                      </div>
+                      </Link>
                     </td>
                     <td className="px-4 py-3 text-xs font-mono text-zinc-500 hidden md:table-cell">
                       <span className="truncate max-w-xs block">

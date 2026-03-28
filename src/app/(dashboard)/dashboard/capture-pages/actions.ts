@@ -65,6 +65,34 @@ export async function toggleCapturePagePublished(
   }
 }
 
+export async function updateCapturePageFields(
+  id: string,
+  data: {
+    fields: Array<{ name: string; type: string; required: boolean; label: string }>;
+    buttonLabel: string;
+    successMessage: string;
+  }
+): Promise<ActionState> {
+  const { org } = await getCurrentUserAndOrg();
+  if (!org) return { error: "Non authentifie." };
+
+  try {
+    await prisma.capturePage.update({
+      where: { id, organizationId: org.id },
+      data: {
+        fields: data.fields,
+        buttonLabel: data.buttonLabel,
+        successMessage: data.successMessage,
+      },
+    });
+    revalidatePath(`/dashboard/capture-pages/${id}`);
+    revalidatePath(`/dashboard/capture-pages/${id}/edit`);
+    return { success: true };
+  } catch {
+    return { error: "Erreur lors de la sauvegarde." };
+  }
+}
+
 export async function deleteCapturePage(id: string): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifie." };

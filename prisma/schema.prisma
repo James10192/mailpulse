@@ -430,14 +430,32 @@ model CapturePage {
   fields         Json         @default("[{\"name\":\"email\",\"type\":\"email\",\"required\":true,\"label\":\"Email\"}]")
   successMessage String       @default("Merci ! Vous etes inscrit.")
   buttonLabel    String       @default("S'inscrire")
+  totalViews     Int          @default(0)
+  uniqueViews    Int          @default(0)
+  conversions    Int          @default(0)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dailyStats     CapturePageDailyStat[]
 
   @@unique([slug, organizationId])
   @@map("capture_page")
+}
+
+model CapturePageDailyStat {
+  id            String      @id @default(cuid())
+  date          DateTime    @db.Date
+  views         Int         @default(0)
+  uniqueViews   Int         @default(0)
+  conversions   Int         @default(0)
+
+  capturePageId String
+  capturePage   CapturePage @relation(fields: [capturePageId], references: [id], onDelete: Cascade)
+
+  @@unique([capturePageId, date])
+  @@map("capture_page_daily_stat")
 }
 
 // ============================================
