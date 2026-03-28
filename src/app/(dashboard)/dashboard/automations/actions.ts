@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { z } from "zod";
+import type { ActionState } from "@/types/action-state";
 
 const automationSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -18,15 +19,10 @@ const automationSchema = z.object({
   ]),
 });
 
-export type AutomationActionState = {
-  success?: boolean;
-  error?: string;
-} | null;
-
 export async function createAutomation(
-  _prev: AutomationActionState,
+  _prev: ActionState,
   formData: FormData
-): Promise<AutomationActionState> {
+): Promise<ActionState> {
   const result = automationSchema.safeParse({
     name: formData.get("name"),
     description: formData.get("description"),
@@ -63,7 +59,7 @@ export async function createAutomation(
 
 export async function deleteAutomation(
   automationId: string
-): Promise<AutomationActionState> {
+): Promise<ActionState> {
   try {
     await prisma.automation.delete({ where: { id: automationId } });
     revalidatePath("/dashboard/automations");

@@ -2,7 +2,8 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { X, UserPlus, Loader2 } from "lucide-react";
-import { createContact, type ContactActionState } from "@/app/(dashboard)/dashboard/contacts/actions";
+import { createContact } from "@/app/(dashboard)/dashboard/contacts/actions";
+import type { ActionState } from "@/types/action-state";
 
 export function AddContactPanel({
   open,
@@ -11,7 +12,7 @@ export function AddContactPanel({
   open: boolean;
   onClose: () => void;
 }) {
-  const [state, formAction, pending] = useActionState<ContactActionState, FormData>(
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(
     createContact,
     null
   );

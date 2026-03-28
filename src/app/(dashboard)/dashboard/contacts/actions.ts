@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { z } from "zod";
+import type { ActionState } from "@/types/action-state";
 
 const createContactSchema = z.object({
   email: z.string().email("Email invalide"),
@@ -13,16 +14,10 @@ const createContactSchema = z.object({
   tags: z.string().optional(),
 });
 
-export type ContactActionState = {
-  success?: boolean;
-  error?: string;
-  fieldErrors?: Record<string, string[]>;
-} | null;
-
 export async function createContact(
-  _prevState: ContactActionState,
+  _prevState: ActionState,
   formData: FormData
-): Promise<ContactActionState> {
+): Promise<ActionState> {
   const raw = {
     email: formData.get("email") as string,
     firstName: formData.get("firstName") as string,
@@ -78,7 +73,7 @@ export async function createContact(
   }
 }
 
-export async function deleteContact(contactId: string): Promise<ContactActionState> {
+export async function deleteContact(contactId: string): Promise<ActionState> {
   try {
     await prisma.contact.delete({ where: { id: contactId } });
     revalidatePath("/dashboard/contacts");

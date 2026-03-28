@@ -4,8 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { z } from "zod";
-
-export type DomainActionState = { success?: boolean; error?: string } | null;
+import type { ActionState } from "@/types/action-state";
 
 const domainSchema = z.object({
   domain: z
@@ -15,9 +14,9 @@ const domainSchema = z.object({
 });
 
 export async function createDomain(
-  _prev: DomainActionState,
+  _prev: ActionState,
   formData: FormData
-): Promise<DomainActionState> {
+): Promise<ActionState> {
   const result = domainSchema.safeParse({
     domain: formData.get("domain"),
   });
@@ -44,7 +43,7 @@ export async function createDomain(
 
 export async function deleteDomain(
   id: string
-): Promise<DomainActionState> {
+): Promise<ActionState> {
   try {
     await prisma.sendingDomain.delete({ where: { id } });
     revalidatePath("/dashboard/domains");

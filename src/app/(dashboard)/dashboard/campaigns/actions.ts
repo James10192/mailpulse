@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import type { ActionState } from "@/types/action-state";
 
 const campaignSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -15,16 +16,10 @@ const campaignSchema = z.object({
   htmlContent: z.string().optional(),
 });
 
-export type CampaignActionState = {
-  success?: boolean;
-  error?: string;
-  fieldErrors?: Record<string, string[]>;
-} | null;
-
 export async function createCampaign(
-  _prevState: CampaignActionState,
+  _prevState: ActionState,
   formData: FormData
-): Promise<CampaignActionState> {
+): Promise<ActionState> {
   const raw = {
     name: formData.get("name") as string,
     subject: formData.get("subject") as string,
@@ -74,7 +69,7 @@ export async function createCampaign(
   redirect("/dashboard/campaigns");
 }
 
-export async function deleteCampaign(campaignId: string): Promise<CampaignActionState> {
+export async function deleteCampaign(campaignId: string): Promise<ActionState> {
   try {
     await prisma.campaign.delete({ where: { id: campaignId } });
     revalidatePath("/dashboard/campaigns");

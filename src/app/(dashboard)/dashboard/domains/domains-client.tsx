@@ -2,11 +2,8 @@
 
 import { useActionState, useState, useEffect } from "react";
 import { Plus, Globe, CheckCircle, Clock, Trash2, X } from "lucide-react";
-import {
-  createDomain,
-  deleteDomain,
-  type DomainActionState,
-} from "./actions";
+import { createDomain, deleteDomain } from "./actions";
+import type { ActionState } from "@/types/action-state";
 
 type DomainData = {
   id: string;
@@ -21,7 +18,7 @@ type DomainData = {
 export function DomainsClient({ domains }: { domains: DomainData[] }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<
-    DomainActionState,
+    ActionState,
     FormData
   >(createDomain, null);
 

@@ -3,7 +3,7 @@
 import { useState, useActionState } from "react";
 import { Plus, X, Trash2, FileText } from "lucide-react";
 import { createTemplate, deleteTemplate } from "./actions";
-import type { TemplateActionState } from "./actions";
+import type { ActionState } from "@/types/action-state";
 
 interface TemplateData {
   id: string;
@@ -28,7 +28,7 @@ export function TemplatesClient({
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [state, formAction, isPending] = useActionState<TemplateActionState, FormData>(
+  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     async (prev, formData) => {
       const result = await createTemplate(prev, formData);
       if (result?.success) setModalOpen(false);

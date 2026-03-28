@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { z } from "zod";
+import type { ActionState } from "@/types/action-state";
 
 const templateSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -12,12 +13,10 @@ const templateSchema = z.object({
   htmlContent: z.string().optional(),
 });
 
-export type TemplateActionState = { success?: boolean; error?: string } | null;
-
 export async function createTemplate(
-  _prev: TemplateActionState,
+  _prev: ActionState,
   formData: FormData
-): Promise<TemplateActionState> {
+): Promise<ActionState> {
   const result = templateSchema.safeParse({
     name: formData.get("name"),
     description: formData.get("description"),
@@ -55,7 +54,7 @@ export async function createTemplate(
 
 export async function deleteTemplate(
   templateId: string
-): Promise<TemplateActionState> {
+): Promise<ActionState> {
   try {
     await prisma.emailTemplate.delete({ where: { id: templateId } });
     revalidatePath("/dashboard/templates");

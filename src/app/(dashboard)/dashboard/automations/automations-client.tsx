@@ -3,7 +3,7 @@
 import { useState, useActionState } from "react";
 import { Plus, Zap, X, Trash2 } from "lucide-react";
 import { createAutomation, deleteAutomation } from "./actions";
-import type { AutomationActionState } from "./actions";
+import type { ActionState } from "@/types/action-state";
 
 interface AutomationData {
   id: string;
@@ -71,7 +71,7 @@ export function AutomationsClient({
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [state, formAction, isPending] = useActionState<AutomationActionState, FormData>(
+  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     async (prev, formData) => {
       const result = await createAutomation(prev, formData);
       if (result?.success) setModalOpen(false);

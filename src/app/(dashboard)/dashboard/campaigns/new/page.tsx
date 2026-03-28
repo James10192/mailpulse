@@ -11,7 +11,8 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
-import { createCampaign, type CampaignActionState } from "../actions";
+import { createCampaign } from "../actions";
+import type { ActionState } from "@/types/action-state";
 
 const steps = [
   { id: "info", label: "Informations", icon: FileText },
@@ -20,7 +21,7 @@ const steps = [
 ];
 
 export default function NewCampaignPage() {
-  const [state, formAction, pending] = useActionState<CampaignActionState, FormData>(
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(
     createCampaign,
     null
   );
