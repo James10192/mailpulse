@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { CampaignsClient } from "./campaigns-client";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { PLAN_LIMITS, type PlanTier } from "@/lib/plans";
 
 async function getCampaigns() {
   const campaigns = await prisma.campaign.findMany({
@@ -22,11 +24,37 @@ async function getCampaigns() {
 }
 
 export default async function CampaignsPage() {
-  const campaigns = await getCampaigns();
+  const [campaigns, ctx] = await Promise.all([
+    getCampaigns(),
+    getCurrentUserAndOrg(),
+  ]);
+
+  const plan = (ctx.org?.plan ?? "FREE") as PlanTier;
+  const limits = PLAN_LIMITS[plan];
+  const activeCampaigns = campaigns.filter((c) =>
+    ["SENDING", "SCHEDULED"].includes(c.status)
+  ).length;
+  const canCreate =
+    limits.activeCampaigns === -1 || activeCampaigns < limits.activeCampaigns;
+  const overLimit =
+    limits.activeCampaigns !== -1 && activeCampaigns > limits.activeCampaigns;
+
   return (
     <>
-      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Campagnes" }]} />
-      <CampaignsClient campaigns={campaigns} />
+      <Breadcrumb
+        items={[
+          { label: "", href: "/dashboard" },
+          { label: "Campagnes" },
+        ]}
+      />
+      <CampaignsClient
+        campaigns={campaigns}
+        canCreate={canCreate}
+        limit={limits.activeCampaigns}
+        currentCount={activeCampaigns}
+        planLabel={limits.label}
+        overLimit={overLimit}
+      />
     </>
   );
 }

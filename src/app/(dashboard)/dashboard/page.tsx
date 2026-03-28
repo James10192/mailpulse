@@ -13,6 +13,7 @@ import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getEmailEventStats } from "@/lib/queries/email-stats";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { PLAN_LIMITS, getOrgUsage, checkEmailLimit, type PlanTier } from "@/lib/plans";
+import { getOverLimitResources } from "@/lib/plan-enforcement";
 import { UpgradeBanner, UsageBar } from "@/components/dashboard/feature-gate";
 
 async function getStats() {
@@ -51,13 +52,16 @@ export default async function DashboardPage() {
   // Fetch usage data for FREE plan users
   let usage: { contactCount: number; activeCampaigns: number; automationCount: number } | null = null;
   let emailUsage: { sent: number; limit: number } | null = null;
+  let overLimitResources: { resource: string; current: number; limit: number; label: string }[] = [];
   if (isFreePlan && org) {
-    const [orgUsage, emailCheck] = await Promise.all([
+    const [orgUsage, emailCheck, overLimit] = await Promise.all([
       getOrgUsage(org.id),
       checkEmailLimit(org.id, plan),
+      getOverLimitResources(org.id, plan),
     ]);
     usage = orgUsage;
     emailUsage = { sent: emailCheck.sent, limit: emailCheck.limit };
+    overLimitResources = overLimit;
   }
 
   // Check if any limit is above 80%
@@ -68,11 +72,20 @@ export default async function DashboardPage() {
     (emailUsage && emailUsage.limit > 0 && emailUsage.sent / emailUsage.limit >= 0.8)
   );
 
+  const hasOverLimitResources = overLimitResources.length > 0;
+
   return (
     <div className="space-y-8">
       <Breadcrumb items={[{ label: "" }]} />
 
-      {isApproachingLimit && (
+      {hasOverLimitResources && (
+        <UpgradeBanner
+          message={`Limites depassees: ${overLimitResources.map((r) => `${r.label} (${r.current}/${r.limit})`).join(", ")}`}
+          details="Certaines ressources sont gelees ou vous ne pouvez plus en creer. Passez au Pro pour lever ces restrictions."
+        />
+      )}
+
+      {!hasOverLimitResources && isApproachingLimit && (
         <UpgradeBanner message="Vous approchez de vos limites du plan Starter" />
       )}
 

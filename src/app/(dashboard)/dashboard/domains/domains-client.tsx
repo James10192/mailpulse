@@ -16,7 +16,17 @@ type DomainData = {
   createdAt: string;
 };
 
-export function DomainsClient({ domains, canUseDomains }: { domains: DomainData[]; canUseDomains: boolean }) {
+export function DomainsClient({
+  domains,
+  canUseDomains,
+  planLabel,
+  overLimit,
+}: {
+  domains: DomainData[];
+  canUseDomains: boolean;
+  planLabel: string;
+  overLimit: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<
     ActionState,
@@ -30,7 +40,18 @@ export function DomainsClient({ domains, canUseDomains }: { domains: DomainData[
   return (
     <div className="space-y-6">
       {!canUseDomains && (
-        <UpgradeBanner message="Les domaines personnalises sont disponibles avec le plan Pro" />
+        <UpgradeBanner
+          message={
+            overLimit
+              ? `Vous avez ${domains.length} domaine${domains.length > 1 ? "s" : ""} mais le plan ${planLabel} ne les supporte pas`
+              : "Les domaines personnalises sont disponibles avec le plan Pro"
+          }
+          details={
+            overLimit
+              ? "Vos domaines sont inactifs. Passez au Pro pour les reactiver."
+              : undefined
+          }
+        />
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Send, FileEdit, Clock, CheckCircle, PauseCircle, XCircle, Trash2 } from "lucide-react";
+import { Plus, Send, FileEdit, Clock, CheckCircle, PauseCircle, XCircle, Trash2, Sparkles } from "lucide-react";
 import { deleteCampaign } from "./actions";
+import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 
 type Campaign = {
   id: string;
@@ -43,7 +44,21 @@ const filterOptions = [
   { label: "Envoyees", value: "SENT" },
 ];
 
-export function CampaignsClient({ campaigns }: { campaigns: Campaign[] }) {
+export function CampaignsClient({
+  campaigns,
+  canCreate,
+  limit,
+  currentCount,
+  planLabel,
+  overLimit,
+}: {
+  campaigns: Campaign[];
+  canCreate: boolean;
+  limit: number;
+  currentCount: number;
+  planLabel: string;
+  overLimit: boolean;
+}) {
   const [filter, setFilter] = useState("ALL");
 
   const filtered = campaigns.filter(
@@ -52,6 +67,14 @@ export function CampaignsClient({ campaigns }: { campaigns: Campaign[] }) {
 
   return (
     <div className="space-y-6">
+      {overLimit && limit !== -1 && (
+        <LimitWarningBanner
+          resourceLabel="campagnes actives"
+          current={currentCount}
+          limit={limit}
+          planLabel={planLabel}
+        />
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Campagnes</h1>
@@ -59,13 +82,28 @@ export function CampaignsClient({ campaigns }: { campaigns: Campaign[] }) {
             Gerez et suivez vos campagnes email
           </p>
         </div>
-        <Link
-          href="/dashboard/campaigns/new"
-          className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Nouvelle campagne
-        </Link>
+        {canCreate ? (
+          <Link
+            href="/dashboard/campaigns/new"
+            className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            Nouvelle campagne
+          </Link>
+        ) : (
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-zinc-500">
+              {currentCount}/{limit === -1 ? "\u221E" : limit} campagnes actives
+            </span>
+            <Link
+              href="/dashboard/settings/billing"
+              className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Passer au Pro
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Filters */}

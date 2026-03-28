@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Plus, Zap, X, Trash2, Pencil } from "lucide-react";
+import { Plus, Zap, X, Trash2, Pencil, PauseCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createAutomation, deleteAutomation } from "./actions";
+import { createAutomation, deleteAutomation, updateAutomationStatus } from "./actions";
+import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import type { ActionState } from "@/types/action-state";
 
 interface AutomationData {
@@ -72,16 +73,19 @@ export function AutomationsClient({
   limit,
   currentCount,
   planLabel,
+  overLimit,
 }: {
   automations: AutomationData[];
   canCreate: boolean;
   limit: number;
   currentCount: number;
   planLabel: string;
+  overLimit: boolean;
 }) {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [pausing, setPausing] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     async (prev, formData) => {
       const result = await createAutomation(prev, formData);
@@ -99,9 +103,25 @@ export function AutomationsClient({
     if (result?.error) alert(result.error);
   }
 
+  async function handlePause(id: string) {
+    setPausing(id);
+    const result = await updateAutomationStatus(id, "PAUSED");
+    setPausing(null);
+    if (result?.error) alert(result.error);
+  }
+
   return (
     <>
       <div className="space-y-6">
+        {overLimit && limit !== -1 && (
+          <LimitWarningBanner
+            resourceLabel="automations"
+            current={currentCount}
+            limit={limit}
+            planLabel={planLabel}
+            actionLabel={`Choisissez ${limit} automation${limit > 1 ? "s" : ""} a garder active${limit > 1 ? "s" : ""}.`}
+          />
+        )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
@@ -213,14 +233,26 @@ export function AutomationsClient({
                           {new Date(auto.createdAt).toLocaleDateString("fr-FR")}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => handleDelete(auto.id)}
-                            disabled={deleting === auto.id}
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            {overLimit && (auto.status === "ACTIVE" || auto.status === "DRAFT") && (
+                              <button
+                                onClick={() => handlePause(auto.id)}
+                                disabled={pausing === auto.id}
+                                className="p-1.5 rounded-lg text-amber-500 hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                                title="Desactiver"
+                              >
+                                <PauseCircle className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDelete(auto.id)}
+                              disabled={deleting === auto.id}
+                              className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

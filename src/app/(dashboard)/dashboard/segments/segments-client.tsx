@@ -1,8 +1,10 @@
 "use client";
 
 import { useActionState, useState, useEffect } from "react";
-import { Plus, Filter, Trash2, X } from "lucide-react";
+import { Plus, Filter, Trash2, X, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { createSegment, deleteSegment } from "./actions";
+import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import type { ActionState } from "@/types/action-state";
 
 type SegmentData = {
@@ -13,7 +15,21 @@ type SegmentData = {
   createdAt: string;
 };
 
-export function SegmentsClient({ segments }: { segments: SegmentData[] }) {
+export function SegmentsClient({
+  segments,
+  canCreate,
+  limit,
+  currentCount,
+  planLabel,
+  overLimit,
+}: {
+  segments: SegmentData[];
+  canCreate: boolean;
+  limit: number;
+  currentCount: number;
+  planLabel: string;
+  overLimit: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<
     ActionState,
@@ -26,6 +42,15 @@ export function SegmentsClient({ segments }: { segments: SegmentData[] }) {
 
   return (
     <div className="space-y-6">
+      {overLimit && limit !== -1 && (
+        <LimitWarningBanner
+          resourceLabel="segments"
+          current={currentCount}
+          limit={limit}
+          planLabel={planLabel}
+          actionLabel="Vous ne pouvez plus en creer. Passez au Pro pour des segments illimites."
+        />
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
@@ -35,13 +60,28 @@ export function SegmentsClient({ segments }: { segments: SegmentData[] }) {
             Creez des segments dynamiques pour cibler vos contacts
           </p>
         </div>
-        <button
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-        >
-          <Plus className="h-4 w-4" />
-          Creer un segment
-        </button>
+        {canCreate ? (
+          <button
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            Creer un segment
+          </button>
+        ) : (
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-zinc-500">
+              {currentCount}/{limit === -1 ? "\u221E" : limit} segments
+            </span>
+            <Link
+              href="/dashboard/settings/billing"
+              className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Passer au Pro
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">

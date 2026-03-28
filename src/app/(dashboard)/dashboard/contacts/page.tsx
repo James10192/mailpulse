@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { ContactsClient } from "./contacts-client";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { PLAN_LIMITS, type PlanTier } from "@/lib/plans";
 
 async function getContactStats() {
   const [total, subscribed] = await Promise.all([
@@ -25,12 +27,29 @@ async function getContacts() {
 }
 
 export default async function ContactsPage() {
-  const [stats, contacts] = await Promise.all([getContactStats(), getContacts()]);
+  const [stats, contacts, ctx] = await Promise.all([
+    getContactStats(),
+    getContacts(),
+    getCurrentUserAndOrg(),
+  ]);
+
+  const plan = (ctx.org?.plan ?? "FREE") as PlanTier;
+  const limits = PLAN_LIMITS[plan];
+  const canCreate = limits.contacts === -1 || stats.total < limits.contacts;
+  const overLimit = limits.contacts !== -1 && stats.total > limits.contacts;
 
   return (
     <>
       <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Contacts" }]} />
-      <ContactsClient stats={stats} contacts={contacts} />
+      <ContactsClient
+        stats={stats}
+        contacts={contacts}
+        canCreate={canCreate}
+        limit={limits.contacts}
+        currentCount={stats.total}
+        planLabel={limits.label}
+        overLimit={overLimit}
+      />
     </>
   );
 }

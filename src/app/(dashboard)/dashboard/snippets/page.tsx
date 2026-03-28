@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { SnippetsClient } from "./snippets-client";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { PLAN_LIMITS, type PlanTier } from "@/lib/plans";
 
 async function getSnippets() {
   const snippets = await prisma.emailTemplate.findMany({
@@ -13,11 +15,28 @@ async function getSnippets() {
 }
 
 export default async function SnippetsPage() {
-  const snippets = await getSnippets();
+  const [snippets, ctx] = await Promise.all([
+    getSnippets(),
+    getCurrentUserAndOrg(),
+  ]);
+
+  const plan = (ctx.org?.plan ?? "FREE") as PlanTier;
+  const limits = PLAN_LIMITS[plan];
+  const currentCount = snippets.length;
+  const canCreate = limits.snippets === -1 || currentCount < limits.snippets;
+  const overLimit = limits.snippets !== -1 && currentCount > limits.snippets;
+
   return (
     <>
       <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Campagnes", href: "/dashboard/campaigns" }, { label: "Snippets" }]} />
-      <SnippetsClient snippets={snippets} />
+      <SnippetsClient
+        snippets={snippets}
+        canCreate={canCreate}
+        limit={limits.snippets}
+        currentCount={currentCount}
+        planLabel={limits.label}
+        overLimit={overLimit}
+      />
     </>
   );
 }

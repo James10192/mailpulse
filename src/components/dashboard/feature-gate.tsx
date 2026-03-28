@@ -51,7 +51,13 @@ export function FeatureGate({
   );
 }
 
-export function UpgradeBanner({ message }: { message?: string }) {
+export function UpgradeBanner({
+  message,
+  details,
+}: {
+  message?: string;
+  details?: string;
+}) {
   return (
     <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 flex items-center justify-between gap-4">
       <div className="flex items-center gap-3">
@@ -61,7 +67,8 @@ export function UpgradeBanner({ message }: { message?: string }) {
             {message ?? "Debloquez plus de fonctionnalites"}
           </div>
           <div className="text-xs text-zinc-500 mt-0.5">
-            Passez au plan Pro pour des contacts illimites, A/B testing, automations et plus.
+            {details ??
+              "Passez au plan Pro pour des contacts illimites, A/B testing, automations et plus."}
           </div>
         </div>
       </div>
@@ -70,6 +77,45 @@ export function UpgradeBanner({ message }: { message?: string }) {
         className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-medium transition-colors cursor-pointer"
       >
         Upgrader
+        <ArrowRight className="h-3 w-3" />
+      </Link>
+    </div>
+  );
+}
+
+export function LimitWarningBanner({
+  resourceLabel,
+  current,
+  limit,
+  planLabel,
+  actionLabel,
+}: {
+  resourceLabel: string;
+  current: number;
+  limit: number;
+  planLabel: string;
+  actionLabel?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <Sparkles className="h-5 w-5 text-amber-400 shrink-0" />
+        <div>
+          <div className="text-sm font-medium text-zinc-100">
+            Vous avez {current} {resourceLabel.toLowerCase()} mais votre plan{" "}
+            {planLabel} n&apos;en permet que {limit}.
+          </div>
+          <div className="text-xs text-zinc-500 mt-0.5">
+            {actionLabel ??
+              `Passez au Pro ou desactivez les ${resourceLabel.toLowerCase()} en exces.`}
+          </div>
+        </div>
+      </div>
+      <Link
+        href="/dashboard/settings/billing"
+        className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-medium transition-colors cursor-pointer"
+      >
+        Passer au Pro
         <ArrowRight className="h-3 w-3" />
       </Link>
     </div>

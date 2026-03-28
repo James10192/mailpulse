@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { DomainsClient } from "./domains-client";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { canAccessFeature, type PlanTier } from "@/lib/plans";
+import { canAccessFeature, PLAN_LIMITS, type PlanTier } from "@/lib/plans";
 
 async function getDomains() {
   const domains = await prisma.sendingDomain.findMany({
@@ -22,11 +22,21 @@ export default async function DomainsPage() {
     getDomains(),
     getCurrentUserAndOrg(),
   ]);
-  const canUseDomains = org ? canAccessFeature(org.plan as PlanTier, "custom_domain") : false;
+  const plan = (org?.plan ?? "FREE") as PlanTier;
+  const canUseDomains = org ? canAccessFeature(plan, "custom_domain") : false;
+  const planLabel = PLAN_LIMITS[plan].label;
+  // If FREE plan has domains (from a downgrade), show warning
+  const overLimit = !canUseDomains && domains.length > 0;
+
   return (
     <>
       <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Envoi", href: "/dashboard/senders" }, { label: "Domaines" }]} />
-      <DomainsClient domains={domains} canUseDomains={canUseDomains} />
+      <DomainsClient
+        domains={domains}
+        canUseDomains={canUseDomains}
+        planLabel={planLabel}
+        overLimit={overLimit}
+      />
     </>
   );
 }

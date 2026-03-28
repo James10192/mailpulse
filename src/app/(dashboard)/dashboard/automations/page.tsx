@@ -31,11 +31,19 @@ export default async function AutomationsPage() {
   const limits = PLAN_LIMITS[plan];
   const currentCount = automations.filter((a) => a.status !== "ARCHIVED").length;
   const canCreate = limits.automations === -1 || currentCount < limits.automations;
+  const overLimit = limits.automations !== -1 && currentCount > limits.automations;
 
   return (
     <>
       <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Automations" }]} />
-      <AutomationsClient automations={automations} canCreate={canCreate} limit={limits.automations} currentCount={currentCount} planLabel={limits.label} />
+      <AutomationsClient
+        automations={automations}
+        canCreate={canCreate}
+        limit={limits.automations}
+        currentCount={currentCount}
+        planLabel={limits.label}
+        overLimit={overLimit}
+      />
     </>
   );
 }

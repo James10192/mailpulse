@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Upload, Search, Trash2, Users } from "lucide-react";
+import { Plus, Upload, Search, Trash2, Users, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { AddContactPanel } from "@/components/dashboard/add-contact-panel";
 import { deleteContact } from "./actions";
+import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 
 interface ContactData {
   id: string;
@@ -20,9 +22,19 @@ interface ContactData {
 export function ContactsClient({
   stats,
   contacts,
+  canCreate,
+  limit,
+  currentCount,
+  planLabel,
+  overLimit,
 }: {
   stats: { total: number; subscribed: number; unsubscribed: number };
   contacts: ContactData[];
+  canCreate: boolean;
+  limit: number;
+  currentCount: number;
+  planLabel: string;
+  overLimit: boolean;
 }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -48,6 +60,15 @@ export function ContactsClient({
   return (
     <>
       <div className="space-y-6">
+        {overLimit && limit !== -1 && (
+          <LimitWarningBanner
+            resourceLabel="contacts"
+            current={currentCount}
+            limit={limit}
+            planLabel={planLabel}
+            actionLabel="Vous ne pouvez plus en ajouter. Passez au Pro pour des contacts illimites."
+          />
+        )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
@@ -58,17 +79,34 @@ export function ContactsClient({
             </p>
           </div>
           <div className="flex gap-2">
-            <button className="inline-flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-300 px-4 py-2 rounded-lg text-sm transition-colors bg-white dark:bg-transparent cursor-pointer">
-              <Upload className="h-4 w-4" />
-              Importer CSV
-            </button>
-            <button
-              onClick={() => setPanelOpen(true)}
-              className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              Ajouter
-            </button>
+            {canCreate ? (
+              <>
+                <button className="inline-flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-300 px-4 py-2 rounded-lg text-sm transition-colors bg-white dark:bg-transparent cursor-pointer">
+                  <Upload className="h-4 w-4" />
+                  Importer CSV
+                </button>
+                <button
+                  onClick={() => setPanelOpen(true)}
+                  className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" />
+                  Ajouter
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-zinc-500">
+                  {currentCount}/{limit === -1 ? "\u221E" : limit} contacts
+                </span>
+                <Link
+                  href="/dashboard/settings/billing"
+                  className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Passer au Pro
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 

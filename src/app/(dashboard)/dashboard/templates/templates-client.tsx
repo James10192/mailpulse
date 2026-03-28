@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Plus, X, Trash2, FileText } from "lucide-react";
+import { Plus, X, Trash2, FileText, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { createTemplate, deleteTemplate } from "./actions";
+import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import type { ActionState } from "@/types/action-state";
 
 interface TemplateData {
@@ -23,8 +25,18 @@ const categoryLabels: Record<string, string> = {
 
 export function TemplatesClient({
   templates,
+  canCreate,
+  limit,
+  currentCount,
+  planLabel,
+  overLimit,
 }: {
   templates: TemplateData[];
+  canCreate: boolean;
+  limit: number;
+  currentCount: number;
+  planLabel: string;
+  overLimit: boolean;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -48,6 +60,15 @@ export function TemplatesClient({
   return (
     <>
       <div className="space-y-6">
+        {overLimit && limit !== -1 && (
+          <LimitWarningBanner
+            resourceLabel="templates"
+            current={currentCount}
+            limit={limit}
+            planLabel={planLabel}
+            actionLabel="Vous ne pouvez plus en creer. Passez au Pro pour des templates illimites."
+          />
+        )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
@@ -57,13 +78,28 @@ export function TemplatesClient({
               Creez et gerez vos modeles d&apos;email
             </p>
           </div>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Nouveau template
-          </button>
+          {canCreate ? (
+            <button
+              onClick={() => setModalOpen(true)}
+              className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Nouveau template
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-zinc-500">
+                {currentCount}/{limit === -1 ? "\u221E" : limit} templates
+              </span>
+              <Link
+                href="/dashboard/settings/billing"
+                className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Passer au Pro
+              </Link>
+            </div>
+          )}
         </div>
 
         {templates.length > 0 ? (
