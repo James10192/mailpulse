@@ -88,8 +88,9 @@ function WorkflowEditorInner({
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      setEdges((eds) =>
-        addEdge(
+      console.log("[RF] onConnect fired:", JSON.stringify(connection));
+      setEdges((eds) => {
+        const result = addEdge(
           {
             ...connection,
             type: "smoothstep",
@@ -98,10 +99,33 @@ function WorkflowEditorInner({
             markerEnd: { type: MarkerType.ArrowClosed, color: EDGE_COLOR },
           },
           eds
-        )
-      );
+        );
+        console.log("[RF] edges after addEdge:", result.length, "was:", eds.length);
+        return result;
+      });
     },
     [setEdges]
+  );
+
+  // Debug: log when edges change to detect unwanted removal
+  const wrappedOnEdgesChange = useCallback(
+    (changes: Parameters<typeof onEdgesChange>[0]) => {
+      const removals = changes.filter((c: { type: string }) => c.type === "remove");
+      if (removals.length > 0) {
+        console.log("[RF] onEdgesChange REMOVE:", JSON.stringify(removals));
+      }
+      onEdgesChange(changes);
+    },
+    [onEdgesChange]
+  );
+
+  // Debug: connection end event
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const onConnectEnd = useCallback(
+    (_event: any, connectionState: any) => {
+      console.log("[RF] onConnectEnd — isValid:", connectionState?.isValid, "from:", connectionState?.fromHandle, "to:", connectionState?.toHandle);
+    },
+    []
   );
 
   const scheduleSave = useCallback(
@@ -281,8 +305,9 @@ function WorkflowEditorInner({
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
+          onEdgesChange={wrappedOnEdgesChange}
           onConnect={onConnect}
+          onConnectEnd={onConnectEnd}
           onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
           nodeTypes={nodeTypes}
