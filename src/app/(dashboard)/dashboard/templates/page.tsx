@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { TemplatesClient } from "./templates-client";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 async function getTemplates() {
   const templates = await prisma.emailTemplate.findMany({
@@ -20,5 +21,10 @@ async function getTemplates() {
 
 export default async function TemplatesPage() {
   const templates = await getTemplates();
-  return <TemplatesClient templates={templates} />;
+  return (
+    <>
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Templates" }]} />
+      <TemplatesClient templates={templates} />
+    </>
+  );
 }

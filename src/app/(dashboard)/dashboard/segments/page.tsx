@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { SegmentsClient } from "./segments-client";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 async function getSegments() {
   const segments = await prisma.contactList.findMany({
@@ -22,5 +23,10 @@ async function getSegments() {
 
 export default async function SegmentsPage() {
   const segments = await getSegments();
-  return <SegmentsClient segments={segments} />;
+  return (
+    <>
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Contacts", href: "/dashboard/contacts" }, { label: "Segments" }]} />
+      <SegmentsClient segments={segments} />
+    </>
+  );
 }

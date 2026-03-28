@@ -25,6 +25,7 @@ import {
   AtSign,
   Reply,
 } from "lucide-react";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -493,6 +494,7 @@ export default function OnboardingPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12">
       <div className="w-full max-w-lg">
+        <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Onboarding" }]} />
         {/* Logo / Brand */}
         <div className="mb-8 flex items-center justify-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-orange-500">

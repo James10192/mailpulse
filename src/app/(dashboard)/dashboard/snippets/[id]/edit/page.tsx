@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { SnippetEditor } from "./snippet-editor";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 export default async function EditSnippetPage({
   params,
@@ -23,5 +24,10 @@ export default async function EditSnippetPage({
 
   if (!snippet) notFound();
 
-  return <SnippetEditor snippet={snippet} snippets={allSnippets} />;
+  return (
+    <>
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Campagnes", href: "/dashboard/campaigns" }, { label: "Snippets", href: "/dashboard/snippets" }, { label: "Edition" }]} />
+      <SnippetEditor snippet={snippet} snippets={allSnippets} />
+    </>
+  );
 }

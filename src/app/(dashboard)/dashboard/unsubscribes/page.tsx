@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { DateRangeButton } from "@/components/dashboard/date-range-button";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 async function getUnsubscribeStats() {
   const thirtyDaysAgo = new Date();
@@ -124,6 +125,7 @@ export default async function UnsubscribesPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Emails", href: "/dashboard/transactional" }, { label: "Unsubscribes" }]} />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">

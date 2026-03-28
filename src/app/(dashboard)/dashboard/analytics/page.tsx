@@ -1,11 +1,13 @@
 import { Mail, MousePointerClick, Eye, AlertTriangle } from "lucide-react";
 import { getEmailEventStats } from "@/lib/queries/email-stats";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 export default async function AnalyticsPage() {
   const analytics = await getEmailEventStats();
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Analytics" }]} />
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Analytics</h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { createCampaign } from "../actions";
 import type { ActionState } from "@/types/action-state";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 const steps = [
   { id: "info", label: "Informations", icon: FileText },
@@ -47,6 +48,7 @@ export default function NewCampaignPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Campagnes", href: "/dashboard/campaigns" }, { label: "Nouvelle campagne" }]} />
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link

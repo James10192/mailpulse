@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { convexServer } from "@/lib/convex-server";
+import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
@@ -39,7 +41,7 @@ export async function createAutomation(
       return { error: "Utilisateur non trouve." };
     }
 
-    await prisma.automation.create({
+    const automation = await prisma.automation.create({
       data: {
         name: result.data.name,
         description: result.data.description || null,
@@ -48,6 +50,16 @@ export async function createAutomation(
         userId: user.id,
         organizationId: org.id,
       },
+    });
+
+    convexServer.mutation(api.dashboard.logActivity, {
+      organizationId: org.id,
+      userId: user.id,
+      userName: user.name ?? user.email,
+      action: "created",
+      resourceType: "automation",
+      resourceId: automation.id,
+      resourceName: result.data.name,
     });
 
     revalidatePath("/dashboard/automations");
@@ -61,7 +73,24 @@ export async function deleteAutomation(
   automationId: string
 ): Promise<ActionState> {
   try {
+    const automation = await prisma.automation.findUnique({
+      where: { id: automationId },
+      select: { name: true, organizationId: true, userId: true },
+    });
     await prisma.automation.delete({ where: { id: automationId } });
+
+    if (automation) {
+      convexServer.mutation(api.dashboard.logActivity, {
+        organizationId: automation.organizationId,
+        userId: automation.userId,
+        userName: "System",
+        action: "deleted",
+        resourceType: "automation",
+        resourceId: automationId,
+        resourceName: automation.name,
+      });
+    }
+
     revalidatePath("/dashboard/automations");
     return { success: true };
   } catch {

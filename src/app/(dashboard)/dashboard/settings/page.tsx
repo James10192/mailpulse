@@ -1,8 +1,10 @@
 import { ProfileSection } from "@/components/dashboard/profile-section";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 export default function SettingsPage() {
   return (
     <div className="space-y-8 max-w-2xl">
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Parametres" }]} />
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Parametres</h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">

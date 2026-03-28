@@ -12,6 +12,7 @@ import {
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { prisma } from "@/lib/prisma";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 async function getScheduledCampaigns() {
   const now = new Date();
@@ -51,6 +52,7 @@ export default async function CalendarPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Campagnes", href: "/dashboard/campaigns" }, { label: "Calendrier" }]} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Calendrier</h1>

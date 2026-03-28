@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { CampaignsClient } from "./campaigns-client";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 async function getCampaigns() {
   const campaigns = await prisma.campaign.findMany({
@@ -22,5 +23,10 @@ async function getCampaigns() {
 
 export default async function CampaignsPage() {
   const campaigns = await getCampaigns();
-  return <CampaignsClient campaigns={campaigns} />;
+  return (
+    <>
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Campagnes" }]} />
+      <CampaignsClient campaigns={campaigns} />
+    </>
+  );
 }

@@ -12,7 +12,6 @@ import {
   Zap,
   Settings,
   LogOut,
-  Bell,
   ChevronsLeft,
   ChevronsRight,
   Menu,
@@ -37,6 +36,8 @@ import {
 } from "@/components/dashboard/sidebar-context";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { CommandPalette, useShortcutLabel } from "@/components/dashboard/command-palette";
+import { NotificationsDropdown } from "@/components/dashboard/notifications-dropdown";
+import { PresenceHeartbeat, OnlineUsers } from "@/components/dashboard/presence-indicator";
 import { useState } from "react";
 
 type NavItem = {
@@ -347,6 +348,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      <PresenceHeartbeat />
       <Sidebar />
       <MobileNav />
 
@@ -358,10 +360,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           <div className="md:hidden" />
 
           <div className="flex items-center gap-3">
+            <OnlineUsers />
             <ThemeToggle />
-            <button className="relative text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer">
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationsDropdown />
             <HeaderAvatar />
           </div>
         </header>

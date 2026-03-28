@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { convexServer } from "@/lib/convex-server";
+import { api } from "../../../../../convex/_generated/api";
 import { Webhook } from "svix";
 
 // Resend webhook events
@@ -70,6 +72,13 @@ async function processEvent(event: ResendWebhookEvent) {
 
   if (!contact) return;
 
+  // Map Resend event types to Convex stat event names
+  const convexEventMap: Record<string, "delivered" | "bounced" | "complained"> = {
+    "email.delivered": "delivered",
+    "email.bounced": "bounced",
+    "email.complained": "complained",
+  };
+
   switch (event.type) {
     case "email.delivered":
       await prisma.emailEvent.create({
@@ -118,7 +127,6 @@ async function processEvent(event: ResendWebhookEvent) {
           metadata: { emailId: event.data.email_id },
         },
       });
-      // Immediate suppression
       await prisma.contact.update({
         where: { id: contact.id },
         data: { subscribed: false },
@@ -130,6 +138,15 @@ async function processEvent(event: ResendWebhookEvent) {
         });
       }
       break;
+  }
+
+  // Sync to Convex real-time dashboard
+  const convexEvent = convexEventMap[event.type];
+  if (convexEvent && contact.organizationId) {
+    await convexServer.mutation(api.dashboard.updateStats, {
+      organizationId: contact.organizationId,
+      event: convexEvent,
+    });
   }
 
   // Update campaign analytics if applicable

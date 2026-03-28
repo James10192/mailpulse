@@ -12,6 +12,22 @@ import {
   Sparkles,
   Check,
 } from "lucide-react";
+
+function GithubIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.694.825.576C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+    </svg>
+  );
+}
+
+function LinkedinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+    </svg>
+  );
+}
 import { HeroGlow } from "@/components/landing/hero-glow";
 import { Navbar } from "@/components/landing/navbar";
 import { AnimatedSection, StaggerContainer, StaggerItem } from "@/components/landing/animated-section";
@@ -469,6 +485,123 @@ export default function LandingPage() {
           </AnimatedSection>
         </section>
       </main>
+
+      {/* ─── Equipe ─── */}
+      <section id="team" className="py-20 md:py-32 border-t border-zinc-800/50">
+        <div className="max-w-4xl mx-auto px-6">
+          <AnimatedSection>
+            <div className="text-center mb-16">
+              <span className="text-xs font-mono text-orange-500 uppercase tracking-[0.2em]">
+                Equipe
+              </span>
+              <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
+                Les createurs.
+              </h2>
+              <p className="mt-3 text-zinc-500">
+                Les personnes derriere MailPulse.
+              </p>
+            </div>
+          </AnimatedSection>
+
+          <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* James */}
+            <StaggerItem>
+              <div className="group relative p-6 rounded-2xl border border-zinc-800/50 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300 h-full">
+                <div className="flex items-start gap-5">
+                  <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-orange-500/10 border border-orange-500/10 text-orange-500 font-mono font-bold text-lg">
+                    JD
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-lg">James Djedjeli Patrick</h3>
+                    <p className="text-sm text-orange-400 font-mono mt-0.5">Fondateur & Full-Stack Developer</p>
+                    <p className="text-sm text-zinc-400 mt-3 leading-relaxed">
+                      Lead developer et createur de MailPulse. Architecte full-stack, passione par les outils d&apos;email marketing modernes.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {["Next.js", "Prisma", "Convex", "Python", "TypeScript"].map((tech) => (
+                        <span
+                          key={tech}
+                          className="px-2 py-0.5 rounded-md bg-zinc-800/80 border border-zinc-700/50 text-[10px] text-zinc-400 font-mono"
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3 mt-4">
+                      <a
+                        href="https://github.com/James10192"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                      >
+                        <GithubIcon className="h-3.5 w-3.5" />
+                        GitHub
+                      </a>
+                      <a
+                        href="https://linkedin.com/in/james-djedjeli"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                      >
+                        <LinkedinIcon className="h-3.5 w-3.5" />
+                        LinkedIn
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </StaggerItem>
+
+            {/* Ruben */}
+            <StaggerItem>
+              <div className="group relative p-6 rounded-2xl border border-zinc-800/50 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300 h-full">
+                <div className="flex items-start gap-5">
+                  <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-orange-500/10 border border-orange-500/10 text-orange-500 font-mono font-bold text-lg">
+                    YR
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-lg">Yablai Yablai Ruben Virgil</h3>
+                    <p className="text-sm text-orange-400 font-mono mt-0.5">Co-Fondateur & Frontend / Mobile Developer</p>
+                    <p className="text-sm text-zinc-400 mt-3 leading-relaxed">
+                      Developpeur frontend et mobile. Specialise dans les interfaces utilisateur modernes et les applications cross-platform.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {["Flutter", "Next.js", "React", "TypeScript", "Dart"].map((tech) => (
+                        <span
+                          key={tech}
+                          className="px-2 py-0.5 rounded-md bg-zinc-800/80 border border-zinc-700/50 text-[10px] text-zinc-400 font-mono"
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3 mt-4">
+                      <a
+                        href="https://github.com/rubenvirgil"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                      >
+                        <GithubIcon className="h-3.5 w-3.5" />
+                        GitHub
+                      </a>
+                      <a
+                        href="https://linkedin.com/in/ruben-yablai"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                      >
+                        <LinkedinIcon className="h-3.5 w-3.5" />
+                        LinkedIn
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </StaggerItem>
+          </StaggerContainer>
+        </div>
+      </section>
 
       {/* ─── Footer ─── */}
       <footer className="border-t border-zinc-800/50 py-12">

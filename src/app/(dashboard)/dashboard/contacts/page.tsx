@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ContactsClient } from "./contacts-client";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 async function getContactStats() {
   const [total, subscribed] = await Promise.all([
@@ -26,5 +27,10 @@ async function getContacts() {
 export default async function ContactsPage() {
   const [stats, contacts] = await Promise.all([getContactStats(), getContacts()]);
 
-  return <ContactsClient stats={stats} contacts={contacts} />;
+  return (
+    <>
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Contacts" }]} />
+      <ContactsClient stats={stats} contacts={contacts} />
+    </>
+  );
 }

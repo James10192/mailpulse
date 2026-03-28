@@ -1,8 +1,10 @@
 import { Plus, FormInput } from "lucide-react";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 export default function FieldsPage() {
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Contacts", href: "/dashboard/contacts" }, { label: "Champs" }]} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Champs personnalises</h1>

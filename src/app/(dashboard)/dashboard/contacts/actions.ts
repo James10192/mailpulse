@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { convexServer } from "@/lib/convex-server";
+import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
@@ -62,6 +64,17 @@ export async function createContact(
       }
     }
 
+    // Sync to Convex activity feed
+    convexServer.mutation(api.dashboard.logActivity, {
+      organizationId: org.id,
+      userId: user.id,
+      userName: user.name ?? user.email,
+      action: "created",
+      resourceType: "contact",
+      resourceId: contact.id,
+      resourceName: data.email,
+    });
+
     revalidatePath("/dashboard/contacts");
     revalidatePath("/dashboard");
     return { success: true };
@@ -75,7 +88,24 @@ export async function createContact(
 
 export async function deleteContact(contactId: string): Promise<ActionState> {
   try {
+    const contact = await prisma.contact.findUnique({
+      where: { id: contactId },
+      select: { email: true, organizationId: true, userId: true },
+    });
     await prisma.contact.delete({ where: { id: contactId } });
+
+    if (contact) {
+      convexServer.mutation(api.dashboard.logActivity, {
+        organizationId: contact.organizationId,
+        userId: contact.userId,
+        userName: "System",
+        action: "deleted",
+        resourceType: "contact",
+        resourceId: contactId,
+        resourceName: contact.email,
+      });
+    }
+
     revalidatePath("/dashboard/contacts");
     revalidatePath("/dashboard");
     return { success: true };

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { AutomationsClient } from "./automations-client";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 async function getAutomations() {
   const automations = await prisma.automation.findMany({
@@ -21,5 +22,10 @@ async function getAutomations() {
 
 export default async function AutomationsPage() {
   const automations = await getAutomations();
-  return <AutomationsClient automations={automations} />;
+  return (
+    <>
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Automations" }]} />
+      <AutomationsClient automations={automations} />
+    </>
+  );
 }

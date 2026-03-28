@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { convexServer } from "@/lib/convex-server";
+import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -45,7 +47,7 @@ export async function createCampaign(
       return { error: "Utilisateur non trouve." };
     }
 
-    await prisma.campaign.create({
+    const campaign = await prisma.campaign.create({
       data: {
         name: data.name,
         subject: data.subject,
@@ -60,6 +62,16 @@ export async function createCampaign(
       },
     });
 
+    convexServer.mutation(api.dashboard.logActivity, {
+      organizationId: org.id,
+      userId: user.id,
+      userName: user.name ?? user.email,
+      action: "created",
+      resourceType: "campaign",
+      resourceId: campaign.id,
+      resourceName: data.name,
+    });
+
     revalidatePath("/dashboard/campaigns");
     revalidatePath("/dashboard");
   } catch {
@@ -71,7 +83,24 @@ export async function createCampaign(
 
 export async function deleteCampaign(campaignId: string): Promise<ActionState> {
   try {
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select: { name: true, organizationId: true, userId: true },
+    });
     await prisma.campaign.delete({ where: { id: campaignId } });
+
+    if (campaign) {
+      convexServer.mutation(api.dashboard.logActivity, {
+        organizationId: campaign.organizationId,
+        userId: campaign.userId,
+        userName: "System",
+        action: "deleted",
+        resourceType: "campaign",
+        resourceId: campaignId,
+        resourceName: campaign.name,
+      });
+    }
+
     revalidatePath("/dashboard/campaigns");
     revalidatePath("/dashboard");
     return { success: true };
