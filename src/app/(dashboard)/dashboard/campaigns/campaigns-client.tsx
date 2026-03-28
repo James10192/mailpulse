@@ -184,6 +184,15 @@ export function CampaignsClient({
                       </div>
                     )}
 
+                    {campaign.status === "DRAFT" && (
+                      <Link
+                        href={`/dashboard/campaigns/${campaign.id}/send`}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors"
+                        title="Envoyer"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Link>
+                    )}
                     <button
                       onClick={() => deleteCampaign(campaign.id)}
                       className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
