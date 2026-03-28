@@ -8,7 +8,7 @@ import {
   Send,
   Users,
   BarChart3,
-  FileText,
+
   Zap,
   Settings,
   Tag,
@@ -26,7 +26,7 @@ const pages = [
   { name: "Campagnes", href: "/dashboard/campaigns", icon: Send, group: "Navigation" },
   { name: "Contacts", href: "/dashboard/contacts", icon: Users, group: "Navigation" },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, group: "Navigation" },
-  { name: "Templates", href: "/dashboard/templates", icon: FileText, group: "Navigation" },
+  { name: "Pages de capture", href: "/dashboard/capture-pages", icon: Globe, group: "Navigation" },
   { name: "Automations", href: "/dashboard/automations", icon: Zap, group: "Navigation" },
   { name: "Tags", href: "/dashboard/tags", icon: Tag, group: "Navigation" },
   { name: "Segments", href: "/dashboard/segments", icon: Filter, group: "Navigation" },

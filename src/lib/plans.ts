@@ -10,8 +10,7 @@ export type Feature =
   | "webhooks"
   | "sso"
   | "dedicated_ip"
-  | "advanced_analytics"
-  | "template_library";
+  | "advanced_analytics";
 
 export const PLAN_LIMITS: Record<PlanTier, {
   contacts: number;
@@ -19,7 +18,6 @@ export const PLAN_LIMITS: Record<PlanTier, {
   activeCampaigns: number;
   automations: number;
   snippets: number;
-  templates: number;
   segments: number;
   label: string;
   priceFCFA: number;
@@ -30,7 +28,6 @@ export const PLAN_LIMITS: Record<PlanTier, {
     activeCampaigns: 3,
     automations: 1,
     snippets: 10,
-    templates: 5,
     segments: 3,
     label: "Starter",
     priceFCFA: 0,
@@ -41,7 +38,6 @@ export const PLAN_LIMITS: Record<PlanTier, {
     activeCampaigns: -1,
     automations: -1,
     snippets: -1,
-    templates: -1,
     segments: -1,
     label: "Pro",
     priceFCFA: 15000,
@@ -52,7 +48,6 @@ export const PLAN_LIMITS: Record<PlanTier, {
     activeCampaigns: -1,
     automations: -1,
     snippets: -1,
-    templates: -1,
     segments: -1,
     label: "Enterprise",
     priceFCFA: -1, // custom
@@ -68,7 +63,7 @@ const PLAN_FEATURES: Record<PlanTier, Set<Feature>> = {
     "api_access",
     "webhooks",
     "advanced_analytics",
-    "template_library",
+
   ]),
   ENTERPRISE: new Set([
     "ab_testing",
@@ -77,7 +72,7 @@ const PLAN_FEATURES: Record<PlanTier, Set<Feature>> = {
     "api_access",
     "webhooks",
     "advanced_analytics",
-    "template_library",
+
     "sso",
     "dedicated_ip",
   ]),
@@ -165,14 +160,6 @@ export async function checkSnippetLimit(orgId: string, plan: PlanTier): Promise<
   if (limit === -1) return { allowed: true, current: 0, limit: -1 };
 
   const current = await prisma.emailTemplate.count({ where: { organizationId: orgId, category: "snippet" } });
-  return { allowed: current < limit, current, limit };
-}
-
-export async function checkTemplateLimit(orgId: string, plan: PlanTier): Promise<{ allowed: boolean; current: number; limit: number }> {
-  const limit = PLAN_LIMITS[plan].templates;
-  if (limit === -1) return { allowed: true, current: 0, limit: -1 };
-
-  const current = await prisma.emailTemplate.count({ where: { organizationId: orgId, category: { not: "snippet" } } });
   return { allowed: current < limit, current, limit };
 }
 

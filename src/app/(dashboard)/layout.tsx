@@ -8,7 +8,6 @@ import {
   Send,
   Users,
   BarChart3,
-  FileText,
   Zap,
   Settings,
   LogOut,
@@ -81,7 +80,7 @@ const navigation: NavItem[] = [
     ],
   },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-  { name: "Templates", href: "/dashboard/templates", icon: FileText },
+  { name: "Pages de capture", href: "/dashboard/capture-pages", icon: Globe },
   { name: "Automations", href: "/dashboard/automations", icon: Zap, pro: true },
   {
     name: "Envoi",

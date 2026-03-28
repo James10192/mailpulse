@@ -81,7 +81,6 @@ export async function getOverLimitResources(orgId: string, plan: PlanTier) {
     activeCampaigns,
     automationCount,
     snippetCount,
-    templateCount,
     segmentCount,
   ] = await Promise.all([
     prisma.contact.count({ where: { organizationId: orgId } }),
@@ -93,9 +92,6 @@ export async function getOverLimitResources(orgId: string, plan: PlanTier) {
     }),
     prisma.emailTemplate.count({
       where: { organizationId: orgId, category: "snippet" },
-    }),
-    prisma.emailTemplate.count({
-      where: { organizationId: orgId, category: { not: "snippet" } },
     }),
     prisma.contactList.count({ where: { organizationId: orgId } }),
   ]);
@@ -111,9 +107,6 @@ export async function getOverLimitResources(orgId: string, plan: PlanTier) {
   }
   if (limits.snippets !== -1 && snippetCount > limits.snippets) {
     overLimit.push({ resource: "snippets", current: snippetCount, limit: limits.snippets, label: "Snippets" });
-  }
-  if (limits.templates !== -1 && templateCount > limits.templates) {
-    overLimit.push({ resource: "templates", current: templateCount, limit: limits.templates, label: "Templates" });
   }
   if (limits.segments !== -1 && segmentCount > limits.segments) {
     overLimit.push({ resource: "segments", current: segmentCount, limit: limits.segments, label: "Segments" });

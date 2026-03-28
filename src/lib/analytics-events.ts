@@ -25,10 +25,6 @@ export const EVENTS = {
   AUTOMATION_STATUS_CHANGED: "automation_status_changed",
   WORKFLOW_SAVED: "workflow_saved",
 
-  // Templates
-  TEMPLATE_CREATED: "template_created",
-  TEMPLATE_DELETED: "template_deleted",
-
   // Snippets
   SNIPPET_CREATED: "snippet_created",
   SNIPPET_UPDATED: "snippet_updated",
@@ -45,6 +41,15 @@ export const EVENTS = {
   // Tags
   TAG_CREATED: "tag_created",
   TAG_DELETED: "tag_deleted",
+
+  // Senders
+  SENDER_CREATED: "sender_created",
+  SENDER_DELETED: "sender_deleted",
+
+  // Capture Pages
+  CAPTURE_PAGE_CREATED: "capture_page_created",
+  CAPTURE_PAGE_DELETED: "capture_page_deleted",
+  CAPTURE_PAGE_SUBMISSION: "capture_page_submission",
 
   // Plan / Billing
   PLAN_LIMIT_HIT: "plan_limit_hit",

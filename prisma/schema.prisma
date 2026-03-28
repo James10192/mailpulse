@@ -102,8 +102,10 @@ model Organization {
   contacts    Contact[]
   lists       ContactList[]
   templates   EmailTemplate[]
-  domains     SendingDomain[]
-  automations Automation[]
+  domains      SendingDomain[]
+  automations  Automation[]
+  senders      EmailSender[]
+  capturePages CapturePage[]
 
   @@map("organization")
 }
@@ -394,6 +396,48 @@ model SendingDomain {
 
   @@unique([domain, organizationId])
   @@map("sending_domain")
+}
+
+// ============================================
+// Email Senders
+// ============================================
+
+model EmailSender {
+  id             String       @id @default(cuid())
+  name           String
+  email          String
+  replyTo        String?
+  isDefault      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([email, organizationId])
+  @@map("email_sender")
+}
+
+// ============================================
+// Capture Pages (subscriber forms)
+// ============================================
+
+model CapturePage {
+  id             String       @id @default(cuid())
+  name           String
+  slug           String
+  description    String?
+  published      Boolean      @default(false)
+  fields         Json         @default("[{\"name\":\"email\",\"type\":\"email\",\"required\":true,\"label\":\"Email\"}]")
+  successMessage String       @default("Merci ! Vous etes inscrit.")
+  buttonLabel    String       @default("S'inscrire")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([slug, organizationId])
+  @@map("capture_page")
 }
 
 // ============================================
