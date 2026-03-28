@@ -4,14 +4,14 @@ import { ProfileSection } from "@/components/dashboard/profile-section";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { canAccessFeature, type PlanTier } from "@/lib/plans";
-import { ProBadge, FeatureGate } from "@/components/dashboard/feature-gate";
+import { ProBadge } from "@/components/dashboard/feature-gate";
 
 export default async function SettingsPage() {
   const { org } = await getCurrentUserAndOrg();
   const canUseApi = org ? canAccessFeature(org.plan as PlanTier, "api_access") : false;
   const canUseDomains = org ? canAccessFeature(org.plan as PlanTier, "custom_domain") : false;
   return (
-    <div className="space-y-8 max-w-2xl">
+    <div className="space-y-8 max-w-2xl mx-auto">
       <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Parametres" }]} />
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Parametres</h1>
@@ -100,11 +100,15 @@ export default async function SettingsPage() {
         <div className="text-sm text-zinc-500">
           Gerez vos cles API pour l&apos;integration avec vos applications.
         </div>
-        <FeatureGate allowed={canUseApi} featureName="Acces API">
+        {canUseApi ? (
           <button className="text-sm bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-4 py-2 rounded-lg transition-colors">
             Generer une cle API
           </button>
-        </FeatureGate>
+        ) : (
+          <div className="p-4 rounded-lg border border-dashed border-orange-500/30 bg-orange-500/5 text-center text-sm text-zinc-500">
+            Passez au plan Pro pour acceder a l&apos;API.
+          </div>
+        )}
       </section>
     </div>
   );
