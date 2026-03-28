@@ -14,6 +14,7 @@ const statusConfig: Record<string, { label: string; icon: React.ElementType; cla
 async function getCampaigns() {
   return prisma.campaign.findMany({
     orderBy: { createdAt: "desc" },
+    take: 50,
     include: {
       analytics: true,
       contactList: { select: { name: true, contactCount: true } },

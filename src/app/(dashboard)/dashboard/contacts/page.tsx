@@ -1,14 +1,12 @@
-import { Search } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { ContactsClient } from "./contacts-client";
 
 async function getContactStats() {
-  const [total, subscribed, unsubscribed] = await Promise.all([
+  const [total, subscribed] = await Promise.all([
     prisma.contact.count(),
     prisma.contact.count({ where: { subscribed: true } }),
-    prisma.contact.count({ where: { subscribed: false } }),
   ]);
-  return { total, subscribed, unsubscribed };
+  return { total, subscribed, unsubscribed: total - subscribed };
 }
 
 async function getContacts() {

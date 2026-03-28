@@ -1,33 +1,19 @@
 import { Mail, Users, MousePointerClick, AlertTriangle } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getEmailEventStats } from "@/lib/queries/email-stats";
 
 async function getStats() {
-  const [
-    totalContacts,
-    activeContacts,
-    totalCampaigns,
-    totalEvents,
-    openEvents,
-    clickEvents,
-    bounceEvents,
-  ] = await Promise.all([
-    prisma.contact.count(),
-    prisma.contact.count({ where: { subscribed: true } }),
+  const [contactStats, emailStats, totalCampaigns] = await Promise.all([
+    Promise.all([
+      prisma.contact.count(),
+      prisma.contact.count({ where: { subscribed: true } }),
+    ]),
+    getEmailEventStats(),
     prisma.campaign.count(),
-    prisma.emailEvent.count(),
-    prisma.emailEvent.count({ where: { type: "OPENED" } }),
-    prisma.emailEvent.count({ where: { type: "CLICKED" } }),
-    prisma.emailEvent.count({
-      where: { type: { in: ["BOUNCED_HARD", "BOUNCED_SOFT"] } },
-    }),
   ]);
 
-  const delivered = totalEvents > 0 ? totalEvents : 1;
-  const openRate = ((openEvents / delivered) * 100).toFixed(1);
-  const clickRate = ((clickEvents / delivered) * 100).toFixed(1);
-  const bounceRate = ((bounceEvents / delivered) * 100).toFixed(1);
-
-  return { totalContacts, activeContacts, totalCampaigns, totalEvents, openRate, clickRate, bounceRate };
+  const [totalContacts, activeContacts] = contactStats;
+  return { totalContacts, activeContacts, totalCampaigns, ...emailStats };
 }
 
 async function getRecentCampaigns() {
@@ -59,8 +45,7 @@ function StatCard({
 }
 
 export default async function DashboardPage() {
-  const stats = await getStats();
-  const campaigns = await getRecentCampaigns();
+  const [stats, campaigns] = await Promise.all([getStats(), getRecentCampaigns()]);
 
   return (
     <div className="space-y-8">

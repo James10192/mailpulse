@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -44,17 +45,9 @@ export async function createCampaign(
   const data = result.data;
 
   try {
-    // TODO: get real userId and organizationId from Better Auth session
-    const user = await prisma.user.findFirst();
-    if (!user) {
+    const { user, org } = await getCurrentUserAndOrg();
+    if (!user || !org) {
       return { error: "Utilisateur non trouve." };
-    }
-
-    let org = await prisma.organization.findFirst();
-    if (!org) {
-      org = await prisma.organization.create({
-        data: { name: "Mon organisation", slug: "mon-org" },
-      });
     }
 
     await prisma.campaign.create({

@@ -34,7 +34,7 @@ export default function NewCampaignPage() {
     htmlContent: "",
   });
 
-  function updateField(field: string, value: string) {
+  function updateField(field: keyof typeof formData, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }
 

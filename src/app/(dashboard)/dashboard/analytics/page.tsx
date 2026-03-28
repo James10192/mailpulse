@@ -1,25 +1,8 @@
 import { Mail, MousePointerClick, Eye, AlertTriangle } from "lucide-react";
-import { prisma } from "@/lib/prisma";
-
-async function getAnalytics() {
-  const [totalEvents, openEvents, clickEvents, bounceEvents] = await Promise.all([
-    prisma.emailEvent.count(),
-    prisma.emailEvent.count({ where: { type: "OPENED" } }),
-    prisma.emailEvent.count({ where: { type: "CLICKED" } }),
-    prisma.emailEvent.count({ where: { type: { in: ["BOUNCED_HARD", "BOUNCED_SOFT"] } } }),
-  ]);
-
-  const delivered = totalEvents > 0 ? totalEvents : 1;
-  return {
-    totalEvents,
-    openRate: ((openEvents / delivered) * 100).toFixed(1),
-    clickRate: ((clickEvents / delivered) * 100).toFixed(1),
-    bounceRate: ((bounceEvents / delivered) * 100).toFixed(1),
-  };
-}
+import { getEmailEventStats } from "@/lib/queries/email-stats";
 
 export default async function AnalyticsPage() {
-  const analytics = await getAnalytics();
+  const analytics = await getEmailEventStats();
 
   return (
     <div className="space-y-6">

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { z } from "zod";
 
 const createContactSchema = z.object({
@@ -41,20 +42,9 @@ export async function createContact(
   const data = result.data;
 
   try {
-    // TODO: get real userId and organizationId from Better Auth session
-    const user = await prisma.user.findFirst();
-    if (!user) {
+    const { user, org } = await getCurrentUserAndOrg();
+    if (!user || !org) {
       return { error: "Utilisateur non trouve. Connectez-vous d'abord." };
-    }
-
-    let org = await prisma.organization.findFirst();
-    if (!org) {
-      org = await prisma.organization.create({
-        data: {
-          name: "Mon organisation",
-          slug: "mon-org",
-        },
-      });
     }
 
     const contact = await prisma.contact.create({
@@ -68,12 +58,11 @@ export async function createContact(
       },
     });
 
-    // Create tags if provided
     if (data.tags) {
       const tagNames = data.tags.split(",").map((t) => t.trim()).filter(Boolean);
-      for (const name of tagNames) {
-        await prisma.contactTag.create({
-          data: { name, contactId: contact.id },
+      if (tagNames.length > 0) {
+        await prisma.contactTag.createMany({
+          data: tagNames.map((name) => ({ name, contactId: contact.id })),
         });
       }
     }

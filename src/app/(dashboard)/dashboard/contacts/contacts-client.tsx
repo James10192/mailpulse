@@ -38,8 +38,11 @@ export function ContactsClient({
   async function handleDelete(id: string) {
     if (!confirm("Supprimer ce contact ?")) return;
     setDeleting(id);
-    await deleteContact(id);
+    const result = await deleteContact(id);
     setDeleting(null);
+    if (result?.error) {
+      alert(result.error);
+    }
   }
 
   return (
