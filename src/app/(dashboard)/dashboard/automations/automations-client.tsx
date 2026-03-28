@@ -68,8 +68,16 @@ const presets = [
 
 export function AutomationsClient({
   automations,
+  canCreate,
+  limit,
+  currentCount,
+  planLabel,
 }: {
   automations: AutomationData[];
+  canCreate: boolean;
+  limit: number;
+  currentCount: number;
+  planLabel: string;
 }) {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
@@ -103,13 +111,27 @@ export function AutomationsClient({
               Workflows automatises pour vos campagnes
             </p>
           </div>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Nouvelle automation
-          </button>
+          {canCreate ? (
+            <button
+              onClick={() => setModalOpen(true)}
+              className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Nouvelle automation
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-zinc-500">
+                {currentCount}/{limit === -1 ? "∞" : limit} automations
+              </span>
+              <Link
+                href="/dashboard/settings/billing"
+                className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
+              >
+                Passer au Pro
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Preset cards */}
