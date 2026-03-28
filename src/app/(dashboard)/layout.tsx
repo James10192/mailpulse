@@ -34,6 +34,7 @@ import {
   useSidebar,
 } from "@/components/dashboard/sidebar-context";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
+import { CommandPalette } from "@/components/dashboard/command-palette";
 import { useState } from "react";
 
 type NavItem = {
@@ -308,14 +309,26 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-6 bg-white dark:bg-zinc-950 shrink-0 mt-14 md:mt-0">
-          <div />
+          {/* Search trigger */}
+          <button
+            onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer text-sm"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span>Rechercher...</span>
+            <kbd className="ml-4 text-[10px] font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">⌘K</kbd>
+          </button>
+          <div className="md:hidden" />
+
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <button className="relative text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
+            <button className="relative text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer">
               <Bell className="h-5 w-5" />
             </button>
           </div>
         </header>
+
+        <CommandPalette />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-zinc-100/50 dark:bg-zinc-950">
           {children}
