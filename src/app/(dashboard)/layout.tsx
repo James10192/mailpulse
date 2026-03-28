@@ -17,6 +17,15 @@ import {
   ChevronsRight,
   Menu,
   X,
+  ChevronDown,
+  Tag,
+  Filter,
+  FormInput,
+  Globe,
+  AtSign,
+  Calendar,
+  Code,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/lib/auth-client";
@@ -27,15 +36,131 @@ import {
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { useState } from "react";
 
-const navigation = [
+type NavItem = {
+  name: string;
+  href: string;
+  icon: React.ElementType;
+  children?: { name: string; href: string; icon: React.ElementType }[];
+};
+
+const navigation: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Campagnes", href: "/dashboard/campaigns", icon: Send },
-  { name: "Contacts", href: "/dashboard/contacts", icon: Users },
+  {
+    name: "Campagnes",
+    href: "/dashboard/campaigns",
+    icon: Send,
+    children: [
+      { name: "Toutes", href: "/dashboard/campaigns", icon: Send },
+      { name: "Snippets", href: "/dashboard/snippets", icon: Code },
+      { name: "Calendrier", href: "/dashboard/calendar", icon: Calendar },
+    ],
+  },
+  {
+    name: "Contacts",
+    href: "/dashboard/contacts",
+    icon: Users,
+    children: [
+      { name: "Tous", href: "/dashboard/contacts", icon: Users },
+      { name: "Tags", href: "/dashboard/tags", icon: Tag },
+      { name: "Champs", href: "/dashboard/fields", icon: FormInput },
+      { name: "Segments", href: "/dashboard/segments", icon: Filter },
+    ],
+  },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { name: "Templates", href: "/dashboard/templates", icon: FileText },
   { name: "Automations", href: "/dashboard/automations", icon: Zap },
+  {
+    name: "Envoi",
+    href: "/dashboard/senders",
+    icon: AtSign,
+    children: [
+      { name: "Expediteurs", href: "/dashboard/senders", icon: AtSign },
+      { name: "Domaines", href: "/dashboard/domains", icon: Globe },
+    ],
+  },
   { name: "Parametres", href: "/dashboard/settings", icon: Settings },
 ];
+
+function SidebarNavItem({
+  item,
+  pathname,
+  collapsed,
+}: {
+  item: NavItem;
+  pathname: string;
+  collapsed: boolean;
+}) {
+  const isActive =
+    pathname === item.href ||
+    (item.href !== "/dashboard" && pathname.startsWith(item.href));
+  const hasChildren = item.children && item.children.length > 0;
+  const isChildActive = hasChildren && item.children!.some((c) => pathname === c.href);
+  const [expanded, setExpanded] = useState(isActive || isChildActive);
+
+  if (hasChildren && !collapsed) {
+    return (
+      <div>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className={cn(
+            "flex items-center gap-3 rounded-lg text-sm transition-all w-full px-3 py-2 cursor-pointer",
+            isActive || isChildActive
+              ? "text-orange-600 dark:text-orange-400"
+              : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+          )}
+        >
+          <item.icon className="h-4 w-4 shrink-0" />
+          <span className="flex-1 text-left">{item.name}</span>
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 transition-transform duration-200",
+              expanded ? "rotate-0" : "-rotate-90"
+            )}
+          />
+        </button>
+        {expanded && (
+          <div className="ml-4 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5 mt-0.5">
+            {item.children!.map((child) => {
+              const childActive = pathname === child.href;
+              return (
+                <Link
+                  key={child.href}
+                  href={child.href}
+                  className={cn(
+                    "flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all",
+                    childActive
+                      ? "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                      : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                  )}
+                >
+                  <child.icon className="h-3.5 w-3.5 shrink-0" />
+                  {child.name}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      title={collapsed ? item.name : undefined}
+      className={cn(
+        "flex items-center gap-3 rounded-lg text-sm transition-all",
+        collapsed ? "p-2.5 justify-center" : "px-3 py-2",
+        isActive
+          ? "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+      )}
+    >
+      <item.icon className="h-4 w-4 shrink-0" />
+      {!collapsed && <span>{item.name}</span>}
+    </Link>
+  );
+}
 
 function Sidebar() {
   const pathname = usePathname();
@@ -66,29 +191,10 @@ function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-2 space-y-0.5">
-        {navigation.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.name : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-lg text-sm transition-all",
-                collapsed ? "p-2.5 justify-center" : "px-3 py-2",
-                isActive
-                  ? "bg-orange-500/10 text-orange-600 dark:text-orange-400"
-                  : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-              )}
-            >
-              <item.icon className="h-4 w-4 shrink-0" />
-              {!collapsed && <span>{item.name}</span>}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+        {navigation.map((item) => (
+          <SidebarNavItem key={item.name} item={item} pathname={pathname} collapsed={collapsed} />
+        ))}
       </nav>
 
       {/* Bottom */}
