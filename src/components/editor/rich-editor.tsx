@@ -165,14 +165,14 @@ export function RichEditor({ content, onChange, placeholder }: RichEditorProps) 
 
   if (!editor) {
     return (
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden">
+      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
         <div className="p-4 min-h-[200px]" />
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden">
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
       {/* Toolbar */}
       <div className="flex items-center gap-0.5 p-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 rounded-t-xl flex-wrap">
         {/* Text formatting */}
@@ -281,7 +281,7 @@ export function RichEditor({ content, onChange, placeholder }: RichEditorProps) 
           </button>
 
           {variablesOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50 w-64 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-lg py-1 overflow-hidden">
+            <div className="absolute right-0 mt-1 z-50 w-64 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xl py-1 max-h-72 overflow-y-auto bottom-full mb-1 sm:bottom-auto sm:mb-0 sm:top-full sm:mt-1">
               {VARIABLES.map((v) => (
                 <button
                   key={v.name}
