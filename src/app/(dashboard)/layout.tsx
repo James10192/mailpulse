@@ -111,7 +111,7 @@ function Sidebar() {
 
         {/* Logout */}
         <button
-          onClick={() => signOut({ fetchOptions: { onSuccess: () => window.location.href = "/login" } })}
+          onClick={() => signOut({ fetchOptions: { onSuccess: () => { window.location.href = "/login"; } } })}
           className={cn(
             "flex items-center gap-3 rounded-lg text-sm text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/5 transition-all w-full cursor-pointer",
             collapsed ? "p-2.5 justify-center" : "px-3 py-2"
