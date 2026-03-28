@@ -39,12 +39,13 @@ export const WorkflowContext = createContext<{
   onAddFromNode: (nodeId: string) => void;
 }>({ onAddFromNode: () => {} });
 
-function makeEdge(sourceId: string, targetId: string, sourceHandle?: string): Edge {
+function makeEdge(sourceId: string, targetId: string, sourceHandle?: string | null): Edge {
   return {
-    id: `edge_${sourceId}_${targetId}_${sourceHandle ?? "default"}`,
+    id: `edge_${sourceId}_${targetId}_${sourceHandle ?? "default"}_${Date.now()}`,
     source: sourceId,
     target: targetId,
-    sourceHandle: sourceHandle ?? undefined,
+    sourceHandle: sourceHandle ?? null,
+    targetHandle: null,
     type: "smoothstep",
     animated: true,
     style: { stroke: EDGE_COLOR, strokeWidth: 2 },
