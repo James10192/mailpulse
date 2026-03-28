@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { checkAutomationLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 
@@ -42,6 +43,11 @@ export async function createAutomation(
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) {
       return { error: "Utilisateur non trouve." };
+    }
+
+    const autoCheck = await checkAutomationLimit(org.id, org.plan as PlanTier);
+    if (!autoCheck.allowed) {
+      return { error: `Limite d'automations atteinte (${autoCheck.limit}). Passez au plan Pro.` };
     }
 
     const automation = await prisma.automation.create({

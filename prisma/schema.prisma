@@ -91,6 +91,11 @@ model Organization {
   createdAt DateTime @default(now())
   metadata  String?
 
+  // Plan & billing
+  plan                PlanTier @default(FREE)
+  emailsSentThisMonth Int      @default(0)
+  emailsResetAt       DateTime @default(now())
+
   members     Member[]
   invitations Invitation[]
   campaigns   Campaign[]
@@ -101,6 +106,12 @@ model Organization {
   automations Automation[]
 
   @@map("organization")
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  ENTERPRISE
 }
 
 model Member {

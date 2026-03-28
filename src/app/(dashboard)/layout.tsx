@@ -44,7 +44,8 @@ type NavItem = {
   name: string;
   href: string;
   icon: React.ElementType;
-  children?: { name: string; href: string; icon: React.ElementType }[];
+  pro?: boolean;
+  children?: { name: string; href: string; icon: React.ElementType; pro?: boolean }[];
 };
 
 const navigation: NavItem[] = [
@@ -81,7 +82,7 @@ const navigation: NavItem[] = [
   },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { name: "Templates", href: "/dashboard/templates", icon: FileText },
-  { name: "Automations", href: "/dashboard/automations", icon: Zap },
+  { name: "Automations", href: "/dashboard/automations", icon: Zap, pro: true },
   {
     name: "Envoi",
     href: "/dashboard/senders",
@@ -124,6 +125,9 @@ function SidebarNavItem({
         >
           <item.icon className="h-4 w-4 shrink-0" />
           <span className="flex-1 text-left">{item.name}</span>
+          {item.pro && (
+            <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase">Pro</span>
+          )}
           <ChevronDown
             className={cn(
               "h-3.5 w-3.5 transition-transform duration-200",
@@ -170,7 +174,14 @@ function SidebarNavItem({
       )}
     >
       <item.icon className="h-4 w-4 shrink-0" />
-      {!collapsed && <span>{item.name}</span>}
+      {!collapsed && (
+        <>
+          <span className="flex-1">{item.name}</span>
+          {item.pro && (
+            <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase">Pro</span>
+          )}
+        </>
+      )}
     </Link>
   );
 }

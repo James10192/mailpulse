@@ -1,0 +1,7 @@
+-- CreateEnum
+CREATE TYPE "PlanTier" AS ENUM ('FREE', 'PRO', 'ENTERPRISE');
+
+-- AlterTable
+ALTER TABLE "organization" ADD COLUMN     "emailsResetAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "emailsSentThisMonth" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "plan" "PlanTier" NOT NULL DEFAULT 'FREE';

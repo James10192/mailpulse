@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { checkCampaignLimit, type PlanTier } from "@/lib/plans";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
@@ -45,6 +46,11 @@ export async function createCampaign(
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) {
       return { error: "Utilisateur non trouve." };
+    }
+
+    const campaignCheck = await checkCampaignLimit(org.id, org.plan as PlanTier);
+    if (!campaignCheck.allowed) {
+      return { error: `Limite de campagnes actives atteinte (${campaignCheck.limit}). Passez au plan Pro.` };
     }
 
     const campaign = await prisma.campaign.create({

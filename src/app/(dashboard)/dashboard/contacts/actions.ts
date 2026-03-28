@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { checkContactLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 
@@ -42,6 +43,12 @@ export async function createContact(
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) {
       return { error: "Utilisateur non trouve. Connectez-vous d'abord." };
+    }
+
+    // Check contact limit
+    const contactCheck = await checkContactLimit(org.id, org.plan as PlanTier);
+    if (!contactCheck.allowed) {
+      return { error: `Limite de contacts atteinte (${contactCheck.limit}). Passez au plan Pro pour plus de contacts.` };
     }
 
     const contact = await prisma.contact.create({

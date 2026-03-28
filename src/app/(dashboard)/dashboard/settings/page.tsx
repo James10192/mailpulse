@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { CreditCard, ArrowRight } from "lucide-react";
 import { ProfileSection } from "@/components/dashboard/profile-section";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
@@ -11,6 +13,25 @@ export default function SettingsPage() {
           Configuration de votre organisation et domaines d&apos;envoi
         </p>
       </div>
+
+      {/* Billing link */}
+      <Link
+        href="/dashboard/settings/billing"
+        className="flex items-center justify-between p-5 rounded-xl border border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10 transition-colors cursor-pointer group"
+      >
+        <div className="flex items-center gap-3">
+          <CreditCard className="h-5 w-5 text-orange-400" />
+          <div>
+            <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              Abonnement & Facturation
+            </div>
+            <div className="text-xs text-zinc-500 mt-0.5">
+              Gerez votre plan, suivez votre utilisation
+            </div>
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 text-orange-400 group-hover:translate-x-1 transition-transform" />
+      </Link>
 
       <ProfileSection />
 
