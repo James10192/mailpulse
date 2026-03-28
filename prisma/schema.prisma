@@ -106,6 +106,7 @@ model Organization {
   automations  Automation[]
   senders      EmailSender[]
   capturePages CapturePage[]
+  customFields CustomField[]
 
   @@map("organization")
 }
@@ -402,6 +403,25 @@ model SendingDomain {
 
   @@unique([domain, organizationId])
   @@map("sending_domain")
+}
+
+// ============================================
+// Custom Fields (contact metadata definitions)
+// ============================================
+
+model CustomField {
+  id             String       @id @default(cuid())
+  name           String
+  label          String
+  type           String       @default("text")
+  required       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([name, organizationId])
+  @@map("custom_field")
 }
 
 // ============================================
