@@ -512,7 +512,7 @@ export default function LandingPage() {
                     MD
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-lg">Marcel DJEDJELI-Patrick</h3>
+                    <h3 className="font-semibold text-lg">Marcel DJEDJE-LI</h3>
                     <p className="text-sm text-orange-400 font-mono mt-0.5">Fondateur & Full-Stack Developer</p>
                     <p className="text-sm text-zinc-400 mt-3 leading-relaxed">
                       Fondateur et architecte de MailPulse. Full-stack developer base a Abidjan, passione par les solutions tech pour l&apos;Afrique francophone.
@@ -538,7 +538,7 @@ export default function LandingPage() {
                         GitHub
                       </a>
                       <a
-                        href="https://linkedin.com/in/marcel-djedjeli"
+                        href="https://linkedin.com/in/marcel-djedje-li"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
