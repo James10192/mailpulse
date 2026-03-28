@@ -96,7 +96,7 @@ function Sidebar() {
         {/* Collapse toggle */}
         <button
           onClick={toggle}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all w-full"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all w-full cursor-pointer"
           title={collapsed ? "Ouvrir" : "Reduire"}
         >
           {collapsed ? (
@@ -111,9 +111,9 @@ function Sidebar() {
 
         {/* Logout */}
         <button
-          onClick={() => signOut()}
+          onClick={() => signOut({ fetchOptions: { onSuccess: () => window.location.href = "/login" } })}
           className={cn(
-            "flex items-center gap-3 rounded-lg text-sm text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/5 transition-all w-full",
+            "flex items-center gap-3 rounded-lg text-sm text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/5 transition-all w-full cursor-pointer",
             collapsed ? "p-2.5 justify-center" : "px-3 py-2"
           )}
           title={collapsed ? "Deconnexion" : undefined}
