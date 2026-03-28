@@ -133,6 +133,33 @@ export async function updateAutomationStatus(
   status: string
 ): Promise<ActionState> {
   try {
+    // Block activating if on FREE plan and already at limit
+    if (status === "ACTIVE") {
+      const { org } = await getCurrentUserAndOrg();
+      if (org) {
+        const check = await checkAutomationLimit(org.id, org.plan as PlanTier);
+        // Check if this automation is already counted (it might be DRAFT → ACTIVE)
+        const current = await prisma.automation.findUnique({
+          where: { id: automationId },
+          select: { status: true },
+        });
+        // Only block if it's a new activation (not already active) and limit reached
+        const isAlreadyCounted = current?.status !== "ARCHIVED";
+        if (!isAlreadyCounted && !check.allowed) {
+          return { error: `Limite d'automations atteinte (${check.limit}). Passez au plan Pro pour activer plus d'automations.` };
+        }
+        // If limit is 1 and there's already 1 active (not this one), block
+        if (check.limit > 0 && current?.status !== "ACTIVE") {
+          const activeCount = await prisma.automation.count({
+            where: { organizationId: org.id, status: "ACTIVE" },
+          });
+          if (activeCount >= check.limit) {
+            return { error: `Vous avez deja ${activeCount} automation(s) active(s). Le plan ${org.plan === "FREE" ? "Starter" : org.plan} permet ${check.limit} automation(s). Passez au Pro.` };
+          }
+        }
+      }
+    }
+
     await prisma.automation.update({
       where: { id: automationId },
       data: { status: status as "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED" },

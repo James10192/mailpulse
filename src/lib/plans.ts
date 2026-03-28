@@ -130,7 +130,7 @@ export async function checkAutomationLimit(orgId: string, plan: PlanTier): Promi
   if (limit === -1) return { allowed: true, current: 0, limit: -1 };
 
   const current = await prisma.automation.count({
-    where: { organizationId: orgId, status: { in: ["ACTIVE", "DRAFT"] } },
+    where: { organizationId: orgId, status: { not: "ARCHIVED" } },
   });
   return { allowed: current < limit, current, limit };
 }
