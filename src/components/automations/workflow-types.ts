@@ -43,7 +43,6 @@ export interface WorkflowNodeData {
   type: WorkflowNodeType;
   label: string;
   config: NodeConfig;
-  onAddFromNode?: (nodeId: string) => void;
 }
 
 export const NODE_CATALOG = [

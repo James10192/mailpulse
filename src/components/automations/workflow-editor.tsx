@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useState, useRef, createContext } from "react";
 import {
   ReactFlow,
   Background,
@@ -34,6 +34,10 @@ const EDGE_COLOR = "#71717a";
 const nodeTypes = {
   workflowNode: WorkflowNode,
 };
+
+export const WorkflowContext = createContext<{
+  onAddFromNode: (nodeId: string) => void;
+}>({ onAddFromNode: () => {} });
 
 function makeEdge(sourceId: string, targetId: string, sourceHandle?: string): Edge {
   return {
@@ -113,14 +117,7 @@ export function WorkflowEditor({
     []
   );
 
-  // Inject the callback into every node's data
-  const nodesWithCallback = nodes.map((n) => ({
-    ...n,
-    data: {
-      ...n.data,
-      onAddFromNode: handleAddFromNode,
-    },
-  }));
+  const contextValue = { onAddFromNode: handleAddFromNode };
 
   const handleAddNode = useCallback(
     (type: WorkflowNodeType) => {
@@ -271,8 +268,9 @@ export function WorkflowEditor({
 
       {/* Canvas */}
       <div className="relative w-full h-[calc(100vh-220px)] rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+        <WorkflowContext.Provider value={contextValue}>
         <ReactFlow
-          nodes={nodesWithCallback}
+          nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
@@ -308,6 +306,7 @@ export function WorkflowEditor({
             maskColor="rgba(0,0,0,0.7)"
           />
         </ReactFlow>
+        </WorkflowContext.Provider>
 
         {/* Floating + button */}
         <button

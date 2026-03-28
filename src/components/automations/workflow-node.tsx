@@ -1,9 +1,10 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useContext } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { Mail, Tag, Clock, GitBranch, Globe, Zap, Plus } from "lucide-react";
 import { getNodeColor, type WorkflowNodeData, type WorkflowNodeType } from "./workflow-types";
+import { WorkflowContext } from "./workflow-editor";
 
 function getIcon(type: WorkflowNodeType) {
   switch (type) {
@@ -51,6 +52,7 @@ function getSubtitle(data: WorkflowNodeData) {
 
 function WorkflowNodeComponent({ data, selected, id }: NodeProps) {
   const nodeData = data as unknown as WorkflowNodeData;
+  const { onAddFromNode } = useContext(WorkflowContext);
   const colors = getNodeColor(nodeData.type);
   const Icon = getIcon(nodeData.type);
   const isCondition = nodeData.type === "condition";
@@ -122,12 +124,12 @@ function WorkflowNodeComponent({ data, selected, id }: NodeProps) {
       )}
 
       {/* Per-node "+" button — appears on hover below the source handle */}
-      {nodeData.onAddFromNode && (
+      {onAddFromNode && (
         <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
           <button
             onClick={(e) => {
               e.stopPropagation();
-              nodeData.onAddFromNode?.(id);
+              onAddFromNode(id);
             }}
             className="w-6 h-6 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 transition-all cursor-pointer hover:scale-110"
           >
