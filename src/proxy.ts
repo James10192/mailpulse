@@ -10,6 +10,7 @@ const publicPaths = [
   "/api/webhooks",
   "/api/track",
   "/api/unsubscribe",
+  "/api/upload",
 ];
 
 export function proxy(request: NextRequest) {
