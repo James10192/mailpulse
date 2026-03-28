@@ -48,11 +48,11 @@ function Sidebar() {
         collapsed ? "w-16" : "w-60"
       )}
     >
-      {/* Logo */}
+      {/* Logo — h-14 matches header height exactly */}
       <div
         className={cn(
-          "border-b border-zinc-200 dark:border-zinc-800 flex items-center",
-          collapsed ? "p-3 justify-center" : "p-4"
+          "h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center shrink-0",
+          collapsed ? "justify-center px-3" : "px-4"
         )}
       >
         <Link href="/dashboard" className="flex items-center gap-2">
@@ -211,7 +211,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-zinc-50 dark:bg-zinc-950">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-zinc-100/50 dark:bg-zinc-950">
           {children}
         </main>
       </div>
