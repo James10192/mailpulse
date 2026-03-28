@@ -13,6 +13,7 @@ import {
   Check,
 } from "lucide-react";
 import { HeroGlow } from "@/components/landing/hero-glow";
+import { Navbar } from "@/components/landing/navbar";
 import { AnimatedSection, StaggerContainer, StaggerItem } from "@/components/landing/animated-section";
 import { PulseLine } from "@/components/landing/pulse-line";
 import { MetricCard } from "@/components/landing/metric-card";
@@ -107,58 +108,7 @@ const pricingPlans = [
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-zinc-950 text-zinc-100 overflow-x-hidden">
-      {/* ─── Navigation ─── */}
-      <header className="fixed top-0 inset-x-0 z-50 border-b border-white/5 backdrop-blur-xl bg-zinc-950/80">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="relative">
-              <Mail className="h-5 w-5 text-orange-500 transition-transform group-hover:scale-110" />
-              <div className="absolute inset-0 bg-orange-500/20 blur-lg rounded-full" />
-            </div>
-            <span className="text-lg font-semibold tracking-tight">
-              Mail<span className="text-orange-500">Pulse</span>
-            </span>
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
-            <a href="#features" className="hover:text-zinc-100 transition-colors">
-              Features
-            </a>
-            <a href="#tracking" className="hover:text-zinc-100 transition-colors">
-              Tracking
-            </a>
-            <a href="#pricing" className="hover:text-zinc-100 transition-colors">
-              Pricing
-            </a>
-            <Link href="/docs" className="hover:text-zinc-100 transition-colors">
-              Docs
-            </Link>
-            <a
-              href="https://github.com/James10192/mailpulse"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-zinc-100 transition-colors"
-            >
-              GitHub
-            </a>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors px-3 py-1.5"
-            >
-              Connexion
-            </Link>
-            <Link
-              href="/register"
-              className="text-sm bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg transition-all hover:shadow-lg hover:shadow-orange-500/20"
-            >
-              Demarrer
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       <main className="flex-1">
         {/* ─── Hero ─── */}
