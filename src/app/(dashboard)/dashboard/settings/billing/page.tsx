@@ -147,7 +147,7 @@ export default async function BillingPage() {
             return (
               <div
                 key={plan.tier}
-                className={`rounded-xl border p-5 transition-all ${
+                className={`rounded-xl border p-5 transition-all flex flex-col ${
                   isCurrent
                     ? "border-orange-500/50 bg-orange-500/5"
                     : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50"
@@ -177,7 +177,7 @@ export default async function BillingPage() {
                     </div>
                   )}
                 </div>
-                <ul className="space-y-2 mb-5">
+                <ul className="space-y-2 flex-1">
                   {plan.features.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-xs text-zinc-400">
                       <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
@@ -185,15 +185,17 @@ export default async function BillingPage() {
                     </li>
                   ))}
                 </ul>
-                {isCurrent ? (
-                  <div className="text-center text-xs text-orange-400 font-medium py-2">
-                    Plan actuel
-                  </div>
-                ) : (
-                  <button className="w-full py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-orange-600 hover:bg-orange-500 text-white">
-                    {plan.price === "Sur mesure" ? "Nous contacter" : "Upgrader"}
-                  </button>
-                )}
+                <div className="mt-5">
+                  {isCurrent ? (
+                    <div className="text-center text-xs text-orange-400 font-medium py-2">
+                      Plan actuel
+                    </div>
+                  ) : (
+                    <button className="w-full py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-orange-600 hover:bg-orange-500 text-white">
+                      {plan.price === "Sur mesure" ? "Nous contacter" : "Upgrader"}
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}

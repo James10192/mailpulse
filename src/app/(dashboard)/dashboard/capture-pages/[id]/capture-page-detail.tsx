@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Eye, Pencil, ExternalLink, Users, BarChart3, MousePointerClick, TrendingUp } from "lucide-react";
+import { Eye, EyeOff, Pencil, ExternalLink, Users, BarChart3, MousePointerClick, TrendingUp } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { toggleCapturePagePublished } from "../actions";
 
 interface PageData {
   id: string;
@@ -38,6 +40,16 @@ export function CapturePageDetail({
   dailyStats: DailyStat[];
   recentSubscribers: Subscriber[];
 }) {
+  const [published, setPublished] = useState(page.published);
+  const [toggling, setToggling] = useState(false);
+
+  async function handleTogglePublish() {
+    setToggling(true);
+    const result = await toggleCapturePagePublished(page.id, !published);
+    if (result?.success) setPublished(!published);
+    setToggling(false);
+  }
+
   const stats = [
     { label: "Total vues", value: page.totalViews, icon: Eye, color: "text-blue-500" },
     { label: "Conversions", value: page.conversions, icon: MousePointerClick, color: "text-orange-500" },
@@ -58,7 +70,7 @@ export function CapturePageDetail({
             <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
               {page.name}
             </h1>
-            {page.published ? (
+            {published ? (
               <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 Publiee
               </span>
@@ -73,7 +85,19 @@ export function CapturePageDetail({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {page.published && (
+          <button
+            onClick={handleTogglePublish}
+            disabled={toggling}
+            className={`inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors cursor-pointer disabled:opacity-50 ${
+              published
+                ? "border-amber-500/30 text-amber-500 hover:bg-amber-500/10"
+                : "border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
+            }`}
+          >
+            {published ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {published ? "Depublier" : "Publier"}
+          </button>
+          {published && (
             <a
               href={`/capture/${page.slug}`}
               target="_blank"
