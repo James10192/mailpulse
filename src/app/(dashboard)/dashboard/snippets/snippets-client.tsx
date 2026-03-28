@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useActionState } from "react";
-import { Plus, X, Trash2, Code, Pencil } from "lucide-react";
+import { useState, useActionState, useCallback } from "react";
+import { Plus, X, Trash2, Code, Pencil, Eye, Calendar } from "lucide-react";
 import Link from "next/link";
 import { createSnippetAndRedirect, deleteSnippet } from "./actions";
 import type { ActionState } from "@/types/action-state";
@@ -9,25 +9,228 @@ import type { ActionState } from "@/types/action-state";
 interface SnippetData {
   id: string;
   name: string;
+  description: string | null;
   htmlContent: string;
   createdAt: string;
 }
 
+// Wrap HTML content in a minimal document for iframe rendering
+function wrapHtmlForPreview(html: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #d4d4d8;
+    background: transparent;
+    padding: 12px;
+    overflow: hidden;
+  }
+  img { max-width: 100%; height: auto; }
+  a { color: #f97316; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { padding: 4px 8px; }
+</style>
+</head>
+<body>${html}</body>
+</html>`;
+}
+
+function SnippetCard({
+  snippet,
+  deleting,
+  onDelete,
+  onPreview,
+}: {
+  snippet: SnippetData;
+  deleting: boolean;
+  onDelete: (id: string) => void;
+  onPreview: (snippet: SnippetData) => void;
+}) {
+  const hasContent =
+    snippet.htmlContent && snippet.htmlContent !== "<p></p>";
+
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden group hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors flex flex-col">
+      {/* Clickable preview area */}
+      <button
+        type="button"
+        onClick={() => onPreview(snippet)}
+        className="relative h-36 bg-zinc-50 dark:bg-zinc-800/30 overflow-hidden cursor-pointer text-left w-full"
+      >
+        {hasContent ? (
+          <iframe
+            srcDoc={wrapHtmlForPreview(snippet.htmlContent)}
+            sandbox="allow-same-origin"
+            title={`Apercu de ${snippet.name}`}
+            className="w-full h-full pointer-events-none border-0 scale-100"
+            tabIndex={-1}
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <Code className="h-6 w-6 text-zinc-300 dark:text-zinc-600" />
+          </div>
+        )}
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <span className="bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5">
+            <Eye className="h-3.5 w-3.5" />
+            Apercu
+          </span>
+        </div>
+      </button>
+
+      {/* Info section */}
+      <div className="p-4 flex-1 flex flex-col justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="font-medium text-sm text-zinc-900 dark:text-zinc-100 truncate">
+            {snippet.name}
+          </h3>
+          {snippet.description && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 line-clamp-2">
+              {snippet.description}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-[11px] text-zinc-400 dark:text-zinc-500 flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            {new Date(snippet.createdAt).toLocaleDateString("fr-FR", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
+          </span>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <Link
+              href={`/dashboard/snippets/${snippet.id}/edit`}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors cursor-pointer"
+              title="Editer"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Link>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(snippet.id);
+              }}
+              disabled={deleting}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
+              title="Supprimer"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewModal({
+  snippet,
+  onClose,
+}: {
+  snippet: SnippetData;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[85vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+          <div className="min-w-0 mr-4">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+              {snippet.name}
+            </h2>
+            {snippet.description && (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
+                {snippet.description}
+              </p>
+            )}
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              Cree le{" "}
+              {new Date(snippet.createdAt).toLocaleDateString("fr-FR", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Preview body */}
+        <div className="flex-1 overflow-hidden p-1">
+          <iframe
+            srcDoc={wrapHtmlForPreview(snippet.htmlContent)}
+            sandbox="allow-same-origin"
+            title={`Apercu complet de ${snippet.name}`}
+            className="w-full h-full min-h-[300px] border-0 rounded-lg bg-zinc-50 dark:bg-zinc-800/30"
+          />
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 p-5 border-t border-zinc-200 dark:border-zinc-800 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+          >
+            Fermer
+          </button>
+          <Link
+            href={`/dashboard/snippets/${snippet.id}/edit`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium rounded-xl transition-colors cursor-pointer"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Editer
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SnippetsClient({ snippets }: { snippets: SnippetData[] }) {
-  const [modalOpen, setModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [previewSnippet, setPreviewSnippet] = useState<SnippetData | null>(
+    null
+  );
   const [deleting, setDeleting] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     createSnippetAndRedirect,
     null
   );
 
-  async function handleDelete(id: string) {
+  const handleDelete = useCallback(async (id: string) => {
     if (!confirm("Supprimer ce snippet ?")) return;
     setDeleting(id);
     const result = await deleteSnippet(id);
     setDeleting(null);
     if (result?.error) alert(result.error);
-  }
+  }, []);
+
+  const handlePreview = useCallback((snippet: SnippetData) => {
+    setPreviewSnippet(snippet);
+  }, []);
 
   return (
     <>
@@ -42,7 +245,7 @@ export function SnippetsClient({ snippets }: { snippets: SnippetData[] }) {
             </p>
           </div>
           <button
-            onClick={() => setModalOpen(true)}
+            onClick={() => setCreateModalOpen(true)}
             className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
           >
             <Plus className="h-4 w-4" />
@@ -53,71 +256,53 @@ export function SnippetsClient({ snippets }: { snippets: SnippetData[] }) {
         {snippets.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {snippets.map((snippet) => (
-              <div
+              <SnippetCard
                 key={snippet.id}
-                className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden group hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
-              >
-                {/* Preview area */}
-                <div className="h-28 bg-zinc-50 dark:bg-zinc-800/30 p-4 overflow-hidden">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-4">
-                    {snippet.htmlContent
-                      ? snippet.htmlContent.replace(/<[^>]*>/g, "").slice(0, 200)
-                      : "Contenu vide"}
-                  </p>
-                </div>
-
-                {/* Info */}
-                <div className="p-4 flex items-center justify-between">
-                  <div className="min-w-0">
-                    <h3 className="font-medium text-sm text-zinc-900 dark:text-zinc-100 truncate">
-                      {snippet.name}
-                    </h3>
-                    <p className="text-xs text-zinc-500 mt-0.5">
-                      {new Date(snippet.createdAt).toLocaleDateString("fr-FR")}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Link
-                      href={`/dashboard/snippets/${snippet.id}/edit`}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors cursor-pointer"
-                      title="Editer"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(snippet.id)}
-                      disabled={deleting === snippet.id}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
-                      title="Supprimer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+                snippet={snippet}
+                deleting={deleting === snippet.id}
+                onDelete={handleDelete}
+                onPreview={handlePreview}
+              />
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-12 text-center">
-            <Code className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
-            <p className="text-zinc-500 text-sm mb-4">
-              Aucun snippet pour le moment.
+          <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900/50 p-16 text-center">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-orange-50 dark:bg-orange-500/10 mb-4">
+              <Code className="h-7 w-7 text-orange-500" />
+            </div>
+            <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100 mb-1">
+              Aucun snippet
+            </h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-5 max-w-sm mx-auto">
+              Les snippets sont des blocs de contenu reutilisables que vous
+              pouvez inserer dans vos emails en un clic.
             </p>
             <button
-              onClick={() => setModalOpen(true)}
-              className="text-orange-500 hover:text-orange-400 text-sm font-medium cursor-pointer"
+              onClick={() => setCreateModalOpen(true)}
+              className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer"
             >
-              Creer votre premier snippet
+              <Plus className="h-4 w-4" />
+              Creez votre premier snippet
             </button>
           </div>
         )}
       </div>
 
-      {/* Create modal — name only, then redirect to edit page */}
-      {modalOpen && (
+      {/* Preview modal */}
+      {previewSnippet && (
+        <PreviewModal
+          snippet={previewSnippet}
+          onClose={() => setPreviewSnippet(null)}
+        />
+      )}
+
+      {/* Create modal */}
+      {createModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCreateModalOpen(false);
+          }}
         >
           <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
@@ -125,7 +310,7 @@ export function SnippetsClient({ snippets }: { snippets: SnippetData[] }) {
                 Nouveau snippet
               </h2>
               <button
-                onClick={() => setModalOpen(false)}
+                onClick={() => setCreateModalOpen(false)}
                 className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 <X className="h-4 w-4" />
@@ -134,7 +319,10 @@ export function SnippetsClient({ snippets }: { snippets: SnippetData[] }) {
 
             <form action={formAction} className="space-y-4">
               <div>
-                <label htmlFor="snippet-name" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+                <label
+                  htmlFor="snippet-name"
+                  className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
+                >
                   Nom du snippet *
                 </label>
                 <input
@@ -158,7 +346,7 @@ export function SnippetsClient({ snippets }: { snippets: SnippetData[] }) {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setModalOpen(false)}
+                  onClick={() => setCreateModalOpen(false)}
                   className="px-4 py-2.5 text-sm text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                 >
                   Annuler

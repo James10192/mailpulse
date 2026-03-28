@@ -7,7 +7,7 @@ async function getSnippets() {
     where: { category: "snippet" },
     orderBy: { createdAt: "desc" },
     take: 50,
-    select: { id: true, name: true, htmlContent: true, createdAt: true },
+    select: { id: true, name: true, description: true, htmlContent: true, createdAt: true },
   });
   return snippets.map((s) => ({ ...s, createdAt: s.createdAt.toISOString() }));
 }
