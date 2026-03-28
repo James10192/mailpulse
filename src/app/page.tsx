@@ -538,7 +538,7 @@ export default function LandingPage() {
                         GitHub
                       </a>
                       <a
-                        href="https://linkedin.com/in/marcel-djedje-li"
+                        href="https://www.linkedin.com/in/marcel-djedje-li-099490235"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
