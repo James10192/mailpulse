@@ -3,8 +3,6 @@
 import { useActionState, useState, useEffect } from "react";
 import { Plus, Globe, CheckCircle, Clock, Trash2, X, Info } from "lucide-react";
 import { createDomain, deleteDomain } from "./actions";
-import Link from "next/link";
-import { UpgradeBanner } from "@/components/dashboard/feature-gate";
 import type { ActionState } from "@/types/action-state";
 
 type DomainData = {
@@ -19,14 +17,8 @@ type DomainData = {
 
 export function DomainsClient({
   domains,
-  canUseDomains,
-  planLabel,
-  overLimit,
 }: {
   domains: DomainData[];
-  canUseDomains: boolean;
-  planLabel: string;
-  overLimit: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<
@@ -40,20 +32,6 @@ export function DomainsClient({
 
   return (
     <div className="space-y-6">
-      {!canUseDomains && (
-        <UpgradeBanner
-          message={
-            overLimit
-              ? `Vous avez ${domains.length} domaine${domains.length > 1 ? "s" : ""} mais le plan ${planLabel} ne les supporte pas`
-              : "Les domaines personnalises sont disponibles avec le plan Pro"
-          }
-          details={
-            overLimit
-              ? "Vos domaines sont inactifs. Passez au Pro pour les reactiver."
-              : undefined
-          }
-        />
-      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
@@ -63,22 +41,13 @@ export function DomainsClient({
             Configurez et verifiez vos domaines d&apos;envoi
           </p>
         </div>
-        {canUseDomains ? (
-          <button
-            onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Ajouter un domaine
-          </button>
-        ) : (
-          <Link
-            href="/dashboard/settings/billing"
-            className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
-          >
-            Passer au Pro
-          </Link>
-        )}
+        <button
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+        >
+          <Plus className="h-4 w-4" />
+          Ajouter un domaine
+        </button>
       </div>
 
       <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">

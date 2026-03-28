@@ -88,7 +88,7 @@ const navigation: NavItem[] = [
     icon: AtSign,
     children: [
       { name: "Expediteurs", href: "/dashboard/senders", icon: AtSign },
-      { name: "Domaines", href: "/dashboard/domains", icon: Globe, pro: true },
+      { name: "Domaines", href: "/dashboard/domains", icon: Globe },
     ],
   },
   { name: "Parametres", href: "/dashboard/settings", icon: Settings },

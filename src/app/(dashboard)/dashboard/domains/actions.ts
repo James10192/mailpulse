@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { canAccessFeature, type PlanTier } from "@/lib/plans";
+import { PLAN_LIMITS, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
@@ -27,9 +27,14 @@ export async function createDomain(
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifie." };
 
-  // Custom domains require PRO plan
-  if (!canAccessFeature(org.plan as PlanTier, "custom_domain")) {
-    return { error: "Les domaines personnalises sont disponibles avec le plan Pro. Passez au Pro pour configurer vos propres domaines." };
+  // Check domain limit (FREE: 1, PRO: unlimited)
+  const plan = org.plan as PlanTier;
+  const domainLimit = plan === "FREE" ? 1 : -1;
+  if (domainLimit !== -1) {
+    const count = await prisma.sendingDomain.count({ where: { organizationId: org.id } });
+    if (count >= domainLimit) {
+      return { error: `Limite de domaines atteinte (${domainLimit}). Passez au plan Pro pour ajouter plus de domaines.` };
+    }
   }
 
   try {
