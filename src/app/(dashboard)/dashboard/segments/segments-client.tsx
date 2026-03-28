@@ -2,11 +2,8 @@
 
 import { useActionState, useState, useEffect } from "react";
 import { Plus, Filter, Trash2, X } from "lucide-react";
-import {
-  createSegment,
-  deleteSegment,
-  type SegmentActionState,
-} from "./actions";
+import { createSegment, deleteSegment } from "./actions";
+import type { ActionState } from "@/types/action-state";
 
 type SegmentData = {
   id: string;
@@ -19,7 +16,7 @@ type SegmentData = {
 export function SegmentsClient({ segments }: { segments: SegmentData[] }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<
-    SegmentActionState,
+    ActionState,
     FormData
   >(createSegment, null);
 
