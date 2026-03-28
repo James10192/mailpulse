@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
@@ -39,9 +39,22 @@ const pages = [
   { name: "Ajouter un contact", href: "/dashboard/contacts", icon: Plus, group: "Actions" },
 ];
 
+function useIsMac() {
+  return useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    return /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+  }, []);
+}
+
+export function useShortcutLabel() {
+  const isMac = useIsMac();
+  return isMac ? "\u2318K" : "Ctrl+K";
+}
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const shortcutLabel = useShortcutLabel();
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -50,8 +63,15 @@ export function CommandPalette() {
         setOpen((prev) => !prev);
       }
     }
+    function handleCustomOpen() {
+      setOpen(true);
+    }
     window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
+    document.addEventListener("open-command-palette", handleCustomOpen);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      document.removeEventListener("open-command-palette", handleCustomOpen);
+    };
   }, []);
 
   function navigate(href: string) {
@@ -66,6 +86,7 @@ export function CommandPalette() {
       <div
         className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
         onClick={() => setOpen(false)}
+        onPointerDown={() => setOpen(false)}
       />
       <div className="fixed inset-0 z-[61] flex items-start justify-center pt-[20vh] px-4">
         <Command
@@ -134,7 +155,7 @@ export function CommandPalette() {
               <span>↵ selectionner</span>
               <span>esc fermer</span>
             </div>
-            <span className="font-mono">⌘K</span>
+            <span className="font-mono">{shortcutLabel}</span>
           </div>
         </Command>
       </div>

@@ -28,13 +28,13 @@ import {
   Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { signOut } from "@/lib/auth-client";
+import { signOut, useSession } from "@/lib/auth-client";
 import {
   SidebarProvider,
   useSidebar,
 } from "@/components/dashboard/sidebar-context";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
-import { CommandPalette } from "@/components/dashboard/command-palette";
+import { CommandPalette, useShortcutLabel } from "@/components/dashboard/command-palette";
 import { useState } from "react";
 
 type NavItem = {
@@ -298,6 +298,39 @@ function MobileNav() {
   );
 }
 
+function SearchTrigger() {
+  const shortcutLabel = useShortcutLabel();
+  return (
+    <button
+      onClick={() => document.dispatchEvent(new Event("open-command-palette"))}
+      className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer text-sm"
+    >
+      <Search className="h-3.5 w-3.5" />
+      <span>Rechercher...</span>
+      <kbd className="ml-4 text-[10px] font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">{shortcutLabel}</kbd>
+    </button>
+  );
+}
+
+function HeaderAvatar() {
+  const { data: session } = useSession();
+  return (
+    <Link href="/dashboard/settings" title="Parametres">
+      {session?.user?.image ? (
+        <img
+          src={session.user.image}
+          alt=""
+          className="h-8 w-8 rounded-full object-cover"
+        />
+      ) : (
+        <div className="h-8 w-8 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center text-sm font-medium">
+          {session?.user?.name?.[0]?.toUpperCase() ?? "?"}
+        </div>
+      )}
+    </Link>
+  );
+}
+
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebar();
 
@@ -310,14 +343,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         {/* Header */}
         <header className="h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-6 bg-white dark:bg-zinc-950 shrink-0 mt-14 md:mt-0">
           {/* Search trigger */}
-          <button
-            onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
-            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer text-sm"
-          >
-            <Search className="h-3.5 w-3.5" />
-            <span>Rechercher...</span>
-            <kbd className="ml-4 text-[10px] font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">⌘K</kbd>
-          </button>
+          <SearchTrigger />
           <div className="md:hidden" />
 
           <div className="flex items-center gap-3">
@@ -325,6 +351,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             <button className="relative text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer">
               <Bell className="h-5 w-5" />
             </button>
+            <HeaderAvatar />
           </div>
         </header>
 

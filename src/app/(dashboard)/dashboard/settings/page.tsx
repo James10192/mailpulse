@@ -1,3 +1,5 @@
+import { ProfileSection } from "@/components/dashboard/profile-section";
+
 export default function SettingsPage() {
   return (
     <div className="space-y-8 max-w-2xl">
@@ -7,6 +9,8 @@ export default function SettingsPage() {
           Configuration de votre organisation et domaines d&apos;envoi
         </p>
       </div>
+
+      <ProfileSection />
 
       <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-4">
         <h2 className="font-medium text-zinc-900 dark:text-zinc-100">Organisation</h2>
