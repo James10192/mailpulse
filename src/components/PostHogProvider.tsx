@@ -25,11 +25,23 @@ function PostHogPageView() {
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    if (!key) return;
+    const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+
+    if (!key) {
+      console.warn("[PostHog] NEXT_PUBLIC_POSTHOG_KEY manquant — analytics desactives. Ajoutez-le dans .env.local ou Vercel.");
+      return;
+    }
+    if (!host) {
+      console.warn("[PostHog] NEXT_PUBLIC_POSTHOG_HOST manquant — utilisation du host par defaut.");
+    }
+
     posthog.init(key, {
-      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+      api_host: host || "https://us.i.posthog.com",
       capture_pageview: false,
       capture_pageleave: true,
+      loaded: (ph) => {
+        console.info(`[PostHog] Initialise (projet: ${ph.config.token?.slice(0, 8)}..., host: ${ph.config.api_host})`);
+      },
     });
   }, []);
 
