@@ -61,7 +61,9 @@ export const auth = betterAuth({
     passkey({
       rpID,
       rpName: "MailPulse",
-      origin: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+      origin: process.env.NODE_ENV === "production"
+        ? "https://mailpulse-two.vercel.app"
+        : "http://localhost:3000",
     }),
   ],
 
