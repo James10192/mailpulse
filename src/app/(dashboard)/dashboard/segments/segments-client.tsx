@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState, useEffect } from "react";
-import { Plus, Filter, Trash2, X, Sparkles } from "lucide-react";
+import { useActionState, useState, useEffect, useMemo } from "react";
+import { Plus, Filter, Trash2, X, Sparkles, Search, ArrowUpDown, Info, Users } from "lucide-react";
 import Link from "next/link";
 import { createSegment, deleteSegment } from "./actions";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import type { ActionState } from "@/types/action-state";
 
 type SegmentData = {
@@ -14,6 +15,8 @@ type SegmentData = {
   contactCount: number;
   createdAt: string;
 };
+
+type SortKey = "recent" | "oldest" | "name-asc" | "name-desc";
 
 export function SegmentsClient({
   segments,
@@ -31,6 +34,8 @@ export function SegmentsClient({
   overLimit: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortKey>("recent");
   const [state, formAction, pending] = useActionState<
     ActionState,
     FormData
@@ -39,6 +44,34 @@ export function SegmentsClient({
   useEffect(() => {
     if (state?.success) setOpen(false);
   }, [state]);
+
+  const filtered = useMemo(() => {
+    let result = segments;
+
+    // Search filter
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter((s) => s.name.toLowerCase().includes(q));
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      switch (sort) {
+        case "recent":
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case "oldest":
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case "name-asc":
+          return a.name.localeCompare(b.name, "fr");
+        case "name-desc":
+          return b.name.localeCompare(a.name, "fr");
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [segments, search, sort]);
 
   return (
     <div className="space-y-6">
@@ -84,8 +117,43 @@ export function SegmentsClient({
         )}
       </div>
 
+      {/* Info banner */}
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+        <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+        <p className="text-sm text-blue-300/80">
+          Les segments regroupent dynamiquement vos contacts selon des criteres. Utilisez-les pour cibler vos campagnes vers une audience specifique.
+        </p>
+      </div>
+
+      {/* Search and sort controls */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher un segment..."
+            className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+        </div>
+        <div className="relative">
+          <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            className="pl-9 pr-8 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none cursor-pointer"
+          >
+            <option value="recent">Plus recents</option>
+            <option value="oldest">Plus anciens</option>
+            <option value="name-asc">Nom A-Z</option>
+            <option value="name-desc">Nom Z-A</option>
+          </select>
+        </div>
+      </div>
+
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
-        {segments.length > 0 ? (
+        {filtered.length > 0 ? (
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-200 dark:border-zinc-800">
@@ -107,11 +175,18 @@ export function SegmentsClient({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {segments.map((segment) => (
+              {filtered.map((segment) => (
                 <SegmentRow key={segment.id} segment={segment} />
               ))}
             </tbody>
           </table>
+        ) : segments.length > 0 && filtered.length === 0 ? (
+          <div className="p-12 text-center">
+            <Search className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
+            <p className="text-zinc-500 text-sm">
+              Aucun segment ne correspond a votre recherche.
+            </p>
+          </div>
         ) : (
           <div className="p-12 text-center">
             <Filter className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
@@ -197,8 +272,10 @@ export function SegmentsClient({
 
 function SegmentRow({ segment }: { segment: SegmentData }) {
   const [deleting, setDeleting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   async function handleDelete() {
+    setConfirmOpen(false);
     setDeleting(true);
     await deleteSegment(segment.id);
     setDeleting(false);
@@ -211,32 +288,47 @@ function SegmentRow({ segment }: { segment: SegmentData }) {
   }).format(new Date(segment.createdAt));
 
   return (
-    <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Filter className="h-3.5 w-3.5 text-orange-500" />
-          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-            {segment.name}
-          </span>
-        </div>
-      </td>
-      <td className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
-        {segment.description || "\u2014"}
-      </td>
-      <td className="px-4 py-3 text-sm font-mono text-zinc-500">
-        {segment.contactCount}
-      </td>
-      <td className="px-4 py-3 text-sm text-zinc-500">{formattedDate}</td>
-      <td className="px-4 py-3 text-right">
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-400 disabled:opacity-50 cursor-pointer"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          {deleting ? "..." : "Supprimer"}
-        </button>
-      </td>
-    </tr>
+    <>
+      <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Filter className="h-3.5 w-3.5 text-orange-500" />
+            <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              {segment.name}
+            </span>
+          </div>
+        </td>
+        <td className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
+          {segment.description || "\u2014"}
+        </td>
+        <td className="px-4 py-3">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-500">
+            <Users className="h-3.5 w-3.5" />
+            <span className="text-sm font-semibold font-mono">{segment.contactCount}</span>
+          </div>
+        </td>
+        <td className="px-4 py-3 text-sm text-zinc-500">{formattedDate}</td>
+        <td className="px-4 py-3 text-right">
+          <button
+            onClick={() => setConfirmOpen(true)}
+            disabled={deleting}
+            className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-400 disabled:opacity-50 cursor-pointer"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {deleting ? "..." : "Supprimer"}
+          </button>
+        </td>
+      </tr>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Supprimer le segment"
+        message={`Etes-vous sur de vouloir supprimer le segment "${segment.name}" ? Cette action est irreversible.`}
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmOpen(false)}
+        destructive
+      />
+    </>
   );
 }
