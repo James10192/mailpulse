@@ -1,0 +1,19 @@
+name: Send Scheduled Campaigns
+
+on:
+  schedule:
+    - cron: '* * * * *'  # Every minute
+  workflow_dispatch: {}   # Allow manual trigger
+
+jobs:
+  send-scheduled:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger scheduled campaign send
+        run: |
+          curl -s -X GET "${{ secrets.APP_URL }}/api/cron/send-scheduled" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json"
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

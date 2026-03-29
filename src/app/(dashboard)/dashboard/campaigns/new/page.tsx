@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -33,6 +33,19 @@ export default function NewCampaignPage() {
     previewText: "",
     htmlContent: "",
   });
+
+  const hasUnsavedData = formData.name || formData.subject || formData.htmlContent;
+
+  // Warn before leaving with unsaved data (browser close/refresh)
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (hasUnsavedData) {
+        e.preventDefault();
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedData]);
 
   function updateField(field: keyof typeof formData, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }));

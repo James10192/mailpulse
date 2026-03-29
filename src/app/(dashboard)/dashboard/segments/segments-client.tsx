@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useState, useEffect, useMemo } from "react";
-import { Plus, Filter, Trash2, X, Sparkles, Search, ArrowUpDown, Info, Users } from "lucide-react";
+import { useActionState, useState, useEffect, useMemo, useRef } from "react";
+import { Plus, Filter, Trash2, X, Sparkles, Search, ArrowUpDown, Info, Users, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { createSegment, deleteSegment } from "./actions";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
@@ -34,6 +34,20 @@ export function SegmentsClient({
   overLimit: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [filterSubscribed, setFilterSubscribed] = useState<"all" | "true" | "false">("all");
+  const [filterTags, setFilterTags] = useState("");
+  const [filterEngagementMin, setFilterEngagementMin] = useState("");
+  const [filterCreatedAfter, setFilterCreatedAfter] = useState("");
+
+  function getFiltersJson() {
+    const f: Record<string, unknown> = {};
+    if (filterSubscribed === "true") f.subscribed = true;
+    if (filterSubscribed === "false") f.subscribed = false;
+    if (filterTags) f.includeTags = filterTags.split(",").map((t) => t.trim()).filter(Boolean);
+    if (filterEngagementMin) f.engagementMin = Number(filterEngagementMin);
+    if (filterCreatedAfter) f.createdAfter = filterCreatedAfter;
+    return Object.keys(f).length > 0 ? JSON.stringify(f) : "";
+  }
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
   const [state, formAction, pending] = useActionState<
@@ -243,6 +257,33 @@ export function SegmentsClient({
                   placeholder="Description optionnelle..."
                 />
               </div>
+              {/* Dynamic filters */}
+              <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-3">
+                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Filtres dynamiques</p>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Statut abonnement</label>
+                  <select value={filterSubscribed} onChange={(e) => setFilterSubscribed(e.target.value as "all" | "true" | "false")} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer">
+                    <option value="all">Tous</option>
+                    <option value="true">Abonnes uniquement</option>
+                    <option value="false">Desabonnes uniquement</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Tags (separes par des virgules)</label>
+                  <input value={filterTags} onChange={(e) => setFilterTags(e.target.value)} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="vip, client" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Score engagement min</label>
+                    <input type="number" value={filterEngagementMin} onChange={(e) => setFilterEngagementMin(e.target.value)} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="0" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Crees apres</label>
+                    <input type="date" value={filterCreatedAfter} onChange={(e) => setFilterCreatedAfter(e.target.value)} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer" />
+                  </div>
+                </div>
+              </div>
+              <input type="hidden" name="filters" value={getFiltersJson()} />
               {state?.error && (
                 <p className="text-sm text-red-500">{state.error}</p>
               )}
@@ -293,9 +334,9 @@ function SegmentRow({ segment }: { segment: SegmentData }) {
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <Filter className="h-3.5 w-3.5 text-orange-500" />
-            <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+            <Link href={`/dashboard/segments/${segment.id}`} className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors">
               {segment.name}
-            </span>
+            </Link>
           </div>
         </td>
         <td className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
