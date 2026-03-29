@@ -5,23 +5,18 @@ import { dash } from "@better-auth/infra";
 import { passkey } from "@better-auth/passkey";
 import { prisma } from "./prisma";
 
-function extractRpID(url?: string): string {
-  if (!url) return "localhost";
-  try {
-    const hostname = new URL(url).hostname;
-    return hostname.replace(/\.$/, ""); // Remove trailing dot if any
-  } catch {
-    return url.replace("https://", "").replace("http://", "").split(":")[0].split("/")[0].replace(/\.$/, "");
-  }
-}
+const BASE_URL = (process.env.BETTER_AUTH_URL || "http://localhost:3000").trim();
 
-const rpID = extractRpID(process.env.BETTER_AUTH_URL);
+const rpID = (() => {
+  try { return new URL(BASE_URL).hostname; }
+  catch { return "localhost"; }
+})();
 
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: BASE_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins: [
-    process.env.BETTER_AUTH_URL || "http://localhost:3000",
+    BASE_URL,
     "https://mailpulse-two.vercel.app",
     "http://localhost:3000",
   ],
@@ -61,9 +56,7 @@ export const auth = betterAuth({
     passkey({
       rpID,
       rpName: "MailPulse",
-      origin: process.env.NODE_ENV === "production"
-        ? "https://mailpulse-two.vercel.app"
-        : "http://localhost:3000",
+      origin: BASE_URL,
     }),
   ],
 
