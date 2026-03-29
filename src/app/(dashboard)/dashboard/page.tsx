@@ -16,22 +16,23 @@ import { PLAN_LIMITS, getOrgUsage, checkEmailLimit, type PlanTier } from "@/lib/
 import { getOverLimitResources } from "@/lib/plan-enforcement";
 import { UpgradeBanner, UsageBar } from "@/components/dashboard/feature-gate";
 
-async function getStats() {
+async function getStats(orgId: string) {
   const [contactStats, emailStats, totalCampaigns] = await Promise.all([
     Promise.all([
-      prisma.contact.count(),
-      prisma.contact.count({ where: { subscribed: true } }),
+      prisma.contact.count({ where: { organizationId: orgId } }),
+      prisma.contact.count({ where: { organizationId: orgId, subscribed: true } }),
     ]),
     getEmailEventStats(),
-    prisma.campaign.count(),
+    prisma.campaign.count({ where: { organizationId: orgId } }),
   ]);
 
   const [totalContacts, activeContacts] = contactStats;
   return { totalContacts, activeContacts, totalCampaigns, ...emailStats };
 }
 
-async function getRecentCampaigns() {
+async function getRecentCampaigns(orgId: string) {
   return prisma.campaign.findMany({
+    where: { organizationId: orgId },
     orderBy: { createdAt: "desc" },
     take: 5,
     include: { analytics: true },
@@ -39,10 +40,12 @@ async function getRecentCampaigns() {
 }
 
 export default async function DashboardPage() {
-  const [stats, campaigns, { org }] = await Promise.all([
-    getStats(),
-    getRecentCampaigns(),
-    getCurrentUserAndOrg(),
+  const { org } = await getCurrentUserAndOrg();
+  const orgId = org?.id ?? "";
+
+  const [stats, campaigns] = await Promise.all([
+    getStats(orgId),
+    getRecentCampaigns(orgId),
   ]);
 
   const plan = (org?.plan ?? "FREE") as PlanTier;
