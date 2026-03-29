@@ -80,6 +80,7 @@ model Passkey {
   deviceType          String
   backedUp            Boolean   @default(false)
   transports          String?
+  aaguid              String?
   createdAt           DateTime  @default(now())
 
   @@map("passkey")
