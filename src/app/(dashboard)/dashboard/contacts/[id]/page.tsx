@@ -13,7 +13,7 @@ export default async function ContactDetailPage({
   const { org } = await getCurrentUserAndOrg();
   if (!org) notFound();
 
-  const [contact, activeAutomations, customFields] = await Promise.all([
+  const [contact, activeAutomations, customFields, allOrgTags] = await Promise.all([
     prisma.contact.findUnique({
       where: { id, organizationId: org.id },
       select: {
@@ -57,6 +57,11 @@ export default async function ContactDetailPage({
       where: { organizationId: org.id },
       select: { id: true, name: true, label: true, type: true },
       orderBy: { createdAt: "asc" },
+    }),
+    prisma.contactTag.findMany({
+      where: { contact: { organizationId: org.id } },
+      select: { name: true },
+      distinct: ["name"],
     }),
   ]);
 
@@ -105,6 +110,7 @@ export default async function ContactDetailPage({
         stats={{ totalEmails, openRate, clickRate, bounced, spam }}
         activeAutomations={activeAutomations}
         customFields={customFields}
+        availableTags={allOrgTags.map((t) => t.name)}
       />
     </>
   );

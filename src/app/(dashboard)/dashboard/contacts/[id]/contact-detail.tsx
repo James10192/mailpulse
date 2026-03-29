@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   AlertOctagon,
   UserMinus,
+  UserPlus,
   Mail,
   BarChart3,
   Zap,
@@ -19,6 +20,8 @@ import {
   Phone,
   Globe,
   Tag,
+  Search,
+  Filter,
 } from "lucide-react";
 import {
   AreaChart,
@@ -94,6 +97,7 @@ interface ContactDetailProps {
   };
   activeAutomations: AutomationData[];
   customFields: CustomFieldData[];
+  availableTags: string[];
 }
 
 // ────────────────────────────────────────────────────────
@@ -119,15 +123,25 @@ function formatDateTime(iso: string) {
 }
 
 const EVENT_CONFIG: Record<string, { icon: typeof Send; label: string; color: string }> = {
-  SENT: { icon: Send, label: "Envoye", color: "text-blue-400" },
-  DELIVERED: { icon: CheckCircle, label: "Delivre", color: "text-emerald-400" },
-  OPENED: { icon: Eye, label: "Ouvert", color: "text-sky-400" },
-  CLICKED: { icon: MousePointerClick, label: "Clique", color: "text-orange-400" },
+  SUBSCRIBED: { icon: UserPlus, label: "Abonne", color: "text-emerald-500" },
+  SENT: { icon: Send, label: "Email envoye", color: "text-blue-400" },
+  DELIVERED: { icon: CheckCircle, label: "Email delivre", color: "text-emerald-400" },
+  OPENED: { icon: Eye, label: "Email ouvert", color: "text-sky-400" },
+  CLICKED: { icon: MousePointerClick, label: "Email clique", color: "text-orange-400" },
   BOUNCED_SOFT: { icon: AlertTriangle, label: "Bounce soft", color: "text-amber-400" },
   BOUNCED_HARD: { icon: AlertTriangle, label: "Bounce hard", color: "text-red-400" },
   COMPLAINED: { icon: AlertOctagon, label: "Spam", color: "text-red-500" },
   UNSUBSCRIBED: { icon: UserMinus, label: "Desabonne", color: "text-zinc-400" },
+  TAG_ADDED: { icon: Tag, label: "Tag ajoute", color: "text-purple-400" },
+  TAG_REMOVED: { icon: Tag, label: "Tag retire", color: "text-zinc-400" },
+  WORKFLOW_STARTED: { icon: Zap, label: "Automation demarree", color: "text-orange-500" },
+  WORKFLOW_COMPLETED: { icon: CheckCircle, label: "Automation terminee", color: "text-emerald-500" },
 };
+
+const EVENT_FILTER_OPTIONS = Object.entries(EVENT_CONFIG).map(([value, cfg]) => ({
+  value,
+  label: cfg.label,
+}));
 
 const TRIGGER_LABELS: Record<string, string> = {
   SUBSCRIBER_ADDED: "Nouvel abonne",
@@ -142,7 +156,7 @@ const TRIGGER_LABELS: Record<string, string> = {
 // Component
 // ────────────────────────────────────────────────────────
 
-export function ContactDetail({ contact, stats, activeAutomations, customFields }: ContactDetailProps) {
+export function ContactDetail({ contact, stats, activeAutomations, customFields, availableTags }: ContactDetailProps) {
   const [isPending, startTransition] = useTransition();
   const [showUnsubConfirm, setShowUnsubConfirm] = useState(false);
   const [automationDropdown, setAutomationDropdown] = useState(false);
@@ -166,6 +180,9 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields 
   const [saving, setSaving] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [addingTag, setAddingTag] = useState(false);
+  const [eventFilter, setEventFilter] = useState<string>("ALL");
+  const [eventFilterOpen, setEventFilterOpen] = useState(false);
+  const [eventSearch, setEventSearch] = useState("");
 
   async function handleSave() {
     setSaving(true);
@@ -472,23 +489,38 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields 
                   <button onClick={() => handleRemoveTag(tag.id)} className="hover:opacity-60 cursor-pointer">×</button>
                 </span>
               ))}
-              <div className="flex items-center gap-1">
+              <div className="relative">
                 <input
                   type="text"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddTag(); } }}
-                  placeholder="Ajouter..."
-                  className="w-24 px-2 py-1 text-xs bg-transparent border border-dashed border-zinc-700 rounded-lg text-zinc-400 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50"
+                  placeholder="Ajouter un tag..."
+                  className="w-40 px-2 py-1 text-xs bg-transparent border border-dashed border-zinc-700 rounded-lg text-zinc-400 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50"
                 />
                 {newTag && (
-                  <button
-                    onClick={handleAddTag}
-                    disabled={addingTag}
-                    className="text-xs text-orange-500 hover:text-orange-400 cursor-pointer disabled:opacity-50"
-                  >
-                    +
-                  </button>
+                  <div className="absolute left-0 top-full mt-1 z-10 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg py-1 max-h-40 overflow-y-auto">
+                    {availableTags
+                      .filter((t) => t.toLowerCase().includes(newTag.toLowerCase()) && !contact.tags.some((ct) => ct.name === t))
+                      .map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => { setNewTag(""); addTagToContact(contact.id, t); }}
+                          className="w-full px-3 py-1.5 text-left text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer"
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    {!availableTags.some((t) => t.toLowerCase() === newTag.toLowerCase()) && (
+                      <button
+                        onClick={handleAddTag}
+                        disabled={addingTag}
+                        className="w-full px-3 py-1.5 text-left text-xs text-orange-500 hover:bg-orange-500/5 cursor-pointer"
+                      >
+                        + Creer &quot;{newTag}&quot;
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -537,8 +569,17 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields 
               ))}
             </div>
           ) : (
-            <div className="flex items-center justify-center h-20 text-sm text-zinc-500">
-              Aucune automation active
+            <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/30">
+              <div className="flex items-center gap-2 text-sm text-zinc-400 mb-1">
+                <Zap className="h-4 w-4" />
+                Aucune automation active
+              </div>
+              <Link
+                href="/dashboard/automations"
+                className="text-xs text-orange-500 hover:text-orange-400"
+              >
+                Aller aux automations pour en creer une.
+              </Link>
             </div>
           )}
 
@@ -572,50 +613,106 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields 
 
       {/* Activity Timeline */}
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6">
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-          Activite recente
-        </h2>
-        {contact.emailEvents.length > 0 ? (
-          <div className="space-y-1">
-            {contact.emailEvents.map((event) => {
-              const config = EVENT_CONFIG[event.type] ?? {
-                icon: Mail,
-                label: event.type,
-                color: "text-zinc-400",
-              };
-              const Icon = config.icon;
-              // Try to find campaign name from metadata
-              const meta = event.metadata as Record<string, string> | null;
-              const campaignName = meta?.campaignName ?? null;
-
-              return (
-                <div
-                  key={event.id}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
-                >
-                  <div className={`shrink-0 ${config.color}`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                      {config.label}
-                    </span>
-                    {campaignName && (
-                      <span className="text-sm text-zinc-500"> — {campaignName}</span>
-                    )}
-                  </div>
-                  <span className="text-xs text-zinc-500 shrink-0">
-                    {formatDateTime(event.createdAt)}
-                  </span>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            Activite
+          </h2>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+              <input
+                value={eventSearch}
+                onChange={(e) => setEventSearch(e.target.value)}
+                placeholder="Rechercher..."
+                className="pl-8 pr-3 py-1.5 w-36 text-xs bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+              />
+            </div>
+            <div className="relative">
+              <button
+                onClick={() => setEventFilterOpen(!eventFilterOpen)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <Filter className="h-3.5 w-3.5" />
+                {eventFilter === "ALL" ? "Tous les types" : EVENT_CONFIG[eventFilter]?.label ?? eventFilter}
+              </button>
+              {eventFilterOpen && (
+                <div className="absolute right-0 top-full mt-1 z-20 w-56 max-h-64 overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl py-1">
+                  <button
+                    onClick={() => { setEventFilter("ALL"); setEventFilterOpen(false); }}
+                    className={`w-full px-3 py-2 text-left text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer ${eventFilter === "ALL" ? "text-orange-500 bg-orange-500/5" : "text-zinc-600 dark:text-zinc-300"}`}
+                  >
+                    Tous les types
+                  </button>
+                  {EVENT_FILTER_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => { setEventFilter(opt.value); setEventFilterOpen(false); }}
+                      className={`w-full px-3 py-2 text-left text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer ${eventFilter === opt.value ? "text-orange-500 bg-orange-500/5" : "text-zinc-600 dark:text-zinc-300"}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-              );
-            })}
+              )}
+            </div>
           </div>
-        ) : (
-          <div className="flex items-center justify-center h-20 text-sm text-zinc-500">
-            Aucune activite
-          </div>
-        )}
+        </div>
+
+        {(() => {
+          // Build timeline: real events + "Subscribed" pseudo-event from createdAt
+          const allEvents = [
+            ...contact.emailEvents,
+            { id: "subscribed-event", type: "SUBSCRIBED", metadata: null, createdAt: contact.createdAt },
+          ]
+            .filter((e) => eventFilter === "ALL" || e.type === eventFilter)
+            .filter((e) => {
+              if (!eventSearch) return true;
+              const cfg = EVENT_CONFIG[e.type];
+              return cfg?.label.toLowerCase().includes(eventSearch.toLowerCase());
+            })
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+          return allEvents.length > 0 ? (
+            <div className="space-y-1">
+              {allEvents.map((event) => {
+                const config = EVENT_CONFIG[event.type] ?? {
+                  icon: Mail,
+                  label: event.type,
+                  color: "text-zinc-400",
+                };
+                const Icon = config.icon;
+                const meta = event.metadata as Record<string, string> | null;
+                const campaignName = meta?.campaignName ?? null;
+
+                return (
+                  <div
+                    key={event.id}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
+                  >
+                    <div className={`shrink-0 ${config.color}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                        {config.label}
+                      </span>
+                      {campaignName && (
+                        <span className="text-sm text-zinc-500"> — {campaignName}</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-zinc-500 shrink-0">
+                      {formatDateTime(event.createdAt)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-20 text-sm text-zinc-500">
+              Aucun evenement {eventFilter !== "ALL" ? "de ce type" : ""}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Confirm dialog for subscription toggle */}
