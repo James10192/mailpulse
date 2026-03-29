@@ -5,7 +5,17 @@ import { dash } from "@better-auth/infra";
 import { passkey } from "@better-auth/passkey";
 import { prisma } from "./prisma";
 
-const rpID = process.env.BETTER_AUTH_URL?.replace("https://", "").replace("http://", "").split(":")[0] || "localhost";
+function extractRpID(url?: string): string {
+  if (!url) return "localhost";
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.replace(/\.$/, ""); // Remove trailing dot if any
+  } catch {
+    return url.replace("https://", "").replace("http://", "").split(":")[0].split("/")[0].replace(/\.$/, "");
+  }
+}
+
+const rpID = extractRpID(process.env.BETTER_AUTH_URL);
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
