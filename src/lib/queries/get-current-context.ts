@@ -28,20 +28,5 @@ export async function getCurrentUserAndOrg() {
     }).catch(() => {});
   }
 
-  // Ensure at least one sender exists
-  const senderCount = await prisma.emailSender.count({
-    where: { organizationId: org.id },
-  });
-  if (senderCount === 0) {
-    await prisma.emailSender.create({
-      data: {
-        name: org.name,
-        email: "onboarding@resend.dev",
-        isDefault: true,
-        organizationId: org.id,
-      },
-    }).catch(() => {});
-  }
-
   return { user, org };
 }

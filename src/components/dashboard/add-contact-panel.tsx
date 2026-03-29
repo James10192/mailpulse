@@ -29,10 +29,11 @@ export function AddContactPanel({
       setShowSuccess(true);
       setSelectedTags([]);
       formRef.current?.reset();
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setShowSuccess(false);
         onClose();
       }, 1500);
+      return () => clearTimeout(timer);
     }
   }, [state, onClose]);
 
@@ -248,9 +249,6 @@ export function AddContactPanel({
               </button>
             )}
           </div>
-
-          {/* Hidden input for form submission */}
-          <input type="hidden" name="tags" value={selectedTags.join(",")} />
 
           <div className="pt-4 flex gap-3">
             <button
