@@ -92,6 +92,10 @@ export default function ApiEndpointsPage() {
           {[
             { method: "ACTION", path: "createContact(formData)", desc: "Creer un contact (email, firstName, lastName, phone, tags)" },
             { method: "ACTION", path: "deleteContact(id)", desc: "Supprimer un contact par ID" },
+            { method: "ACTION", path: "updateContact(id, formData)", desc: "Modifier email, nom, telephone d'un contact" },
+            { method: "ACTION", path: "toggleContactSubscription(id)", desc: "Abonner / desabonner un contact" },
+            { method: "ACTION", path: "addTagToContact(contactId, tagName)", desc: "Ajouter un tag a un contact" },
+            { method: "ACTION", path: "removeTagFromContact(contactId, tagName)", desc: "Retirer un tag d'un contact" },
           ].map((ep) => (
             <div
               key={ep.path}
@@ -128,6 +132,7 @@ export default function ApiEndpointsPage() {
           {[
             { method: "ACTION", path: "createCampaign(formData)", desc: "Creer une campagne (name, type, subject...)" },
             { method: "ACTION", path: "deleteCampaign(id)", desc: "Supprimer une campagne (DRAFT uniquement)" },
+            { method: "ACTION", path: "sendCampaign(id, formData)", desc: "Envoyer une campagne (sender, liste, tracking HMAC)" },
           ].map((ep) => (
             <div
               key={ep.path}
@@ -152,6 +157,8 @@ export default function ApiEndpointsPage() {
         <div className="space-y-2 mb-6">
           {[
             { method: "ACTION", path: "createAutomation(formData)", desc: "Creer une automation (name, trigger)" },
+            { method: "ACTION", path: "saveWorkflow(id, steps)", desc: "Sauvegarder les etapes du workflow" },
+            { method: "ACTION", path: "updateAutomationStatus(id, status)", desc: "Changer le statut (ACTIVE, PAUSED, ARCHIVED)" },
             { method: "ACTION", path: "deleteAutomation(id)", desc: "Supprimer une automation" },
           ].map((ep) => (
             <div
@@ -247,14 +254,88 @@ export default function ApiEndpointsPage() {
         </div>
       </div>
 
+      {/* ─── CUSTOM FIELDS ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Custom Fields</h2>
+        <div className="prose-sm text-zinc-400 space-y-1 mb-4">
+          <p>
+            Fichier : <code className="text-zinc-200">src/app/(dashboard)/dashboard/fields/actions.ts</code>
+          </p>
+        </div>
+        <div className="space-y-2 mb-6">
+          {[
+            { method: "ACTION", path: "createField(formData)", desc: "Creer un champ personnalise (name, label, type, required)" },
+            { method: "ACTION", path: "deleteField(id)", desc: "Supprimer un champ personnalise" },
+          ].map((ep) => (
+            <div
+              key={ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <EndpointBadge method={ep.method} />
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── DOMAINS ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Domains</h2>
+        <div className="prose-sm text-zinc-400 space-y-1 mb-4">
+          <p>
+            Fichier : <code className="text-zinc-200">src/app/(dashboard)/dashboard/domains/actions.ts</code>
+          </p>
+        </div>
+        <div className="space-y-2 mb-6">
+          {[
+            { method: "ACTION", path: "createDomain(formData)", desc: "Ajouter un domaine d'envoi via Resend API" },
+            { method: "ACTION", path: "verifyDomain(id)", desc: "Verifier les enregistrements DNS (SPF, DKIM)" },
+            { method: "ACTION", path: "deleteDomain(id)", desc: "Supprimer un domaine d'envoi" },
+          ].map((ep) => (
+            <div
+              key={ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <EndpointBadge method={ep.method} />
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── TAGS ─── */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Tags</h2>
+        <div className="prose-sm text-zinc-400 space-y-1 mb-4">
+          <p>
+            Fichier : <code className="text-zinc-200">src/app/(dashboard)/dashboard/tags/actions.ts</code>
+          </p>
+        </div>
+        <div className="space-y-2 mb-6">
+          {[
+            { method: "ACTION", path: "createTag(formData)", desc: "Creer un tag (name, color)" },
+            { method: "ACTION", path: "deleteTag(tagName)", desc: "Supprimer un tag par nom" },
+          ].map((ep) => (
+            <div
+              key={ep.path}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <EndpointBadge method={ep.method} />
+              <code className="text-sm font-mono text-zinc-300">{ep.path}</code>
+              <span className="text-xs text-zinc-600 ml-auto hidden sm:block">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* ─── OTHER SERVER ACTIONS ─── */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">Autres Server Actions</h2>
         <div className="space-y-2 mb-6">
           {[
-            { method: "ACTION", path: "tags/actions.ts", desc: "CRUD des tags de contact" },
             { method: "ACTION", path: "segments/actions.ts", desc: "CRUD des segments dynamiques" },
-            { method: "ACTION", path: "domains/actions.ts", desc: "Gestion des domaines d'envoi (SendingDomain)" },
           ].map((ep) => (
             <div
               key={ep.path}

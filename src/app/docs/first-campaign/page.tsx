@@ -149,11 +149,12 @@ export default function FirstCampaignPage() {
             </p>
           </div>
           <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
-            <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Wizard 3/3 — Destinataires & envoi</div>
+            <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Wizard 3/3 — Apercu</div>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Selectionnez une liste de contacts ou tous les contacts abonnes.
-              Choisissez l&apos;expediteur (from name + from email), puis envoyez
-              immediatement ou planifiez a une date ulterieure.
+              Verifiez votre campagne et enregistrez-la. Elle est sauvegardee
+              en statut <code className="text-zinc-200">DRAFT</code>. Passez ensuite a la
+              page d&apos;envoi (<code className="text-zinc-200">/campaigns/[id]/send</code>)
+              pour choisir l&apos;expediteur, les destinataires et envoyer.
             </p>
           </div>
         </div>

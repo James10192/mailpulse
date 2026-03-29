@@ -82,7 +82,7 @@ export default function ContactsPage() {
         <h2 className="text-xl font-bold mb-4 font-mono">Ajouter des contacts</h2>
         <div className="prose-sm text-zinc-400 space-y-3">
           <p>
-            Deux methodes pour ajouter des contacts :
+            Trois methodes pour ajouter des contacts :
           </p>
         </div>
 
@@ -225,12 +225,37 @@ sophie@exemple.fr,Sophie,Bernard,,newsletter`}</CodeBlock>
 
       {/* Custom fields */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Champs personnalises (metadata)</h2>
+        <h2 className="text-xl font-bold mb-4 font-mono">Champs personnalises</h2>
         <div className="prose-sm text-zinc-400 space-y-3">
           <p>
-            Le champ <code className="text-zinc-200">metadata</code> est un JSON libre qui
-            permet de stocker des proprietes personnalisees sans modifier le schema :
+            Les champs personnalises sont geres depuis la page{" "}
+            <code className="text-zinc-200">/dashboard/fields</code>. Chaque champ est
+            defini par un nom machine, un label, un type et une option obligatoire/optionnel.
+            Les valeurs sont stockees dans le champ <code className="text-zinc-200">metadata</code> (JSON)
+            de chaque contact.
           </p>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {[
+            { type: "text", desc: "Champ texte libre (ex: company, city)" },
+            { type: "number", desc: "Valeur numerique (ex: age, revenue)" },
+            { type: "email", desc: "Adresse email secondaire" },
+            { type: "url", desc: "URL (ex: site web, profil LinkedIn)" },
+            { type: "date", desc: "Date (ex: anniversaire, date d'inscription)" },
+            { type: "select", desc: "Choix parmi des options predefinies (ex: plan)" },
+            { type: "boolean", desc: "Vrai/faux (ex: client_premium, opt_in_sms)" },
+          ].map((item) => (
+            <div
+              key={item.type}
+              className="flex items-start gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <code className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 shrink-0 mt-0.5">
+                {item.type}
+              </code>
+              <span className="text-sm text-zinc-400">{item.desc}</span>
+            </div>
+          ))}
         </div>
 
         <CodeBlock title="Exemple metadata">{`{
@@ -243,8 +268,9 @@ sophie@exemple.fr,Sophie,Bernard,,newsletter`}</CodeBlock>
 
         <div className="prose-sm text-zinc-400 space-y-3 mt-3">
           <p>
-            Ces champs peuvent etre utilises dans les segments dynamiques
-            et comme variables de personnalisation dans vos emails.
+            Ces champs peuvent etre utilises dans les segments dynamiques,
+            comme variables de personnalisation dans vos emails et dans les
+            formulaires de pages de capture.
           </p>
         </div>
       </div>
@@ -318,6 +344,32 @@ sophie@exemple.fr,Sophie,Bernard,,newsletter`}</CodeBlock>
           pour le desabonnement en un clic directement depuis le client de messagerie.
           Le desabonnement est instantane (pas de delai de 48h).
         </InfoBox>
+      </div>
+
+      {/* Contact detail page */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Page detail contact</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
+          <p>
+            Cliquez sur un contact pour acceder a sa fiche detaillee
+            (<code className="text-zinc-200">/dashboard/contacts/[id]</code>). Cette page
+            regroupe toutes les informations et actions sur un contact :
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {[
+            { section: "Statistiques", desc: "Emails envoyes, delivres, ouverts et cliques pour ce contact. Graphique d'engagement sur la periode." },
+            { section: "Edition", desc: "Modifiez l'email, le prenom, le nom, le telephone et le statut d'abonnement directement depuis la fiche." },
+            { section: "Tags", desc: "Ajoutez ou retirez des tags colores. Les tags existants de l'organisation sont suggeres." },
+            { section: "Timeline", desc: "Historique complet des evenements email (envois, ouvertures, clics, bounces, desabonnements) avec filtrage." },
+          ].map((item) => (
+            <div key={item.section} className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
+              <div className="text-sm font-mono font-semibold text-orange-400 mb-1">{item.section}</div>
+              <p className="text-xs text-zinc-400 leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Next step */}

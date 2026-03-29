@@ -261,6 +261,37 @@ Si vous ne souhaitez plus recevoir nos emails :
         </div>
       </div>
 
+      {/* Send campaign */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Page d&apos;envoi</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
+          <p>
+            Depuis la liste des campagnes, cliquez sur <span className="text-zinc-200 font-medium">&quot;Envoyer&quot;</span>
+            pour acceder a la page d&apos;envoi (<code className="text-zinc-200">/dashboard/campaigns/[id]/send</code>).
+            Cette page permet de configurer les derniers parametres avant l&apos;envoi :
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {[
+            { step: "Expediteur", desc: "Selectionnez un expediteur (EmailSender) parmi ceux configures dans votre organisation." },
+            { step: "Destinataires", desc: "Choisissez une liste de contacts (ContactList) ou envoyez a tous les contacts abonnes." },
+            { step: "Verification", desc: "Apercu du sujet, pre-header et contenu HTML. Nombre total de destinataires affiche." },
+            { step: "Envoi", desc: "Confirmez l'envoi. La campagne passe en statut SENDING et les emails sont envoyes via Resend." },
+          ].map((item) => (
+            <div
+              key={item.step}
+              className="flex items-start gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 shrink-0 mt-0.5">
+                {item.step}
+              </span>
+              <span className="text-sm text-zinc-400">{item.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Scheduling */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">Planification</h2>

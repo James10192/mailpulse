@@ -139,6 +139,65 @@ export async function deleteCampaign(campaignId: string): Promise<ActionState> {
   }
 }
 
+export async function scheduleCampaign(
+  campaignId: string,
+  senderId: string,
+  audience: "all" | string,
+  scheduledAt: string
+): Promise<ActionState> {
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: "Non authentifie." };
+
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId, organizationId: org.id },
+  });
+  if (!campaign) return { error: "Campagne introuvable." };
+  if (campaign.status !== "DRAFT") return { error: "Seules les campagnes en brouillon peuvent etre planifiees." };
+
+  const sender = await prisma.emailSender.findUnique({ where: { id: senderId } });
+  if (!sender) return { error: "Expediteur introuvable." };
+
+  const scheduledDate = new Date(scheduledAt);
+  if (isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
+    return { error: "La date doit etre dans le futur." };
+  }
+
+  try {
+    await prisma.campaign.update({
+      where: { id: campaignId },
+      data: {
+        status: "SCHEDULED",
+        scheduledAt: scheduledDate,
+        fromName: sender.name,
+        fromEmail: sender.email,
+        replyTo: sender.replyTo,
+        contactListId: audience === "all" ? null : audience,
+      },
+    });
+
+    trackServerEvent(user.id, "campaign_scheduled", {
+      campaign_id: campaignId,
+      campaign_name: campaign.name,
+      scheduled_at: scheduledAt,
+    }, org.id);
+
+    convexServer.mutation(api.dashboard.logActivity, {
+      organizationId: org.id,
+      userId: user.id,
+      userName: user.name ?? user.email,
+      action: "created",
+      resourceType: "campaign",
+      resourceId: campaignId,
+      resourceName: `${campaign.name} (planifiee)`,
+    });
+
+    revalidatePath("/dashboard/campaigns");
+    return { success: true };
+  } catch {
+    return { error: "Erreur lors de la planification." };
+  }
+}
+
 function personalizeHtml(
   html: string,
   contact: { email: string; firstName: string | null; lastName: string | null }

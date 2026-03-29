@@ -150,10 +150,13 @@ export function ContactsClient({
           <div className="flex gap-2">
             {canCreate ? (
               <>
-                <button className="inline-flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-300 px-4 py-2 rounded-lg text-sm transition-colors bg-white dark:bg-transparent cursor-pointer">
+                <Link
+                  href="/dashboard/contacts/import"
+                  className="inline-flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-300 px-4 py-2 rounded-lg text-sm transition-colors bg-white dark:bg-transparent"
+                >
                   <Upload className="h-4 w-4" />
                   Importer CSV
-                </button>
+                </Link>
                 <button
                   onClick={() => setPanelOpen(true)}
                   className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"

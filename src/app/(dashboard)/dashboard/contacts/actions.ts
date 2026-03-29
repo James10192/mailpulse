@@ -96,6 +96,83 @@ export async function createContact(
   }
 }
 
+export async function importContacts(
+  contacts: { email: string; firstName: string; lastName: string; phone: string; tags: string }[]
+): Promise<ActionState & { imported?: number; skipped?: number }> {
+  try {
+    const { user, org } = await getCurrentUserAndOrg();
+    if (!user || !org) return { error: "Non authentifie." };
+
+    // Check plan limit
+    const contactCheck = await checkContactLimit(org.id, org.plan as PlanTier);
+    if (!contactCheck.allowed) {
+      return { error: `Limite de contacts atteinte (${contactCheck.limit}). Passez au plan Pro.` };
+    }
+    const remaining = contactCheck.limit === -1 ? Infinity : contactCheck.limit - contactCheck.current;
+    const toImport = contacts.slice(0, remaining);
+
+    if (toImport.length === 0) {
+      return { error: "Aucun contact valide a importer." };
+    }
+
+    // Bulk create contacts (skipDuplicates ignores existing email+org combos)
+    const result = await prisma.contact.createMany({
+      data: toImport.map((c) => ({
+        email: c.email.toLowerCase().trim(),
+        firstName: c.firstName || null,
+        lastName: c.lastName || null,
+        phone: c.phone || null,
+        userId: user.id,
+        organizationId: org.id,
+      })),
+      skipDuplicates: true,
+    });
+
+    // Create tags for imported contacts that have tags
+    const contactsWithTags = toImport.filter((c) => c.tags);
+    if (contactsWithTags.length > 0) {
+      for (const c of contactsWithTags) {
+        const tagNames = c.tags.split(",").map((t) => t.trim()).filter(Boolean);
+        if (tagNames.length === 0) continue;
+        const contact = await prisma.contact.findFirst({
+          where: { email: c.email.toLowerCase().trim(), organizationId: org.id },
+          select: { id: true },
+        });
+        if (contact) {
+          await prisma.contactTag.createMany({
+            data: tagNames.map((name) => ({ name, contactId: contact.id })),
+            skipDuplicates: true,
+          });
+        }
+      }
+    }
+
+    const skipped = toImport.length - result.count;
+
+    trackServerEvent(user.id, "contacts_imported", {
+      imported: result.count,
+      skipped,
+      total: contacts.length,
+    }, org.id);
+
+    convexServer.mutation(api.dashboard.logActivity, {
+      organizationId: org.id,
+      userId: user.id,
+      userName: user.name ?? user.email,
+      action: "created",
+      resourceType: "contact",
+      resourceId: "bulk-import",
+      resourceName: `Import CSV (${result.count} contacts)`,
+    });
+
+    revalidatePath("/dashboard/contacts");
+    revalidatePath("/dashboard");
+    return { success: true, imported: result.count, skipped };
+  } catch {
+    return { error: "Erreur lors de l'import." };
+  }
+}
+
 export async function deleteContact(contactId: string): Promise<ActionState> {
   try {
     const contact = await prisma.contact.findUnique({

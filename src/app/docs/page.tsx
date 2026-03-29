@@ -204,6 +204,7 @@ pnpm dev`}</CodeBlock>
             { method: "POST", path: "/api/upload", desc: "Upload fichier vers R2" },
             { method: "POST", path: "/api/unsubscribe?t={token}", desc: "One-click unsubscribe (RFC 8058)" },
             { method: "GET", path: "/api/unsubscribe?t={token}", desc: "Desabonnement navigateur" },
+            { method: "GET", path: "/capture/{slug}", desc: "Page de capture publique" },
           ].map((endpoint) => (
             <div
               key={endpoint.path + endpoint.method}
