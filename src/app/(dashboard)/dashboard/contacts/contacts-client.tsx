@@ -337,7 +337,12 @@ export function ContactsClient({
                       className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
                     >
                       <td className="px-4 py-3 text-sm font-mono text-zinc-900 dark:text-zinc-100">
-                        {contact.email}
+                        <Link
+                          href={`/dashboard/contacts/${contact.id}`}
+                          className="hover:text-orange-500 transition-colors"
+                        >
+                          {contact.email}
+                        </Link>
                       </td>
                       <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">
                         {contact.firstName} {contact.lastName}
