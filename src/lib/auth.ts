@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { organization } from "better-auth/plugins";
 import { dash } from "@better-auth/infra";
+import { passkey } from "@better-auth/passkey";
 import { prisma } from "./prisma";
 
 export const auth = betterAuth({
@@ -28,11 +29,22 @@ export const auth = betterAuth({
     },
   },
 
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google", "github"],
+    },
+  },
+
   plugins: [
     organization({
       allowUserToCreateOrganization: true,
     }),
     dash(),
+    passkey({
+      rpID: process.env.BETTER_AUTH_URL?.replace("https://", "").replace("http://", "").split(":")[0] || "localhost",
+      rpName: "MailPulse",
+    }),
   ],
 
   session: {

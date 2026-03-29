@@ -3,8 +3,8 @@
 import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Eye, EyeOff, ArrowRight } from "lucide-react";
-import { signIn } from "@/lib/auth-client";
+import { Mail, Eye, EyeOff, ArrowRight, Fingerprint } from "lucide-react";
+import { signIn, authClient } from "@/lib/auth-client";
 import { usePostHog } from "posthog-js/react";
 import { EVENTS } from "@/lib/analytics-events";
 
@@ -126,6 +126,23 @@ function LoginForm() {
           >
             <GitHubIcon />
             Continuer avec GitHub
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                await authClient.signIn.passkey({
+                  fetchOptions: {
+                    onSuccess: () => { router.push(callbackUrl); },
+                  },
+                });
+              } catch {
+                setError("Passkey non disponible ou annulee.");
+              }
+            }}
+            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 transition-all text-sm font-medium text-orange-400"
+          >
+            <Fingerprint className="h-5 w-5" />
+            Se connecter avec une passkey
           </button>
         </div>
 

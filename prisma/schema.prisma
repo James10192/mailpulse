@@ -22,6 +22,7 @@ model User {
 
   sessions      Session[]
   accounts      Account[]
+  passkeys      Passkey[]
   members       Member[]
   campaigns     Campaign[]
   contacts      Contact[]
@@ -66,6 +67,22 @@ model Account {
   updatedAt             DateTime  @updatedAt
 
   @@map("account")
+}
+
+model Passkey {
+  id                  String    @id @default(cuid())
+  name                String?
+  publicKey           String
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialID        String    @unique
+  counter             Int       @default(0)
+  deviceType          String
+  backedUp            Boolean   @default(false)
+  transports          String?
+  createdAt           DateTime  @default(now())
+
+  @@map("passkey")
 }
 
 model Verification {

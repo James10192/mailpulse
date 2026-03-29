@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { CreditCard, ArrowRight } from "lucide-react";
 import { ProfileSection } from "@/components/dashboard/profile-section";
+import { LinkedAccounts } from "@/components/dashboard/linked-accounts";
+import { PasskeysSection } from "@/components/dashboard/passkeys-section";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { canAccessFeature, type PlanTier } from "@/lib/plans";
@@ -40,6 +42,10 @@ export default async function SettingsPage() {
       </Link>
 
       <ProfileSection />
+
+      <LinkedAccounts />
+
+      <PasskeysSection />
 
       <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-4">
         <h2 className="font-medium text-zinc-900 dark:text-zinc-100">Organisation</h2>
