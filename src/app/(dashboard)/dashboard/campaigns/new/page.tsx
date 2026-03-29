@@ -31,8 +31,6 @@ export default function NewCampaignPage() {
     name: "",
     subject: "",
     previewText: "",
-    fromName: "",
-    fromEmail: "",
     htmlContent: "",
   });
 
@@ -153,31 +151,9 @@ export default function NewCampaignPage() {
                 placeholder="Le texte qui apparait apres le sujet dans la boite de reception"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Nom de l&apos;expediteur
-                </label>
-                <input
-                  type="text"
-                  value={formData.fromName}
-                  onChange={(e) => updateField("fromName", e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
-                  placeholder="MailPulse"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Email de l&apos;expediteur
-                </label>
-                <input
-                  type="email"
-                  value={formData.fromEmail}
-                  onChange={(e) => updateField("fromEmail", e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
-                  placeholder="newsletter@mondomaine.com"
-                />
-              </div>
+            <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-500">
+              L&apos;expediteur sera choisi a l&apos;etape suivante lors de l&apos;envoi. Configurez vos expediteurs dans{" "}
+              <Link href="/dashboard/senders" className="text-orange-500 hover:text-orange-400">Envoi → Expediteurs</Link>.
             </div>
           </div>
         )}
@@ -211,7 +187,6 @@ export default function NewCampaignPage() {
                   { label: "Nom", value: formData.name || "—" },
                   { label: "Sujet", value: formData.subject || "—" },
                   { label: "Apercu", value: formData.previewText || "—" },
-                  { label: "Expediteur", value: formData.fromName ? `${formData.fromName} <${formData.fromEmail}>` : "—" },
                 ].map((row) => (
                   <div key={row.label} className="flex justify-between py-2 border-b border-zinc-100 dark:border-zinc-800">
                     <span className="text-zinc-500">{row.label}</span>
@@ -267,7 +242,7 @@ export default function NewCampaignPage() {
                 Creation...
               </>
             ) : (
-              "Sauvegarder en brouillon"
+              "Creer et configurer l'envoi"
             )}
           </button>
         )}
