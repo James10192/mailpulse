@@ -38,6 +38,7 @@ export function LinkedAccounts() {
   const [accounts, setAccounts] = useState<AccountData[]>([]);
   const [loading, setLoading] = useState(true);
   const [linking, setLinking] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState<string | null>(null);
 
   useEffect(() => {
     authClient.listAccounts().then((res) => {
@@ -57,6 +58,17 @@ export function LinkedAccounts() {
     } catch {
       setLinking(null);
     }
+  }
+
+  async function handleUnlink(providerId: string) {
+    setUnlinking(providerId);
+    try {
+      await authClient.unlinkAccount({ providerId });
+      setAccounts((prev) => prev.filter((a) => a.providerId !== providerId));
+    } catch {
+      // Can't unlink last account
+    }
+    setUnlinking(null);
   }
 
   const linkedProviders = new Set(accounts.map((a) => a.providerId));
@@ -118,9 +130,21 @@ export function LinkedAccounts() {
                 </div>
               </div>
               {isLinked ? (
-                <span className="inline-flex items-center gap-1 text-xs text-emerald-500">
-                  <Check className="h-3 w-3" /> Connecte
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 text-xs text-emerald-500">
+                    <Check className="h-3 w-3" /> Connecte
+                  </span>
+                  {accounts.length > 1 && (
+                    <button
+                      onClick={() => handleUnlink(provider.id)}
+                      disabled={unlinking === provider.id}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-[10px] border border-zinc-700 text-zinc-500 rounded hover:text-red-400 hover:border-red-500/30 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {unlinking === provider.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
+                      Delier
+                    </button>
+                  )}
+                </div>
               ) : (
                 <button
                   onClick={() => handleLink(provider.id)}
