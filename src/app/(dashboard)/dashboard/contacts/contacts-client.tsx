@@ -404,7 +404,11 @@ export function ContactsClient({
         </div>
       </div>
 
-      <AddContactPanel open={panelOpen} onClose={() => setPanelOpen(false)} />
+      <AddContactPanel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        availableTags={[...new Set(contacts.flatMap((c) => c.tags.map((t) => t.name)))]}
+      />
 
       <ConfirmDialog
         open={confirmDeleteId !== null}
