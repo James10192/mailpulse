@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
@@ -204,6 +205,7 @@ async function processEvent(event: ResendWebhookEvent) {
   // Update campaign analytics if applicable
   if (campaignId) {
     await updateCampaignAnalytics(campaignId);
+    revalidatePath("/dashboard/campaigns");
   }
 }
 
