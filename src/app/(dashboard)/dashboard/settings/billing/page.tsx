@@ -190,9 +190,16 @@ export default async function BillingPage() {
                     <div className="text-center text-xs text-orange-400 font-medium py-2">
                       Plan actuel
                     </div>
+                  ) : plan.price === "Sur mesure" ? (
+                    <a
+                      href="mailto:djedjelipatrick@gmail.com,yablaiyablairubenvirgil@gmail.com?subject=MailPulse%20Enterprise%20-%20Demande%20d'information"
+                      className="block w-full py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-orange-600 hover:bg-orange-500 text-white text-center"
+                    >
+                      Nous contacter
+                    </a>
                   ) : (
                     <button className="w-full py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-orange-600 hover:bg-orange-500 text-white">
-                      {plan.price === "Sur mesure" ? "Nous contacter" : "Upgrader"}
+                      Upgrader
                     </button>
                   )}
                 </div>
