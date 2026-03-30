@@ -30,32 +30,37 @@ export async function POST(request: NextRequest) {
   let event: ResendWebhookEvent;
 
   if (webhookSecret) {
-    // Use Resend SDK's built-in webhook verification
     const payload = await request.text();
+
+    const id = request.headers.get("svix-id");
+    const timestamp = request.headers.get("svix-timestamp");
+    const signature = request.headers.get("svix-signature");
+
+    if (!id || !timestamp || !signature) {
+      console.error("Webhook missing svix headers");
+      return new Response("Missing headers", { status: 400 });
+    }
+
     try {
-      const verified = resend.webhooks.verify({
+      const result = resend.webhooks.verify({
         payload,
-        headers: {
-          id: request.headers.get("svix-id") ?? "",
-          timestamp: request.headers.get("svix-timestamp") ?? "",
-          signature: request.headers.get("svix-signature") ?? "",
-        },
+        headers: { id, timestamp, signature },
         webhookSecret,
       });
-      event = verified as unknown as ResendWebhookEvent;
+      event = result as unknown as ResendWebhookEvent;
     } catch (e) {
-      console.error("Webhook verification failed:", e);
+      console.error("Webhook verify error:", String(e));
       return new Response("Invalid signature", { status: 400 });
     }
   } else {
-    // Dev mode: no signature verification
     event = (await request.json()) as ResendWebhookEvent;
   }
 
   try {
+    console.log("Webhook event:", event.type, event.data?.to?.[0]);
     await processEvent(event);
   } catch (e) {
-    console.error("Webhook processEvent error:", e);
+    console.error("Webhook processEvent error:", String(e));
   }
 
   return new Response("OK", { status: 200 });
