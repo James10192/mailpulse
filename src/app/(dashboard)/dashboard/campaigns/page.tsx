@@ -29,7 +29,16 @@ export default async function CampaignsPage() {
   const ctx = await getCurrentUserAndOrg();
   const orgId = ctx.org?.id;
 
-  const campaigns = orgId ? await getCampaigns(orgId) : [];
+  const [campaigns, senders] = orgId
+    ? await Promise.all([
+        getCampaigns(orgId),
+        prisma.emailSender.findMany({
+          where: { organizationId: orgId },
+          select: { id: true, name: true, email: true },
+          orderBy: { createdAt: "asc" },
+        }),
+      ])
+    : [[], []];
 
   const plan = (ctx.org?.plan ?? "FREE") as PlanTier;
   const limits = PLAN_LIMITS[plan];
@@ -51,6 +60,7 @@ export default async function CampaignsPage() {
       />
       <CampaignsClient
         campaigns={campaigns}
+        senders={senders}
         canCreate={canCreate}
         limit={limits.activeCampaigns}
         currentCount={activeCampaigns}

@@ -50,6 +50,40 @@ export async function createSender(
   }
 }
 
+export async function updateSender(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const id = formData.get("id") as string;
+  const result = senderSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+    replyTo: formData.get("replyTo"),
+  });
+  if (!result.success) return { error: "Donnees invalides." };
+
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: "Non authentifie." };
+
+  try {
+    await prisma.emailSender.update({
+      where: { id, organizationId: org.id },
+      data: {
+        name: result.data.name,
+        email: result.data.email,
+        replyTo: result.data.replyTo || null,
+      },
+    });
+
+    revalidatePath("/dashboard/senders");
+    return { success: true };
+  } catch (e) {
+    if ((e as Record<string, unknown>).code === "P2002")
+      return { error: "Cet expediteur existe deja." };
+    return { error: "Erreur lors de la mise a jour." };
+  }
+}
+
 export async function deleteSender(id: string): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifie." };

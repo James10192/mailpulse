@@ -13,6 +13,7 @@ import {
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { deleteCampaign, cancelCampaign } from "./actions";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
+import { wrapHtmlForPreview } from "@/lib/preview-html";
 
 type CampaignSort = "date-desc" | "date-asc" | "name-asc" | "open-rate";
 
@@ -73,8 +74,11 @@ const filterOptions = [
   { label: "Archivees", value: "CANCELLED" },
 ];
 
+type SenderInfo = { id: string; name: string; email: string };
+
 export function CampaignsClient({
   campaigns,
+  senders,
   canCreate,
   limit,
   currentCount,
@@ -82,6 +86,7 @@ export function CampaignsClient({
   overLimit,
 }: {
   campaigns: Campaign[];
+  senders: SenderInfo[];
   canCreate: boolean;
   limit: number;
   currentCount: number;
@@ -300,6 +305,7 @@ export function CampaignsClient({
           {selected ? (
             <CampaignDetailPanel
               campaign={selected}
+              senders={senders}
               onClose={() => setSelectedId(null)}
               onDelete={(id) => setConfirmDeleteId(id)}
               onCancel={handleCancel}
@@ -360,6 +366,7 @@ export function CampaignsClient({
 
 function CampaignDetailPanel({
   campaign,
+  senders,
   onClose,
   onDelete,
   onCancel,
@@ -367,6 +374,7 @@ function CampaignDetailPanel({
   cancelError,
 }: {
   campaign: Campaign;
+  senders: SenderInfo[];
   onClose: () => void;
   onDelete: (id: string) => void;
   onCancel: (id: string) => void;
@@ -483,8 +491,30 @@ function CampaignDetailPanel({
                 </p>
               )}
             </div>
+          ) : senders.length > 0 ? (
+            <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800">
+              <p className="text-xs text-zinc-500 mb-1">Expediteurs disponibles :</p>
+              {senders.map((s) => (
+                <p key={s.id} className="text-sm text-zinc-900 dark:text-zinc-100">
+                  {s.name} &lt;{s.email}&gt;
+                </p>
+              ))}
+              <p className="text-[11px] text-zinc-500 mt-1.5">
+                Sera choisi lors de l&apos;envoi
+              </p>
+            </div>
           ) : (
-            <p className="text-xs text-zinc-500 italic">Non configure</p>
+            <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+              <p className="text-sm text-amber-400 mb-1.5">
+                Aucun expediteur configure
+              </p>
+              <Link
+                href="/dashboard/senders"
+                className="text-xs text-orange-500 hover:text-orange-400 font-medium"
+              >
+                Configurer un expediteur →
+              </Link>
+            </div>
           )}
         </div>
 
@@ -609,7 +639,7 @@ function CampaignDetailPanel({
           {campaign.htmlContent ? (
             <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden bg-white">
               <iframe
-                srcDoc={campaign.htmlContent}
+                srcDoc={wrapHtmlForPreview(campaign.htmlContent!)}
                 className="w-full h-64 pointer-events-none"
                 sandbox=""
                 title="Apercu email"
