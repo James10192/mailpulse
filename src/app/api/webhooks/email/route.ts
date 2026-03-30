@@ -2,10 +2,10 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
-import { Webhook } from "svix";
+import { resend } from "@/lib/resend";
 
 // Resend webhook events
-// https://resend.com/docs/dashboard/webhooks/introduction
+// https://resend.com/docs/dashboard/webhooks/verify-webhooks-requests
 
 interface ResendWebhookEvent {
   type: string;
@@ -27,42 +27,35 @@ function getTagValue(tags: { name: string; value: string }[] | undefined, name: 
 export async function POST(request: NextRequest) {
   const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
 
+  let event: ResendWebhookEvent;
+
   if (webhookSecret) {
-    const signature = request.headers.get("svix-signature");
-    const timestamp = request.headers.get("svix-timestamp");
-    const svixId = request.headers.get("svix-id");
-
-    if (!signature || !timestamp || !svixId) {
-      console.error("Webhook missing headers:", { signature: !!signature, timestamp: !!timestamp, svixId: !!svixId });
-      return new Response("Missing webhook headers", { status: 400 });
-    }
-
-    // Verify with Resend's webhook library
-    const body = await request.text();
-    let event: ResendWebhookEvent;
+    // Use Resend SDK's built-in webhook verification
+    const payload = await request.text();
     try {
-      const wh = new Webhook(webhookSecret);
-      wh.verify(body, {
-        "svix-id": svixId,
-        "svix-timestamp": timestamp,
-        "svix-signature": signature,
+      const verified = resend.webhooks.verify({
+        payload,
+        headers: {
+          id: request.headers.get("svix-id") ?? "",
+          timestamp: request.headers.get("svix-timestamp") ?? "",
+          signature: request.headers.get("svix-signature") ?? "",
+        },
+        webhookSecret,
       });
-      event = JSON.parse(body) as ResendWebhookEvent;
-    } catch {
-      return new Response("Invalid signature", { status: 400 });
-    }
-
-    try {
-      await processEvent(event);
+      event = verified as unknown as ResendWebhookEvent;
     } catch (e) {
-      console.error("Webhook processEvent error:", e);
-      // Still return 200 so Resend doesn't retry endlessly
-      return new Response("OK", { status: 200 });
+      console.error("Webhook verification failed:", e);
+      return new Response("Invalid signature", { status: 400 });
     }
   } else {
     // Dev mode: no signature verification
-    const event = (await request.json()) as ResendWebhookEvent;
+    event = (await request.json()) as ResendWebhookEvent;
+  }
+
+  try {
     await processEvent(event);
+  } catch (e) {
+    console.error("Webhook processEvent error:", e);
   }
 
   return new Response("OK", { status: 200 });
