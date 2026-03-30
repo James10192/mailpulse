@@ -16,12 +16,17 @@ interface ResendWebhookEvent {
     to: string[];
     subject: string;
     headers?: { name: string; value: string }[];
-    tags?: { name: string; value: string }[];
+    tags?: Record<string, string> | { name: string; value: string }[];
   };
 }
 
-function getTagValue(tags: { name: string; value: string }[] | undefined, name: string) {
-  return tags?.find((t) => t.name === name)?.value ?? null;
+function getTagValue(tags: Record<string, string> | { name: string; value: string }[] | undefined, name: string): string | null {
+  if (!tags) return null;
+  // Resend webhooks send tags as an object { key: value }, not an array
+  if (Array.isArray(tags)) {
+    return tags.find((t) => t.name === name)?.value ?? null;
+  }
+  return (tags as Record<string, string>)[name] ?? null;
 }
 
 export async function POST(request: NextRequest) {
