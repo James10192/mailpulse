@@ -586,14 +586,14 @@ function CampaignDetailPanel({
               <StatCard label="Envoyes" value={a.totalSent} />
               <StatCard label="Delivres" value={a.totalDelivered} />
               <StatCard
-                label="Ouverts"
+                label="Taux d'ouverture"
                 value={`${(a.openRate * 100).toFixed(1)}%`}
-                sub={`${a.totalOpened} total`}
+                sub={`${a.totalOpened} ont ouvert l'email`}
               />
               <StatCard
-                label="Cliques"
+                label="Taux de clic"
                 value={`${(a.clickRate * 100).toFixed(1)}%`}
-                sub={`${a.totalClicked} total`}
+                sub={`${a.totalClicked} ont clique un lien`}
               />
               {a.totalBounced > 0 && (
                 <StatCard label="Rebonds" value={a.totalBounced} negative />
