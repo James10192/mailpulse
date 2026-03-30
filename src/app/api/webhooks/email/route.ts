@@ -86,6 +86,10 @@ async function processEvent(event: ResendWebhookEvent) {
   };
 
   switch (event.type) {
+    case "email.sent":
+      // Email accepted by Resend — no DB action needed (sentAt set during send)
+      break;
+
     case "email.delivered":
       await prisma.emailEvent.create({
         data: {
@@ -101,7 +105,40 @@ async function processEvent(event: ResendWebhookEvent) {
           data: { deliveredAt: new Date() },
         });
       }
-      // emailsSentThisMonth is already incremented in sendCampaign action
+      break;
+
+    case "email.opened":
+      await prisma.emailEvent.create({
+        data: {
+          type: "OPENED",
+          contactId: contact.id,
+          recipientId,
+          metadata: { emailId: event.data.email_id },
+        },
+      });
+      if (recipientId) {
+        await prisma.campaignRecipient.update({
+          where: { id: recipientId },
+          data: { openedAt: new Date() },
+        });
+      }
+      break;
+
+    case "email.clicked":
+      await prisma.emailEvent.create({
+        data: {
+          type: "CLICKED",
+          contactId: contact.id,
+          recipientId,
+          metadata: { emailId: event.data.email_id },
+        },
+      });
+      if (recipientId) {
+        await prisma.campaignRecipient.update({
+          where: { id: recipientId },
+          data: { clickedAt: new Date() },
+        });
+      }
       break;
 
     case "email.bounced":
@@ -145,6 +182,9 @@ async function processEvent(event: ResendWebhookEvent) {
         });
       }
       break;
+
+    default:
+      console.log("Unhandled webhook event type:", event.type);
   }
 
   // Sync to Convex real-time dashboard
