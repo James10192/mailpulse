@@ -18,39 +18,20 @@ import {
   generateUnsubscribeUrl,
 } from "@/lib/tracking";
 
-const campaignSchema = z.object({
+const campaignCreateSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
-  subject: z.string().min(1, "Le sujet est requis"),
-  previewText: z.string().optional(),
-  fromName: z.string().optional(),
-  fromEmail: z.string().email("Email invalide").optional().or(z.literal("")),
-  htmlContent: z.string().optional(),
-  type: z.enum(["REGULAR", "AB_TEST"]).default("REGULAR"),
 });
 
 export async function createCampaign(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const raw = {
-    name: formData.get("name") as string,
-    subject: formData.get("subject") as string,
-    previewText: formData.get("previewText") as string,
-    fromName: formData.get("fromName") as string,
-    fromEmail: formData.get("fromEmail") as string,
-    htmlContent: formData.get("htmlContent") as string,
-    type: (formData.get("type") as string) || "REGULAR",
-  };
-
-  const result = campaignSchema.safeParse(raw);
+  const result = campaignCreateSchema.safeParse({
+    name: formData.get("name"),
+  });
   if (!result.success) {
-    return {
-      error: "Donnees invalides",
-      fieldErrors: result.error.flatten().fieldErrors,
-    };
+    return { error: "Le nom de la campagne est requis." };
   }
-
-  const data = result.data;
 
   let campaignId: string;
 
@@ -65,20 +46,11 @@ export async function createCampaign(
       return { error: `Limite de campagnes actives atteinte (${campaignCheck.limit}). Passez au plan Pro.` };
     }
 
-    if (data.type === "AB_TEST" && !canAccessFeature(org.plan as PlanTier, "ab_testing")) {
-      return { error: "L'A/B testing est disponible avec le plan Pro. Passez au Pro pour tester vos campagnes." };
-    }
-
     const campaign = await prisma.campaign.create({
       data: {
-        name: data.name,
-        subject: data.subject,
-        previewText: data.previewText || null,
-        fromName: data.fromName || null,
-        fromEmail: data.fromEmail || null,
-        htmlContent: data.htmlContent || null,
+        name: result.data.name,
         status: "DRAFT",
-        type: data.type,
+        type: "REGULAR",
         userId: user.id,
         organizationId: org.id,
       },
@@ -87,8 +59,7 @@ export async function createCampaign(
     campaignId = campaign.id;
 
     trackServerEvent(user.id, EVENTS.CAMPAIGN_CREATED, {
-      campaign_name: data.name,
-      campaign_type: data.type,
+      campaign_name: result.data.name,
     }, org.id);
 
     convexServer.mutation(api.dashboard.logActivity, {
@@ -98,7 +69,7 @@ export async function createCampaign(
       action: "created",
       resourceType: "campaign",
       resourceId: campaign.id,
-      resourceName: data.name,
+      resourceName: result.data.name,
     });
 
     revalidatePath("/dashboard/campaigns");
@@ -107,7 +78,7 @@ export async function createCampaign(
     return { error: "Erreur lors de la creation de la campagne." };
   }
 
-  redirect(`/dashboard/campaigns/${campaignId}/send`);
+  redirect(`/dashboard/campaigns/${campaignId}/edit`);
 }
 
 export async function deleteCampaign(campaignId: string): Promise<ActionState> {
