@@ -4,13 +4,15 @@ import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { PLAN_LIMITS, type PlanTier } from "@/lib/plans";
 
-async function getCampaigns() {
+async function getCampaigns(orgId: string) {
   const campaigns = await prisma.campaign.findMany({
+    where: { organizationId: orgId },
     orderBy: { createdAt: "desc" },
     take: 50,
     include: {
       analytics: true,
       contactList: { select: { name: true, contactCount: true } },
+      _count: { select: { recipients: true } },
     },
   });
   return campaigns.map((c) => ({
@@ -24,10 +26,10 @@ async function getCampaigns() {
 }
 
 export default async function CampaignsPage() {
-  const [campaigns, ctx] = await Promise.all([
-    getCampaigns(),
-    getCurrentUserAndOrg(),
-  ]);
+  const ctx = await getCurrentUserAndOrg();
+  const orgId = ctx.org?.id;
+
+  const campaigns = orgId ? await getCampaigns(orgId) : [];
 
   const plan = (ctx.org?.plan ?? "FREE") as PlanTier;
   const limits = PLAN_LIMITS[plan];

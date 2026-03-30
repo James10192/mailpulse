@@ -112,10 +112,14 @@ export async function createCampaign(
 
 export async function deleteCampaign(campaignId: string): Promise<ActionState> {
   try {
+    const { user, org } = await getCurrentUserAndOrg();
+    if (!user || !org) return { error: "Non authentifie." };
+
     const campaign = await prisma.campaign.findUnique({
-      where: { id: campaignId },
+      where: { id: campaignId, organizationId: org.id },
       select: { name: true, organizationId: true, userId: true },
     });
+    if (!campaign) return { error: "Campagne introuvable." };
     await prisma.campaign.delete({ where: { id: campaignId } });
 
     if (campaign) {
@@ -195,6 +199,77 @@ export async function scheduleCampaign(
     return { success: true };
   } catch {
     return { error: "Erreur lors de la planification." };
+  }
+}
+
+export async function updateCampaign(
+  campaignId: string,
+  data: { name?: string; subject?: string; previewText?: string; htmlContent?: string },
+  options?: { revalidate?: boolean }
+): Promise<ActionState> {
+  try {
+    const { user, org } = await getCurrentUserAndOrg();
+    if (!user || !org) return { error: "Non authentifie." };
+
+    const updateData: Record<string, string | null> = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.subject !== undefined) updateData.subject = data.subject || null;
+    if (data.previewText !== undefined) updateData.previewText = data.previewText || null;
+    if (data.htmlContent !== undefined) updateData.htmlContent = data.htmlContent || null;
+
+    // updateOrThrow ensures campaign exists and belongs to org; only DRAFT campaigns can be edited
+    await prisma.campaign.update({
+      where: { id: campaignId, organizationId: org.id, status: "DRAFT" },
+      data: updateData,
+    });
+
+    if (options?.revalidate) {
+      revalidatePath("/dashboard/campaigns");
+    }
+    return { success: true };
+  } catch {
+    return { error: "Erreur lors de la mise a jour." };
+  }
+}
+
+export async function cancelCampaign(campaignId: string): Promise<ActionState> {
+  try {
+    const { user, org } = await getCurrentUserAndOrg();
+    if (!user || !org) return { error: "Non authentifie." };
+
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId, organizationId: org.id },
+      select: { status: true, name: true },
+    });
+    if (!campaign) return { error: "Campagne introuvable." };
+    if (!["SCHEDULED", "SENDING"].includes(campaign.status)) {
+      return { error: "Seules les campagnes planifiees ou en cours peuvent etre annulees." };
+    }
+
+    await prisma.campaign.update({
+      where: { id: campaignId },
+      data: { status: "DRAFT", scheduledAt: null },
+    });
+
+    trackServerEvent(user.id, "campaign_cancelled", {
+      campaign_id: campaignId,
+      campaign_name: campaign.name,
+    }, org.id);
+
+    convexServer.mutation(api.dashboard.logActivity, {
+      organizationId: org.id,
+      userId: user.id,
+      userName: user.name ?? user.email,
+      action: "deleted",
+      resourceType: "campaign",
+      resourceId: campaignId,
+      resourceName: `${campaign.name} (annulee)`,
+    });
+
+    revalidatePath("/dashboard/campaigns");
+    return { success: true };
+  } catch {
+    return { error: "Erreur lors de l'annulation." };
   }
 }
 
