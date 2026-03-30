@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Users, AtSign, AlertTriangle, Check, Loader2, ArrowLeft, Mail, Clock, CalendarDays } from "lucide-react";
+import { Send, Users, AtSign, AlertTriangle, Check, Loader2, ArrowLeft, Clock, CalendarDays, Tag } from "lucide-react";
 import Link from "next/link";
 import { sendCampaign, scheduleCampaign } from "../../actions";
 
@@ -28,20 +28,28 @@ interface ContactListData {
   contactCount: number;
 }
 
+type AudienceMode = "all" | "segment" | "tag";
+
 export function SendCampaignClient({
   campaign,
   senders,
   contactLists,
   subscribedCount,
+  availableTags,
+  availableSegments,
 }: {
   campaign: CampaignData;
   senders: SenderData[];
   contactLists: ContactListData[];
   subscribedCount: number;
+  availableTags: string[];
+  availableSegments: ContactListData[];
 }) {
   const router = useRouter();
   const [senderId, setSenderId] = useState(senders[0]?.id ?? "");
-  const [audience, setAudience] = useState<"all" | string>("all");
+  const [audienceMode, setAudienceMode] = useState<AudienceMode>("all");
+  const [selectedSegment, setSelectedSegment] = useState(availableSegments[0]?.id ?? "");
+  const [selectedTag, setSelectedTag] = useState(availableTags[0] ?? "");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -50,9 +58,15 @@ export function SendCampaignClient({
   const [scheduledTime, setScheduledTime] = useState("");
 
   const selectedSender = senders.find((s) => s.id === senderId);
-  const recipientCount = audience === "all"
+
+  // Compute audience string for the server action
+  const audience = audienceMode === "all" ? "all" : audienceMode === "segment" ? selectedSegment : "all";
+
+  const recipientCount = audienceMode === "all"
     ? subscribedCount
-    : contactLists.find((l) => l.id === audience)?.contactCount ?? 0;
+    : audienceMode === "segment"
+      ? availableSegments.find((s) => s.id === selectedSegment)?.contactCount ?? 0
+      : subscribedCount; // tag filtering happens server-side
 
   const canSend =
     campaign.status === "DRAFT" &&
@@ -94,8 +108,8 @@ export function SendCampaignClient({
         </h1>
         <p className="text-zinc-500 mb-8">
           {sendMode === "schedule"
-            ? `« ${campaign.name} » sera envoyee le ${scheduledDate} a ${scheduledTime} a ${recipientCount} abonne${recipientCount > 1 ? "s" : ""}.`
-            : `« ${campaign.name} » a ete envoyee a ${recipientCount} abonne${recipientCount > 1 ? "s" : ""}. Les resultats apparaitront dans les analytics.`
+            ? `« ${campaign.name} » sera envoyee le ${scheduledDate} a ${scheduledTime}.`
+            : `« ${campaign.name} » a ete envoyee. Les resultats apparaitront dans les analytics.`
           }
         </p>
         <Link
@@ -131,22 +145,19 @@ export function SendCampaignClient({
           <p className="text-sm text-zinc-500 mt-1">
             Sujet : <span className="text-zinc-300">{campaign.subject || "—"}</span>
           </p>
-          {campaign.previewText && (
-            <p className="text-sm text-zinc-500 mt-0.5">
-              Apercu : <span className="text-zinc-400">{campaign.previewText}</span>
-            </p>
-          )}
         </div>
         {!campaign.subject && (
           <div className="flex items-center gap-2 text-sm text-amber-500">
             <AlertTriangle className="h-4 w-4" />
-            Le sujet est requis pour envoyer.
+            Le sujet est requis.
+            <Link href={`/dashboard/campaigns/${campaign.id}/edit`} className="text-orange-500 underline">Editer</Link>
           </div>
         )}
         {!campaign.htmlContent && (
           <div className="flex items-center gap-2 text-sm text-amber-500">
             <AlertTriangle className="h-4 w-4" />
-            Le contenu est requis pour envoyer.
+            Le contenu est requis.
+            <Link href={`/dashboard/campaigns/${campaign.id}/edit`} className="text-orange-500 underline">Editer</Link>
           </div>
         )}
       </div>
@@ -158,62 +169,122 @@ export function SendCampaignClient({
           Expediteur
         </h2>
         {senders.length > 0 ? (
-          <>
-            <select
-              value={senderId}
-              onChange={(e) => setSenderId(e.target.value)}
-              className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30 cursor-pointer"
-            >
-              {senders.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} &lt;{s.email}&gt;
-                </option>
-              ))}
-            </select>
-            {selectedSender?.replyTo && (
-              <p className="text-xs text-zinc-500">
-                Reponses a : {selectedSender.replyTo}
-              </p>
-            )}
-          </>
+          <div className="flex flex-wrap gap-2">
+            {senders.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSenderId(s.id)}
+                className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
+                  senderId === s.id
+                    ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
+                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
+                }`}
+              >
+                {s.name} &lt;{s.email}&gt;
+              </button>
+            ))}
+          </div>
         ) : (
           <div className="p-4 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 text-center">
-            <p className="text-sm text-amber-400 mb-2">
-              Aucun expediteur configure.
-            </p>
-            <Link
-              href="/dashboard/senders"
-              className="text-sm text-orange-500 hover:text-orange-400 font-medium"
-            >
+            <p className="text-sm text-amber-400 mb-2">Aucun expediteur configure.</p>
+            <Link href="/dashboard/senders" className="text-sm text-orange-500 hover:text-orange-400 font-medium">
               Configurer un expediteur →
             </Link>
           </div>
         )}
+        {selectedSender?.replyTo && (
+          <p className="text-xs text-zinc-500">Reponses a : {selectedSender.replyTo}</p>
+        )}
       </div>
 
-      {/* Audience selection */}
+      {/* Audience selection — toggle pills */}
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
         <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-2">
           <Users className="h-4 w-4" />
           Audience
         </h2>
-        <select
-          value={audience}
-          onChange={(e) => setAudience(e.target.value)}
-          className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30 cursor-pointer"
-        >
-          <option value="all">
+
+        {/* Mode pills */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setAudienceMode("all")}
+            className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
+              audienceMode === "all"
+                ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
+                : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
+            }`}
+          >
             Tous les abonnes ({subscribedCount})
-          </option>
-          {contactLists.map((list) => (
-            <option key={list.id} value={list.id}>
-              {list.name} ({list.contactCount} contacts)
-            </option>
-          ))}
-        </select>
-        <p className="text-xs text-zinc-500">
-          {recipientCount} destinataire{recipientCount > 1 ? "s" : ""} recevront cet email.
-        </p>
+          </button>
+          {availableSegments.length > 0 && (
+            <button
+              onClick={() => setAudienceMode("segment")}
+              className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
+                audienceMode === "segment"
+                  ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
+                  : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
+              }`}
+            >
+              Par segment
+            </button>
+          )}
+          <button
+            onClick={() => setAudienceMode("tag")}
+            className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
+              audienceMode === "tag"
+                ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
+                : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <Tag className="h-3 w-3" />
+              Par tag
+            </span>
+          </button>
+        </div>
+
+        {/* Segment sub-selection */}
+        {audienceMode === "segment" && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {availableSegments.map((seg) => (
+              <button
+                key={seg.id}
+                onClick={() => setSelectedSegment(seg.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
+                  selectedSegment === seg.id
+                    ? "border-orange-500/50 bg-orange-500/10 text-orange-400"
+                    : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-400"
+                }`}
+              >
+                {seg.name} ({seg.contactCount})
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Tag sub-selection */}
+        {audienceMode === "tag" && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {availableTags.length > 0 ? (
+              availableTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setSelectedTag(tag)}
+                  className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
+                    selectedTag === tag
+                      ? "border-orange-500/50 bg-orange-500/10 text-orange-400"
+                      : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-400"
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))
+            ) : (
+              <p className="text-xs text-zinc-500 italic">Aucun tag. Ajoutez des tags a vos contacts pour filtrer par tag.</p>
+            )}
+          </div>
+        )}
+
         {recipientCount === 0 && (
           <div className="flex items-center gap-2 text-sm text-amber-500">
             <AlertTriangle className="h-4 w-4" />

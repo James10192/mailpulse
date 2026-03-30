@@ -95,7 +95,7 @@ export function isPlanAtLeast(plan: PlanTier, minPlan: PlanTier): boolean {
 export async function getOrgUsage(orgId: string) {
   const [contactCount, activeCampaigns, automationCount] = await Promise.all([
     prisma.contact.count({ where: { organizationId: orgId } }),
-    prisma.campaign.count({ where: { organizationId: orgId, status: { in: ["SENDING", "SCHEDULED", "SENT"] } } }),
+    prisma.campaign.count({ where: { organizationId: orgId, status: { in: ["SENDING", "SCHEDULED"] } } }),
     prisma.automation.count({ where: { organizationId: orgId, status: { in: ["ACTIVE", "DRAFT"] } } }),
   ]);
 

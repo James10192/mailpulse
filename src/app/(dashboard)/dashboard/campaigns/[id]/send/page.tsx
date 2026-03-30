@@ -13,7 +13,7 @@ export default async function SendCampaignPage({
   const { org } = await getCurrentUserAndOrg();
   if (!org) notFound();
 
-  const [campaign, senders, contactLists, subscribedCount] = await Promise.all([
+  const [campaign, senders, contactLists, subscribedCount, tags, segments] = await Promise.all([
     prisma.campaign.findUnique({
       where: { id, organizationId: org.id },
       select: {
@@ -38,6 +38,17 @@ export default async function SendCampaignPage({
     prisma.contact.count({
       where: { organizationId: org.id, subscribed: true },
     }),
+    prisma.contactTag.findMany({
+      where: { contact: { organizationId: org.id } },
+      select: { name: true },
+      distinct: ["name"],
+      orderBy: { name: "asc" },
+    }),
+    prisma.contactList.findMany({
+      where: { organizationId: org.id, type: "dynamic" },
+      select: { id: true, name: true, contactCount: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   if (!campaign) notFound();
@@ -57,6 +68,8 @@ export default async function SendCampaignPage({
         senders={senders}
         contactLists={contactLists}
         subscribedCount={subscribedCount}
+        availableTags={tags.map((t) => t.name)}
+        availableSegments={segments}
       />
     </>
   );
