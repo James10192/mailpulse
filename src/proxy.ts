@@ -15,6 +15,9 @@ const publicPrefixes = [
   "/api/track",
   "/api/unsubscribe",
   "/api/upload",
+  "/api/contact",
+  "/contact",
+  "/capture",
 ];
 
 function isPublicPath(pathname: string): boolean {

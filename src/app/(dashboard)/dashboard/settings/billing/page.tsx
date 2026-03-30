@@ -3,6 +3,7 @@ import { PLAN_LIMITS, getOrgUsage, type PlanTier } from "@/lib/plans";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { UsageBar } from "@/components/dashboard/feature-gate";
 import { Check, Sparkles, Crown, Building2 } from "lucide-react";
+import { ContactButton } from "@/components/dashboard/contact-dialog";
 
 async function getBillingData() {
   const org = await prisma.organization.findFirst({
@@ -191,12 +192,9 @@ export default async function BillingPage() {
                       Plan actuel
                     </div>
                   ) : plan.price === "Sur mesure" ? (
-                    <a
-                      href="mailto:djedjelipatrick@gmail.com,yablaiyablairubenvirgil@gmail.com?subject=MailPulse%20Enterprise%20-%20Demande%20d'information"
-                      className="block w-full py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-orange-600 hover:bg-orange-500 text-white text-center"
-                    >
+                    <ContactButton className="w-full py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-orange-600 hover:bg-orange-500 text-white">
                       Nous contacter
-                    </a>
+                    </ContactButton>
                   ) : (
                     <button className="w-full py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-orange-600 hover:bg-orange-500 text-white">
                       Upgrader

@@ -447,9 +447,7 @@ export default function LandingPage() {
 
                     <LandingCTATracker location="pricing">
                       <Link
-                        href={plan.cta === "Nous contacter"
-                          ? "mailto:djedjelipatrick@gmail.com,yablaiyablairubenvirgil@gmail.com?subject=MailPulse%20Enterprise%20-%20Demande%20d'information"
-                          : "/register"}
+                        href={plan.cta === "Nous contacter" ? "/contact" : "/register"}
                         className={`block text-center py-2.5 rounded-lg text-sm font-medium transition-all ${
                           plan.highlighted
                             ? "bg-orange-600 hover:bg-orange-500 text-white hover:shadow-lg hover:shadow-orange-500/20"
@@ -634,7 +632,7 @@ export default function LandingPage() {
               <a href="#pricing" className="hover:text-zinc-300 transition-colors">
                 Pricing
               </a>
-              <a href="mailto:djedjelipatrick@gmail.com,yablaiyablairubenvirgil@gmail.com?subject=MailPulse%20-%20Contact" className="hover:text-zinc-300 transition-colors">
+              <a href="/contact" className="hover:text-zinc-300 transition-colors">
                 Contact
               </a>
             </nav>
