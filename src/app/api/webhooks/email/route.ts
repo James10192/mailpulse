@@ -33,23 +33,31 @@ export async function POST(request: NextRequest) {
     const svixId = request.headers.get("svix-id");
 
     if (!signature || !timestamp || !svixId) {
+      console.error("Webhook missing headers:", { signature: !!signature, timestamp: !!timestamp, svixId: !!svixId });
       return new Response("Missing webhook headers", { status: 400 });
     }
 
     // Verify with Resend's webhook library
+    const body = await request.text();
+    let event: ResendWebhookEvent;
     try {
-      const body = await request.text();
       const wh = new Webhook(webhookSecret);
       wh.verify(body, {
         "svix-id": svixId,
         "svix-timestamp": timestamp,
         "svix-signature": signature,
       });
-      // Parse verified body
-      const event = JSON.parse(body) as ResendWebhookEvent;
-      await processEvent(event);
+      event = JSON.parse(body) as ResendWebhookEvent;
     } catch {
       return new Response("Invalid signature", { status: 400 });
+    }
+
+    try {
+      await processEvent(event);
+    } catch (e) {
+      console.error("Webhook processEvent error:", e);
+      // Still return 200 so Resend doesn't retry endlessly
+      return new Response("OK", { status: 200 });
     }
   } else {
     // Dev mode: no signature verification
