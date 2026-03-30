@@ -95,13 +95,7 @@ async function processEvent(event: ResendWebhookEvent) {
           data: { deliveredAt: new Date() },
         });
       }
-      // Track monthly email send count for plan limits
-      if (contact.organizationId) {
-        await prisma.organization.update({
-          where: { id: contact.organizationId },
-          data: { emailsSentThisMonth: { increment: 1 } },
-        });
-      }
+      // emailsSentThisMonth is already incremented in sendCampaign action
       break;
 
     case "email.bounced":
