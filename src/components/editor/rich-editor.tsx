@@ -647,39 +647,44 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
 /* ─── Image Bubble Toolbar ─── */
 
 function ImageBubbleToolbar({ editor }: { editor: ReturnType<typeof useEditor> }) {
+  const [sliderValue, setSliderValue] = useState(100);
+
   if (!editor) return null;
 
-  function getImageNode() {
-    const { state } = editor!.view;
-    const { from } = state.selection;
-    const node = state.doc.nodeAt(from);
-    return node?.type.name === "image" ? { node, from } : null;
+  const { state } = editor.view;
+  const { from } = state.selection;
+  const node = state.doc.nodeAt(from);
+  const isImage = node?.type.name === "image";
+
+  // Sync slider value from node attrs
+  const nodeWidth = isImage ? node.attrs.width : null;
+  const parsed = nodeWidth ? parseInt(String(nodeWidth).replace("%", "").replace("px", "")) : 100;
+  if (parsed !== sliderValue && isImage) {
+    // Only update if different — avoid infinite loop
+    setTimeout(() => setSliderValue(parsed), 0);
   }
 
-  function setImageWidth(w: string) {
-    const img = getImageNode();
-    if (!img) return;
-    const { state, dispatch } = editor!.view;
-    dispatch(state.tr.setNodeMarkup(img.from, undefined, { ...img.node.attrs, width: w }));
+  function applyWidth(w: number) {
+    if (!isImage) return;
+    setSliderValue(w);
+    editor!.view.dispatch(
+      state.tr.setNodeMarkup(from, undefined, { ...node!.attrs, width: `${w}%` })
+    );
   }
 
-  function setImageAlign(align: "left" | "center" | "right") {
-    const img = getImageNode();
-    if (!img) return;
-    const { state, dispatch } = editor!.view;
+  function applyAlign(align: "left" | "center" | "right") {
+    if (!isImage) return;
     const margin = align === "center" ? "0 auto" : align === "right" ? "0 0 0 auto" : "0 auto 0 0";
-    dispatch(state.tr.setNodeMarkup(img.from, undefined, { ...img.node.attrs, style: `display:block;margin:${margin}` }));
+    editor!.view.dispatch(
+      state.tr.setNodeMarkup(from, undefined, { ...node!.attrs, style: `display:block;margin:${margin}` })
+    );
   }
 
-  // Read current width for slider
-  const img = getImageNode();
-  const currentWidth = img?.node.attrs.width;
-  const numericWidth = currentWidth ? parseInt(currentWidth.replace("%", "").replace("px", "")) : 100;
-  const sliderValue = currentWidth?.includes("%") ? numericWidth : 100;
+  if (!isImage) return null;
 
   return (
     <div className="flex flex-col gap-2 p-2.5 rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl min-w-[260px]">
-      {/* Slider row */}
+      {/* Slider */}
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-zinc-500 w-10 shrink-0">Taille</span>
         <input
@@ -688,7 +693,7 @@ function ImageBubbleToolbar({ editor }: { editor: ReturnType<typeof useEditor> }
           max={100}
           step={5}
           value={sliderValue}
-          onChange={(e) => setImageWidth(`${e.target.value}%`)}
+          onChange={(e) => applyWidth(Number(e.target.value))}
           className="flex-1 h-1.5 rounded-full appearance-none bg-zinc-700 accent-orange-500 cursor-pointer"
         />
         <span className="text-[11px] font-mono text-zinc-300 w-10 text-right">{sliderValue}%</span>
@@ -698,7 +703,7 @@ function ImageBubbleToolbar({ editor }: { editor: ReturnType<typeof useEditor> }
       <div className="flex items-center gap-1">
         {[25, 50, 75, 100].map((w) => (
           <button key={w} type="button" title={`${w}%`}
-            onClick={() => setImageWidth(`${w}%`)}
+            onClick={() => applyWidth(w)}
             className={cn(
               "px-1.5 py-0.5 rounded text-[10px] font-mono cursor-pointer transition-colors",
               sliderValue === w ? "bg-orange-500/20 text-orange-400" : "text-zinc-500 hover:text-white hover:bg-zinc-700"
@@ -709,7 +714,7 @@ function ImageBubbleToolbar({ editor }: { editor: ReturnType<typeof useEditor> }
         <div className="w-px h-4 bg-zinc-700 mx-1" />
         {(["left", "center", "right"] as const).map((align) => (
           <button key={align} type="button" title={align === "left" ? "Gauche" : align === "center" ? "Centre" : "Droite"}
-            onClick={() => setImageAlign(align)}
+            onClick={() => applyAlign(align)}
             className="p-1 rounded cursor-pointer text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
             {align === "left" ? <AlignLeft className="w-3 h-3" /> : align === "center" ? <AlignCenter className="w-3 h-3" /> : <AlignRight className="w-3 h-3" />}
           </button>
