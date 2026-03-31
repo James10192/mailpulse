@@ -4,6 +4,7 @@ import { useState, useActionState } from "react";
 import { Plus, AtSign, Trash2, X, Info, Pencil } from "lucide-react";
 import { createSender, updateSender, deleteSender } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { HelpModal, HelpButton, StepList, LinkOut } from "@/components/dashboard/help-modal";
 import type { ActionState } from "@/types/action-state";
 
 interface SenderData {
@@ -23,6 +24,7 @@ export function SendersClient({
   domains: string[];
 }) {
   const [createOpen, setCreateOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [editSender, setEditSender] = useState<SenderData | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -73,12 +75,17 @@ export function SendersClient({
           </button>
         </div>
 
-        <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
-          <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-          <p className="text-sm text-blue-300/80">
-            Pour envoyer des campagnes, configurez au moins un expediteur. L&apos;adresse email doit etre verifiee via votre domaine configure dans la section Domaines.
-          </p>
+        <div className="flex items-start justify-between gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-blue-300/80">
+              Pour envoyer des campagnes, configurez au moins un expediteur. Cliquez sur &laquo; Comment configurer ? &raquo; pour en savoir plus.
+            </p>
+          </div>
+          <HelpButton onClick={() => setHelpOpen(true)} />
         </div>
+
+        <SenderHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
         {senders.length > 0 ? (
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
@@ -329,5 +336,131 @@ function SenderModal({
         </form>
       </div>
     </div>
+  );
+}
+
+/* ─── Sender Help Modal ─── */
+
+function SenderHelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <HelpModal
+      open={open}
+      onClose={onClose}
+      title="Configurer un expediteur"
+      subtitle="Guide complet pas-a-pas"
+      sections={[
+        {
+          title: "Qu'est-ce qu'un expediteur ?",
+          defaultOpen: true,
+          content: (
+            <div className="space-y-3">
+              <p>
+                Un <strong className="text-zinc-200">expediteur</strong> est l&apos;adresse email qui apparait dans le champ &laquo; De &raquo; quand vos contacts recoivent votre email. C&apos;est votre identite d&apos;envoi.
+              </p>
+              <div className="rounded-lg bg-zinc-800/50 border border-zinc-700 p-3">
+                <p className="text-xs text-zinc-400">Exemple dans la boite de reception :</p>
+                <p className="text-sm text-zinc-200 font-mono mt-1">
+                  De : <strong>Mon Entreprise</strong> &lt;newsletter@monsite.com&gt;
+                </p>
+              </div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong className="text-zinc-200">Nom</strong> — Le nom qui s&apos;affiche (ex: &laquo; Mon Entreprise &raquo;, &laquo; Marcel de MailPulse &raquo;)</li>
+                <li><strong className="text-zinc-200">Adresse email</strong> — L&apos;adresse d&apos;envoi (ex: newsletter@monsite.com)</li>
+                <li><strong className="text-zinc-200">Email de reponse</strong> — Ou arrivent les reponses des destinataires (optionnel, par defaut c&apos;est l&apos;adresse d&apos;envoi)</li>
+              </ul>
+            </div>
+          ),
+        },
+        {
+          title: "Lien avec les domaines",
+          content: (
+            <div className="space-y-3">
+              <p>
+                L&apos;adresse email de l&apos;expediteur doit utiliser un <strong className="text-zinc-200">domaine verifie</strong>. Si vous n&apos;avez pas de domaine verifie, vous ne pouvez utiliser que <code className="text-orange-400">onboarding@resend.dev</code> (domaine de test).
+              </p>
+              <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
+                <p className="text-amber-400 text-xs font-medium mb-1">Important</p>
+                <p className="text-xs">
+                  Si vous avez verifie le domaine <code>mail.monsite.com</code>, vous pouvez creer des expediteurs avec n&apos;importe quel prefixe : <code>newsletter@mail.monsite.com</code>, <code>contact@mail.monsite.com</code>, <code>info@mail.monsite.com</code>, etc.
+                </p>
+              </div>
+              <StepList steps={[
+                "D'abord, configurez votre domaine dans la section Envoi → Domaines",
+                "Attendez que la verification soit terminee (coche verte)",
+                "Revenez ici pour creer un expediteur avec ce domaine",
+                "Le domaine verifie apparaitra dans le selecteur @ lors de la creation",
+              ]} />
+            </div>
+          ),
+        },
+        {
+          title: "Comment creer un expediteur",
+          content: (
+            <div className="space-y-3">
+              <StepList steps={[
+                "Cliquez sur « Creer un expediteur » en haut de la page",
+                "Remplissez le Nom (ex: « Mon Entreprise »). C'est ce que vos contacts verront",
+                "Tapez le prefixe email (la partie avant @). Ex: newsletter, contact, info",
+                "Selectionnez le domaine dans le menu deroulant (vos domaines verifies + resend.dev)",
+                "Optionnel : ajoutez un email de reponse si les reponses doivent aller a une autre adresse",
+                "Cliquez sur « Creer ». Votre expediteur est pret a etre utilise dans les campagnes !",
+              ]} />
+            </div>
+          ),
+        },
+        {
+          title: "Bonnes pratiques",
+          content: (
+            <div className="space-y-3">
+              <ul className="list-disc pl-5 space-y-2">
+                <li>
+                  <strong className="text-zinc-200">Utilisez un nom reconnaissable</strong> — Vos contacts doivent immediatement savoir qui leur ecrit. &laquo; Mon Entreprise &raquo; est mieux que &laquo; Marketing Team &raquo;
+                </li>
+                <li>
+                  <strong className="text-zinc-200">Separrez les types d&apos;emails</strong> — Creez plusieurs expediteurs : <code className="text-orange-400">newsletter@</code> pour le marketing, <code className="text-orange-400">info@</code> pour les transactionnels, <code className="text-orange-400">equipe@</code> pour le support
+                </li>
+                <li>
+                  <strong className="text-zinc-200">Configurez l&apos;email de reponse</strong> — Si vous envoyez depuis <code>newsletter@</code> mais voulez recevoir les reponses sur <code>support@</code>, remplissez le champ &laquo; Email de reponse &raquo;
+                </li>
+                <li>
+                  <strong className="text-zinc-200">Evitez les adresses noreply@</strong> — Les emails avec &laquo; noreply &raquo; ont un taux d&apos;engagement plus faible et nuisent a votre reputation d&apos;expediteur
+                </li>
+              </ul>
+            </div>
+          ),
+        },
+        {
+          title: "FAQ",
+          content: (
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-medium text-zinc-300">Puis-je utiliser mon adresse Gmail/Yahoo comme expediteur ?</p>
+                <p className="text-xs mt-1">
+                  Non. Gmail et Yahoo ne permettent pas a des services tiers d&apos;envoyer en leur nom. Vous devez utiliser votre propre domaine ou <code className="text-orange-400">onboarding@resend.dev</code> pour les tests.
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-zinc-300">Combien d&apos;expediteurs puis-je creer ?</p>
+                <p className="text-xs mt-1">
+                  Autant que necessaire. Il n&apos;y a pas de limite sur le nombre d&apos;expediteurs. Chaque expediteur doit utiliser un domaine verifie.
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-zinc-300">Qu&apos;est-ce que resend.dev ?</p>
+                <p className="text-xs mt-1">
+                  <code>resend.dev</code> est un domaine de test fourni par Resend. Il fonctionne pour les tests mais les emails envoyes depuis ce domaine ont une delivrabilite limitee et portent la mention &laquo; via resend.dev &raquo; dans Gmail.
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-zinc-300">Je ne vois pas mon domaine dans le selecteur ?</p>
+                <p className="text-xs mt-1">
+                  Seuls les domaines <strong>verifies</strong> apparaissent. Allez dans <LinkOut href="/dashboard/domains">Envoi → Domaines</LinkOut> et verifiez que votre domaine a une coche verte.
+                </p>
+              </div>
+            </div>
+          ),
+        },
+      ]}
+    />
   );
 }

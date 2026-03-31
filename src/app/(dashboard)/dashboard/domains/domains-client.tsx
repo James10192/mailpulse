@@ -4,6 +4,7 @@ import { useActionState, useState, useEffect } from "react";
 import { Plus, Globe, CheckCircle, Clock, Trash2, X, Info, RefreshCw, Copy, Check, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { createDomain, deleteDomain, verifyDomain } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { HelpModal, HelpButton, StepList, LinkOut } from "@/components/dashboard/help-modal";
 import type { ActionState } from "@/types/action-state";
 
 type DomainData = {
@@ -22,6 +23,7 @@ type DomainData = {
 
 export function DomainsClient({ domains }: { domains: DomainData[] }) {
   const [open, setOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createDomain, null);
@@ -57,12 +59,17 @@ export function DomainsClient({ domains }: { domains: DomainData[] }) {
         </button>
       </div>
 
-      <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
-        <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-        <p className="text-sm text-blue-300/80">
-          Ajoutez votre domaine puis configurez les enregistrements DNS affiches ci-dessous chez votre fournisseur (Cloudflare, Namecheap, OVH...). Cliquez sur Verifier une fois les DNS propages.
-        </p>
+      <div className="flex items-start justify-between gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+        <div className="flex items-start gap-3">
+          <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-300/80">
+            Ajoutez votre domaine puis configurez les enregistrements DNS chez votre fournisseur. Cliquez sur &laquo; Comment configurer ? &raquo; pour un guide detaille pas-a-pas.
+          </p>
+        </div>
+        <HelpButton onClick={() => setHelpOpen(true)} />
       </div>
+
+      <DomainHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       {domains.length > 0 ? (
         <div className="space-y-4">
@@ -300,5 +307,146 @@ function DnsRecord({
         </div>
       </div>
     </div>
+  );
+}
+
+/* ─── Domain Help Modal ─── */
+
+function DomainHelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <HelpModal
+      open={open}
+      onClose={onClose}
+      title="Configurer votre domaine"
+      subtitle="Guide complet pas-a-pas"
+      sections={[
+        {
+          title: "Pourquoi configurer un domaine ?",
+          defaultOpen: true,
+          content: (
+            <div className="space-y-3">
+              <p>
+                Par defaut, vos emails sont envoyes depuis <strong className="text-zinc-200">onboarding@resend.dev</strong> — un domaine partage. Vos emails risquent d&apos;arriver en spam car Gmail et les autres fournisseurs ne font pas confiance a ce domaine.
+              </p>
+              <p>
+                En configurant <strong className="text-zinc-200">votre propre domaine</strong> (ex: <code className="text-orange-400">newsletter.votresite.com</code>), vous :
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Ameliorez votre <strong className="text-zinc-200">delivrabilite</strong> (moins de spam)</li>
+                <li>Renforcez votre <strong className="text-zinc-200">image de marque</strong> (emails de contact@votresite.com)</li>
+                <li>Protegez votre <strong className="text-zinc-200">reputation</strong> d&apos;expediteur</li>
+                <li>Respectez les exigences de Google/Yahoo (SPF + DKIM obligatoires depuis 2024)</li>
+              </ul>
+            </div>
+          ),
+        },
+        {
+          title: "Etape 1 : Choisir votre domaine ou sous-domaine",
+          content: (
+            <div className="space-y-3">
+              <p>
+                Vous pouvez utiliser votre domaine principal (<code className="text-orange-400">votresite.com</code>) ou un sous-domaine dedie (<code className="text-orange-400">mail.votresite.com</code> ou <code className="text-orange-400">newsletter.votresite.com</code>).
+              </p>
+              <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
+                <p className="text-amber-400 text-xs font-medium mb-1">Recommandation</p>
+                <p className="text-xs">
+                  Utilisez un <strong>sous-domaine</strong> (ex: <code>mail.votresite.com</code>) pour isoler la reputation de vos emails marketing de votre domaine principal. Si votre domaine principal a deja des DNS complexes, un sous-domaine est plus simple a configurer.
+                </p>
+              </div>
+              <StepList steps={[
+                "Decidez du domaine ou sous-domaine a utiliser",
+                "Cliquez sur « Ajouter un domaine » en haut de cette page",
+                "Entrez le domaine complet (ex: mail.votresite.com)",
+                "MailPulse va generer les enregistrements DNS a configurer",
+              ]} />
+            </div>
+          ),
+        },
+        {
+          title: "Etape 2 : Configurer les DNS chez votre fournisseur",
+          content: (
+            <div className="space-y-3">
+              <p>
+                Apres avoir ajoute votre domaine, MailPulse affiche des <strong className="text-zinc-200">enregistrements DNS</strong> (SPF et DKIM) a ajouter chez votre <strong className="text-zinc-200">registrar</strong> (la ou vous avez achete votre domaine).
+              </p>
+
+              <div className="rounded-lg bg-zinc-800/50 border border-zinc-700 p-3 space-y-2">
+                <p className="text-xs font-medium text-zinc-300">Qu&apos;est-ce que SPF et DKIM ?</p>
+                <ul className="text-xs space-y-1">
+                  <li><strong className="text-zinc-200">SPF</strong> (Sender Policy Framework) : dit aux serveurs email &laquo; ces serveurs ont le droit d&apos;envoyer des emails pour mon domaine &raquo;</li>
+                  <li><strong className="text-zinc-200">DKIM</strong> (DomainKeys Identified Mail) : ajoute une signature cryptographique a vos emails pour prouver qu&apos;ils n&apos;ont pas ete modifies</li>
+                </ul>
+              </div>
+
+              <p className="text-xs font-medium text-zinc-300">Ou ajouter les DNS selon votre fournisseur :</p>
+              <ul className="text-xs space-y-2">
+                <li><LinkOut href="https://dash.cloudflare.com">Cloudflare</LinkOut> → DNS → Ajouter un enregistrement → Type TXT ou CNAME</li>
+                <li><LinkOut href="https://www.namecheap.com/myaccount/login">Namecheap</LinkOut> → Domain List → Manage → Advanced DNS → Add Record</li>
+                <li><LinkOut href="https://www.ovh.com/manager/">OVH</LinkOut> → Domaines → Zone DNS → Ajouter une entree</li>
+                <li><LinkOut href="https://domains.google.com">Google Domains</LinkOut> → DNS → Enregistrements personnalises</li>
+                <li><LinkOut href="https://www.gandi.net/fr">Gandi</LinkOut> → Domaines → DNS Records → Ajouter</li>
+              </ul>
+
+              <StepList steps={[
+                "Connectez-vous a votre registrar (Cloudflare, Namecheap, OVH...)",
+                "Allez dans la section DNS / Zone DNS de votre domaine",
+                "Ajoutez les enregistrements SPF (type TXT) : copiez le Nom et la Valeur depuis MailPulse",
+                "Ajoutez les enregistrements DKIM (type CNAME ou TXT) : copiez le Nom et la Valeur depuis MailPulse",
+                "Sauvegardez les changements. La propagation peut prendre 5 minutes a 48 heures",
+              ]} />
+            </div>
+          ),
+        },
+        {
+          title: "Etape 3 : Verifier votre domaine",
+          content: (
+            <div className="space-y-3">
+              <p>
+                Une fois les DNS configures, revenez sur cette page et cliquez sur le bouton <strong className="text-zinc-200">Verifier</strong> a cote de votre domaine. MailPulse va verifier que les enregistrements sont corrects.
+              </p>
+              <div className="rounded-lg bg-zinc-800/50 border border-zinc-700 p-3 space-y-1">
+                <p className="text-xs"><strong className="text-emerald-400">Verifie (vert)</strong> — Tout est bon, vous pouvez envoyer des emails !</p>
+                <p className="text-xs"><strong className="text-blue-400">En attente (bleu)</strong> — Les DNS ne sont pas encore propages, reessayez dans quelques minutes</p>
+                <p className="text-xs"><strong className="text-red-400">Echoue (rouge)</strong> — Les enregistrements sont incorrects ou manquants, verifiez vos DNS</p>
+              </div>
+              <p>
+                Si la verification echoue apres 48h, verifiez que vous avez copie les valeurs <strong className="text-zinc-200">exactement</strong> comme affichees (pas d&apos;espace en trop, pas de guillemets autour de la valeur TXT).
+              </p>
+            </div>
+          ),
+        },
+        {
+          title: "FAQ",
+          content: (
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-medium text-zinc-300">Je n&apos;ai pas de domaine, comment en obtenir un ?</p>
+                <p className="text-xs mt-1">
+                  Achetez un domaine chez un registrar comme <LinkOut href="https://www.namecheap.com">Namecheap</LinkOut>, <LinkOut href="https://www.ovh.com">OVH</LinkOut>, ou <LinkOut href="https://www.cloudflare.com/products/registrar/">Cloudflare</LinkOut> (a partir de ~5 000 FCFA/an). Utilisez ensuite un sous-domaine dedie pour l&apos;email marketing.
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-zinc-300">Puis-je utiliser un domaine gratuit (Gmail, Yahoo) ?</p>
+                <p className="text-xs mt-1">
+                  Non. Les fournisseurs gratuits ne permettent pas de configurer les DNS. Vous devez posseder votre propre domaine.
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-zinc-300">Combien de temps prend la propagation DNS ?</p>
+                <p className="text-xs mt-1">
+                  Generalement 5 a 30 minutes. Dans de rares cas, cela peut prendre jusqu&apos;a 48 heures. Cloudflare est souvent le plus rapide (quelques minutes).
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-zinc-300">Je peux envoyer sans domaine verifie ?</p>
+                <p className="text-xs mt-1">
+                  Oui, mais uniquement depuis <code className="text-orange-400">onboarding@resend.dev</code>. Vos emails auront moins de chances d&apos;arriver en boite de reception. C&apos;est acceptable pour tester, pas pour envoyer en production.
+                </p>
+              </div>
+            </div>
+          ),
+        },
+      ]}
+    />
   );
 }
