@@ -277,13 +277,6 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
         inline: false,
         allowBase64: false,
         HTMLAttributes: { class: "rounded-lg max-w-full h-auto my-4 block mx-auto" },
-        resize: {
-          enabled: true,
-          directions: ["bottom-right", "bottom-left"],
-          minWidth: 50,
-          minHeight: 50,
-          alwaysPreserveAspectRatio: true,
-        },
       }),
       Mention.configure({
         HTMLAttributes: { class: "bg-orange-500/10 text-orange-600 px-1 rounded font-mono text-sm" },
@@ -636,46 +629,7 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
         shouldShow={({ editor: ed }) => ed.isActive("image")}
         options={{ placement: "bottom", offset: 8 }}
       >
-        <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-zinc-700 bg-zinc-900 shadow-2xl">
-          {/* Width presets */}
-          {[25, 50, 75, 100].map((w) => (
-            <button key={w} type="button" title={`Largeur ${w}%`}
-              onClick={() => {
-                const { state, dispatch } = editor.view;
-                const { from } = state.selection;
-                const node = state.doc.nodeAt(from);
-                if (node?.type.name === "image") {
-                  dispatch(state.tr.setNodeMarkup(from, undefined, { ...node.attrs, width: `${w}%` }));
-                }
-              }}
-              className="px-2 py-1 rounded text-xs font-mono cursor-pointer text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
-              {w}%
-            </button>
-          ))}
-          <div className="w-px h-4 bg-zinc-700 mx-1" />
-          {/* Alignment */}
-          {(["left", "center", "right"] as const).map((align) => (
-            <button key={align} type="button" title={`Aligner ${align === "left" ? "a gauche" : align === "center" ? "au centre" : "a droite"}`}
-              onClick={() => {
-                const { state, dispatch } = editor.view;
-                const { from } = state.selection;
-                const node = state.doc.nodeAt(from);
-                if (node?.type.name === "image") {
-                  dispatch(state.tr.setNodeMarkup(from, undefined, { ...node.attrs, style: `display:block;margin:${align === "center" ? "0 auto" : align === "right" ? "0 0 0 auto" : "0 auto 0 0"}` }));
-                }
-              }}
-              className={cn("p-1 rounded cursor-pointer transition-colors text-zinc-400 hover:text-white hover:bg-zinc-700")}>
-              {align === "left" ? <AlignLeft className="w-3.5 h-3.5" /> : align === "center" ? <AlignCenter className="w-3.5 h-3.5" /> : <AlignRight className="w-3.5 h-3.5" />}
-            </button>
-          ))}
-          <div className="w-px h-4 bg-zinc-700 mx-1" />
-          {/* Delete */}
-          <button type="button" title="Supprimer l'image"
-            onClick={() => editor.chain().focus().deleteSelection().run()}
-            className="p-1 rounded hover:bg-red-500/20 cursor-pointer text-red-400 hover:text-red-300">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <ImageBubbleToolbar editor={editor} />
       </BubbleMenu>
 
       {/* ─── Editor Content ─── */}
@@ -685,6 +639,87 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
       <div className="flex items-center justify-end gap-3 px-3 py-1.5 border-t border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-400 font-mono">
         <span>{charCount} caractere{charCount !== 1 ? "s" : ""}</span>
         <span>{wordCount} mot{wordCount !== 1 ? "s" : ""}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Image Bubble Toolbar ─── */
+
+function ImageBubbleToolbar({ editor }: { editor: ReturnType<typeof useEditor> }) {
+  if (!editor) return null;
+
+  function getImageNode() {
+    const { state } = editor!.view;
+    const { from } = state.selection;
+    const node = state.doc.nodeAt(from);
+    return node?.type.name === "image" ? { node, from } : null;
+  }
+
+  function setImageWidth(w: string) {
+    const img = getImageNode();
+    if (!img) return;
+    const { state, dispatch } = editor!.view;
+    dispatch(state.tr.setNodeMarkup(img.from, undefined, { ...img.node.attrs, width: w }));
+  }
+
+  function setImageAlign(align: "left" | "center" | "right") {
+    const img = getImageNode();
+    if (!img) return;
+    const { state, dispatch } = editor!.view;
+    const margin = align === "center" ? "0 auto" : align === "right" ? "0 0 0 auto" : "0 auto 0 0";
+    dispatch(state.tr.setNodeMarkup(img.from, undefined, { ...img.node.attrs, style: `display:block;margin:${margin}` }));
+  }
+
+  // Read current width for slider
+  const img = getImageNode();
+  const currentWidth = img?.node.attrs.width;
+  const numericWidth = currentWidth ? parseInt(currentWidth.replace("%", "").replace("px", "")) : 100;
+  const sliderValue = currentWidth?.includes("%") ? numericWidth : 100;
+
+  return (
+    <div className="flex flex-col gap-2 p-2.5 rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl min-w-[260px]">
+      {/* Slider row */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-zinc-500 w-10 shrink-0">Taille</span>
+        <input
+          type="range"
+          min={10}
+          max={100}
+          step={5}
+          value={sliderValue}
+          onChange={(e) => setImageWidth(`${e.target.value}%`)}
+          className="flex-1 h-1.5 rounded-full appearance-none bg-zinc-700 accent-orange-500 cursor-pointer"
+        />
+        <span className="text-[11px] font-mono text-zinc-300 w-10 text-right">{sliderValue}%</span>
+      </div>
+
+      {/* Presets + alignment + delete */}
+      <div className="flex items-center gap-1">
+        {[25, 50, 75, 100].map((w) => (
+          <button key={w} type="button" title={`${w}%`}
+            onClick={() => setImageWidth(`${w}%`)}
+            className={cn(
+              "px-1.5 py-0.5 rounded text-[10px] font-mono cursor-pointer transition-colors",
+              sliderValue === w ? "bg-orange-500/20 text-orange-400" : "text-zinc-500 hover:text-white hover:bg-zinc-700"
+            )}>
+            {w}%
+          </button>
+        ))}
+        <div className="w-px h-4 bg-zinc-700 mx-1" />
+        {(["left", "center", "right"] as const).map((align) => (
+          <button key={align} type="button" title={align === "left" ? "Gauche" : align === "center" ? "Centre" : "Droite"}
+            onClick={() => setImageAlign(align)}
+            className="p-1 rounded cursor-pointer text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
+            {align === "left" ? <AlignLeft className="w-3 h-3" /> : align === "center" ? <AlignCenter className="w-3 h-3" /> : <AlignRight className="w-3 h-3" />}
+          </button>
+        ))}
+        <div className="w-px h-4 bg-zinc-700 mx-1" />
+        <button type="button" title="Supprimer"
+          onClick={() => editor!.chain().focus().deleteSelection().run()}
+          className="p-1 rounded hover:bg-red-500/20 cursor-pointer text-red-400 hover:text-red-300">
+          <Trash2 className="w-3 h-3" />
+        </button>
       </div>
     </div>
   );

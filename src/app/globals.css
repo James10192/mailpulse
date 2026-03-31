@@ -109,18 +109,23 @@ img, video, canvas, audio, iframe, embed, object {
   pointer-events: none;
 }
 
-/* TipTap image resize handles */
-.tiptap [data-resize-state] {
-  outline: 2px solid #f97316;
-  outline-offset: 2px;
-  border-radius: 6px;
+/* Image slider range input styling */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f97316;
+  border: 2px solid #18181b;
+  cursor: pointer;
 }
-.tiptap [data-resize-handle] {
-  width: 10px !important;
-  height: 10px !important;
-  background: #f97316 !important;
-  border: 2px solid #18181b !important;
-  border-radius: 3px !important;
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f97316;
+  border: 2px solid #18181b;
+  cursor: pointer;
 }
 
 /* driver.js tour dark mode overrides */
