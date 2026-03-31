@@ -99,8 +99,8 @@ export default function ContactsPage() {
             <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Import CSV</div>
             <p className="text-xs text-zinc-400 leading-relaxed">
               Uploadez un fichier CSV via le bouton d&apos;import. Le fichier est
-              stocke temporairement sur Cloudflare R2. MailPulse detecte les colonnes,
-              deduplique par email et applique les tags.
+              parse cote client avec PapaParse. MailPulse detecte automatiquement
+              les colonnes, deduplique par email et cree les contacts en masse.
             </p>
           </div>
           <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
@@ -119,9 +119,76 @@ jean@exemple.fr,Jean,Martin,,prospect
 sophie@exemple.fr,Sophie,Bernard,,newsletter`}</CodeBlock>
       </div>
 
-      {/* Tags */}
+      {/* CSV Import — 3-step flow */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Tags</h2>
+        <h2 className="text-xl font-bold mb-4 font-mono">Import CSV — Flux en 3 etapes</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
+          <p>
+            L&apos;import CSV suit un flux guide en trois etapes. Le parsing est entierement
+            cote client via <code className="text-zinc-200">PapaParse</code> pour un retour instantane,
+            meme sur de gros fichiers.
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {[
+            {
+              step: "1",
+              title: "Upload du fichier",
+              desc: "Glissez-deposez ou selectionnez un fichier .csv. PapaParse analyse le fichier localement (pas d'upload serveur a cette etape). Un apercu des 5 premieres lignes s'affiche immediatement.",
+            },
+            {
+              step: "2",
+              title: "Mapping des colonnes",
+              desc: "MailPulse detecte automatiquement les colonnes (email, firstName, lastName, phone, tags) par correspondance de nom. Vous pouvez corriger manuellement le mapping via des dropdowns. Les colonnes non mappees sont ignorees.",
+            },
+            {
+              step: "3",
+              title: "Resultat de l'import",
+              desc: "Les contacts sont crees en masse via prisma.contact.createMany({ skipDuplicates: true }). Un resume affiche le nombre de contacts crees, ignores (doublons) et en erreur.",
+            },
+          ].map((item) => (
+            <div key={item.step} className="flex items-start gap-4 p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
+              <span className="flex items-center justify-center h-8 w-8 rounded-lg bg-orange-500/10 text-orange-400 font-mono font-bold text-sm shrink-0">
+                {item.step}
+              </span>
+              <div>
+                <div className="text-sm font-mono font-semibold text-zinc-200 mb-1">{item.title}</div>
+                <p className="text-xs text-zinc-400 leading-relaxed">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <CodeBlock title="Server Action — Import en masse">{`// actions/contacts.ts
+const result = await prisma.contact.createMany({
+  data: parsedContacts.map((c) => ({
+    email: c.email,
+    firstName: c.firstName ?? null,
+    lastName: c.lastName ?? null,
+    phone: c.phone ?? null,
+    subscribed: true,
+    source: "csv_import",
+    organizationId,
+    userId,
+  })),
+  skipDuplicates: true, // Ignore les emails deja existants
+});
+// result.count = nombre de contacts crees`}</CodeBlock>
+
+        <InfoBox>
+          <strong className="text-orange-400">Auto-detection :</strong> Le mapping automatique
+          reconnait les variantes courantes : <code className="font-mono text-zinc-200">prenom</code>,{" "}
+          <code className="font-mono text-zinc-200">first_name</code>,{" "}
+          <code className="font-mono text-zinc-200">firstName</code>,{" "}
+          <code className="font-mono text-zinc-200">Prenom</code> sont tous mappes vers{" "}
+          <code className="font-mono text-zinc-200">firstName</code>.
+        </InfoBox>
+      </div>
+
+      {/* Tags multi-select */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Tags — Multi-select avec autocomplete</h2>
         <div className="prose-sm text-zinc-400 space-y-3 mb-4">
           <p>
             Les tags sont des etiquettes manuelles avec une couleur personnalisable.
@@ -138,6 +205,44 @@ sophie@exemple.fr,Sophie,Bernard,,newsletter`}</CodeBlock>
   contact   Contact @relation(...)
 }`}</CodeBlock>
 
+        <div className="prose-sm text-zinc-400 space-y-3 mt-4 mb-4">
+          <p>
+            Le selecteur de tags fonctionne avec des <strong className="text-zinc-200">pills cliquables</strong> et
+            un champ de recherche avec autocomplete. Ce n&apos;est pas un champ texte libre :
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {[
+            {
+              feature: "Autocomplete",
+              desc: "Tapez pour filtrer les tags existants de l'organisation. Les resultats s'affichent dans un dropdown en temps reel.",
+            },
+            {
+              feature: "Pills cliquables",
+              desc: "Les tags assignes s'affichent comme des pills colorees. Cliquez sur la croix pour retirer un tag du contact.",
+            },
+            {
+              feature: "Creation inline",
+              desc: "Si le tag n'existe pas, un bouton \"Creer [nom]\" apparait dans le dropdown. Choisissez une couleur et validez sans quitter la fiche contact.",
+            },
+            {
+              feature: "Recherche",
+              desc: "La recherche est insensible a la casse et filtre sur le debut du nom du tag. Les tags deja assignes sont exclus des suggestions.",
+            },
+          ].map((item) => (
+            <div
+              key={item.feature}
+              className="flex items-start gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 shrink-0 mt-0.5">
+                {item.feature}
+              </span>
+              <span className="text-sm text-zinc-400">{item.desc}</span>
+            </div>
+          ))}
+        </div>
+
         <div className="prose-sm text-zinc-400 space-y-3 mt-4">
           <p>Exemples d&apos;utilisation :</p>
           <ul className="space-y-2 list-none pl-0">
@@ -153,6 +258,81 @@ sophie@exemple.fr,Sophie,Bernard,,newsletter`}</CodeBlock>
               </li>
             ))}
           </ul>
+        </div>
+      </div>
+
+      {/* Custom fields */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Champs personnalises</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
+          <p>
+            Les champs personnalises sont geres depuis la page{" "}
+            <code className="text-zinc-200">/dashboard/fields</code>. Chaque champ est
+            defini par un nom machine, un label, un type et une option obligatoire/optionnel.
+            Les valeurs sont stockees dans le champ <code className="text-zinc-200">metadata</code> (JSON)
+            de chaque contact. CRUD complet disponible.
+          </p>
+        </div>
+
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
+          <p>
+            <strong className="text-zinc-200">7 types de champs</strong> sont disponibles :
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {[
+            { type: "text", desc: "Champ texte libre (ex: company, city)" },
+            { type: "number", desc: "Valeur numerique (ex: age, revenue)" },
+            { type: "email", desc: "Adresse email secondaire" },
+            { type: "url", desc: "URL (ex: site web, profil LinkedIn)" },
+            { type: "date", desc: "Date (ex: anniversaire, date d'inscription)" },
+            { type: "select", desc: "Choix parmi des options predefinies (ex: plan, secteur)" },
+            { type: "boolean", desc: "Vrai/faux (ex: client_premium, opt_in_sms)" },
+          ].map((item) => (
+            <div
+              key={item.type}
+              className="flex items-start gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <code className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 shrink-0 mt-0.5">
+                {item.type}
+              </code>
+              <span className="text-sm text-zinc-400">{item.desc}</span>
+            </div>
+          ))}
+        </div>
+
+        <CodeBlock title="Exemple metadata">{`{
+  "plan": "pro",
+  "signup_source": "website",
+  "company": "Acme Corp",
+  "city": "Abidjan",
+  "language": "fr"
+}`}</CodeBlock>
+
+        <div className="prose-sm text-zinc-400 space-y-3 mt-3 mb-4">
+          <p>
+            <strong className="text-zinc-200">Syntaxe de variable :</strong> Utilisez la notation{" "}
+            <code className="text-zinc-200">{`{{nom_du_champ}}`}</code> pour inserer dynamiquement
+            la valeur d&apos;un champ dans vos emails. MailPulse remplace automatiquement
+            les variables au moment de l&apos;envoi.
+          </p>
+        </div>
+
+        <CodeBlock title="Variables dans les emails">{`Bonjour {{firstName}},
+
+Votre plan actuel : {{plan}}
+Ville : {{city}}
+
+// Les champs non renseignes sont remplaces par une chaine vide.
+// Utilisez une valeur par defaut : {{city|Abidjan}}`}</CodeBlock>
+
+        <div className="prose-sm text-zinc-400 space-y-3 mt-3">
+          <p>
+            Ces champs peuvent etre utilises dans les segments dynamiques,
+            comme variables de personnalisation dans vos emails et dans les
+            formulaires de pages de capture.
+          </p>
         </div>
       </div>
 
@@ -192,18 +372,66 @@ sophie@exemple.fr,Sophie,Bernard,,newsletter`}</CodeBlock>
         </div>
       </div>
 
-      {/* Segments */}
+      {/* Smart Segmentation */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Segments dynamiques</h2>
+        <h2 className="text-xl font-bold mb-4 font-mono">Segmentation intelligente</h2>
         <div className="prose-sm text-zinc-400 space-y-3 mb-4">
           <p>
             Les segments sont des groupes de contacts qui se mettent a jour automatiquement
-            en fonction de criteres. Les contacts entrent et sortent du segment selon
-            leur comportement et leurs proprietes.
+            en fonction de criteres. Les filtres sont stockes en JSON et resolus dynamiquement
+            a chaque consultation. La page detail d&apos;un segment affiche la liste des contacts
+            resolus en temps reel.
           </p>
         </div>
 
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
+          <p>
+            <strong className="text-zinc-200">Filtres dynamiques disponibles :</strong>
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {[
+            { filter: "subscribed", desc: "Filtrer par statut d'abonnement (true/false)" },
+            { filter: "tags", desc: "Contient un ou plusieurs tags specifiques (operateur AND ou OR)" },
+            { filter: "engagementMin", desc: "Score d'engagement minimum (0-100)" },
+            { filter: "createdAfter", desc: "Date de creation apres une date donnee (ISO 8601)" },
+          ].map((item) => (
+            <div
+              key={item.filter}
+              className="flex items-start gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
+            >
+              <code className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 shrink-0 mt-0.5">
+                {item.filter}
+              </code>
+              <span className="text-sm text-zinc-400">{item.desc}</span>
+            </div>
+          ))}
+        </div>
+
+        <CodeBlock title="Exemple — Filtre JSON d'un segment">{`// Segment "Clients VIP actifs"
+{
+  "subscribed": true,
+  "tags": ["VIP"],
+  "engagementMin": 70,
+  "createdAfter": "2025-01-01T00:00:00Z"
+}
+
+// Resolution : Prisma WHERE clause generee dynamiquement
+const contacts = await prisma.contact.findMany({
+  where: {
+    organizationId,
+    subscribed: filter.subscribed,
+    tags: { some: { name: { in: filter.tags } } },
+    engagementScore: { gte: filter.engagementMin },
+    createdAt: { gte: new Date(filter.createdAfter) },
+  },
+});`}</CodeBlock>
+
         <div className="mt-4 space-y-3">
+          <div className="prose-sm text-zinc-400">
+            <p><strong className="text-zinc-200">Exemples de segments preconfigures :</strong></p>
+          </div>
           {[
             { name: "Contacts actifs", rule: "lastEngagedAt < 30 jours" },
             { name: "Nouveaux abonnes", rule: "createdAt < 7 jours" },
@@ -221,58 +449,71 @@ sophie@exemple.fr,Sophie,Bernard,,newsletter`}</CodeBlock>
             </div>
           ))}
         </div>
+
+        <InfoBox>
+          <strong className="text-orange-400">Page detail segment :</strong> Cliquez sur un segment
+          pour voir la liste des contacts resolus. Le nombre de contacts est recalcule a chaque
+          visite — les contacts entrent et sortent du segment automatiquement selon leurs proprietes.
+        </InfoBox>
       </div>
 
-      {/* Custom fields */}
+      {/* Advanced filters */}
       <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Champs personnalises</h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
+        <h2 className="text-xl font-bold mb-4 font-mono">Filtres avances</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
           <p>
-            Les champs personnalises sont geres depuis la page{" "}
-            <code className="text-zinc-200">/dashboard/fields</code>. Chaque champ est
-            defini par un nom machine, un label, un type et une option obligatoire/optionnel.
-            Les valeurs sont stockees dans le champ <code className="text-zinc-200">metadata</code> (JSON)
-            de chaque contact.
+            La page contacts propose des filtres avances pour retrouver rapidement
+            vos contacts. Tous les filtres sont combinables et appliques en temps reel.
           </p>
         </div>
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
           {[
-            { type: "text", desc: "Champ texte libre (ex: company, city)" },
-            { type: "number", desc: "Valeur numerique (ex: age, revenue)" },
-            { type: "email", desc: "Adresse email secondaire" },
-            { type: "url", desc: "URL (ex: site web, profil LinkedIn)" },
-            { type: "date", desc: "Date (ex: anniversaire, date d'inscription)" },
-            { type: "select", desc: "Choix parmi des options predefinies (ex: plan)" },
-            { type: "boolean", desc: "Vrai/faux (ex: client_premium, opt_in_sms)" },
+            {
+              filter: "Recherche",
+              desc: "Recherche par email, prenom ou nom. Insensible a la casse, resultat en temps reel au fur et a mesure de la saisie.",
+              icon: "search",
+            },
+            {
+              filter: "Statut d'abonnement",
+              desc: "Filtrez par abonnes, desabonnes ou tous. Dropdown avec trois options.",
+              icon: "filter",
+            },
+            {
+              filter: "Tags",
+              desc: "Filtrez par tag via un dropdown multi-select. Affichez uniquement les contacts qui ont un ou plusieurs tags selectionnes.",
+              icon: "tag",
+            },
+            {
+              filter: "Tri",
+              desc: "Triez par date de creation (recent/ancien), nom (A-Z/Z-A) ou score d'engagement (haut/bas).",
+              icon: "sort",
+            },
           ].map((item) => (
-            <div
-              key={item.type}
-              className="flex items-start gap-3 p-3 rounded-lg border border-zinc-800/30 bg-zinc-900/20"
-            >
-              <code className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 shrink-0 mt-0.5">
-                {item.type}
-              </code>
-              <span className="text-sm text-zinc-400">{item.desc}</span>
+            <div key={item.filter} className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
+              <div className="text-sm font-mono font-semibold text-orange-400 mb-1">{item.filter}</div>
+              <p className="text-xs text-zinc-400 leading-relaxed">{item.desc}</p>
             </div>
           ))}
         </div>
 
-        <CodeBlock title="Exemple metadata">{`{
-  "plan": "pro",
-  "signup_source": "website",
-  "company": "Acme Corp",
-  "city": "Abidjan",
-  "language": "fr"
-}`}</CodeBlock>
+        <CodeBlock title="Exemple — Parametres URL des filtres">{`// Les filtres sont refletes dans l'URL pour le partage et le bookmark
+/dashboard/contacts?search=marie&subscribed=true&tag=VIP&sort=engagement_desc
 
-        <div className="prose-sm text-zinc-400 space-y-3 mt-3">
-          <p>
-            Ces champs peuvent etre utilises dans les segments dynamiques,
-            comme variables de personnalisation dans vos emails et dans les
-            formulaires de pages de capture.
-          </p>
-        </div>
+// Cote serveur, les filtres sont appliques via Prisma WHERE
+const contacts = await prisma.contact.findMany({
+  where: {
+    organizationId,
+    OR: [
+      { email: { contains: search, mode: "insensitive" } },
+      { firstName: { contains: search, mode: "insensitive" } },
+      { lastName: { contains: search, mode: "insensitive" } },
+    ],
+    subscribed: subscribedFilter ?? undefined,
+    tags: tagFilter ? { some: { name: tagFilter } } : undefined,
+  },
+  orderBy: sortMap[sort],
+});`}</CodeBlock>
       </div>
 
       {/* Engagement scoring */}
@@ -316,6 +557,120 @@ sophie@exemple.fr,Sophie,Bernard,,newsletter`}</CodeBlock>
         </div>
       </div>
 
+      {/* Contact detail page */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Page detail contact</h2>
+        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
+          <p>
+            Cliquez sur un contact pour acceder a sa fiche detaillee
+            (<code className="text-zinc-200">/dashboard/contacts/[id]</code>). Cette page
+            regroupe toutes les informations et actions sur un contact.
+          </p>
+        </div>
+
+        {/* Header with toggle */}
+        <div className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20 mb-3">
+          <div className="text-sm font-mono font-semibold text-orange-400 mb-1">En-tete</div>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Affiche le nom complet, l&apos;email, le score d&apos;engagement et la source du contact.
+            Un toggle <code className="text-zinc-200">Abonne / Desabonne</code> permet de changer
+            le statut d&apos;abonnement instantanement (Server Action).
+          </p>
+        </div>
+
+        {/* 6 stat cards */}
+        <div className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20 mb-3">
+          <div className="text-sm font-mono font-semibold text-orange-400 mb-2">6 cartes statistiques</div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {[
+              "Emails envoyes",
+              "Emails delivres",
+              "Ouvertures",
+              "Clics",
+              "Taux d'ouverture",
+              "Taux de clic",
+            ].map((stat) => (
+              <div key={stat} className="px-3 py-2 rounded-lg bg-zinc-800/30 text-xs text-zinc-300 font-mono text-center">
+                {stat}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* AreaChart */}
+        <div className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20 mb-3">
+          <div className="text-sm font-mono font-semibold text-orange-400 mb-1">Graphique de performance</div>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Un <code className="text-zinc-200">AreaChart</code> (Recharts) affiche l&apos;evolution
+            des ouvertures et clics sur les 30 derniers jours. Les deux series (opens, clicks) sont
+            empilees avec des couleurs distinctes.
+          </p>
+        </div>
+
+        {/* Edit mode */}
+        <div className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20 mb-3">
+          <div className="text-sm font-mono font-semibold text-orange-400 mb-1">Mode edition</div>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Cliquez sur &quot;Modifier&quot; pour passer en mode edition inline. Champs editables :
+            nom, prenom, telephone et tous les champs personnalises (custom fields) definis
+            pour l&apos;organisation. La sauvegarde est validee via Zod et executee par Server Action.
+          </p>
+        </div>
+
+        {/* Tags with autocomplete */}
+        <div className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20 mb-3">
+          <div className="text-sm font-mono font-semibold text-orange-400 mb-1">Tags avec recherche et autocomplete</div>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Selecteur de tags avec pills cliquables et champ de recherche. Les tags existants
+            de l&apos;organisation sont suggeres. Creez un nouveau tag inline si necessaire
+            (voir section Tags ci-dessus).
+          </p>
+        </div>
+
+        {/* Active automations */}
+        <div className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20 mb-3">
+          <div className="text-sm font-mono font-semibold text-orange-400 mb-1">Automations actives</div>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Liste des automations actuellement actives pour ce contact. Chaque automation affiche
+            son nom, son statut (en cours, en pause, terminee) et un bouton pour declencher
+            manuellement l&apos;etape suivante ou relancer l&apos;automation.
+          </p>
+        </div>
+
+        {/* Activity timeline */}
+        <div className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
+          <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Timeline d&apos;activite</div>
+          <p className="text-xs text-zinc-400 leading-relaxed mb-3">
+            Historique chronologique complet de toutes les interactions du contact.
+            Un dropdown permet de filtrer par type d&apos;evenement. <strong className="text-zinc-200">13 types d&apos;evenements</strong> sont traces :
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+            {[
+              "email.sent",
+              "email.delivered",
+              "email.opened",
+              "email.clicked",
+              "email.bounced",
+              "email.complained",
+              "contact.created",
+              "contact.updated",
+              "contact.subscribed",
+              "contact.unsubscribed",
+              "tag.added",
+              "tag.removed",
+              "automation.triggered",
+            ].map((event) => (
+              <code
+                key={event}
+                className="text-[10px] font-mono px-2 py-1 rounded bg-zinc-800/50 text-zinc-400 text-center"
+              >
+                {event}
+              </code>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Unsubscribe handling */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">Desabonnements et rebonds</h2>
@@ -344,32 +699,6 @@ sophie@exemple.fr,Sophie,Bernard,,newsletter`}</CodeBlock>
           pour le desabonnement en un clic directement depuis le client de messagerie.
           Le desabonnement est instantane (pas de delai de 48h).
         </InfoBox>
-      </div>
-
-      {/* Contact detail page */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">Page detail contact</h2>
-        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
-          <p>
-            Cliquez sur un contact pour acceder a sa fiche detaillee
-            (<code className="text-zinc-200">/dashboard/contacts/[id]</code>). Cette page
-            regroupe toutes les informations et actions sur un contact :
-          </p>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {[
-            { section: "Statistiques", desc: "Emails envoyes, delivres, ouverts et cliques pour ce contact. Graphique d'engagement sur la periode." },
-            { section: "Edition", desc: "Modifiez l'email, le prenom, le nom, le telephone et le statut d'abonnement directement depuis la fiche." },
-            { section: "Tags", desc: "Ajoutez ou retirez des tags colores. Les tags existants de l'organisation sont suggeres." },
-            { section: "Timeline", desc: "Historique complet des evenements email (envois, ouvertures, clics, bounces, desabonnements) avec filtrage." },
-          ].map((item) => (
-            <div key={item.section} className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
-              <div className="text-sm font-mono font-semibold text-orange-400 mb-1">{item.section}</div>
-              <p className="text-xs text-zinc-400 leading-relaxed">{item.desc}</p>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Next step */}

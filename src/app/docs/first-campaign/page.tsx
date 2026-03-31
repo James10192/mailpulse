@@ -48,46 +48,15 @@ export default function FirstCampaignPage() {
           Premiere campagne
         </h1>
         <p className="mt-3 text-zinc-400 text-lg leading-relaxed">
-          De la creation de compte a l&apos;analyse des resultats :
-          envoyez votre premier email marketing en suivant ce guide pas a pas.
+          Du premier contact a l&apos;analyse des resultats :
+          envoyez votre premiere campagne email en 6 etapes.
         </p>
       </div>
 
-      {/* Step 1 — Create account */}
+      {/* Step 1 — Create a contact */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">
-          <span className="text-orange-400">Etape 1</span> — Creer un compte
-        </h2>
-        <div className="prose-sm text-zinc-400 space-y-3">
-          <div className="flex items-start gap-2">
-            <StepNumber n={1} />
-            <p>
-              Rendez-vous sur <code className="text-zinc-200">/register</code> et
-              renseignez votre email et un mot de passe (min 8 caracteres).
-            </p>
-          </div>
-          <div className="flex items-start gap-2">
-            <StepNumber n={2} />
-            <p>
-              Vous pouvez aussi vous connecter via <span className="text-zinc-200 font-medium">Google</span> ou{" "}
-              <span className="text-zinc-200 font-medium">GitHub</span> en un clic (OAuth).
-            </p>
-          </div>
-          <div className="flex items-start gap-2">
-            <StepNumber n={3} />
-            <p>
-              Creez votre <span className="text-zinc-200 font-medium">organisation</span> :
-              donnez-lui un nom et un slug. L&apos;organisation est l&apos;espace de travail
-              partage par votre equipe (multi-tenant via Better Auth).
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Step 2 — Add a contact */}
-      <div className="mb-12">
-        <h2 className="text-xl font-bold mb-4 font-mono">
-          <span className="text-orange-400">Etape 2</span> — Ajouter un contact
+          <span className="text-orange-400">Etape 1</span> — Creer un contact
         </h2>
         <div className="prose-sm text-zinc-400 space-y-3">
           <div className="flex items-start gap-2">
@@ -119,57 +88,152 @@ export default function FirstCampaignPage() {
         </InfoBox>
       </div>
 
-      {/* Step 3 — Create campaign (3-step wizard) */}
+      {/* Step 2 — Configure a sender */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">
+          <span className="text-orange-400">Etape 2</span> — Configurer un expediteur
+        </h2>
+        <div className="prose-sm text-zinc-400 space-y-3">
+          <div className="flex items-start gap-2">
+            <StepNumber n={1} />
+            <p>
+              Allez dans <span className="text-zinc-200 font-medium">Expediteurs</span> depuis les parametres.
+              Par defaut, l&apos;adresse <code className="text-zinc-200">onboarding@resend.dev</code> est
+              disponible pour vos premiers tests.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <StepNumber n={2} />
+            <p>
+              Pour creer un expediteur personnalise, renseignez un{" "}
+              <span className="text-zinc-200 font-medium">nom d&apos;utilisateur</span> (ex: &quot;newsletter&quot;)
+              puis selectionnez un <span className="text-zinc-200 font-medium">domaine verifie</span> dans
+              le menu deroulant. L&apos;adresse finale sera composee automatiquement
+              (ex: <code className="text-zinc-200">newsletter@votredomaine.com</code>).
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <StepNumber n={3} />
+            <p>
+              Ajoutez un nom d&apos;affichage (ex: &quot;L&apos;equipe MailPulse&quot;) pour
+              personnaliser l&apos;en-tete &quot;From&quot; de vos emails.
+            </p>
+          </div>
+        </div>
+
+        <InfoBox>
+          <strong className="text-orange-400">Domaines :</strong> Pour utiliser votre propre domaine,
+          ajoutez-le dans la page <span className="text-zinc-200 font-medium">Domaines</span> et
+          configurez les enregistrements DNS indiques. Une aide contextuelle est disponible
+          directement sur la page.
+        </InfoBox>
+      </div>
+
+      {/* Step 3 — Create campaign */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">
           <span className="text-orange-400">Etape 3</span> — Creer une campagne
         </h2>
-        <div className="prose-sm text-zinc-400 space-y-3 mb-4">
-          <p>
-            Depuis <span className="text-zinc-200 font-medium">Campagnes</span>, cliquez sur{" "}
-            <span className="text-zinc-200 font-medium">&quot;Nouvelle campagne&quot;</span>.
-            L&apos;assistant de creation comporte 3 etapes :
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
-            <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Wizard 1/3 — Configuration</div>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Nom de la campagne, type (REGULAR, AB_TEST ou AUTOMATED), objet de l&apos;email
-              et texte de pre-header. Pour un A/B test, renseignez un second objet (subject B).
+        <div className="prose-sm text-zinc-400 space-y-3">
+          <div className="flex items-start gap-2">
+            <StepNumber n={1} />
+            <p>
+              Depuis <span className="text-zinc-200 font-medium">Campagnes</span>, cliquez sur{" "}
+              <span className="text-zinc-200 font-medium">&quot;Nouvelle campagne&quot;</span>.
             </p>
           </div>
-          <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
-            <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Wizard 2/3 — Contenu</div>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Redigez votre email avec l&apos;editeur TipTap. Formatage riche, images
-              (upload vers R2), variables de personnalisation et insertion de snippets
-              reutilisables. Vous pouvez inserer des snippets reutilisables dans votre contenu.
-            </p>
-          </div>
-          <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
-            <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Wizard 3/3 — Apercu</div>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Verifiez votre campagne et enregistrez-la. Elle est sauvegardee
-              en statut <code className="text-zinc-200">DRAFT</code>. Passez ensuite a la
-              page d&apos;envoi (<code className="text-zinc-200">/campaigns/[id]/send</code>)
-              pour choisir l&apos;expediteur, les destinataires et envoyer.
+          <div className="flex items-start gap-2">
+            <StepNumber n={2} />
+            <p>
+              Donnez simplement un <span className="text-zinc-200 font-medium">nom</span> a votre campagne
+              et validez. Vous etes automatiquement redirige vers l&apos;editeur de contenu
+              en mode split-panel.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Step 4 — Send */}
+      {/* Step 4 — Edit content */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">
-          <span className="text-orange-400">Etape 4</span> — Envoyer
+          <span className="text-orange-400">Etape 4</span> — Editer le contenu
+        </h2>
+        <div className="prose-sm text-zinc-400 space-y-3">
+          <div className="flex items-start gap-2">
+            <StepNumber n={1} />
+            <p>
+              Renseignez l&apos;<span className="text-zinc-200 font-medium">objet</span> (subject line) et le{" "}
+              <span className="text-zinc-200 font-medium">texte de pre-visualisation</span> (preview text)
+              qui apparait dans la boite de reception.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <StepNumber n={2} />
+            <p>
+              Redigez votre email dans l&apos;editeur riche <span className="text-zinc-200 font-medium">TipTap</span>.
+              Formatage riche, images (upload vers R2), variables de personnalisation
+              et insertion de snippets reutilisables.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <StepNumber n={3} />
+            <p>
+              Le contenu est <span className="text-zinc-200 font-medium">sauvegarde automatiquement</span> (autosave)
+              au fur et a mesure de votre saisie. Pas besoin de cliquer sur &quot;Enregistrer&quot;.
+            </p>
+          </div>
+        </div>
+
+        <InfoBox>
+          <strong className="text-orange-400">Split-panel :</strong> L&apos;editeur affiche le formulaire
+          a gauche et un apercu HTML en temps reel a droite, pour visualiser le rendu
+          final de votre email pendant la redaction.
+        </InfoBox>
+      </div>
+
+      {/* Step 5 — Send */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">
+          <span className="text-orange-400">Etape 5</span> — Envoyer
         </h2>
         <div className="prose-sm text-zinc-400 space-y-3">
           <p>
-            Lorsque vous cliquez sur <span className="text-zinc-200 font-medium">&quot;Envoyer&quot;</span>,
-            la campagne passe du statut <code className="text-zinc-200">DRAFT</code> a{" "}
-            <code className="text-zinc-200">SENDING</code>. MailPulse :
+            Depuis la page d&apos;envoi (<code className="text-zinc-200">/campaigns/[id]/send</code>),
+            configurez les parametres d&apos;envoi :
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
+            <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Expediteur</div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Selectionnez l&apos;expediteur parmi vos adresses configurees via des{" "}
+              <span className="text-zinc-200 font-medium">toggle pills</span>. Chaque pill affiche
+              le nom et l&apos;adresse email de l&apos;expediteur.
+            </p>
+          </div>
+          <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
+            <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Audience</div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Choisissez les destinataires :{" "}
+              <span className="text-zinc-200 font-medium">tous les contacts</span>,
+              un <span className="text-zinc-200 font-medium">segment</span> specifique, ou
+              filtrer par <span className="text-zinc-200 font-medium">tag</span>.
+            </p>
+          </div>
+          <div className="p-5 rounded-xl border border-zinc-800/50 bg-zinc-900/20">
+            <div className="text-sm font-mono font-semibold text-orange-400 mb-2">Planification</div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              <span className="text-zinc-200 font-medium">Envoyer maintenant</span> pour un envoi immediat,
+              ou <span className="text-zinc-200 font-medium">Planifier</span> pour choisir une date et
+              heure d&apos;envoi differees.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 prose-sm text-zinc-400 space-y-3">
+          <p>
+            Lorsque vous confirmez l&apos;envoi, MailPulse :
           </p>
           <ul className="space-y-2 list-none pl-0">
             {[
@@ -192,23 +256,24 @@ export default function FirstCampaignPage() {
                           PAUSED / CANCELLED`}</CodeBlock>
       </div>
 
-      {/* Step 5 — Track results */}
+      {/* Step 6 — Track results */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">
-          <span className="text-orange-400">Etape 5</span> — Suivre les resultats
+          <span className="text-orange-400">Etape 6</span> — Suivre les resultats
         </h2>
         <div className="prose-sm text-zinc-400 space-y-3">
           <p>
-            Apres l&apos;envoi, le dashboard se met a jour en temps reel grace a Convex.
-            Les metriques cles :
+            Apres l&apos;envoi, les statistiques sont alimentees automatiquement par les{" "}
+            <span className="text-zinc-200 font-medium">webhooks Resend</span>. Chaque evenement
+            (delivered, opened, clicked, bounced, complained) est recu et traite en temps reel.
           </p>
         </div>
 
         <div className="mt-4 space-y-2">
           {[
-            { metric: "Envoyes / Delivres", desc: "Nombre d'emails envoyes et livres avec succes", color: "text-emerald-400" },
-            { metric: "Taux d'ouverture", desc: "(uniqueOpens / totalDelivered) x 100 — detecte via pixel GIF", color: "text-blue-400" },
-            { metric: "Taux de clic", desc: "(uniqueClicks / totalDelivered) x 100 — detecte via redirect 302", color: "text-purple-400" },
+            { metric: "Envoyes / Delivres", desc: "Nombre d'emails envoyes et livres avec succes (webhook: delivered)", color: "text-emerald-400" },
+            { metric: "Taux d'ouverture", desc: "(uniqueOpens / totalDelivered) x 100 — webhook: opened (pixel GIF)", color: "text-blue-400" },
+            { metric: "Taux de clic", desc: "(uniqueClicks / totalDelivered) x 100 — webhook: clicked (redirect 302)", color: "text-purple-400" },
             { metric: "Bounces", desc: "Hard bounces : contact auto-desabonne. Objectif < 2%", color: "text-amber-400" },
             { metric: "Plaintes", desc: "Signalements spam : contact auto-supprime. Objectif < 0.1%", color: "text-red-400" },
           ].map((item) => (

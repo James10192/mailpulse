@@ -10,6 +10,12 @@ import {
   Webhook,
   Send,
   Settings,
+  Sparkles,
+  MessageCircle,
+  KeyRound,
+  ListChecks,
+  HelpCircle,
+  PanelLeftClose,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -69,15 +75,16 @@ export default function DocsPage() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-500" />
           </span>
-          v0.1.0
+          v0.5.0
         </div>
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight font-mono">
           Documentation
         </h1>
         <p className="mt-3 text-zinc-400 text-lg leading-relaxed">
           MailPulse est une plateforme d&apos;email marketing concue pour
-          l&apos;Afrique francophone. Envoyez des campagnes, suivez
-          l&apos;engagement en temps reel et automatisez vos workflows.
+          l&apos;Afrique francophone. Campagnes split-panel avec editeur riche
+          et autosave, tracking via webhooks Resend (delivered/opened/clicked),
+          guide interactif, checklist d&apos;onboarding et authentification avancee.
         </p>
       </div>
 
@@ -137,7 +144,7 @@ pnpm dev`}</CodeBlock>
           <QuickLink
             href="/docs/first-campaign"
             title="Premiere campagne"
-            desc="Creez un compte, ajoutez un contact et envoyez votre premier email en 5 minutes."
+            desc="Contact, expediteur, editeur riche, envoi et tracking en 6 etapes."
             icon={Send}
           />
           <QuickLink
@@ -148,9 +155,9 @@ pnpm dev`}</CodeBlock>
           />
           <QuickLink
             href="/docs/campaigns"
-            title="Campagnes"
-            desc="Editeur TipTap, A/B testing, variables de personnalisation et snippets."
-            icon={Mail}
+            title="Campagnes split-panel"
+            desc="Editeur TipTap avec autosave, apercu HTML temps reel et variables de personnalisation."
+            icon={PanelLeftClose}
           />
           <QuickLink
             href="/docs/automations"
@@ -160,9 +167,52 @@ pnpm dev`}</CodeBlock>
           />
           <QuickLink
             href="/docs/analytics"
-            title="Analytics"
-            desc="Dashboard temps reel via Convex, taux d'ouverture, CTR et flux d'activite."
+            title="Analytics & Webhooks"
+            desc="Webhooks Resend (delivered/opened/clicked), dashboard temps reel et CTR."
             icon={BarChart3}
+          />
+        </div>
+      </div>
+
+      {/* Features */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Fonctionnalites</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <QuickLink
+            href="/docs/first-campaign"
+            title="Guide interactif"
+            desc="Tour driver.js pour decouvrir l'interface pas a pas des votre premiere connexion."
+            icon={Sparkles}
+          />
+          <QuickLink
+            href="/docs/campaigns"
+            title="Onboarding checklist"
+            desc="Liste de taches guidee : contact, expediteur, domaine, premiere campagne."
+            icon={ListChecks}
+          />
+          <QuickLink
+            href="/docs/api/auth"
+            title="Passkeys & OAuth"
+            desc="Authentification par passkeys, liaison de comptes Google/GitHub et 2FA."
+            icon={KeyRound}
+          />
+          <QuickLink
+            href="/changelog"
+            title="What's New"
+            desc="Changelog des nouvelles fonctionnalites et mises a jour de la plateforme."
+            icon={Sparkles}
+          />
+          <QuickLink
+            href="/contact"
+            title="Contact & Support"
+            desc="Page de contact pour questions, suggestions ou signalement de bugs."
+            icon={MessageCircle}
+          />
+          <QuickLink
+            href="/docs/campaigns"
+            title="Aide contextuelle"
+            desc="Modales d'aide sur les pages domaines et expediteurs pour guider la configuration."
+            icon={HelpCircle}
           />
         </div>
       </div>
@@ -174,7 +224,7 @@ pnpm dev`}</CodeBlock>
           <QuickLink
             href="/docs/api/auth"
             title="Authentification"
-            desc="Better Auth, OAuth Google/GitHub, sessions cookie, proxy.ts."
+            desc="Better Auth, OAuth Google/GitHub, passkeys, liaison de comptes et proxy.ts."
             icon={Settings}
           />
           <QuickLink
@@ -185,8 +235,8 @@ pnpm dev`}</CodeBlock>
           />
           <QuickLink
             href="/docs/api/webhooks"
-            title="Webhooks & Tracking"
-            desc="Resend webhooks, pixel d'ouverture, click redirect et tokens HMAC."
+            title="Webhooks Resend"
+            desc="Evenements delivered/opened/clicked, signature Svix et tokens HMAC."
             icon={Webhook}
           />
         </div>
