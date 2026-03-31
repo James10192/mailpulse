@@ -37,6 +37,9 @@ import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { CommandPalette, useShortcutLabel } from "@/components/dashboard/command-palette";
 import { NotificationsDropdown } from "@/components/dashboard/notifications-dropdown";
 import { PresenceHeartbeat, OnlineUsers } from "@/components/dashboard/presence-indicator";
+import { TourButton, AutoTour } from "@/components/dashboard/app-tour";
+import { WhatsNewModal, WhatsNewButton } from "@/components/dashboard/whats-new-modal";
+import { ShowChecklistButton } from "@/components/dashboard/onboarding-checklist";
 import { useState } from "react";
 
 type NavItem = {
@@ -44,6 +47,7 @@ type NavItem = {
   href: string;
   icon: React.ElementType;
   pro?: boolean;
+  tourId?: string;
   children?: { name: string; href: string; icon: React.ElementType; pro?: boolean }[];
 };
 
@@ -53,6 +57,7 @@ const navigation: NavItem[] = [
     name: "Campagnes",
     href: "/dashboard/campaigns",
     icon: Send,
+    tourId: "nav-campaigns",
     children: [
       { name: "Toutes", href: "/dashboard/campaigns", icon: Send },
       { name: "Snippets", href: "/dashboard/snippets", icon: Code },
@@ -63,6 +68,7 @@ const navigation: NavItem[] = [
     name: "Contacts",
     href: "/dashboard/contacts",
     icon: Users,
+    tourId: "nav-contacts",
     children: [
       { name: "Tous", href: "/dashboard/contacts", icon: Users },
       { name: "Tags", href: "/dashboard/tags", icon: Tag },
@@ -79,19 +85,20 @@ const navigation: NavItem[] = [
       { name: "Unsubscribes", href: "/dashboard/unsubscribes", icon: UserMinus },
     ],
   },
-  { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-  { name: "Pages de capture", href: "/dashboard/capture-pages", icon: Globe },
-  { name: "Automations", href: "/dashboard/automations", icon: Zap, pro: true },
+  { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, tourId: "nav-analytics" },
+  { name: "Pages de capture", href: "/dashboard/capture-pages", icon: Globe, tourId: "nav-capture" },
+  { name: "Automations", href: "/dashboard/automations", icon: Zap, pro: true, tourId: "nav-automations" },
   {
     name: "Envoi",
     href: "/dashboard/senders",
     icon: AtSign,
+    tourId: "nav-senders",
     children: [
       { name: "Expediteurs", href: "/dashboard/senders", icon: AtSign },
       { name: "Domaines", href: "/dashboard/domains", icon: Globe },
     ],
   },
-  { name: "Parametres", href: "/dashboard/settings", icon: Settings },
+  { name: "Parametres", href: "/dashboard/settings", icon: Settings, tourId: "nav-settings" },
 ];
 
 function SidebarNavItem({
@@ -112,7 +119,7 @@ function SidebarNavItem({
 
   if (hasChildren && !collapsed) {
     return (
-      <div>
+      <div data-tour={item.tourId}>
         <button
           onClick={() => setExpanded(!expanded)}
           className={cn(
@@ -167,6 +174,7 @@ function SidebarNavItem({
     <Link
       href={item.href}
       title={collapsed ? item.name : undefined}
+      data-tour={item.tourId}
       className={cn(
         "flex items-center gap-3 rounded-lg text-sm transition-all",
         collapsed ? "p-2.5 justify-center" : "px-3 py-2",
@@ -194,6 +202,7 @@ function Sidebar() {
 
   return (
     <aside
+      data-tour="sidebar"
       className={cn(
         "hidden md:flex border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 flex-col transition-all duration-300 ease-in-out shrink-0",
         collapsed ? "w-16" : "w-60"
@@ -327,6 +336,7 @@ function SearchTrigger() {
   const shortcutLabel = useShortcutLabel();
   return (
     <button
+      data-tour="search"
       onClick={() => document.dispatchEvent(new Event("open-command-palette"))}
       className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer text-sm"
     >
@@ -374,8 +384,11 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-3">
             <OnlineUsers />
-            <ThemeToggle />
-            <NotificationsDropdown />
+            <div data-tour="theme"><ThemeToggle /></div>
+            <ShowChecklistButton />
+            <TourButton />
+            <WhatsNewButton />
+            <div data-tour="notifications"><NotificationsDropdown /></div>
             <HeaderAvatar />
           </div>
         </header>
@@ -386,6 +399,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      <AutoTour />
+      <WhatsNewModal />
     </div>
   );
 }

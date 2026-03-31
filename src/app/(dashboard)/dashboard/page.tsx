@@ -13,6 +13,7 @@ import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getEmailEventStats } from "@/lib/queries/email-stats";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { PLAN_LIMITS, getOrgUsage, checkEmailLimit, type PlanTier } from "@/lib/plans";
+import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { getOverLimitResources } from "@/lib/plan-enforcement";
 import { UpgradeBanner, UsageBar } from "@/components/dashboard/feature-gate";
 
@@ -80,6 +81,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       <Breadcrumb items={[{ label: "" }]} />
+      <OnboardingChecklist />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Dashboard</h1>
         <div className="flex items-center gap-3">
