@@ -109,6 +109,20 @@ img, video, canvas, audio, iframe, embed, object {
   pointer-events: none;
 }
 
+/* TipTap image resize handles */
+.tiptap [data-resize-state] {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.tiptap [data-resize-handle] {
+  width: 10px !important;
+  height: 10px !important;
+  background: #f97316 !important;
+  border: 2px solid #18181b !important;
+  border-radius: 3px !important;
+}
+
 /* driver.js tour dark mode overrides */
 .driver-popover {
   background: #18181b !important;

@@ -2,7 +2,7 @@ name: Send Scheduled Campaigns
 
 on:
   schedule:
-    - cron: '* * * * *'  # Every minute
+    - cron: '*/5 * * * *'  # Every 5 minutes
   workflow_dispatch: {}   # Allow manual trigger
 
 jobs:

@@ -277,6 +277,13 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
         inline: false,
         allowBase64: false,
         HTMLAttributes: { class: "rounded-lg max-w-full h-auto my-4 block mx-auto" },
+        resize: {
+          enabled: true,
+          directions: ["bottom-right", "bottom-left"],
+          minWidth: 50,
+          minHeight: 50,
+          alwaysPreserveAspectRatio: true,
+        },
       }),
       Mention.configure({
         HTMLAttributes: { class: "bg-orange-500/10 text-orange-600 px-1 rounded font-mono text-sm" },
