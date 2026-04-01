@@ -114,12 +114,17 @@ model Organization {
   emailsSentThisMonth Int      @default(0)
   emailsResetAt       DateTime @default(now())
 
-  // Twilio subaccount (SMS & WhatsApp)
-  smsEnabled            Boolean  @default(false)
-  twilioSubaccountSid   String?
-  twilioAuthToken       String?
-  twilioPhoneNumber     String?
-  twilioWhatsappNumber  String?
+  // WhatsApp (Baileys via Evolution API  or  Meta Cloud API)
+  whatsappEnabled       Boolean        @default(false)
+  whatsappMode          WhatsAppMode   @default(BAILEYS)
+  whatsappPhone         String?        // Phone number linked (display only)
+  // Baileys (Evolution API instance)
+  evoInstanceName       String?        // Evolution API instance name
+  evoInstanceStatus     String?        // "open" | "close" | "connecting"
+  // Meta Cloud API
+  metaWabaId            String?        // WhatsApp Business Account ID
+  metaPhoneNumberId     String?        // Phone Number ID for sending
+  metaAccessToken       String?        // Long-lived access token
 
   members     Member[]
   invitations Invitation[]
@@ -140,6 +145,11 @@ enum PlanTier {
   FREE
   PRO
   ENTERPRISE
+}
+
+enum WhatsAppMode {
+  BAILEYS
+  META
 }
 
 model Member {

@@ -1,184 +1,386 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   MessageSquare, Send, Loader2, Check, AlertTriangle,
-  Smartphone, Info, Users, Tag, Hash, Rocket, Phone,
+  Info, Users, Tag, Rocket, QrCode, Wifi, WifiOff,
+  Settings2, Unplug, RefreshCw,
 } from "lucide-react";
-import { sendMessage, sendBulkMessages, activateSmsForOrg } from "./actions";
-import type { SmsChannel } from "@/lib/twilio";
-import { HelpModal, HelpButton, StepList, LinkOut } from "@/components/dashboard/help-modal";
+import {
+  activateBaileys, getQrCode, checkConnectionStatus,
+  sendMessage, sendBulkMessages, saveMetaConfig,
+  switchWhatsAppMode, disconnectWhatsApp,
+} from "./actions";
+import { HelpModal, HelpButton, StepList } from "@/components/dashboard/help-modal";
+
+type WhatsAppMode = "BAILEYS" | "META";
 
 export function MessagingClient({
   contactsWithPhone,
   availableTags,
-  smsEnabled,
-  phoneNumber,
-  whatsappNumber,
-  masterConfigured,
+  whatsappEnabled,
+  whatsappMode,
+  whatsappPhone,
+  evoInstanceName,
+  evoStatus,
+  metaConfigured,
+  baileysAvailable,
 }: {
   contactsWithPhone: number;
   availableTags: string[];
-  smsEnabled: boolean;
-  phoneNumber: string | null;
-  whatsappNumber: string | null;
-  masterConfigured: boolean;
+  whatsappEnabled: boolean;
+  whatsappMode: WhatsAppMode;
+  whatsappPhone: string | null;
+  evoInstanceName: string | null;
+  evoStatus: string | null;
+  metaConfigured: boolean;
+  baileysAvailable: boolean;
 }) {
-  const [channel, setChannel] = useState<SmsChannel>("sms");
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [phone, setPhone] = useState("");
   const [body, setBody] = useState("");
   const [audience, setAudience] = useState<"all" | string>("all");
   const [sending, setSending] = useState(false);
-  const [activating, setActivating] = useState(false);
   const [result, setResult] = useState<{ success?: boolean; error?: string } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
-  async function handleActivate() {
+  // Baileys state
+  const [activating, setActivating] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [connectionState, setConnectionState] = useState<string>(evoStatus || "none");
+  const [pollingQr, setPollingQr] = useState(false);
+
+  // Meta state
+  const [showMetaConfig, setShowMetaConfig] = useState(false);
+  const [metaForm, setMetaForm] = useState({ wabaId: "", phoneNumberId: "", accessToken: "", phone: "" });
+  const [savingMeta, setSavingMeta] = useState(false);
+
+  const isConnected = whatsappEnabled && (
+    (whatsappMode === "BAILEYS" && connectionState === "open") ||
+    (whatsappMode === "META" && metaConfigured)
+  );
+
+  // ─── Baileys: Poll QR code ─────────────────────────────
+
+  const pollQrCode = useCallback(async () => {
+    if (pollingQr) return;
+    setPollingQr(true);
+
+    const data = await getQrCode();
+    if (data.state === "open") {
+      setConnectionState("open");
+      setQrCode(null);
+      setPollingQr(false);
+      return;
+    }
+    if (data.qr) {
+      setQrCode(data.qr);
+    } else if (!data.error && data.state !== "open") {
+      // QR not ready yet — retry after a short delay
+      setTimeout(async () => {
+        const retry = await getQrCode();
+        if (retry.qr) setQrCode(retry.qr);
+        if (retry.state === "open") setConnectionState("open");
+      }, 3000);
+    }
+    if (data.error) {
+      setResult({ error: data.error });
+    }
+    setPollingQr(false);
+  }, [pollingQr]);
+
+  // Auto-poll when connecting
+  useEffect(() => {
+    if (!whatsappEnabled || whatsappMode !== "BAILEYS") return;
+    if (connectionState === "open" || !evoInstanceName) return;
+
+    const interval = setInterval(async () => {
+      const status = await checkConnectionStatus();
+      setConnectionState(status.state);
+      if (status.state === "open") {
+        setQrCode(null);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [whatsappEnabled, whatsappMode, connectionState, evoInstanceName]);
+
+  // ─── Handlers ──────────────────────────────────────────
+
+  async function handleActivateBaileys() {
     setActivating(true);
     setResult(null);
-    const res = await activateSmsForOrg("US");
+    const res = await activateBaileys();
     setActivating(false);
+    if (res?.success) {
+      setConnectionState("connecting");
+      // Fetch QR code after small delay
+      setTimeout(pollQrCode, 2000);
+    } else {
+      setResult(res);
+    }
+  }
+
+  async function handleSaveMetaConfig() {
+    setSavingMeta(true);
+    setResult(null);
+    const res = await saveMetaConfig(
+      metaForm.wabaId, metaForm.phoneNumberId,
+      metaForm.accessToken, metaForm.phone,
+    );
+    setSavingMeta(false);
     setResult(res);
+    if (res?.success) setShowMetaConfig(false);
   }
 
   async function handleSend() {
     setSending(true);
     setResult(null);
     const res = mode === "single"
-      ? await sendMessage(channel, phone, body)
-      : await sendBulkMessages(channel, body, audience);
+      ? await sendMessage(phone, body)
+      : await sendBulkMessages(body, audience);
     setSending(false);
     setResult(res);
     if (res?.success) { setBody(""); setPhone(""); }
+  }
+
+  async function handleDisconnect() {
+    const res = await disconnectWhatsApp();
+    if (res?.success) {
+      setConnectionState("none");
+      setQrCode(null);
+    }
+  }
+
+  async function handleSwitchMode(newMode: WhatsAppMode) {
+    await switchWhatsAppMode(newMode);
   }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-          SMS & WhatsApp
+          WhatsApp
         </h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-          Envoyez des messages SMS ou WhatsApp a vos contacts
+          Envoyez des messages WhatsApp a vos contacts
         </p>
       </div>
 
-      {/* Not activated yet */}
-      {!smsEnabled && (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-8 text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto">
-            <MessageSquare className="h-8 w-8 text-orange-500" />
+      {/* ─── Not activated ─── */}
+      {!whatsappEnabled && (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-8 text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto">
+            <MessageSquare className="h-8 w-8 text-emerald-500" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-              Activez SMS & WhatsApp
+              Activez WhatsApp
             </h2>
             <p className="text-sm text-zinc-500 mt-2 max-w-md mx-auto">
-              Envoyez des SMS et messages WhatsApp a vos contacts en un clic.
-              MailPulse configure automatiquement votre compte et vous attribue un numero de telephone.
+              Choisissez votre mode de connexion WhatsApp pour commencer a envoyer des messages.
             </p>
           </div>
 
-          {!masterConfigured && (
+          {/* Mode choice */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
+            {/* Baileys option */}
+            <button
+              onClick={handleActivateBaileys}
+              disabled={activating || !baileysAvailable}
+              className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all text-left cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <QrCode className="h-5 w-5 text-emerald-500" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  WhatsApp Web
+                </span>
+              </div>
+              <p className="text-xs text-zinc-500">
+                Gratuit — Scannez un QR code avec votre telephone. Inclus dans l&apos;abonnement.
+              </p>
+              {activating && (
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Activation...
+                </div>
+              )}
+            </button>
+
+            {/* Meta option */}
+            <button
+              onClick={() => setShowMetaConfig(true)}
+              className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Settings2 className="h-5 w-5 text-blue-500" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  Meta Cloud API
+                </span>
+              </div>
+              <p className="text-xs text-zinc-500">
+                Pay-as-you-go — API officielle Meta. ~0.02$/conversation. Zero risque de ban.
+              </p>
+            </button>
+          </div>
+
+          {!baileysAvailable && (
             <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs text-amber-400">
-              Le service SMS n&apos;est pas encore disponible sur cette instance. Contactez l&apos;administrateur.
+              Le service WhatsApp Web n&apos;est pas encore disponible sur cette instance. Contactez l&apos;administrateur.
             </div>
           )}
 
-          {masterConfigured && (
-            <>
-              {result?.error && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
-                  {result.error}
-                </div>
-              )}
-              <button
-                onClick={handleActivate}
-                disabled={activating}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-sm font-semibold transition-all hover:shadow-lg hover:shadow-orange-500/20 cursor-pointer disabled:opacity-50"
-              >
-                {activating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Activation en cours...
-                  </>
-                ) : (
-                  <>
-                    <Rocket className="h-4 w-4" />
-                    Activer SMS & WhatsApp
-                  </>
-                )}
-              </button>
-              <p className="text-[11px] text-zinc-500">
-                Un numero de telephone vous sera automatiquement attribue.
-              </p>
-            </>
+          {result?.error && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+              {result.error}
+            </div>
           )}
         </div>
       )}
 
-      {/* Activated — show messaging UI */}
-      {smsEnabled && (
+      {/* ─── Meta Config Modal ─── */}
+      {showMetaConfig && (
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+            <Settings2 className="h-4 w-4 text-blue-500" />
+            Configuration Meta Cloud API
+          </h3>
+          <p className="text-xs text-zinc-500">
+            Renseignez les informations de votre WhatsApp Business Account depuis le{" "}
+            <a href="https://business.facebook.com" target="_blank" rel="noopener" className="text-blue-400 underline">
+              Meta Business Manager
+            </a>.
+          </p>
+          <div className="space-y-3">
+            <input
+              value={metaForm.phone}
+              onChange={(e) => setMetaForm({ ...metaForm, phone: e.target.value })}
+              placeholder="Numero WhatsApp (+225...)"
+              className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+            />
+            <input
+              value={metaForm.wabaId}
+              onChange={(e) => setMetaForm({ ...metaForm, wabaId: e.target.value })}
+              placeholder="WABA ID (WhatsApp Business Account ID)"
+              className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+            />
+            <input
+              value={metaForm.phoneNumberId}
+              onChange={(e) => setMetaForm({ ...metaForm, phoneNumberId: e.target.value })}
+              placeholder="Phone Number ID"
+              className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+            />
+            <input
+              value={metaForm.accessToken}
+              onChange={(e) => setMetaForm({ ...metaForm, accessToken: e.target.value })}
+              placeholder="Access Token (long-lived)"
+              type="password"
+              className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSaveMetaConfig}
+              disabled={savingMeta || !metaForm.wabaId || !metaForm.phoneNumberId || !metaForm.accessToken}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium cursor-pointer disabled:opacity-50"
+            >
+              {savingMeta ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sauvegarder"}
+            </button>
+            <button
+              onClick={() => setShowMetaConfig(false)}
+              className="px-4 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-500 hover:border-zinc-400 cursor-pointer"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── QR Code Pairing (Baileys connecting) ─── */}
+      {whatsappEnabled && whatsappMode === "BAILEYS" && connectionState !== "open" && evoInstanceName && (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 text-center space-y-4">
+          <div className="flex items-center justify-center gap-2 text-amber-400">
+            <WifiOff className="h-5 w-5" />
+            <span className="text-sm font-medium">WhatsApp non connecte</span>
+          </div>
+
+          {qrCode ? (
+            <div className="space-y-3">
+              <p className="text-xs text-zinc-500">
+                Scannez ce QR code avec WhatsApp &gt; Appareils lies &gt; Lier un appareil
+              </p>
+              {qrCode.startsWith("data:") || qrCode.startsWith("http") ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={qrCode} alt="QR Code WhatsApp" className="mx-auto w-64 h-64 rounded-xl" />
+              ) : (
+                <div className="mx-auto w-64 h-64 bg-zinc-100 dark:bg-zinc-800 rounded-xl flex items-center justify-center">
+                  <QrCode className="h-16 w-16 text-zinc-400" />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-zinc-500">
+                Cliquez pour generer le QR code de connexion
+              </p>
+              <button
+                onClick={pollQrCode}
+                disabled={pollingQr}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium cursor-pointer disabled:opacity-50"
+              >
+                {pollingQr ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+                Afficher le QR code
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={pollQrCode}
+            disabled={pollingQr}
+            className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1 mx-auto cursor-pointer"
+          >
+            <RefreshCw className={`h-3 w-3 ${pollingQr ? "animate-spin" : ""}`} />
+            Rafraichir
+          </button>
+        </div>
+      )}
+
+      {/* ─── Connected — Messaging UI ─── */}
+      {isConnected && (
         <>
-          {/* Phone number info */}
-          <div className="flex items-start justify-between gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+          {/* Status bar */}
+          <div className="flex items-start justify-between gap-3 p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
             <div className="flex items-start gap-3">
-              <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-300/80 space-y-1">
-                <p>{contactsWithPhone} contact{contactsWithPhone !== 1 ? "s" : ""} avec un numero de telephone.</p>
-                {phoneNumber && (
-                  <p className="flex items-center gap-1.5">
-                    <Phone className="h-3 w-3" />
-                    Numero SMS : <span className="font-mono text-zinc-300">{phoneNumber}</span>
-                  </p>
-                )}
-                {whatsappNumber && (
-                  <p className="flex items-center gap-1.5">
-                    <Hash className="h-3 w-3" />
-                    WhatsApp : <span className="font-mono text-zinc-300">{whatsappNumber}</span>
-                  </p>
+              <Wifi className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+              <div className="text-sm text-emerald-300/80 space-y-1">
+                <p className="flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  WhatsApp connecte
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono">
+                    {whatsappMode === "BAILEYS" ? "WhatsApp Web" : "Meta Cloud API"}
+                  </span>
+                </p>
+                <p>{contactsWithPhone} contact{contactsWithPhone !== 1 ? "s" : ""} avec un numero.</p>
+                {whatsappPhone && (
+                  <p className="font-mono text-zinc-300">{whatsappPhone}</p>
                 )}
               </div>
             </div>
-            <HelpButton onClick={() => setHelpOpen(true)} />
-          </div>
-
-          <MessagingHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
-
-          {/* Channel selector */}
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
-            <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Canal
-            </h2>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <HelpButton onClick={() => setHelpOpen(true)} />
               <button
-                onClick={() => setChannel("sms")}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
-                  channel === "sms"
-                    ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
-                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
-                }`}
+                onClick={handleDisconnect}
+                className="p-1.5 rounded-lg hover:bg-red-500/10 text-zinc-500 hover:text-red-400 transition-colors cursor-pointer"
+                title="Deconnecter WhatsApp"
               >
-                <Smartphone className="h-4 w-4" />
-                SMS
-              </button>
-              <button
-                onClick={() => setChannel("whatsapp")}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
-                  channel === "whatsapp"
-                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-500"
-                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
-                }`}
-              >
-                <Hash className="h-4 w-4" />
-                WhatsApp
+                <Unplug className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          {/* Mode selector */}
+          <WhatsAppHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+
+          {/* Recipient mode */}
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
             <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -189,7 +391,7 @@ export function MessagingClient({
                 onClick={() => setMode("single")}
                 className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
                   mode === "single"
-                    ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
+                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-500"
                     : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
                 }`}
               >
@@ -199,7 +401,7 @@ export function MessagingClient({
                 onClick={() => setMode("bulk")}
                 className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
                   mode === "bulk"
-                    ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
+                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-500"
                     : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
                 }`}
               >
@@ -213,7 +415,7 @@ export function MessagingClient({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+225 07 XX XX XX XX"
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
               />
             )}
 
@@ -223,7 +425,7 @@ export function MessagingClient({
                   onClick={() => setAudience("all")}
                   className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
                     audience === "all"
-                      ? "border-orange-500/50 bg-orange-500/10 text-orange-400"
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
                       : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-400"
                   }`}
                 >
@@ -235,7 +437,7 @@ export function MessagingClient({
                     onClick={() => setAudience(tag)}
                     className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer flex items-center gap-1 ${
                       audience === tag
-                        ? "border-orange-500/50 bg-orange-500/10 text-orange-400"
+                        ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
                         : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-400"
                     }`}
                   >
@@ -254,13 +456,13 @@ export function MessagingClient({
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={4}
-              maxLength={channel === "sms" ? 1600 : 4096}
+              maxLength={4096}
               placeholder="Bonjour {{firstName}}, ..."
-              className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 resize-y"
+              className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 resize-y"
             />
             <div className="flex justify-between text-[11px] text-zinc-500">
               <span>Variables : {"{{firstName}}"}, {"{{lastName}}"}</span>
-              <span>{body.length} / {channel === "sms" ? 1600 : 4096}</span>
+              <span>{body.length} / 4096</span>
             </div>
           </div>
 
@@ -282,7 +484,7 @@ export function MessagingClient({
             <button
               onClick={handleSend}
               disabled={sending || !body || (mode === "single" && !phone)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-sm font-semibold transition-all hover:shadow-lg hover:shadow-orange-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold transition-all hover:shadow-lg hover:shadow-emerald-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {sending ? (
                 <>
@@ -305,53 +507,59 @@ export function MessagingClient({
 
 /* ─── Help Modal ─── */
 
-function MessagingHelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function WhatsAppHelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <HelpModal
       open={open}
       onClose={onClose}
-      title="SMS & WhatsApp"
+      title="WhatsApp"
       subtitle="Comment envoyer des messages"
       sections={[
         {
-          title: "Comment ca marche ?",
+          title: "Deux modes disponibles",
           defaultOpen: true,
           content: (
-            <div className="space-y-2">
-              <p>
-                MailPulse vous permet d&apos;envoyer des <strong className="text-zinc-200">SMS</strong> et <strong className="text-zinc-200">messages WhatsApp</strong> directement a vos contacts.
-              </p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong className="text-zinc-200">SMS</strong> — Messages texte classiques. Ideal pour notifications, rappels et alertes.</li>
-                <li><strong className="text-zinc-200">WhatsApp</strong> — Messages enrichis. Parfait pour promotions et communication client.</li>
-              </ul>
-              <p>
-                L&apos;activation est automatique : MailPulse cree un compte d&apos;envoi dedie et vous attribue un numero de telephone.
-              </p>
-            </div>
-          ),
-        },
-        {
-          title: "Ajouter des numeros a vos contacts",
-          content: (
             <div className="space-y-3">
-              <p>Vos contacts doivent avoir un numero au format international (+XXX).</p>
-              <StepList steps={[
-                "Allez dans Contacts et editez un contact",
-                "Ajoutez le numero au format +225XXXXXXXXX (Cote d'Ivoire) ou +33XXXXXXXXX (France)",
-                "Ou importez via CSV avec une colonne 'phone'",
-              ]} />
+              <div>
+                <p className="text-xs font-medium text-emerald-400">WhatsApp Web (Baileys)</p>
+                <p className="text-xs mt-1">
+                  Gratuit et inclus dans votre abonnement. Connectez votre WhatsApp personnel ou business via QR code.
+                  Attention : risque de suspension par WhatsApp en cas d&apos;usage intensif.
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-blue-400">Meta Cloud API</p>
+                <p className="text-xs mt-1">
+                  API officielle de Meta. Pay-as-you-go (~0.02$/conversation). Aucun risque de ban.
+                  Necessite un WhatsApp Business Account et une Facebook App.
+                </p>
+              </div>
             </div>
           ),
         },
         {
-          title: "Envoi en masse",
+          title: "Connecter WhatsApp Web",
           content: (
-            <div className="space-y-2">
-              <p>Selectionnez &laquo; Envoi en masse &raquo; pour envoyer a tous vos contacts ou filtrer par tag.</p>
-              <p>Variables disponibles : <code className="text-orange-400">{"{{firstName}}"}</code>, <code className="text-orange-400">{"{{lastName}}"}</code></p>
-              <p className="text-amber-400 text-xs">Les SMS sont factures a l&apos;unite (~0.0075$/SMS en Cote d&apos;Ivoire). Le cout est inclus dans votre abonnement Pro.</p>
-            </div>
+            <StepList steps={[
+              "Cliquez sur 'WhatsApp Web' pour activer",
+              "Un QR code s'affiche",
+              "Ouvrez WhatsApp sur votre telephone",
+              "Allez dans Parametres > Appareils lies > Lier un appareil",
+              "Scannez le QR code",
+              "La connexion est etablie !",
+            ]} />
+          ),
+        },
+        {
+          title: "Configurer Meta Cloud API",
+          content: (
+            <StepList steps={[
+              "Creez une Facebook App sur developers.facebook.com",
+              "Activez le produit WhatsApp",
+              "Obtenez votre WABA ID, Phone Number ID et Access Token",
+              "Renseignez ces informations dans MailPulse",
+              "Commencez a envoyer via l'API officielle",
+            ]} />
           ),
         },
         {
@@ -359,16 +567,16 @@ function MessagingHelpModal({ open, onClose }: { open: boolean; onClose: () => v
           content: (
             <div className="space-y-3">
               <div>
-                <p className="text-xs font-medium text-zinc-300">Combien coute un SMS ?</p>
-                <p className="text-xs mt-1">Le prix varie par pays : ~0.0075$/SMS en CI, ~0.0079$/SMS au Senegal. Inclus dans le plan Pro.</p>
+                <p className="text-xs font-medium text-zinc-300">Puis-je utiliser les deux modes ?</p>
+                <p className="text-xs mt-1">Vous pouvez configurer les deux mais un seul est actif a la fois.</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-zinc-300">WhatsApp necessite-t-il une approbation ?</p>
-                <p className="text-xs mt-1">Pour envoyer le premier message a un contact, vous devez utiliser un template approuve par WhatsApp. Les reponses sont libres pendant 24h.</p>
+                <p className="text-xs font-medium text-zinc-300">WhatsApp Web est-il vraiment gratuit ?</p>
+                <p className="text-xs mt-1">Oui, c&apos;est inclus dans votre abonnement Pro. Mais WhatsApp peut suspendre les comptes qui envoient en masse.</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-zinc-300">Puis-je changer mon numero ?</p>
-                <p className="text-xs mt-1">Contactez le support pour changer de numero ou de pays.</p>
+                <p className="text-xs font-medium text-zinc-300">Combien coute Meta Cloud API ?</p>
+                <p className="text-xs mt-1">Meta facture par conversation : ~0.02$ (service), ~0.04$ (utility), ~0.08$ (marketing). 1000 conversations de service gratuites par mois.</p>
               </div>
             </div>
           ),

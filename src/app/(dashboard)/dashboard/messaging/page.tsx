@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { MessagingClient } from "./messaging-client";
-import { isMasterConfigured } from "@/lib/twilio";
+import { isConfigured } from "@/lib/whatsapp-baileys";
 
 export default async function MessagingPage() {
   const ctx = await getCurrentUserAndOrg();
@@ -22,9 +22,13 @@ export default async function MessagingPage() {
         prisma.organization.findUnique({
           where: { id: orgId },
           select: {
-            smsEnabled: true,
-            twilioPhoneNumber: true,
-            twilioWhatsappNumber: true,
+            whatsappEnabled: true,
+            whatsappMode: true,
+            whatsappPhone: true,
+            evoInstanceName: true,
+            evoInstanceStatus: true,
+            metaWabaId: true,
+            metaPhoneNumberId: true,
           },
         }),
       ])
@@ -35,16 +39,19 @@ export default async function MessagingPage() {
       <Breadcrumb
         items={[
           { label: "", href: "/dashboard" },
-          { label: "SMS & WhatsApp" },
+          { label: "WhatsApp" },
         ]}
       />
       <MessagingClient
         contactsWithPhone={contactsWithPhone}
         availableTags={tags.map((t) => t.name)}
-        smsEnabled={org?.smsEnabled ?? false}
-        phoneNumber={org?.twilioPhoneNumber ?? null}
-        whatsappNumber={org?.twilioWhatsappNumber ?? null}
-        masterConfigured={isMasterConfigured()}
+        whatsappEnabled={org?.whatsappEnabled ?? false}
+        whatsappMode={org?.whatsappMode ?? "BAILEYS"}
+        whatsappPhone={org?.whatsappPhone ?? null}
+        evoInstanceName={org?.evoInstanceName ?? null}
+        evoStatus={org?.evoInstanceStatus ?? null}
+        metaConfigured={!!(org?.metaPhoneNumberId)}
+        baileysAvailable={isConfigured()}
       />
     </>
   );
