@@ -9,7 +9,22 @@ async function getCampaigns(orgId: string) {
     where: { organizationId: orgId },
     orderBy: { createdAt: "desc" },
     take: 50,
-    include: {
+    select: {
+      id: true,
+      name: true,
+      subject: true,
+      previewText: true,
+      // htmlContent excluded — loaded on-demand in detail panel
+      fromName: true,
+      fromEmail: true,
+      replyTo: true,
+      status: true,
+      type: true,
+      createdAt: true,
+      updatedAt: true,
+      sentAt: true,
+      scheduledAt: true,
+      completedAt: true,
       analytics: true,
       contactList: { select: { name: true, contactCount: true } },
       _count: { select: { recipients: true } },

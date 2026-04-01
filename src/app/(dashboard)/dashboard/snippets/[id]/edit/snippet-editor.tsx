@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Loader2, Check, Cloud, CloudOff } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Cloud, CloudOff } from "lucide-react";
 import { updateSnippet } from "../../actions";
 import { RichEditor } from "@/components/editor/rich-editor";
+import { useAutosave } from "@/hooks/use-autosave";
 
 interface SnippetData {
   id: string;
@@ -20,75 +21,37 @@ interface SnippetOption {
   htmlContent: string;
 }
 
-type AutosaveStatus = "idle" | "saving" | "saved" | "error";
-
 export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData; snippets?: SnippetOption[] }) {
   const [name, setName] = useState(snippet.name);
   const [description, setDescription] = useState(snippet.description ?? "");
-  const router = useRouter();
   const [htmlContent, setHtmlContent] = useState(snippet.htmlContent);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
-  const [autoStatus, setAutoStatus] = useState<AutosaveStatus>("idle");
+  const router = useRouter();
 
-  // Refs for autosave to access latest values without re-creating the debounce
-  const nameRef = useRef(name);
-  const descRef = useRef(description);
-  const contentRef = useRef(htmlContent);
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { autoStatus, setValue } = useAutosave({
+    initial: { name: snippet.name, description: snippet.description ?? "", htmlContent: snippet.htmlContent },
+    onSave: useCallback(
+      (values: { name: string; description: string; htmlContent: string }) =>
+        updateSnippet(snippet.id, {
+          name: values.name,
+          description: values.description || undefined,
+          htmlContent: values.htmlContent,
+        }),
+      [snippet.id]
+    ),
+  });
 
-  nameRef.current = name;
-  descRef.current = description;
-  contentRef.current = htmlContent;
-
-  const doAutoSave = useCallback(async () => {
-    setAutoStatus("saving");
-    const result = await updateSnippet(snippet.id, {
-      name: nameRef.current,
-      description: descRef.current || undefined,
-      htmlContent: contentRef.current,
-    });
-    if (result?.error) {
-      setAutoStatus("error");
-    } else {
-      setAutoStatus("saved");
-      setTimeout(() => setAutoStatus("idle"), 2000);
-    }
-  }, [snippet.id]);
-
-  const scheduleAutoSave = useCallback(() => {
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(doAutoSave, 2000);
-  }, [doAutoSave]);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    };
-  }, []);
-
-  const handleContentChange = useCallback((html: string) => {
-    setHtmlContent(html);
-    setSaved(false);
-    scheduleAutoSave();
-  }, [scheduleAutoSave]);
-
-  const handleNameChange = useCallback((val: string) => {
-    setName(val);
-    setSaved(false);
-    scheduleAutoSave();
-  }, [scheduleAutoSave]);
-
-  const handleDescChange = useCallback((val: string) => {
-    setDescription(val);
-    setSaved(false);
-    scheduleAutoSave();
-  }, [scheduleAutoSave]);
+  function handleField<K extends "name" | "description" | "htmlContent">(
+    key: K,
+    setter: (v: string) => void,
+    value: string
+  ) {
+    setter(value);
+    setValue(key, value);
+  }
 
   async function handleSave() {
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setSaving(true);
     setError("");
     const result = await updateSnippet(snippet.id, {
@@ -97,7 +60,6 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
       htmlContent,
     });
     setSaving(false);
-
     if (result?.error) {
       setError(result.error);
     } else {
@@ -184,7 +146,7 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
           <input
             type="text"
             value={name}
-            onChange={(e) => handleNameChange(e.target.value)}
+            onChange={(e) => handleField("name", setName, e.target.value)}
             className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
             placeholder="Nom du snippet"
           />
@@ -196,7 +158,7 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
           </label>
           <textarea
             value={description}
-            onChange={(e) => handleDescChange(e.target.value)}
+            onChange={(e) => handleField("description", setDescription, e.target.value)}
             rows={2}
             className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 resize-y"
             placeholder="Decrivez votre snippet..."
@@ -215,7 +177,7 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
 
         <RichEditor
           content={htmlContent}
-          onChange={handleContentChange}
+          onChange={(html) => handleField("htmlContent", setHtmlContent, html)}
           placeholder="Ecrivez votre contenu ici... Utilisez le bouton Variables pour inserer des champs dynamiques."
           snippets={snippets}
         />

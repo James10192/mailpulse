@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Loader2, Cloud, CloudOff, Send } from "lucide-react";
 import { updateCampaign } from "../../actions";
 import { RichEditor } from "@/components/editor/rich-editor";
+import { useAutosave } from "@/hooks/use-autosave";
 
 interface CampaignData {
   id: string;
@@ -22,8 +23,6 @@ interface SnippetOption {
   htmlContent: string;
 }
 
-type AutosaveStatus = "idle" | "saving" | "saved" | "error";
-
 export function CampaignEditor({
   campaign,
   snippets = [],
@@ -38,82 +37,30 @@ export function CampaignEditor({
   const [htmlContent, setHtmlContent] = useState(campaign.htmlContent);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [autoStatus, setAutoStatus] = useState<AutosaveStatus>("idle");
 
-  // Refs for autosave
-  const nameRef = useRef(name);
-  const subjectRef = useRef(subject);
-  const previewRef = useRef(previewText);
-  const contentRef = useRef(htmlContent);
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSaved = useRef({ name: campaign.name, subject: campaign.subject, previewText: campaign.previewText, htmlContent: campaign.htmlContent });
+  const { autoStatus, setValue } = useAutosave({
+    initial: { name: campaign.name, subject: campaign.subject, previewText: campaign.previewText, htmlContent: campaign.htmlContent },
+    onSave: useCallback(
+      (values: { name: string; subject: string; previewText: string; htmlContent: string }) =>
+        updateCampaign(campaign.id, values),
+      [campaign.id]
+    ),
+  });
 
-  nameRef.current = name;
-  subjectRef.current = subject;
-  previewRef.current = previewText;
-  contentRef.current = htmlContent;
-
-  const doAutoSave = useCallback(async () => {
-    const current = { name: nameRef.current, subject: subjectRef.current, previewText: previewRef.current, htmlContent: contentRef.current };
-    // Skip if nothing changed
-    if (
-      current.name === lastSaved.current.name &&
-      current.subject === lastSaved.current.subject &&
-      current.previewText === lastSaved.current.previewText &&
-      current.htmlContent === lastSaved.current.htmlContent
-    ) return;
-
-    setAutoStatus("saving");
-    const result = await updateCampaign(campaign.id, current);
-    if (result?.error) {
-      setAutoStatus("error");
-    } else {
-      lastSaved.current = current;
-      setAutoStatus("saved");
-      setTimeout(() => setAutoStatus("idle"), 2000);
-    }
-  }, [campaign.id]);
-
-  const scheduleAutoSave = useCallback(() => {
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(doAutoSave, 2000);
-  }, [doAutoSave]);
-
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    };
-  }, []);
-
-  // Warn before leaving with unsaved changes
-  useEffect(() => {
-    function handleBeforeUnload(e: BeforeUnloadEvent) {
-      if (autoSaveTimer.current) {
-        e.preventDefault();
-      }
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, []);
-
-  const handleContentChange = useCallback((html: string) => {
-    setHtmlContent(html);
-    scheduleAutoSave();
-  }, [scheduleAutoSave]);
-
-  const handleNameChange = useCallback((val: string) => { setName(val); scheduleAutoSave(); }, [scheduleAutoSave]);
-  const handleSubjectChange = useCallback((val: string) => { setSubject(val); scheduleAutoSave(); }, [scheduleAutoSave]);
-  const handlePreviewChange = useCallback((val: string) => { setPreviewText(val); scheduleAutoSave(); }, [scheduleAutoSave]);
+  function handleField<K extends "name" | "subject" | "previewText" | "htmlContent">(
+    key: K,
+    setter: (v: string) => void,
+    value: string
+  ) {
+    setter(value);
+    setValue(key, value);
+  }
 
   async function handleSave() {
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setSaving(true);
     setError("");
     const result = await updateCampaign(campaign.id, {
-      name,
-      subject,
-      previewText,
-      htmlContent,
+      name, subject, previewText, htmlContent,
     }, { revalidate: true });
     setSaving(false);
     if (result?.error) {
@@ -213,7 +160,7 @@ export function CampaignEditor({
           <input
             type="text"
             value={name}
-            onChange={(e) => handleNameChange(e.target.value)}
+            onChange={(e) => handleField("name", setName, e.target.value)}
             className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
             placeholder="Nom de la campagne"
           />
@@ -226,7 +173,7 @@ export function CampaignEditor({
           <input
             type="text"
             value={subject}
-            onChange={(e) => handleSubjectChange(e.target.value)}
+            onChange={(e) => handleField("subject", setSubject, e.target.value)}
             className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
             placeholder="Ex: Decouvrez nos nouveautes !"
           />
@@ -242,7 +189,7 @@ export function CampaignEditor({
           <input
             type="text"
             value={previewText}
-            onChange={(e) => handlePreviewChange(e.target.value)}
+            onChange={(e) => handleField("previewText", setPreviewText, e.target.value)}
             className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
             placeholder="Texte visible apres le sujet dans la boite de reception"
           />
@@ -260,7 +207,7 @@ export function CampaignEditor({
 
         <RichEditor
           content={htmlContent}
-          onChange={handleContentChange}
+          onChange={(html) => handleField("htmlContent", setHtmlContent, html)}
           placeholder="Ecrivez le contenu de votre email... Utilisez le bouton Variables pour inserer des champs dynamiques."
           snippets={snippets}
         />

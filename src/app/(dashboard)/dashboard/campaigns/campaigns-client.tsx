@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -11,7 +11,7 @@ import {
   BarChart3, SendHorizonal,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { deleteCampaign, cancelCampaign } from "./actions";
+import { deleteCampaign, cancelCampaign, getCampaignContent } from "./actions";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import { wrapHtmlForPreview } from "@/lib/preview-html";
 
@@ -29,7 +29,6 @@ type Campaign = {
   name: string;
   subject: string | null;
   previewText: string | null;
-  htmlContent: string | null;
   fromName: string | null;
   fromEmail: string | null;
   replyTo: string | null;
@@ -101,6 +100,7 @@ export function CampaignsClient({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState("");
+  const [contentCache, setContentCache] = useState<Record<string, string | null>>({});
 
   const filtered = useMemo(() => {
     const lowerSearch = search.toLowerCase();
@@ -129,6 +129,20 @@ export function CampaignsClient({
   }, [campaigns, filter, search, sortBy]);
 
   const selected = selectedId ? campaigns.find((c) => c.id === selectedId) : null;
+
+  // Lazy-load htmlContent when a campaign is selected
+  const loadContent = useCallback(async (id: string) => {
+    if (contentCache[id] !== undefined) return;
+    setContentCache((prev) => ({ ...prev, [id]: null })); // mark as loading
+    const html = await getCampaignContent(id);
+    setContentCache((prev) => ({ ...prev, [id]: html }));
+  }, [contentCache]);
+
+  useEffect(() => {
+    if (selectedId && contentCache[selectedId] === undefined) {
+      loadContent(selectedId);
+    }
+  }, [selectedId, contentCache, loadContent]);
 
   async function handleCancel(id: string) {
     setCancellingId(id);
@@ -305,6 +319,7 @@ export function CampaignsClient({
           {selected ? (
             <CampaignDetailPanel
               campaign={selected}
+              htmlContent={contentCache[selected.id] ?? undefined}
               senders={senders}
               onClose={() => setSelectedId(null)}
               onDelete={(id) => setConfirmDeleteId(id)}
@@ -366,6 +381,7 @@ export function CampaignsClient({
 
 function CampaignDetailPanel({
   campaign,
+  htmlContent,
   senders,
   onClose,
   onDelete,
@@ -374,6 +390,7 @@ function CampaignDetailPanel({
   cancelError,
 }: {
   campaign: Campaign;
+  htmlContent?: string;
   senders: SenderInfo[];
   onClose: () => void;
   onDelete: (id: string) => void;
@@ -636,10 +653,10 @@ function CampaignDetailPanel({
               </Link>
             )}
           </div>
-          {campaign.htmlContent ? (
+          {htmlContent ? (
             <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden bg-white">
               <iframe
-                srcDoc={wrapHtmlForPreview(campaign.htmlContent!)}
+                srcDoc={wrapHtmlForPreview(htmlContent)}
                 className="w-full h-64 pointer-events-none"
                 sandbox=""
                 title="Apercu email"
