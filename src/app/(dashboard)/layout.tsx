@@ -26,6 +26,7 @@ import {
   Search,
   SendHorizonal,
   UserMinus,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut, useSession } from "@/lib/auth-client";
@@ -85,6 +86,7 @@ const navigation: NavItem[] = [
       { name: "Unsubscribes", href: "/dashboard/unsubscribes", icon: UserMinus },
     ],
   },
+  { name: "SMS & WhatsApp", href: "/dashboard/messaging", icon: MessageSquare, tourId: "nav-messaging" },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, tourId: "nav-analytics" },
   { name: "Pages de capture", href: "/dashboard/capture-pages", icon: Globe, tourId: "nav-capture" },
   { name: "Automations", href: "/dashboard/automations", icon: Zap, pro: true, tourId: "nav-automations" },
