@@ -28,6 +28,7 @@ const plans = [
       "1 automation",
       "Editeur email de base",
       "Analytics essentiels",
+      "SMS & WhatsApp (Pro)",
     ],
   },
   {
@@ -45,6 +46,7 @@ const plans = [
       "Acces API & Webhooks",
       "Analytics avances",
       "Snippets illimites",
+      "SMS & WhatsApp illimites",
     ],
   },
   {
@@ -59,6 +61,7 @@ const plans = [
       "SSO / SAML",
       "Support prioritaire",
       "SLA garanti",
+      "SMS & WhatsApp illimites",
     ],
   },
 ];

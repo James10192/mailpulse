@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { sendMessage, sendBulkMessages } from "./actions";
 import type { SmsChannel } from "@/lib/twilio";
+import { HelpModal, HelpButton, StepList, LinkOut } from "@/components/dashboard/help-modal";
 
 export function MessagingClient({
   contactsWithPhone,
@@ -24,6 +25,7 @@ export function MessagingClient({
   const [audience, setAudience] = useState<"all" | string>("all");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success?: boolean; error?: string } | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   async function handleSend() {
     setSending(true);
@@ -71,11 +73,16 @@ export function MessagingClient({
 
       <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
         <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-        <p className="text-sm text-blue-300/80">
-          {contactsWithPhone} contact{contactsWithPhone !== 1 ? "s" : ""} avec un numero de telephone.
-          Les numeros doivent etre au format international (+225XXXXXXXXX).
-        </p>
+        <div className="flex-1 flex items-start justify-between gap-3">
+          <p className="text-sm text-blue-300/80">
+            {contactsWithPhone} contact{contactsWithPhone !== 1 ? "s" : ""} avec un numero de telephone.
+            Les numeros doivent etre au format international (+225XXXXXXXXX).
+          </p>
+          <HelpButton onClick={() => setHelpOpen(true)} />
+        </div>
       </div>
+
+      <MessagingHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       {/* Channel selector */}
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
@@ -233,5 +240,138 @@ export function MessagingClient({
         </button>
       </div>
     </div>
+  );
+}
+
+function MessagingHelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <HelpModal
+      open={open}
+      onClose={onClose}
+      title="SMS & WhatsApp"
+      subtitle="Comment configurer et envoyer des messages"
+      sections={[
+        {
+          title: "Qu'est-ce que SMS & WhatsApp ?",
+          defaultOpen: true,
+          content: (
+            <div className="space-y-2">
+              <p>
+                Cette fonctionnalite vous permet d&apos;envoyer des <strong>SMS</strong> et des <strong>messages WhatsApp</strong> directement a vos contacts depuis MailPulse, via l&apos;API Twilio.
+              </p>
+              <p><strong>Differences entre les deux canaux :</strong></p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>SMS</strong> — Messages texte classiques, recus sur tous les telephones. Ideal pour les notifications courtes, rappels et alertes urgentes.</li>
+                <li><strong>WhatsApp</strong> — Messages enrichis (images, boutons, liens). Parfait pour les promotions, confirmations de commande et communication client.</li>
+              </ul>
+              <p><strong>Cas d&apos;utilisation :</strong></p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Notifications de livraison ou confirmation de commande</li>
+                <li>Rappels de rendez-vous ou d&apos;echeance</li>
+                <li>Promotions et offres speciales</li>
+                <li>Messages de bienvenue et onboarding</li>
+              </ul>
+            </div>
+          ),
+        },
+        {
+          title: "Etape 1 : Creer un compte Twilio",
+          content: (
+            <div className="space-y-3">
+              <p>Twilio est le service qui envoie vos SMS et messages WhatsApp. Vous avez besoin d&apos;un compte Twilio pour utiliser cette fonctionnalite.</p>
+              <StepList
+                steps={[
+                  "Inscrivez-vous sur twilio.com (essai gratuit disponible)",
+                  "Depuis la Console Twilio, recuperez votre Account SID et Auth Token",
+                  "Achetez un numero de telephone (~1$/mois) dans Phone Numbers > Manage > Buy a Number",
+                  "Pour WhatsApp : configurez un WhatsApp Business Profile dans Messaging > Try it out > Send a WhatsApp message",
+                ]}
+              />
+              <p>
+                <LinkOut href="https://www.twilio.com/try-twilio">Creer un compte Twilio</LinkOut>
+              </p>
+            </div>
+          ),
+        },
+        {
+          title: "Etape 2 : Configurer les variables d'environnement",
+          content: (
+            <div className="space-y-3">
+              <p>Ajoutez ces 4 variables dans votre dashboard Vercel (Settings &gt; Environment Variables) ou dans votre fichier <code className="text-zinc-300">.env.local</code> :</p>
+              <div className="space-y-2">
+                <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 p-3">
+                  <code className="text-xs font-mono text-zinc-900 dark:text-zinc-200 block space-y-1">
+                    <span className="block">TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span>
+                    <span className="block">TWILIO_AUTH_TOKEN=votre_auth_token</span>
+                    <span className="block">TWILIO_PHONE_NUMBER=+1234567890</span>
+                    <span className="block">TWILIO_WHATSAPP_NUMBER=+1234567890</span>
+                  </code>
+                </div>
+              </div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>TWILIO_ACCOUNT_SID</strong> — Identifiant de votre compte (commence par AC)</li>
+                <li><strong>TWILIO_AUTH_TOKEN</strong> — Token secret pour authentifier les requetes</li>
+                <li><strong>TWILIO_PHONE_NUMBER</strong> — Votre numero Twilio pour les SMS (format +XXXXXXXXXXX)</li>
+                <li><strong>TWILIO_WHATSAPP_NUMBER</strong> — Votre numero WhatsApp Business (optionnel, meme format)</li>
+              </ul>
+            </div>
+          ),
+        },
+        {
+          title: "Etape 3 : Ajouter des numeros a vos contacts",
+          content: (
+            <div className="space-y-3">
+              <p>Pour envoyer des messages, vos contacts doivent avoir un numero de telephone au format international (commencant par <code className="text-zinc-300">+</code>).</p>
+              <StepList
+                steps={[
+                  "Allez dans Contacts et editez un contact existant",
+                  "Ajoutez le numero de telephone au format international (ex: +22507XXXXXXXX pour la Cote d'Ivoire)",
+                  "Vous pouvez aussi importer des numeros en masse via un fichier CSV avec une colonne 'phone'",
+                ]}
+              />
+              <p className="text-amber-400 text-xs">
+                Les numeros sans le prefixe international (+) ne seront pas pris en compte.
+              </p>
+            </div>
+          ),
+        },
+        {
+          title: "Envoi en masse",
+          content: (
+            <div className="space-y-2">
+              <p>Vous pouvez envoyer un message a tous vos contacts avec un numero de telephone, ou filtrer par tag.</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Filtrage par tag</strong> — Selectionnez un tag pour cibler un segment specifique de vos contacts</li>
+                <li><strong>Personnalisation</strong> — Utilisez les variables <code className="text-zinc-300">{"{{firstName}}"}</code> et <code className="text-zinc-300">{"{{lastName}}"}</code> pour personnaliser chaque message</li>
+                <li><strong>Limites</strong> — Twilio impose des limites de debit : environ 1 SMS/seconde par numero. Pour de gros volumes, envisagez plusieurs numeros ou un short code</li>
+              </ul>
+            </div>
+          ),
+        },
+        {
+          title: "FAQ",
+          content: (
+            <div className="space-y-3">
+              <div>
+                <p className="font-medium text-zinc-200">Combien coute un SMS ?</p>
+                <p>En Cote d&apos;Ivoire, un SMS via Twilio coute environ <strong>0,0075 $</strong> (~5 FCFA). Les prix varient selon le pays de destination. Consultez la <LinkOut href="https://www.twilio.com/sms/pricing">grille tarifaire Twilio</LinkOut>.</p>
+              </div>
+              <div>
+                <p className="font-medium text-zinc-200">WhatsApp necessite-t-il des templates ?</p>
+                <p>Oui, pour envoyer le <strong>premier message</strong> a un contact sur WhatsApp, vous devez utiliser un template pre-approuve par Meta. Les reponses dans les 24h suivantes sont libres.</p>
+              </div>
+              <div>
+                <p className="font-medium text-zinc-200">Quelle est la difference entre sandbox et production ?</p>
+                <p>Le mode sandbox Twilio est gratuit mais limite : seuls les numeros verifies peuvent recevoir des messages. En production, vous pouvez envoyer a n&apos;importe quel numero.</p>
+              </div>
+              <div>
+                <p className="font-medium text-zinc-200">Comment suivre le statut de livraison ?</p>
+                <p>Twilio envoie des callbacks de statut (queued, sent, delivered, failed). MailPulse affiche le resultat apres chaque envoi.</p>
+              </div>
+            </div>
+          ),
+        },
+      ]}
+    />
   );
 }
