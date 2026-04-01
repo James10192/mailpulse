@@ -3,8 +3,38 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { sendSms, sendWhatsApp, type SmsChannel } from "@/lib/twilio";
+import { sendSmsForOrg, sendWhatsAppForOrg, activateOrgSms, type SmsChannel } from "@/lib/twilio";
 import type { ActionState } from "@/types/action-state";
+
+async function getOrgWithTwilio(orgId: string) {
+  return prisma.organization.findUnique({
+    where: { id: orgId },
+    select: {
+      id: true,
+      name: true,
+      smsEnabled: true,
+      twilioSubaccountSid: true,
+      twilioAuthToken: true,
+      twilioPhoneNumber: true,
+      twilioWhatsappNumber: true,
+    },
+  });
+}
+
+export async function activateSmsForOrg(countryCode = "US"): Promise<ActionState> {
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: "Non authentifie." };
+
+  try {
+    const result = await activateOrgSms(org.id, org.name, countryCode);
+    revalidatePath("/dashboard/messaging");
+    revalidatePath("/dashboard/settings");
+    return { success: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Erreur d'activation";
+    return { error: msg };
+  }
+}
 
 export async function sendMessage(
   channel: SmsChannel,
@@ -14,17 +44,20 @@ export async function sendMessage(
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifie." };
 
+  const orgTwilio = await getOrgWithTwilio(org.id);
+  if (!orgTwilio?.smsEnabled) return { error: "SMS non active. Activez d'abord dans les parametres." };
+
   if (!to || !body) return { error: "Numero et message requis." };
 
-  // Normalize phone number
   const phone = to.replace(/\s/g, "");
   if (!phone.startsWith("+")) return { error: "Le numero doit commencer par + (ex: +225XXXXXXXXX)." };
 
   try {
-    const result = channel === "whatsapp"
-      ? await sendWhatsApp(phone, body)
-      : await sendSms(phone, body);
-
+    if (channel === "whatsapp") {
+      await sendWhatsAppForOrg(orgTwilio, phone, body);
+    } else {
+      await sendSmsForOrg(orgTwilio, phone, body);
+    }
     revalidatePath("/dashboard/messaging");
     return { success: true };
   } catch (e) {
@@ -36,14 +69,16 @@ export async function sendMessage(
 export async function sendBulkMessages(
   channel: SmsChannel,
   body: string,
-  audience: "all" | string // "all" or tag name
+  audience: "all" | string
 ): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifie." };
 
+  const orgTwilio = await getOrgWithTwilio(org.id);
+  if (!orgTwilio?.smsEnabled) return { error: "SMS non active." };
+
   if (!body) return { error: "Le message est requis." };
 
-  // Fetch contacts with phone numbers
   const contacts = await prisma.contact.findMany({
     where: {
       organizationId: org.id,
@@ -60,30 +95,28 @@ export async function sendBulkMessages(
   }
 
   let sent = 0;
-  const errors: string[] = [];
 
   for (const contact of withPhone) {
     try {
-      // Personalize message
       const personalized = body
         .replace(/\{\{firstName\}\}/g, contact.firstName || "")
         .replace(/\{\{lastName\}\}/g, contact.lastName || "");
 
       if (channel === "whatsapp") {
-        await sendWhatsApp(contact.phone!, personalized);
+        await sendWhatsAppForOrg(orgTwilio, contact.phone!, personalized);
       } else {
-        await sendSms(contact.phone!, personalized);
+        await sendSmsForOrg(orgTwilio, contact.phone!, personalized);
       }
       sent++;
     } catch {
-      errors.push(contact.phone!);
+      // Continue sending to other contacts
     }
   }
 
   revalidatePath("/dashboard/messaging");
 
-  if (errors.length > 0 && sent === 0) {
-    return { error: `Echec d'envoi a ${errors.length} contacts.` };
+  if (sent === 0) {
+    return { error: "Echec d'envoi a tous les contacts." };
   }
 
   return { success: true };

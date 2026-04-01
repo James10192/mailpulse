@@ -114,6 +114,13 @@ model Organization {
   emailsSentThisMonth Int      @default(0)
   emailsResetAt       DateTime @default(now())
 
+  // Twilio subaccount (SMS & WhatsApp)
+  smsEnabled            Boolean  @default(false)
+  twilioSubaccountSid   String?
+  twilioAuthToken       String?
+  twilioPhoneNumber     String?
+  twilioWhatsappNumber  String?
+
   members     Member[]
   invitations Invitation[]
   campaigns   Campaign[]
