@@ -96,6 +96,12 @@ export async function logoutInstance(instanceName: string) {
   return evoFetch(`/instance/logout/${instanceName}`, { method: "DELETE" });
 }
 
+// ─── Helpers ───────────────────────────────────────────
+
+function normalizePhone(to: string) {
+  return to.replace(/^\+/, "").replace(/\s/g, "");
+}
+
 // ─── Messaging ──────────────────────────────────────────
 
 interface SendMessageResult {
@@ -110,8 +116,7 @@ export async function sendText(
   to: string,
   text: string,
 ) {
-  // Evolution API expects number without + prefix
-  const number = to.replace(/^\+/, "").replace(/\s/g, "");
+  const number = normalizePhone(to);
 
   return evoFetch<SendMessageResult>(
     `/message/sendText/${instanceName}`,

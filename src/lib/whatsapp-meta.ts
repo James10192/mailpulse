@@ -31,6 +31,18 @@ async function metaFetch<T = unknown>(
   return res.json() as Promise<T>;
 }
 
+// ─── Helpers ───────────────────────────────────────────
+
+function assertMetaConfig(org: MetaOrgConfig): asserts org is { metaPhoneNumberId: string; metaAccessToken: string } {
+  if (!org.metaPhoneNumberId || !org.metaAccessToken) {
+    throw new Error("Meta Cloud API non configure pour cette organisation.");
+  }
+}
+
+function normalizePhone(to: string) {
+  return to.replace(/^\+/, "").replace(/\s/g, "");
+}
+
 // ─── Send Messages ──────────────────────────────────────
 
 interface MetaSendResult {
@@ -44,12 +56,8 @@ export async function sendText(
   to: string,
   text: string,
 ) {
-  if (!org.metaPhoneNumberId || !org.metaAccessToken) {
-    throw new Error("Meta Cloud API non configure pour cette organisation.");
-  }
-
-  // Meta expects phone without + but with country code
-  const phone = to.replace(/^\+/, "").replace(/\s/g, "");
+  assertMetaConfig(org);
+  const phone = normalizePhone(to);
 
   return metaFetch<MetaSendResult>(
     `/${org.metaPhoneNumberId}/messages`,
@@ -73,11 +81,8 @@ export async function sendTemplate(
   languageCode: string,
   parameters: string[] = [],
 ) {
-  if (!org.metaPhoneNumberId || !org.metaAccessToken) {
-    throw new Error("Meta Cloud API non configure pour cette organisation.");
-  }
-
-  const phone = to.replace(/^\+/, "").replace(/\s/g, "");
+  assertMetaConfig(org);
+  const phone = normalizePhone(to);
 
   const components = parameters.length > 0
     ? [{
@@ -111,11 +116,8 @@ export async function sendImage(
   imageUrl: string,
   caption?: string,
 ) {
-  if (!org.metaPhoneNumberId || !org.metaAccessToken) {
-    throw new Error("Meta Cloud API non configure pour cette organisation.");
-  }
-
-  const phone = to.replace(/^\+/, "").replace(/\s/g, "");
+  assertMetaConfig(org);
+  const phone = normalizePhone(to);
 
   return metaFetch<MetaSendResult>(
     `/${org.metaPhoneNumberId}/messages`,

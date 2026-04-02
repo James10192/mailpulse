@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   MessageSquare, Send, Loader2, Check, AlertTriangle,
   Info, Users, Tag, Rocket, QrCode, Wifi, WifiOff,
@@ -9,11 +9,11 @@ import {
 import {
   activateBaileys, getQrCode, checkConnectionStatus,
   sendMessage, sendBulkMessages, saveMetaConfig,
-  switchWhatsAppMode, disconnectWhatsApp,
+  disconnectWhatsApp,
 } from "./actions";
 import { HelpModal, HelpButton, StepList } from "@/components/dashboard/help-modal";
 
-type WhatsAppMode = "BAILEYS" | "META";
+import type { WhatsAppMode } from "@/lib/whatsapp";
 
 export function MessagingClient({
   contactsWithPhone,
@@ -47,8 +47,11 @@ export function MessagingClient({
   // Baileys state
   const [activating, setActivating] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
-  const [connectionState, setConnectionState] = useState<string>(evoStatus || "none");
+  type ConnectionState = "open" | "close" | "connecting" | "none" | "error";
+  const [connectionState, setConnectionState] = useState<ConnectionState>((evoStatus as ConnectionState) ?? "none");
   const [pollingQr, setPollingQr] = useState(false);
+  const connectionStateRef = useRef(connectionState);
+  useEffect(() => { connectionStateRef.current = connectionState; }, [connectionState]);
 
   // Meta state
   const [showMetaConfig, setShowMetaConfig] = useState(false);
@@ -75,35 +78,40 @@ export function MessagingClient({
     }
     if (data.qr) {
       setQrCode(data.qr);
+      setPollingQr(false);
     } else if (!data.error && data.state !== "open") {
       // QR not ready yet — retry after a short delay
       setTimeout(async () => {
         const retry = await getQrCode();
         if (retry.qr) setQrCode(retry.qr);
         if (retry.state === "open") setConnectionState("open");
+        setPollingQr(false);
       }, 3000);
+      return;
+    } else {
+      setPollingQr(false);
     }
     if (data.error) {
       setResult({ error: data.error });
     }
-    setPollingQr(false);
   }, [pollingQr]);
 
   // Auto-poll when connecting
   useEffect(() => {
-    if (!whatsappEnabled || whatsappMode !== "BAILEYS") return;
-    if (connectionState === "open" || !evoInstanceName) return;
+    if (!whatsappEnabled || whatsappMode !== "BAILEYS" || !evoInstanceName) return;
+    if (connectionStateRef.current === "open") return;
 
     const interval = setInterval(async () => {
       const status = await checkConnectionStatus();
-      setConnectionState(status.state);
+      setConnectionState(status.state as ConnectionState);
       if (status.state === "open") {
         setQrCode(null);
+        clearInterval(interval);
       }
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [whatsappEnabled, whatsappMode, connectionState, evoInstanceName]);
+  }, [whatsappEnabled, whatsappMode, evoInstanceName]);
 
   // ─── Handlers ──────────────────────────────────────────
 
@@ -150,10 +158,6 @@ export function MessagingClient({
       setConnectionState("none");
       setQrCode(null);
     }
-  }
-
-  async function handleSwitchMode(newMode: WhatsAppMode) {
-    await switchWhatsAppMode(newMode);
   }
 
   return (

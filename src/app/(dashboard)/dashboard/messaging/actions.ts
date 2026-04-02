@@ -85,9 +85,7 @@ export async function getQrCode(): Promise<{
     } catch {
       // Instance doesn't exist on server (e.g. after server migration) — recreate it
       await baileys.createInstance(orgWa.evoInstanceName);
-      // Wait for instance to initialize
-      await new Promise((r) => setTimeout(r, 3000));
-      state = { state: "connecting" };
+      return { state: "reconnecting" };
     }
 
     if (state.state === "open") {
@@ -226,17 +224,16 @@ export async function sendBulkMessages(
   if (!orgWa?.whatsappEnabled) return { error: "WhatsApp non active." };
   if (!body) return { error: "Le message est requis." };
 
-  const contacts = await prisma.contact.findMany({
+  const withPhone = await prisma.contact.findMany({
     where: {
       organizationId: org.id,
       subscribed: true,
-      phone: { not: null },
+      phone: { startsWith: "+" },
       ...(audience !== "all" ? { tags: { some: { name: audience } } } : {}),
     },
     select: { id: true, phone: true, firstName: true, lastName: true },
   });
 
-  const withPhone = contacts.filter((c) => c.phone && c.phone.startsWith("+"));
   if (withPhone.length === 0) {
     return { error: "Aucun contact avec un numero de telephone valide (+XXX)." };
   }

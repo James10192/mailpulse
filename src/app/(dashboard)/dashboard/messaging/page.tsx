@@ -27,7 +27,6 @@ export default async function MessagingPage() {
             whatsappPhone: true,
             evoInstanceName: true,
             evoInstanceStatus: true,
-            metaWabaId: true,
             metaPhoneNumberId: true,
           },
         }),
