@@ -63,40 +63,8 @@ export async function getCurrentUserAndOrg() {
       }
     }
   } catch {
-    // Session failed — fall through to fallback
+    // Session failed — no fallback, return null
   }
 
-  // 2. Fallback: findFirst (for dev, cron, or when session cookie isn't available)
-  const user = await prisma.user.findFirst();
-  if (!user) return { user: null, org: null };
-
-  const member = await prisma.member.findFirst({
-    where: { userId: user.id },
-    select: { organizationId: true },
-    orderBy: { createdAt: "asc" },
-  });
-
-  let org = member
-    ? await prisma.organization.findUnique({
-        where: { id: member.organizationId },
-        select: ORG_SELECT,
-      })
-    : null;
-
-  if (!org) {
-    org = await prisma.organization.findFirst({ select: ORG_SELECT });
-  }
-
-  if (!org) {
-    org = await prisma.organization.create({
-      data: { name: "Mon organisation", slug: "mon-org" },
-      select: ORG_SELECT,
-    });
-
-    await prisma.emailSender.create({
-      data: { name: org.name, email: "onboarding@resend.dev", isDefault: true, organizationId: org.id },
-    }).catch(() => {});
-  }
-
-  return { user, org };
+  return { user: null, org: null };
 }

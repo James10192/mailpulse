@@ -1,46 +1,24 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createHmac } from "crypto";
-
-const TRACKING_SECRET = process.env.TRACKING_SECRET ?? "mailpulse-tracking-secret";
-
-function verifyUnsubscribeToken(token: string) {
-  try {
-    const decoded = Buffer.from(token, "base64url").toString("utf-8");
-    const parts = decoded.split(":");
-    if (parts.length !== 3) return null;
-
-    const [contactId, campaignId, providedHmac] = parts;
-    const payload = `${contactId}:${campaignId}`;
-    const expectedHmac = createHmac("sha256", TRACKING_SECRET)
-      .update(payload)
-      .digest("hex")
-      .slice(0, 16);
-
-    if (providedHmac !== expectedHmac) return null;
-    return { contactId, campaignId };
-  } catch {
-    return null;
-  }
-}
+import { verifyTrackingToken } from "@/lib/tracking";
 
 // One-click unsubscribe (POST from email client)
 export async function POST(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("t");
   if (!token) return new Response("Missing token", { status: 400 });
 
-  const data = verifyUnsubscribeToken(token);
+  const data = verifyTrackingToken(token);
   if (!data) return new Response("Invalid token", { status: 400 });
 
   await prisma.contact.update({
-    where: { id: data.contactId },
+    where: { id: data.recipientId },
     data: { subscribed: false },
   });
 
   await prisma.emailEvent.create({
     data: {
       type: "UNSUBSCRIBED",
-      contactId: data.contactId,
+      contactId: data.recipientId,
       metadata: { campaignId: data.campaignId, method: "one-click" },
     },
   });
@@ -53,18 +31,18 @@ export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("t");
   if (!token) return new Response("Missing token", { status: 400 });
 
-  const data = verifyUnsubscribeToken(token);
+  const data = verifyTrackingToken(token);
   if (!data) return new Response("Invalid token", { status: 400 });
 
   await prisma.contact.update({
-    where: { id: data.contactId },
+    where: { id: data.recipientId },
     data: { subscribed: false },
   });
 
   await prisma.emailEvent.create({
     data: {
       type: "UNSUBSCRIBED",
-      contactId: data.contactId,
+      contactId: data.recipientId,
       metadata: { campaignId: data.campaignId, method: "link" },
     },
   });

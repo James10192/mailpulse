@@ -32,10 +32,14 @@ function getTagValue(tags: Record<string, string> | { name: string; value: strin
 
 export async function POST(request: NextRequest) {
   const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error("RESEND_WEBHOOK_SECRET not configured");
+    return new Response("Webhook not configured", { status: 500 });
+  }
 
   let event: ResendWebhookEvent;
 
-  if (webhookSecret) {
+  {
     const payload = await request.text();
 
     const id = request.headers.get("svix-id");
@@ -58,8 +62,6 @@ export async function POST(request: NextRequest) {
       console.error("Webhook verify error:", String(e));
       return new Response("Invalid signature", { status: 400 });
     }
-  } else {
-    event = (await request.json()) as ResendWebhookEvent;
   }
 
   try {

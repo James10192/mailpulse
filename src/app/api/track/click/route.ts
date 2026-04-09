@@ -6,47 +6,57 @@ export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
   const token = request.nextUrl.searchParams.get("t");
 
-  if (!url) {
-    return new Response("Missing URL", { status: 400 });
+  if (!url || !token) {
+    return NextResponse.json({ error: "Missing URL or token" }, { status: 400 });
   }
 
-  if (token) {
-    const data = verifyTrackingToken(token);
-    if (data) {
-      // Fetch contactId from recipient record
-      const recipient = await prisma.campaignRecipient.findUnique({
-        where: { id: data.recipientId },
-        select: { contactId: true },
-      });
-
-      if (recipient) {
-        // Fire-and-forget: log click event
-        prisma.emailEvent
-          .create({
-            data: {
-              type: "CLICKED",
-              recipientId: data.recipientId,
-              contactId: recipient.contactId,
-              metadata: {
-                url,
-                ip: request.headers.get("x-forwarded-for") ?? "unknown",
-                userAgent: request.headers.get("user-agent"),
-                timestamp: new Date().toISOString(),
-              },
-            },
-          })
-          .catch(() => {});
-
-        // Update recipient click timestamp + analytics
-        prisma.campaignRecipient
-          .update({
-            where: { id: data.recipientId },
-            data: { clickedAt: new Date() },
-          })
-          .then(() => updateAnalyticsForRecipient(data.campaignId))
-          .catch(() => {});
-      }
+  // Validate URL is a proper HTTP(S) URL
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
     }
+  } catch {
+    return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
+  }
+
+  const data = verifyTrackingToken(token);
+  if (!data) {
+    return NextResponse.json({ error: "Invalid token" }, { status: 400 });
+  }
+
+  // Fetch contactId from recipient record
+  const recipient = await prisma.campaignRecipient.findUnique({
+    where: { id: data.recipientId },
+    select: { contactId: true },
+  });
+
+  if (recipient) {
+    // Fire-and-forget: log click event
+    prisma.emailEvent
+      .create({
+        data: {
+          type: "CLICKED",
+          recipientId: data.recipientId,
+          contactId: recipient.contactId,
+          metadata: {
+            url,
+            ip: request.headers.get("x-forwarded-for") ?? "unknown",
+            userAgent: request.headers.get("user-agent"),
+            timestamp: new Date().toISOString(),
+          },
+        },
+      })
+      .catch(() => {});
+
+    // Update recipient click timestamp + analytics
+    prisma.campaignRecipient
+      .update({
+        where: { id: data.recipientId },
+        data: { clickedAt: new Date() },
+      })
+      .then(() => updateAnalyticsForRecipient(data.campaignId))
+      .catch(() => {});
   }
 
   // 302 redirect to original URL

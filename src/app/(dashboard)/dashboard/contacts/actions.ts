@@ -175,11 +175,21 @@ export async function importContacts(
 
 export async function deleteContact(contactId: string): Promise<ActionState> {
   try {
+    const { user, org } = await getCurrentUserAndOrg();
+    if (!user || !org) {
+      return { error: "Non authentifié." };
+    }
+
     const contact = await prisma.contact.findUnique({
-      where: { id: contactId },
+      where: { id: contactId, organizationId: org.id },
       select: { email: true, organizationId: true, userId: true },
     });
-    await prisma.contact.delete({ where: { id: contactId } });
+
+    if (!contact) {
+      return { error: "Contact introuvable." };
+    }
+
+    await prisma.contact.delete({ where: { id: contactId, organizationId: org.id } });
 
     if (contact) {
       trackServerEvent(contact.userId, EVENTS.CONTACT_DELETED, { email: contact.email }, contact.organizationId);

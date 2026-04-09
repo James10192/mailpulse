@@ -14,7 +14,6 @@ const publicPrefixes = [
   "/api/webhooks",
   "/api/track",
   "/api/unsubscribe",
-  "/api/upload",
   "/api/contact",
   "/contact",
   "/capture",

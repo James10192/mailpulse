@@ -1,6 +1,12 @@
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
-const TRACKING_SECRET = process.env.TRACKING_SECRET ?? "mailpulse-tracking-secret";
+function getTrackingSecret(): string {
+  const secret = process.env.TRACKING_SECRET;
+  if (!secret) throw new Error("TRACKING_SECRET env var is required");
+  return secret;
+}
+
+const TRACKING_SECRET: string = getTrackingSecret();
 
 /**
  * Generate a signed tracking token for open/click events.
@@ -8,7 +14,7 @@ const TRACKING_SECRET = process.env.TRACKING_SECRET ?? "mailpulse-tracking-secre
  */
 export function generateTrackingToken(recipientId: string, campaignId: string): string {
   const payload = `${recipientId}:${campaignId}`;
-  const hmac = createHmac("sha256", TRACKING_SECRET).update(payload).digest("hex").slice(0, 16);
+  const hmac = createHmac("sha256", TRACKING_SECRET).update(payload).digest("hex").slice(0, 32);
   const token = Buffer.from(`${payload}:${hmac}`).toString("base64url");
   return token;
 }
@@ -31,9 +37,13 @@ export function verifyTrackingToken(token: string): {
     const expectedHmac = createHmac("sha256", TRACKING_SECRET)
       .update(payload)
       .digest("hex")
-      .slice(0, 16);
+      .slice(0, 32);
 
-    if (providedHmac !== expectedHmac) return null;
+    const provided = Buffer.from(providedHmac, "hex");
+    const expected = Buffer.from(expectedHmac, "hex");
+    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
+      return null;
+    }
 
     return { recipientId, campaignId };
   } catch {
@@ -84,7 +94,7 @@ export function generateUnsubscribeUrl(
   campaignId: string
 ): string {
   const payload = `${contactId}:${campaignId}`;
-  const hmac = createHmac("sha256", TRACKING_SECRET).update(payload).digest("hex").slice(0, 16);
+  const hmac = createHmac("sha256", TRACKING_SECRET).update(payload).digest("hex").slice(0, 32);
   const token = Buffer.from(`${payload}:${hmac}`).toString("base64url");
   return `${baseUrl}/api/unsubscribe?t=${token}`;
 }
