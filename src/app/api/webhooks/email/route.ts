@@ -94,7 +94,6 @@ async function processEvent(event: ResendWebhookEvent) {
     "email.complained": "complained",
   };
 
-  // Map Resend event type to our EmailEventType for idempotency check
   const eventTypeMap: Record<string, string> = {
     "email.delivered": "DELIVERED",
     "email.opened": "OPENED",

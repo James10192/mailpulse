@@ -191,18 +191,16 @@ export async function deleteContact(contactId: string): Promise<ActionState> {
 
     await prisma.contact.delete({ where: { id: contactId, organizationId: org.id } });
 
-    if (contact) {
-      trackServerEvent(contact.userId, EVENTS.CONTACT_DELETED, { email: contact.email }, contact.organizationId);
-      convexServer.mutation(api.dashboard.logActivity, {
-        organizationId: contact.organizationId,
-        userId: contact.userId,
-        userName: "System",
-        action: "deleted",
-        resourceType: "contact",
-        resourceId: contactId,
-        resourceName: contact.email,
-      });
-    }
+    trackServerEvent(contact.userId, EVENTS.CONTACT_DELETED, { email: contact.email }, contact.organizationId);
+    convexServer.mutation(api.dashboard.logActivity, {
+      organizationId: contact.organizationId,
+      userId: contact.userId,
+      userName: "System",
+      action: "deleted",
+      resourceType: "contact",
+      resourceId: contactId,
+      resourceName: contact.email,
+    });
 
     revalidatePath("/dashboard/contacts");
     revalidatePath("/dashboard");

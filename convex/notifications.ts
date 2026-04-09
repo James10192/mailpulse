@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { assertOrgExists } from "./lib";
 
 export const list = query({
   args: {
@@ -63,20 +64,7 @@ export const create = mutation({
     metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    // Validate org exists by checking dashboardStats or existing notifications
-    const orgExists = await ctx.db
-      .query("dashboardStats")
-      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
-      .first();
-    if (!orgExists) {
-      const notifExists = await ctx.db
-        .query("notifications")
-        .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
-        .first();
-      if (!notifExists) {
-        throw new Error("Unknown organization");
-      }
-    }
+    await assertOrgExists(ctx, args.organizationId);
 
     return await ctx.db.insert("notifications", {
       ...args,

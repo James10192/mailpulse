@@ -185,8 +185,6 @@ export function isConfigured() {
   return !!(EVO_URL && EVO_KEY);
 }
 
-// ─── IWhatsAppProvider implementation ──────────────────
-
 export class BaileysProvider implements IWhatsAppProvider {
   constructor(private instanceName: string) {}
 

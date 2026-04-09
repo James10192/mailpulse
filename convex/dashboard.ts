@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { assertOrgExists } from "./lib";
 
 export const getStats = query({
   args: { organizationId: v.string() },
@@ -36,14 +37,10 @@ export const updateStats = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    // Validate that this org has been seen before (basic guard against arbitrary writes)
     const existing = await ctx.db
       .query("dashboardStats")
       .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
       .first();
-
-    // For updateStats, existing is also used below — if null, we create a new record
-    // which is expected for the first event of an org. No extra guard needed here.
 
     const fieldMap: Record<string, string> = {
       sent: "totalSent",
@@ -111,21 +108,7 @@ export const logActivity = mutation({
     resourceName: v.string(),
   },
   handler: async (ctx, args) => {
-    // Validate org has been seen before (dashboardStats or prior activity)
-    const orgExists = await ctx.db
-      .query("dashboardStats")
-      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
-      .first();
-    if (!orgExists) {
-      // Also check activity feed in case stats haven't been created yet
-      const activityExists = await ctx.db
-        .query("activityFeed")
-        .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
-        .first();
-      if (!activityExists) {
-        throw new Error("Unknown organization");
-      }
-    }
+    await assertOrgExists(ctx, args.organizationId);
 
     return await ctx.db.insert("activityFeed", {
       ...args,

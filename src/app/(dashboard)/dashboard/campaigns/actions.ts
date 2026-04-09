@@ -255,7 +255,7 @@ export async function getCampaignContent(campaignId: string): Promise<string | n
   return campaign?.htmlContent ?? null;
 }
 
-// ─── sendCampaign decomposed helpers ────────────────────
+
 
 type ContactRow = { id: string; email: string; firstName: string | null; lastName: string | null };
 
@@ -397,18 +397,20 @@ async function completeCampaignSending(
   user: { id: string; name: string | null; email: string },
   campaignName: string,
 ) {
-  await prisma.campaign.update({
-    where: { id: campaignId },
-    data: { status: "SENT", completedAt: new Date() },
-  });
-  await prisma.campaignAnalytics.update({
-    where: { campaignId },
-    data: { totalSent: sentCount },
-  });
-  await prisma.organization.update({
-    where: { id: orgId },
-    data: { emailsSentThisMonth: { increment: sentCount } },
-  });
+  await Promise.all([
+    prisma.campaign.update({
+      where: { id: campaignId },
+      data: { status: "SENT", completedAt: new Date() },
+    }),
+    prisma.campaignAnalytics.update({
+      where: { campaignId },
+      data: { totalSent: sentCount },
+    }),
+    prisma.organization.update({
+      where: { id: orgId },
+      data: { emailsSentThisMonth: { increment: sentCount } },
+    }),
+  ]);
 
   trackServerEvent(user.id, "campaign_sent", {
     campaign_id: campaignId,
@@ -430,7 +432,7 @@ async function completeCampaignSending(
   revalidatePath("/dashboard");
 }
 
-// ─── sendCampaign orchestrator ──────────────────────────
+
 
 export async function sendCampaign(
   campaignId: string,

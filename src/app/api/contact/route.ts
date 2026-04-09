@@ -22,31 +22,33 @@ export async function POST(request: NextRequest) {
   const safeMessage = escapeHtml(message);
 
   try {
-    for (const recipient of CONTACT_RECIPIENTS) {
-      await sendEmail({
+    const emailHtml = `
+      <div style="font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #f97316;">Nouveau message de contact</h2>
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+          <tr>
+            <td style="padding: 8px 0; color: #71717a; width: 80px;">Nom</td>
+            <td style="padding: 8px 0; font-weight: 600;">${safeName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #71717a;">Email</td>
+            <td style="padding: 8px 0;"><a href="mailto:${safeEmail}" style="color: #f97316;">${safeEmail}</a></td>
+          </tr>
+        </table>
+        <div style="padding: 16px; background: #18181b; border-radius: 8px; color: #d4d4d8; white-space: pre-wrap;">${safeMessage}</div>
+        <p style="color: #52525b; font-size: 12px; margin-top: 24px;">Envoye depuis le formulaire de contact MailPulse</p>
+      </div>
+    `;
+
+    await Promise.all(CONTACT_RECIPIENTS.map((recipient) =>
+      sendEmail({
         to: recipient,
         from: "MailPulse Contact <onboarding@resend.dev>",
         subject: `[MailPulse Contact] Message de ${safeName}`,
         replyTo: email,
-        html: `
-          <div style="font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #f97316;">Nouveau message de contact</h2>
-            <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-              <tr>
-                <td style="padding: 8px 0; color: #71717a; width: 80px;">Nom</td>
-                <td style="padding: 8px 0; font-weight: 600;">${safeName}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #71717a;">Email</td>
-                <td style="padding: 8px 0;"><a href="mailto:${safeEmail}" style="color: #f97316;">${safeEmail}</a></td>
-              </tr>
-            </table>
-            <div style="padding: 16px; background: #18181b; border-radius: 8px; color: #d4d4d8; white-space: pre-wrap;">${safeMessage}</div>
-            <p style="color: #52525b; font-size: 12px; margin-top: 24px;">Envoye depuis le formulaire de contact MailPulse</p>
-          </div>
-        `,
-      });
-    }
+        html: emailHtml,
+      })
+    ));
 
     return Response.json({ success: true });
   } catch {

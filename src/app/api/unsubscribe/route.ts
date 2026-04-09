@@ -2,26 +2,37 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyTrackingToken } from "@/lib/tracking";
 
-// One-click unsubscribe (POST from email client)
-export async function POST(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get("t");
-  if (!token) return new Response("Missing token", { status: 400 });
-
+async function processUnsubscribe(token: string, method: string): Promise<boolean> {
   const data = verifyTrackingToken(token);
-  if (!data) return new Response("Invalid token", { status: 400 });
+  if (!data) return false;
+
+  // verifyTrackingToken returns recipientId — for unsubscribe tokens generated
+  // via generateUnsubscribeUrl, this is actually the contactId
+  const contactId = data.recipientId;
 
   await prisma.contact.update({
-    where: { id: data.recipientId },
+    where: { id: contactId },
     data: { subscribed: false },
   });
 
   await prisma.emailEvent.create({
     data: {
       type: "UNSUBSCRIBED",
-      contactId: data.recipientId,
-      metadata: { campaignId: data.campaignId, method: "one-click" },
+      contactId,
+      metadata: { campaignId: data.campaignId, method },
     },
   });
+
+  return true;
+}
+
+// One-click unsubscribe (POST from email client)
+export async function POST(request: NextRequest) {
+  const token = request.nextUrl.searchParams.get("t");
+  if (!token) return new Response("Missing token", { status: 400 });
+
+  const ok = await processUnsubscribe(token, "one-click");
+  if (!ok) return new Response("Invalid token", { status: 400 });
 
   return new Response("You have been unsubscribed.", { status: 200 });
 }
@@ -31,23 +42,9 @@ export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("t");
   if (!token) return new Response("Missing token", { status: 400 });
 
-  const data = verifyTrackingToken(token);
-  if (!data) return new Response("Invalid token", { status: 400 });
+  const ok = await processUnsubscribe(token, "link");
+  if (!ok) return new Response("Invalid token", { status: 400 });
 
-  await prisma.contact.update({
-    where: { id: data.recipientId },
-    data: { subscribed: false },
-  });
-
-  await prisma.emailEvent.create({
-    data: {
-      type: "UNSUBSCRIBED",
-      contactId: data.recipientId,
-      metadata: { campaignId: data.campaignId, method: "link" },
-    },
-  });
-
-  // Render a simple confirmation page
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><title>Unsubscribed</title>

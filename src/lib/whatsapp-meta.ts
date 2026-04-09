@@ -168,8 +168,6 @@ export function getConfigId() {
   return process.env.META_CONFIG_ID || "";
 }
 
-// ─── IWhatsAppProvider implementation ──────────────────
-
 export class MetaProvider implements IWhatsAppProvider {
   constructor(
     private phoneNumberId: string,

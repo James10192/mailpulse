@@ -1,7 +1,5 @@
-import { Resend } from "resend";
+import { resend } from "@/lib/resend";
 import type { IEmailProvider, SendEmailOptions, SendEmailResult } from "./types";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export class ResendProvider implements IEmailProvider {
   async send(options: SendEmailOptions): Promise<SendEmailResult> {

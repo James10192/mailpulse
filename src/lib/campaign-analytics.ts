@@ -33,37 +33,25 @@ export async function recalculateCampaignAnalytics(campaignId: string): Promise<
   const bounceRate = totalSent > 0 ? (totalBounced / totalSent) * 100 : 0;
   const unsubscribeRate = totalDelivered > 0 ? (totalUnsubscribed / totalDelivered) * 100 : 0;
 
+  const data = {
+    totalSent,
+    totalDelivered,
+    totalOpened,
+    uniqueOpens: totalOpened,
+    totalClicked,
+    uniqueClicks: totalClicked,
+    totalBounced,
+    totalComplaints,
+    totalUnsubscribed,
+    openRate,
+    clickRate,
+    bounceRate,
+  };
+
   await prisma.campaignAnalytics.upsert({
     where: { campaignId },
-    create: {
-      campaignId,
-      totalSent,
-      totalDelivered,
-      totalOpened,
-      uniqueOpens: totalOpened,
-      totalClicked,
-      uniqueClicks: totalClicked,
-      totalBounced,
-      totalComplaints,
-      totalUnsubscribed,
-      openRate,
-      clickRate,
-      bounceRate,
-    },
-    update: {
-      totalSent,
-      totalDelivered,
-      totalOpened,
-      uniqueOpens: totalOpened,
-      totalClicked,
-      uniqueClicks: totalClicked,
-      totalBounced,
-      totalComplaints,
-      totalUnsubscribed,
-      openRate,
-      clickRate,
-      bounceRate,
-    },
+    create: { campaignId, ...data },
+    update: data,
   });
 
   return { bounceRate, unsubscribeRate, totalSent };

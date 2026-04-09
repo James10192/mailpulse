@@ -1,12 +1,15 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-function getTrackingSecret(): string {
-  const secret = process.env.TRACKING_SECRET;
-  if (!secret) throw new Error("TRACKING_SECRET env var is required");
-  return secret;
-}
+let _trackingSecret: string | null = null;
 
-const TRACKING_SECRET: string = getTrackingSecret();
+function getTrackingSecret(): string {
+  if (!_trackingSecret) {
+    const secret = process.env.TRACKING_SECRET;
+    if (!secret) throw new Error("TRACKING_SECRET env var is required");
+    _trackingSecret = secret;
+  }
+  return _trackingSecret;
+}
 
 /**
  * Generate a signed tracking token for open/click events.
@@ -14,7 +17,7 @@ const TRACKING_SECRET: string = getTrackingSecret();
  */
 export function generateTrackingToken(recipientId: string, campaignId: string): string {
   const payload = `${recipientId}:${campaignId}`;
-  const hmac = createHmac("sha256", TRACKING_SECRET).update(payload).digest("hex").slice(0, 32);
+  const hmac = createHmac("sha256", getTrackingSecret()).update(payload).digest("hex").slice(0, 32);
   const token = Buffer.from(`${payload}:${hmac}`).toString("base64url");
   return token;
 }
@@ -34,7 +37,7 @@ export function verifyTrackingToken(token: string): {
 
     const [recipientId, campaignId, providedHmac] = parts;
     const payload = `${recipientId}:${campaignId}`;
-    const expectedHmac = createHmac("sha256", TRACKING_SECRET)
+    const expectedHmac = createHmac("sha256", getTrackingSecret())
       .update(payload)
       .digest("hex")
       .slice(0, 32);
@@ -94,7 +97,7 @@ export function generateUnsubscribeUrl(
   campaignId: string
 ): string {
   const payload = `${contactId}:${campaignId}`;
-  const hmac = createHmac("sha256", TRACKING_SECRET).update(payload).digest("hex").slice(0, 32);
+  const hmac = createHmac("sha256", getTrackingSecret()).update(payload).digest("hex").slice(0, 32);
   const token = Buffer.from(`${payload}:${hmac}`).toString("base64url");
   return `${baseUrl}/api/unsubscribe?t=${token}`;
 }
