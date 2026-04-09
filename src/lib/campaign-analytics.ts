@@ -49,7 +49,6 @@ export async function recalculateCampaignAnalytics(campaignId: string): Promise<
       openRate,
       clickRate,
       bounceRate,
-      unsubscribeRate,
     },
     update: {
       totalSent,
@@ -64,7 +63,6 @@ export async function recalculateCampaignAnalytics(campaignId: string): Promise<
       openRate,
       clickRate,
       bounceRate,
-      unsubscribeRate,
     },
   });
 

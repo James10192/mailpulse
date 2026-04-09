@@ -139,7 +139,7 @@ export async function checkEmailLimit(orgId: string, plan: PlanTier): Promise<{ 
   const currentYear = now.getFullYear();
 
   // Atomic check-and-reset inside a transaction to prevent race conditions
-  return await prisma.$transaction(async (tx: typeof prisma) => {
+  return await prisma.$transaction(async (tx) => {
     const org = await tx.organization.findUnique({
       where: { id: orgId },
       select: { emailsSentThisMonth: true, emailsResetAt: true },
