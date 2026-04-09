@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
 import { resend } from "@/lib/resend";
+import { recalculateCampaignAnalytics } from "@/lib/campaign-analytics";
 
 // Resend webhook events
 // https://resend.com/docs/dashboard/webhooks/verify-webhooks-requests
@@ -90,6 +91,32 @@ async function processEvent(event: ResendWebhookEvent) {
     "email.bounced": "bounced",
     "email.complained": "complained",
   };
+
+  // Map Resend event type to our EmailEventType for idempotency check
+  const eventTypeMap: Record<string, string> = {
+    "email.delivered": "DELIVERED",
+    "email.opened": "OPENED",
+    "email.clicked": "CLICKED",
+    "email.bounced": "BOUNCED_HARD",
+    "email.complained": "COMPLAINED",
+  };
+
+  const mappedType = eventTypeMap[event.type];
+
+  // Idempotency: skip if we already processed this exact event
+  if (mappedType && recipientId) {
+    const existing = await prisma.emailEvent.findFirst({
+      where: {
+        type: mappedType as never,
+        recipientId,
+        contactId: contact.id,
+      },
+    });
+    if (existing) {
+      console.log(`Duplicate webhook skipped: ${event.type} for recipient ${recipientId}`);
+      return;
+    }
+  }
 
   switch (event.type) {
     case "email.sent":
@@ -204,62 +231,7 @@ async function processEvent(event: ResendWebhookEvent) {
 
   // Update campaign analytics if applicable
   if (campaignId) {
-    await updateCampaignAnalytics(campaignId);
+    await recalculateCampaignAnalytics(campaignId);
     revalidatePath("/dashboard/campaigns");
   }
-}
-
-async function updateCampaignAnalytics(campaignId: string) {
-  const recipients = await prisma.campaignRecipient.findMany({
-    where: { campaignId },
-    select: {
-      deliveredAt: true,
-      openedAt: true,
-      clickedAt: true,
-      bouncedAt: true,
-      complainedAt: true,
-      unsubscribedAt: true,
-    },
-  });
-
-  const totalSent = recipients.length;
-  const totalDelivered = recipients.filter((r: { deliveredAt: Date | null }) => r.deliveredAt !== null).length;
-  const totalOpened = recipients.filter((r: { openedAt: Date | null }) => r.openedAt !== null).length;
-  const totalClicked = recipients.filter((r: { clickedAt: Date | null }) => r.clickedAt !== null).length;
-  const totalBounced = recipients.filter((r: { bouncedAt: Date | null }) => r.bouncedAt !== null).length;
-  const totalComplaints = recipients.filter((r: { complainedAt: Date | null }) => r.complainedAt !== null).length;
-  const totalUnsubscribed = recipients.filter((r: { unsubscribedAt: Date | null }) => r.unsubscribedAt !== null).length;
-
-  await prisma.campaignAnalytics.upsert({
-    where: { campaignId },
-    create: {
-      campaignId,
-      totalSent,
-      totalDelivered,
-      totalOpened,
-      uniqueOpens: totalOpened,
-      totalClicked,
-      uniqueClicks: totalClicked,
-      totalBounced,
-      totalComplaints,
-      totalUnsubscribed,
-      openRate: totalDelivered > 0 ? totalOpened / totalDelivered : 0,
-      clickRate: totalDelivered > 0 ? totalClicked / totalDelivered : 0,
-      bounceRate: totalSent > 0 ? totalBounced / totalSent : 0,
-    },
-    update: {
-      totalSent,
-      totalDelivered,
-      totalOpened,
-      uniqueOpens: totalOpened,
-      totalClicked,
-      uniqueClicks: totalClicked,
-      totalBounced,
-      totalComplaints,
-      totalUnsubscribed,
-      openRate: totalDelivered > 0 ? totalOpened / totalDelivered : 0,
-      clickRate: totalDelivered > 0 ? totalClicked / totalDelivered : 0,
-      bounceRate: totalSent > 0 ? totalBounced / totalSent : 0,
-    },
-  });
 }

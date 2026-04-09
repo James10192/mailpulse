@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { verifyTrackingToken } from "@/lib/tracking";
 import { prisma } from "@/lib/prisma";
+import { recalculateCampaignAnalytics } from "@/lib/campaign-analytics";
 
 // 1x1 transparent GIF
 const PIXEL = Buffer.from(
@@ -42,10 +43,7 @@ export async function GET(request: NextRequest) {
             where: { id: data.recipientId },
             data: { openedAt: new Date() },
           })
-          .then(() => {
-            // Update campaign analytics after recording the open
-            return updateAnalyticsForRecipient(data.campaignId);
-          })
+          .then(() => recalculateCampaignAnalytics(data.campaignId))
           .catch(() => {});
       }
     }
@@ -62,20 +60,3 @@ export async function GET(request: NextRequest) {
   });
 }
 
-async function updateAnalyticsForRecipient(campaignId: string) {
-  const recipients = await prisma.campaignRecipient.findMany({
-    where: { campaignId },
-    select: { deliveredAt: true, openedAt: true, clickedAt: true, bouncedAt: true, complainedAt: true, unsubscribedAt: true },
-  });
-  const totalSent = recipients.length;
-  const totalDelivered = recipients.filter((r) => r.deliveredAt).length;
-  const totalOpened = recipients.filter((r) => r.openedAt).length;
-  const totalClicked = recipients.filter((r) => r.clickedAt).length;
-  const totalBounced = recipients.filter((r) => r.bouncedAt).length;
-
-  await prisma.campaignAnalytics.upsert({
-    where: { campaignId },
-    create: { campaignId, totalSent, totalDelivered, totalOpened, uniqueOpens: totalOpened, totalClicked, uniqueClicks: totalClicked, totalBounced, openRate: totalDelivered > 0 ? totalOpened / totalDelivered : 0, clickRate: totalDelivered > 0 ? totalClicked / totalDelivered : 0, bounceRate: totalSent > 0 ? totalBounced / totalSent : 0 },
-    update: { totalSent, totalDelivered, totalOpened, uniqueOpens: totalOpened, totalClicked, uniqueClicks: totalClicked, totalBounced, openRate: totalDelivered > 0 ? totalOpened / totalDelivered : 0, clickRate: totalDelivered > 0 ? totalClicked / totalDelivered : 0, bounceRate: totalSent > 0 ? totalBounced / totalSent : 0 },
-  });
-}
