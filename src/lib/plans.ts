@@ -134,25 +134,36 @@ export async function checkEmailLimit(orgId: string, plan: PlanTier): Promise<{ 
   const limit = PLAN_LIMITS[plan].emailsPerMonth;
   if (limit === -1) return { allowed: true, sent: 0, limit: -1 };
 
-  const org = await prisma.organization.findUnique({
-    where: { id: orgId },
-    select: { emailsSentThisMonth: true, emailsResetAt: true },
-  });
-
-  if (!org) return { allowed: false, sent: 0, limit };
-
-  // Reset monthly counter if needed
   const now = new Date();
-  const resetAt = org.emailsResetAt ? new Date(org.emailsResetAt) : new Date(0);
-  if (now.getMonth() !== resetAt.getMonth() || now.getFullYear() !== resetAt.getFullYear()) {
-    await prisma.organization.update({
-      where: { id: orgId },
-      data: { emailsSentThisMonth: 0, emailsResetAt: now },
-    });
-    return { allowed: true, sent: 0, limit };
-  }
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
 
-  return { allowed: org.emailsSentThisMonth < limit, sent: org.emailsSentThisMonth, limit };
+  // Atomic check-and-reset inside a transaction to prevent race conditions
+  return await prisma.$transaction(async (tx: typeof prisma) => {
+    const org = await tx.organization.findUnique({
+      where: { id: orgId },
+      select: { emailsSentThisMonth: true, emailsResetAt: true },
+    });
+
+    if (!org) return { allowed: false, sent: 0, limit };
+
+    const resetAt = org.emailsResetAt ? new Date(org.emailsResetAt) : new Date(0);
+    const needsReset = resetAt.getMonth() !== currentMonth || resetAt.getFullYear() !== currentYear;
+
+    if (needsReset) {
+      // Optimistic lock: only reset if the month still hasn't been updated by another request
+      await tx.organization.updateMany({
+        where: {
+          id: orgId,
+          emailsResetAt: { lt: new Date(currentYear, currentMonth, 1) },
+        },
+        data: { emailsSentThisMonth: 0, emailsResetAt: now },
+      });
+      return { allowed: true, sent: 0, limit };
+    }
+
+    return { allowed: org.emailsSentThisMonth < limit, sent: org.emailsSentThisMonth, limit };
+  });
 }
 
 export async function checkSnippetLimit(orgId: string, plan: PlanTier): Promise<{ allowed: boolean; current: number; limit: number }> {
