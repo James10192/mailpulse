@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { getEmailProvider } from "@/lib/email";
 
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -14,22 +15,22 @@ interface SendEmailOptions {
 }
 
 export async function sendEmail(options: SendEmailOptions) {
-  const { data, error } = await resend.emails.send({
+  const provider = getEmailProvider();
+  const result = await provider.send({
     from: options.from ?? process.env.RESEND_FROM_EMAIL!,
     to: options.to,
     subject: options.subject,
     html: options.html,
-    text: options.text,
     replyTo: options.replyTo,
     headers: options.headers,
     tags: options.tags,
   });
 
-  if (error) {
-    throw new Error(`Failed to send email: ${error.message}`);
+  if (result.error) {
+    throw new Error(`Failed to send email: ${result.error}`);
   }
 
-  return data;
+  return { id: result.id };
 }
 
 export async function sendCampaignEmail(params: {

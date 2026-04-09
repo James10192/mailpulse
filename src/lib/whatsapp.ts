@@ -1,6 +1,9 @@
 // Unified WhatsApp client — routes to Baileys (Evolution API) or Meta Cloud API
 // based on the organization's whatsappMode setting.
 
+import type { IWhatsAppProvider, WhatsAppProviderConfig } from "@/lib/whatsapp/types";
+import { BaileysProvider } from "@/lib/whatsapp-baileys";
+import { MetaProvider } from "@/lib/whatsapp-meta";
 import * as baileys from "@/lib/whatsapp-baileys";
 import * as meta from "@/lib/whatsapp-meta";
 
@@ -19,6 +22,33 @@ interface OrgWhatsAppConfig {
   metaAccessToken: string | null;
 }
 
+function createProvider(config: WhatsAppProviderConfig): IWhatsAppProvider {
+  switch (config.mode) {
+    case "BAILEYS":
+      return new BaileysProvider(config.instanceName);
+    case "META":
+      return new MetaProvider(config.phoneNumberId, config.accessToken);
+  }
+}
+
+function resolveProviderConfig(org: OrgWhatsAppConfig): WhatsAppProviderConfig {
+  if (org.whatsappMode === "META") {
+    if (!org.metaPhoneNumberId || !org.metaAccessToken) {
+      throw new Error("Meta Cloud API non configure pour cette organisation.");
+    }
+    return {
+      mode: "META",
+      phoneNumberId: org.metaPhoneNumberId,
+      accessToken: org.metaAccessToken,
+    };
+  }
+
+  if (!org.evoInstanceName) {
+    throw new Error("Instance WhatsApp non configuree. Scannez le QR code.");
+  }
+  return { mode: "BAILEYS", instanceName: org.evoInstanceName };
+}
+
 export async function sendWhatsApp(
   org: OrgWhatsAppConfig,
   to: string,
@@ -28,15 +58,15 @@ export async function sendWhatsApp(
     throw new Error("WhatsApp non active pour cette organisation.");
   }
 
-  if (org.whatsappMode === "META") {
-    return meta.sendText(org, to, text);
+  const config = resolveProviderConfig(org);
+  const provider = createProvider(config);
+  const result = await provider.sendText(to, text);
+
+  if (!result.success) {
+    throw new Error(result.error ?? "Echec de l'envoi WhatsApp.");
   }
 
-  // Baileys via Evolution API
-  if (!org.evoInstanceName) {
-    throw new Error("Instance WhatsApp non configuree. Scannez le QR code.");
-  }
-  return baileys.sendText(org.evoInstanceName, to, text);
+  return result;
 }
 
 export async function getConnectionStatus(org: OrgWhatsAppConfig) {

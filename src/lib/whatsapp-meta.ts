@@ -1,6 +1,8 @@
 // Meta WhatsApp Cloud API client (Graph API)
 // Docs: https://developers.facebook.com/docs/whatsapp/cloud-api
 
+import type { IWhatsAppProvider, WhatsAppSendResult } from "@/lib/whatsapp/types";
+
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 
 interface MetaOrgConfig {
@@ -164,4 +166,33 @@ export function getAppId() {
 
 export function getConfigId() {
   return process.env.META_CONFIG_ID || "";
+}
+
+// ─── IWhatsAppProvider implementation ──────────────────
+
+export class MetaProvider implements IWhatsAppProvider {
+  constructor(
+    private phoneNumberId: string,
+    private accessToken: string,
+  ) {}
+
+  async sendText(to: string, text: string): Promise<WhatsAppSendResult> {
+    try {
+      const result = await sendText(
+        { metaPhoneNumberId: this.phoneNumberId, metaAccessToken: this.accessToken },
+        to,
+        text,
+      );
+      const messageId = result.messages?.[0]?.id;
+      return {
+        success: true,
+        messageId,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Unknown Meta API error",
+      };
+    }
+  }
 }

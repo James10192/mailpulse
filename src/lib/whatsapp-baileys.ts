@@ -1,6 +1,8 @@
 // Evolution API client — REST wrapper for Baileys WhatsApp sessions
 // Docs: https://doc.evolution-api.com
 
+import type { IWhatsAppProvider, WhatsAppSendResult } from "@/lib/whatsapp/types";
+
 const EVO_URL = process.env.EVOLUTION_API_URL || "";
 const EVO_KEY = process.env.EVOLUTION_API_KEY || "";
 
@@ -181,4 +183,25 @@ export async function setWebhook(
 
 export function isConfigured() {
   return !!(EVO_URL && EVO_KEY);
+}
+
+// ─── IWhatsAppProvider implementation ──────────────────
+
+export class BaileysProvider implements IWhatsAppProvider {
+  constructor(private instanceName: string) {}
+
+  async sendText(to: string, text: string): Promise<WhatsAppSendResult> {
+    try {
+      const result = await sendText(this.instanceName, to, text);
+      return {
+        success: true,
+        messageId: result.key.id,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Unknown Baileys error",
+      };
+    }
+  }
 }
