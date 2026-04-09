@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
               },
             },
           })
-          .catch(() => {});
+          .catch((err: unknown) => console.error("[tracking] Failed to record event:", err));
 
         // Update recipient click timestamp + analytics
         prisma.campaignRecipient
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
             data: { clickedAt: new Date() },
           })
           .then(() => updateAnalyticsForRecipient(data.campaignId))
-          .catch(() => {});
+          .catch((err: unknown) => console.error("[tracking] Failed to record event:", err));
       }
     }
   }

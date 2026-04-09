@@ -204,12 +204,33 @@ async function processEvent(event: ResendWebhookEvent) {
 
   // Update campaign analytics if applicable
   if (campaignId) {
-    await updateCampaignAnalytics(campaignId);
+    const analytics = await updateCampaignAnalytics(campaignId);
+
+    // Alert on high bounce/unsubscribe rates
+    if (analytics) {
+      const bounceRate = analytics.bounceRate * 100;
+      const unsubscribeRate =
+        analytics.totalSent > 0
+          ? (analytics.totalUnsubscribed / analytics.totalSent) * 100
+          : 0;
+
+      if (bounceRate > 5 || unsubscribeRate > 2) {
+        console.warn(
+          `[ALERT] High bounce/unsub rate for campaign ${campaignId}: bounce=${bounceRate.toFixed(1)}%, unsub=${unsubscribeRate.toFixed(1)}%`
+        );
+        // TODO: Send notification to org admin
+      }
+    }
+
     revalidatePath("/dashboard/campaigns");
   }
 }
 
-async function updateCampaignAnalytics(campaignId: string) {
+async function updateCampaignAnalytics(campaignId: string): Promise<{
+  bounceRate: number;
+  totalSent: number;
+  totalUnsubscribed: number;
+} | null> {
   const recipients = await prisma.campaignRecipient.findMany({
     where: { campaignId },
     select: {
@@ -230,6 +251,8 @@ async function updateCampaignAnalytics(campaignId: string) {
   const totalComplaints = recipients.filter((r: { complainedAt: Date | null }) => r.complainedAt !== null).length;
   const totalUnsubscribed = recipients.filter((r: { unsubscribedAt: Date | null }) => r.unsubscribedAt !== null).length;
 
+  const bounceRate = totalSent > 0 ? totalBounced / totalSent : 0;
+
   await prisma.campaignAnalytics.upsert({
     where: { campaignId },
     create: {
@@ -245,7 +268,7 @@ async function updateCampaignAnalytics(campaignId: string) {
       totalUnsubscribed,
       openRate: totalDelivered > 0 ? totalOpened / totalDelivered : 0,
       clickRate: totalDelivered > 0 ? totalClicked / totalDelivered : 0,
-      bounceRate: totalSent > 0 ? totalBounced / totalSent : 0,
+      bounceRate,
     },
     update: {
       totalSent,
@@ -259,7 +282,9 @@ async function updateCampaignAnalytics(campaignId: string) {
       totalUnsubscribed,
       openRate: totalDelivered > 0 ? totalOpened / totalDelivered : 0,
       clickRate: totalDelivered > 0 ? totalClicked / totalDelivered : 0,
-      bounceRate: totalSent > 0 ? totalBounced / totalSent : 0,
+      bounceRate,
     },
   });
+
+  return { bounceRate, totalSent, totalUnsubscribed };
 }
