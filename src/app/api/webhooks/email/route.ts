@@ -233,7 +233,15 @@ async function processEvent(event: ResendWebhookEvent) {
 
   // Update campaign analytics if applicable
   if (campaignId) {
-    await recalculateCampaignAnalytics(campaignId);
+    const analytics = await recalculateCampaignAnalytics(campaignId);
+
+    // Alert on high bounce/unsubscribe rates
+    if (analytics.bounceRate > 5 || analytics.unsubscribeRate > 2) {
+      console.warn(
+        `[ALERT] High bounce/unsub rate for campaign ${campaignId}: bounce=${analytics.bounceRate.toFixed(1)}%, unsub=${analytics.unsubscribeRate.toFixed(1)}%`
+      );
+    }
+
     revalidatePath("/dashboard/campaigns");
   }
 }

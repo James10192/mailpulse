@@ -20,6 +20,21 @@ export const heartbeat = mutation({
         lastSeenAt: Date.now(),
       });
     } else {
+      // Validate org has been seen before allowing new presence records
+      const orgExists = await ctx.db
+        .query("dashboardStats")
+        .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+        .first();
+      if (!orgExists) {
+        const presenceExists = await ctx.db
+          .query("presence")
+          .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+          .first();
+        if (!presenceExists) {
+          throw new Error("Unknown organization");
+        }
+      }
+
       await ctx.db.insert("presence", {
         ...args,
         lastSeenAt: Date.now(),

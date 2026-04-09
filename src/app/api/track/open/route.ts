@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
               },
             },
           })
-          .catch(() => {});
+          .catch((err: unknown) => console.error("[tracking] Failed to record open event:", err));
 
         prisma.campaignRecipient
           .update({
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
             data: { openedAt: new Date() },
           })
           .then(() => recalculateCampaignAnalytics(data.campaignId))
-          .catch(() => {});
+          .catch((err: unknown) => console.error("[tracking] Failed to update open analytics:", err));
       }
     }
   }
@@ -59,4 +59,3 @@ export async function GET(request: NextRequest) {
     },
   });
 }
-

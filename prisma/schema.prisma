@@ -208,6 +208,7 @@ model Contact {
 
   @@unique([email, organizationId])
   @@index([organizationId, subscribed])
+  @@index([organizationId, createdAt])
   @@index([engagementScore])
   @@map("contact")
 }
@@ -241,6 +242,7 @@ model ContactList {
   members        ContactListMember[]
   campaigns      Campaign[]
 
+  @@index([organizationId])
   @@map("contact_list")
 }
 
@@ -332,6 +334,7 @@ model CampaignRecipient {
 
   @@unique([campaignId, contactId])
   @@index([campaignId, sentAt])
+  @@index([contactId])
   @@map("campaign_recipient")
 }
 

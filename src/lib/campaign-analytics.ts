@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 
-export async function recalculateCampaignAnalytics(campaignId: string) {
+export async function recalculateCampaignAnalytics(campaignId: string): Promise<{
+  bounceRate: number;
+  unsubscribeRate: number;
+  totalSent: number;
+}> {
   const recipients = await prisma.campaignRecipient.findMany({
     where: { campaignId },
     select: {
@@ -63,4 +67,6 @@ export async function recalculateCampaignAnalytics(campaignId: string) {
       unsubscribeRate,
     },
   });
+
+  return { bounceRate, unsubscribeRate, totalSent };
 }
