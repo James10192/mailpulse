@@ -20,8 +20,11 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("sidebar-collapsed");
-    if (stored === "true") setCollapsed(true);
+    const timer = window.setTimeout(() => {
+      const stored = localStorage.getItem("sidebar-collapsed");
+      if (stored === "true") setCollapsed(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   function toggle() {

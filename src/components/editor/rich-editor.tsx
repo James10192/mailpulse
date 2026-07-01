@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import { cn } from "@/lib/utils";
-import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
+import { useEditor, EditorContent, ReactRenderer, type Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { Plugin, PluginKey, NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { StarterKit } from "@tiptap/starter-kit";
@@ -110,7 +110,10 @@ interface MentionListRef { onKeyDown: (p: { event: KeyboardEvent }) => boolean; 
 const MentionList = forwardRef<MentionListRef, { items: typeof VARIABLES; command: (i: { id: string; label: string }) => void }>(
   ({ items, command }, ref) => {
     const [sel, setSel] = useState(0);
-    useEffect(() => setSel(0), [items]);
+    useEffect(() => {
+      const timer = window.setTimeout(() => setSel(0), 0);
+      return () => window.clearTimeout(timer);
+    }, [items]);
     useImperativeHandle(ref, () => ({
       onKeyDown: ({ event }) => {
         if (event.key === "ArrowUp") { setSel((i) => (i + items.length - 1) % items.length); return true; }
@@ -136,6 +139,17 @@ const MentionList = forwardRef<MentionListRef, { items: typeof VARIABLES; comman
 );
 MentionList.displayName = "MentionList";
 
+type MentionSuggestionProps = {
+  items: typeof VARIABLES;
+  command: (item: { id: string; label: string }) => void;
+  editor: Editor;
+  clientRect?: () => DOMRect | null;
+};
+
+type MentionKeyDownProps = {
+  event: KeyboardEvent;
+};
+
 const mentionSuggestion = {
   char: "@",
   items: ({ query }: { query: string }) => VARIABLES.filter((v) => v.label.toLowerCase().includes(query.toLowerCase()) || v.name.toLowerCase().includes(query.toLowerCase())),
@@ -143,18 +157,18 @@ const mentionSuggestion = {
     let component: ReactRenderer<MentionListRef>;
     let container: HTMLDivElement;
     return {
-      onStart: (props: any) => {
+      onStart: (props: MentionSuggestionProps) => {
         container = document.createElement("div"); container.style.position = "absolute"; container.style.zIndex = "9999";
         document.body.appendChild(container);
         component = new ReactRenderer(MentionList, { props: { items: props.items, command: props.command }, editor: props.editor });
         container.appendChild(component.element);
         const r = props.clientRect?.(); if (r) { container.style.left = `${r.left}px`; container.style.top = `${r.bottom + 4}px`; }
       },
-      onUpdate: (props: any) => {
+      onUpdate: (props: MentionSuggestionProps) => {
         component?.updateProps({ items: props.items, command: props.command });
         const r = props.clientRect?.(); if (r && container) { container.style.left = `${r.left}px`; container.style.top = `${r.bottom + 4}px`; }
       },
-      onKeyDown: (props: any) => { if (props.event.key === "Escape") return true; return component?.ref?.onKeyDown(props) ?? false; },
+      onKeyDown: (props: MentionKeyDownProps) => { if (props.event.key === "Escape") return true; return component?.ref?.onKeyDown(props) ?? false; },
       onExit: () => { component?.destroy(); container?.remove(); },
     };
   },

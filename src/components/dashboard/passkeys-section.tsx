@@ -45,6 +45,16 @@ export function PasskeysSection() {
   const [deleting, setDeleting] = useState(false);
   const [supported, setSupported] = useState(true);
 
+  async function loadPasskeys() {
+    try {
+      const res = await authClient.passkey.listUserPasskeys();
+      if (res?.data) setPasskeys(res.data as unknown as PasskeyData[]);
+    } catch {
+      // No passkeys or not available
+    }
+    setLoading(false);
+  }
+
   useEffect(() => {
     // Check WebAuthn support
     if (typeof window !== "undefined" && !window.PublicKeyCredential) {
@@ -55,16 +65,6 @@ export function PasskeysSection() {
 
     loadPasskeys();
   }, []);
-
-  async function loadPasskeys() {
-    try {
-      const res = await authClient.passkey.listUserPasskeys();
-      if (res?.data) setPasskeys(res.data as unknown as PasskeyData[]);
-    } catch {
-      // No passkeys or not available
-    }
-    setLoading(false);
-  }
 
   async function handleAddPlatform() {
     setAdding(true);

@@ -159,13 +159,13 @@ export default function ArchitecturePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <SectionCard title="Prisma" icon={Database}>
-          <p>Prisma heberge les tables d'authentification, contacts, campagnes, analytics, domaines, expediteurs, automations et capture pages.</p>
+          <p>Prisma heberge les tables d&apos;authentification, contacts, campagnes, analytics, domaines, expediteurs, automations et capture pages.</p>
         </SectionCard>
         <SectionCard title="Convex" icon={Signal}>
           <p>Convex est utilise pour les stats live, notifications, presence utilisateur et activity feed.</p>
         </SectionCard>
         <SectionCard title="Integrations externes" icon={Upload}>
-          <p>Resend gere l'email transactionnel et marketing, tandis que Cloudflare R2 gere les assets et uploads publics.</p>
+          <p>Resend gere l&apos;email transactionnel et marketing, tandis que Cloudflare R2 gere les assets et uploads publics.</p>
         </SectionCard>
       </div>
 
