@@ -16,6 +16,7 @@ const publicPrefixes = [
   "/api/track",
   "/api/unsubscribe",
   "/api/contact",
+  "/api/cron",
   "/api/health",
   "/contact",
   "/capture",
