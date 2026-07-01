@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, KeyRound, PlugZap, RotateCcw, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Copy, KeyRound, PlugZap, RotateCcw, ShieldCheck, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,49 @@ type IntegrationKey = {
   createdAt: string;
 };
 
-export function IntegrationsClient({ keys, endpointUrl }: { keys: IntegrationKey[]; endpointUrl: string }) {
+type ResourceStatus = {
+  hasVerifiedDomain: boolean;
+  mailpulseEmailAvailable: boolean;
+  whatsappEnabled: boolean;
+  whatsappMode: "BAILEYS" | "META";
+  hasMetaConfig: boolean;
+  hasBaileysConfig: boolean;
+  mailpulseWhatsAppAvailable: boolean;
+};
+
+function ResourceItem({
+  ok,
+  title,
+  description,
+}: {
+  ok: boolean;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+      {ok ? (
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+      ) : (
+        <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+      )}
+      <div>
+        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{title}</p>
+        <p className="mt-1 text-xs text-zinc-500">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+export function IntegrationsClient({
+  keys,
+  endpointUrl,
+  resourceStatus,
+}: {
+  keys: IntegrationKey[];
+  endpointUrl: string;
+  resourceStatus: ResourceStatus;
+}) {
   const [revealedKey, setRevealedKey] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -124,6 +166,54 @@ export function IntegrationsClient({ keys, endpointUrl }: { keys: IntegrationKey
           </div>
 
           <Separator />
+
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Ressources de relance</p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Utilisez vos propres ressources quand elles sont prêtes. MailPulse peut prendre le relais avec des limites visibles.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ResourceItem
+                ok={resourceStatus.hasVerifiedDomain}
+                title="Domaine email vérifié"
+                description={
+                  resourceStatus.hasVerifiedDomain
+                    ? "Les emails Filon peuvent partir avec votre domaine."
+                    : "Ajoutez SPF, DKIM et DMARC dans Envoi > Domaines pour protéger la délivrabilité."
+                }
+              />
+              <ResourceItem
+                ok={resourceStatus.mailpulseEmailAvailable}
+                title="Domaine MailPulse disponible"
+                description={
+                  resourceStatus.mailpulseEmailAvailable
+                    ? "Fallback actif si votre domaine n'est pas encore prêt."
+                    : "Fallback inactif. Configurez MAILPULSE_MANAGED_FROM_EMAIL côté plateforme."
+                }
+              />
+              <ResourceItem
+                ok={resourceStatus.whatsappEnabled && resourceStatus.hasMetaConfig && resourceStatus.whatsappMode === "META"}
+                title="WhatsApp Meta Cloud API"
+                description="Recommandé en production. Nécessite WABA, numéro, token et templates approuvés hors fenêtre 24h."
+              />
+              <ResourceItem
+                ok={resourceStatus.whatsappEnabled && resourceStatus.hasBaileysConfig && resourceStatus.whatsappMode === "BAILEYS"}
+                title="WhatsApp Web via QR code"
+                description="Pratique pour démarrer. Non officiel, session fragile, risque de suspension en volume."
+              />
+              <ResourceItem
+                ok={resourceStatus.mailpulseWhatsAppAvailable}
+                title="Numero WhatsApp MailPulse"
+                description={
+                  resourceStatus.mailpulseWhatsAppAvailable
+                    ? "Ressource plateforme disponible si le client n'a pas encore de numéro."
+                    : "Indisponible pour le moment. Activez la ressource plateforme avant de la proposer."
+                }
+              />
+            </div>
+          </div>
 
           <Button onClick={generate} disabled={pending}>
             <KeyRound className="h-4 w-4" />

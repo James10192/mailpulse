@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  MessageSquare, Send, Loader2, Check, AlertTriangle,
-  Info, Users, Tag, Rocket, QrCode, Wifi, WifiOff,
+  MessageSquare, Send, Loader2, Check,
+  Users, Tag, QrCode, Wifi, WifiOff,
   Settings2, Unplug, RefreshCw,
 } from "lucide-react";
 import {
@@ -12,6 +12,7 @@ import {
   disconnectWhatsApp,
 } from "./actions";
 import { HelpModal, HelpButton, StepList } from "@/components/dashboard/help-modal";
+import { WhatsAppLimitations } from "./whatsapp-limitations";
 
 import type { WhatsAppMode } from "@/lib/whatsapp";
 
@@ -25,6 +26,7 @@ export function MessagingClient({
   evoStatus,
   metaConfigured,
   baileysAvailable,
+  mailpulseWhatsAppAvailable,
 }: {
   contactsWithPhone: number;
   availableTags: string[];
@@ -35,6 +37,7 @@ export function MessagingClient({
   evoStatus: string | null;
   metaConfigured: boolean;
   baileysAvailable: boolean;
+  mailpulseWhatsAppAvailable: boolean;
 }) {
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [phone, setPhone] = useState("");
@@ -170,6 +173,8 @@ export function MessagingClient({
           Envoyez des messages WhatsApp a vos contacts
         </p>
       </div>
+
+      <WhatsAppLimitations mailpulseWhatsAppAvailable={mailpulseWhatsAppAvailable} />
 
       {/* ─── Not activated ─── */}
       {!whatsappEnabled && (

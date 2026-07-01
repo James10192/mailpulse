@@ -1,0 +1,27 @@
+name: Filon Recovery Runner
+
+on:
+  schedule:
+    - cron: "3,13,23,33,43,53 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: Process due recoveries
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Call MailPulse Filon recovery cron
+        env:
+          MAILPULSE_APP_URL: ${{ secrets.MAILPULSE_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$MAILPULSE_APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail --show-error --silent \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "$MAILPULSE_APP_URL/api/cron/filon-recoveries"

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Ban, ExternalLink, MoreHorizontal } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle2, Clock, ExternalLink, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,11 +41,24 @@ type Recovery = {
   contactId: string;
 };
 
+type AutomationState = {
+  dueSteps: number;
+  lastRunAt: string | null;
+  errors: Array<{
+    id: string;
+    channel: string;
+    message: string;
+    clientName: string;
+    opportunityTitle: string;
+    updatedAt: string;
+  }>;
+};
+
 const statusLabels: Record<string, string> = {
-  PENDING: "Prepare",
+  PENDING: "Préparé",
   ACTIVE: "Actif",
-  COMPLETED: "Termine",
-  CANCELLED: "Annule",
+  COMPLETED: "Terminé",
+  CANCELLED: "Annulé",
   FAILED: "Erreur",
 };
 
@@ -63,9 +76,11 @@ function formatDate(value: string | null) {
 }
 
 export function RecoveriesClient({
+  automation,
   recoveries,
   chartData,
 }: {
+  automation: AutomationState;
   recoveries: Recovery[];
   chartData: Array<{ status: string; count: number }>;
 }) {
@@ -110,14 +125,47 @@ export function RecoveriesClient({
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Mode prepare</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              Automatisation active
+            </CardTitle>
             <CardDescription>
-              Aucun email ou WhatsApp n&apos;est envoye automatiquement tant que le runner n&apos;est pas branche.
+              GitHub Actions appelle le runner toutes les 10 minutes.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm text-zinc-500 dark:text-zinc-400">
+          <CardContent className="space-y-4 text-sm text-zinc-500 dark:text-zinc-400">
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800">
+                <span>Relances dues</span>
+                <Badge variant={automation.dueSteps > 0 ? "filon" : "outline"}>{automation.dueSteps}</Badge>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800">
+                <span>Dernière activité</span>
+                <span className="text-xs">{formatDate(automation.lastRunAt)}</span>
+              </div>
+            </div>
             <p>J+0 email facture, J+3 rappel doux, J+7 WhatsApp, J+10 email ferme, J+14 action humaine.</p>
-            <Badge variant="filon">Pret pour Filon</Badge>
+            {automation.errors.length > 0 ? (
+              <div className="space-y-2">
+                <p className="flex items-center gap-2 text-xs font-medium text-amber-600 dark:text-amber-300">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Erreurs récentes
+                </p>
+                {automation.errors.map((error) => (
+                  <div key={error.id} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                    <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                      {error.clientName} · {error.channel.toLowerCase()}
+                    </p>
+                    <p className="mt-1 text-xs">{error.message}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-300">
+                <Clock className="h-3.5 w-3.5" />
+                Aucune erreur récente.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -179,7 +227,7 @@ export function RecoveriesClient({
                           {recovery.status !== "CANCELLED" && recovery.status !== "COMPLETED" && (
                             <DropdownMenuItem className="text-red-600" onSelect={() => setCancelId(recovery.id)}>
                               <Ban className="h-4 w-4" />
-                              Annuler sequence
+                              Annuler séquence
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -209,7 +257,7 @@ export function RecoveriesClient({
               event.preventDefault();
               void confirmCancel();
             }}>
-              Annuler la sequence
+              Annuler la séquence
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

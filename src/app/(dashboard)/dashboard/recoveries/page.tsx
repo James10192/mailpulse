@@ -5,8 +5,9 @@ import { RecoveriesClient } from "./recoveries-client";
 
 export default async function RecoveriesPage() {
   const { org } = await getCurrentUserAndOrg();
-  const recoveries = org
-    ? await prisma.filonRecovery.findMany({
+  const [recoveries, dueSteps, lastActivity, failedSteps] = org
+    ? await Promise.all([
+        prisma.filonRecovery.findMany({
         where: { organizationId: org.id },
         orderBy: { createdAt: "desc" },
         take: 100,
@@ -24,8 +25,41 @@ export default async function RecoveriesPage() {
           lastReminderAt: true,
           contactId: true,
         },
-      })
-    : [];
+        }),
+        prisma.filonRecoveryStep.count({
+          where: {
+            status: { in: ["PREPARED", "PENDING"] },
+            scheduledAt: { lte: new Date() },
+            recovery: { organizationId: org.id, status: { notIn: ["CANCELLED", "COMPLETED"] } },
+          },
+        }),
+        prisma.filonRecoveryStep.findFirst({
+          where: { recovery: { organizationId: org.id }, status: { in: ["SENT", "FAILED"] } },
+          orderBy: { updatedAt: "desc" },
+          select: { updatedAt: true },
+        }),
+        prisma.filonRecoveryStep.findMany({
+          where: {
+            status: "FAILED",
+            recovery: { organizationId: org.id },
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 3,
+          select: {
+            id: true,
+            channel: true,
+            errorMessage: true,
+            updatedAt: true,
+            recovery: {
+              select: {
+                clientName: true,
+                opportunityTitle: true,
+              },
+            },
+          },
+        }),
+      ])
+    : [[], 0, null, []];
 
   const counts = recoveries.reduce<Record<string, number>>((acc, recovery) => {
     acc[recovery.status] = (acc[recovery.status] ?? 0) + 1;
@@ -36,6 +70,18 @@ export default async function RecoveriesPage() {
     <>
       <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Recouvrements" }]} />
       <RecoveriesClient
+        automation={{
+          dueSteps,
+          lastRunAt: lastActivity?.updatedAt.toISOString() ?? null,
+          errors: failedSteps.map((step) => ({
+            id: step.id,
+            channel: step.channel,
+            message: step.errorMessage ?? "Erreur inconnue pendant la relance.",
+            clientName: step.recovery.clientName,
+            opportunityTitle: step.recovery.opportunityTitle,
+            updatedAt: step.updatedAt.toISOString(),
+          })),
+        }}
         chartData={Object.entries(counts).map(([status, count]) => ({
           status: status.toLowerCase(),
           count,

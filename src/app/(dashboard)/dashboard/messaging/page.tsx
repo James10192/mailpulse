@@ -51,6 +51,7 @@ export default async function MessagingPage() {
         evoStatus={org?.evoInstanceStatus ?? null}
         metaConfigured={!!(org?.metaPhoneNumberId)}
         baileysAvailable={isConfigured()}
+        mailpulseWhatsAppAvailable={process.env.MAILPULSE_MANAGED_WHATSAPP_ENABLED === "true"}
       />
     </>
   );

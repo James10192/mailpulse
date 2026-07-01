@@ -26,6 +26,7 @@ export function serializeFilonRecoveryStatus(recovery: RecoveryWithSteps) {
       scheduledAt: step.scheduledAt.toISOString(),
       subject: step.subject,
       templateKey: step.templateKey,
+      errorMessage: step.errorMessage,
     })) ?? [],
   };
 }

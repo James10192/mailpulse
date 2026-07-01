@@ -24,7 +24,7 @@ function variables(ctx: TemplateContext) {
     amountDue: new Intl.NumberFormat("fr-FR").format(ctx.amountDue),
     currency: ctx.currency,
     dueDate: new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(ctx.dueDate),
-    companyName: ctx.companyName ?? "notre equipe",
+    companyName: ctx.companyName ?? "notre équipe",
   };
 }
 
@@ -41,12 +41,12 @@ export function defaultRecoveryTemplate(key: RecoveryTemplateKey, ctx: TemplateC
     filon_invoice_confirmation: {
       key,
       subject: "Confirmation de facture - {{opportunityTitle}}",
-      body: "Bonjour {{clientName}},<br><br>Nous vous confirmons la facture liee a {{opportunityTitle}} pour un montant de {{amountDue}} {{currency}}, avec une echeance au {{dueDate}}.<br><br>Merci de nous indiquer si un document complementaire est necessaire.<br><br>{{companyName}}",
+      body: "Bonjour {{clientName}},<br><br>Nous vous confirmons la facture liée à {{opportunityTitle}} pour un montant de {{amountDue}} {{currency}}, avec une échéance au {{dueDate}}.<br><br>Merci de nous indiquer si un document complémentaire est nécessaire.<br><br>{{companyName}}",
     },
     filon_soft_email: {
       key,
       subject: "Petit rappel - {{opportunityTitle}}",
-      body: "Bonjour {{clientName}},<br><br>Nous revenons vers vous au sujet du reglement de {{amountDue}} {{currency}} pour {{opportunityTitle}}, attendu le {{dueDate}}.<br><br>Si le paiement est deja en cours, vous pouvez ignorer ce message. Sinon, nous restons disponibles pour toute precision.<br><br>{{companyName}}",
+      body: "Bonjour {{clientName}},<br><br>Nous revenons vers vous au sujet du règlement de {{amountDue}} {{currency}} pour {{opportunityTitle}}, attendu le {{dueDate}}.<br><br>Si le paiement est déjà en cours, vous pouvez ignorer ce message. Sinon, nous restons disponibles pour toute précision.<br><br>{{companyName}}",
     },
     filon_short_whatsapp: {
       key,
@@ -55,11 +55,11 @@ export function defaultRecoveryTemplate(key: RecoveryTemplateKey, ctx: TemplateC
     filon_firm_email: {
       key,
       subject: "Relance paiement - {{opportunityTitle}}",
-      body: "Bonjour {{clientName}},<br><br>Sauf erreur de notre part, le reglement de {{amountDue}} {{currency}} lie a {{opportunityTitle}} reste en attente depuis l'echeance du {{dueDate}}.<br><br>Merci de nous confirmer la date de paiement prevue afin que nous puissions mettre le dossier a jour.<br><br>{{companyName}}",
+      body: "Bonjour {{clientName}},<br><br>Sauf erreur de notre part, le règlement de {{amountDue}} {{currency}} lié à {{opportunityTitle}} reste en attente depuis l'échéance du {{dueDate}}.<br><br>Merci de nous confirmer la date de paiement prévue afin que nous puissions mettre le dossier à jour.<br><br>{{companyName}}",
     },
     filon_human_action: {
       key,
-      body: "Action humaine recommandee: verifier le paiement de {{amountDue}} {{currency}} pour {{clientName}} et remonter le statut dans Filon.",
+      body: "Action humaine recommandée: vérifier le paiement de {{amountDue}} {{currency}} pour {{clientName}} et remonter le statut dans Filon.",
     },
   };
 
