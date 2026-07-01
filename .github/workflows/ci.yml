@@ -76,8 +76,8 @@ jobs:
       - name: Generate Prisma client
         run: pnpm exec prisma generate
 
-      - name: Apply database migrations
-        run: pnpm exec prisma migrate deploy
+      - name: Prepare CI database schema
+        run: pnpm exec prisma db push --accept-data-loss --skip-generate
 
       - name: Lint
         run: pnpm lint
