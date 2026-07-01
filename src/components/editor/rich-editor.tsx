@@ -143,7 +143,7 @@ type MentionSuggestionProps = {
   items: typeof VARIABLES;
   command: (item: { id: string; label: string }) => void;
   editor: Editor;
-  clientRect?: () => DOMRect | null;
+  clientRect?: (() => DOMRect | null) | null;
 };
 
 type MentionKeyDownProps = {
