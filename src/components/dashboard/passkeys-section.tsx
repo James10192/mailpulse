@@ -65,7 +65,10 @@ export function PasskeysSection() {
       return () => window.clearTimeout(timer);
     }
 
-    loadPasskeys();
+    const timer = window.setTimeout(() => {
+      void loadPasskeys();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   async function handleAddPlatform() {
