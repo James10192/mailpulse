@@ -58,9 +58,11 @@ export function PasskeysSection() {
   useEffect(() => {
     // Check WebAuthn support
     if (typeof window !== "undefined" && !window.PublicKeyCredential) {
-      setSupported(false);
-      setLoading(false);
-      return;
+      const timer = window.setTimeout(() => {
+        setSupported(false);
+        setLoading(false);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
 
     loadPasskeys();
