@@ -77,7 +77,7 @@ jobs:
         run: pnpm exec prisma generate
 
       - name: Prepare CI database schema
-        run: pnpm exec prisma db push --accept-data-loss --skip-generate
+        run: pnpm exec prisma db push --accept-data-loss
 
       - name: Lint
         run: pnpm lint
