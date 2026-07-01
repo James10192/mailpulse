@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -138,11 +138,10 @@ export function CampaignsClient({
     setContentCache((prev) => ({ ...prev, [id]: html }));
   }, [contentCache]);
 
-  useEffect(() => {
-    if (selectedId && contentCache[selectedId] === undefined) {
-      loadContent(selectedId);
-    }
-  }, [selectedId, contentCache, loadContent]);
+  function selectCampaign(id: string) {
+    setSelectedId(id);
+    void loadContent(id);
+  }
 
   async function handleCancel(id: string) {
     setCancellingId(id);
@@ -153,7 +152,7 @@ export function CampaignsClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack app-shell-safe">
       {overLimit && limit !== -1 && (
         <LimitWarningBanner
           resourceLabel="campagnes actives"
@@ -164,7 +163,7 @@ export function CampaignsClient({
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Campagnes</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
@@ -204,8 +203,8 @@ export function CampaignsClient({
       </div>
 
       {/* Filters row */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative max-w-sm flex-1">
+      <div className="flex flex-col lg:flex-row gap-3">
+        <div className="relative flex-1 lg:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
           <input
             type="text"
@@ -215,10 +214,10 @@ export function CampaignsClient({
             className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
           />
         </div>
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <button
             onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
-            className="inline-flex items-center gap-2 px-3 py-2 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer"
+            className="inline-flex w-full sm:w-auto items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer"
           >
             <ArrowUpDown className="h-3.5 w-3.5" />
             {campaignSortOptions.find((s) => s.value === sortBy)?.label}
@@ -272,14 +271,14 @@ export function CampaignsClient({
               return (
                 <button
                   key={campaign.id}
-                  onClick={() => setSelectedId(campaign.id)}
+                  onClick={() => selectCampaign(campaign.id)}
                   className={`w-full text-left p-4 border-b border-zinc-100 dark:border-zinc-800/50 transition-colors cursor-pointer ${
                     isSelected
                       ? "bg-orange-500/5 border-l-2 border-l-orange-500"
                       : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30 border-l-2 border-l-transparent"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-1">
                     <h3 className="font-medium text-sm text-zinc-900 dark:text-zinc-100 truncate pr-2">
                       {campaign.name}
                     </h3>
@@ -291,7 +290,7 @@ export function CampaignsClient({
                   <p className="text-xs text-zinc-500 truncate">
                     {campaign.subject || "Sans sujet"}
                   </p>
-                  <div className="flex items-center gap-3 mt-2 text-[11px] text-zinc-400">
+                  <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-zinc-400">
                     {campaign._count?.recipients !== undefined && (
                       <span className="inline-flex items-center gap-1">
                         <Users className="h-3 w-3" />
@@ -377,7 +376,7 @@ export function CampaignsClient({
   );
 }
 
-/* ─── Campaign Detail Panel ─── */
+/* Campaign Detail Panel */
 
 function CampaignDetailPanel({
   campaign,
@@ -406,7 +405,7 @@ function CampaignDetailPanel({
     <div className="flex-1 overflow-y-auto max-h-[700px]">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white dark:bg-zinc-900/95 backdrop-blur border-b border-zinc-200 dark:border-zinc-800 px-5 py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3 min-w-0">
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 truncate">
               {campaign.name}
@@ -416,7 +415,7 @@ function CampaignDetailPanel({
               {status.label}
             </span>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             {campaign.status === "DRAFT" && (
               <>
                 <Link
@@ -483,7 +482,7 @@ function CampaignDetailPanel({
         </div>
       </div>
 
-      <div className="p-5 space-y-5">
+      <div className="p-4 sm:p-5 space-y-5">
         {/* Cancel error */}
         {cancelError && (
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
@@ -500,7 +499,7 @@ function CampaignDetailPanel({
           {campaign.fromEmail ? (
             <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800">
               <p className="text-sm text-zinc-900 dark:text-zinc-100">
-                {campaign.fromName || "—"} &lt;{campaign.fromEmail}&gt;
+                {campaign.fromName || "-"} &lt;{campaign.fromEmail}&gt;
               </p>
               {campaign.replyTo && (
                 <p className="text-xs text-zinc-500 mt-0.5">
@@ -529,7 +528,7 @@ function CampaignDetailPanel({
                 href="/dashboard/senders"
                 className="text-xs text-orange-500 hover:text-orange-400 font-medium"
               >
-                Configurer un expediteur →
+                Configurer un expediteur -&gt;
               </Link>
             </div>
           )}
@@ -599,7 +598,7 @@ function CampaignDetailPanel({
               <BarChart3 className="h-3.5 w-3.5" />
               Resultats
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <StatCard label="Envoyes" value={a.totalSent} />
               <StatCard label="Delivres" value={a.totalDelivered} />
               <StatCard
@@ -671,7 +670,7 @@ function CampaignDetailPanel({
                   href={`/dashboard/campaigns/${campaign.id}/edit`}
                   className="text-xs text-orange-500 hover:text-orange-400 mt-1 inline-block"
                 >
-                  Creer le contenu →
+                  Creer le contenu -&gt;
                 </Link>
               )}
             </div>
@@ -690,7 +689,7 @@ function CampaignDetailPanel({
   );
 }
 
-/* ─── Stat Card ─── */
+/* Stat Card */
 
 function StatCard({
   label,

@@ -1,7 +1,19 @@
 import { Resend } from "resend";
 import { getEmailProvider } from "@/lib/email";
 
-export const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY is required to send or manage emails.");
+  }
+  return new Resend(apiKey);
+}
+
+export const resend = new Proxy({} as Resend, {
+  get(_target, property) {
+    return Reflect.get(getResendClient(), property);
+  },
+});
 
 interface SendEmailOptions {
   to: string;
@@ -21,6 +33,7 @@ export async function sendEmail(options: SendEmailOptions) {
     to: options.to,
     subject: options.subject,
     html: options.html,
+    text: options.text,
     replyTo: options.replyTo,
     headers: options.headers,
     tags: options.tags,

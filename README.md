@@ -1,169 +1,151 @@
-<p align="center">
-  <img src="https://img.icons8.com/fluency/96/email-open.png" alt="MailPulse" width="80" />
-</p>
+# MailPulse
 
-<h1 align="center">MailPulse</h1>
+MailPulse est une plateforme open source d'email marketing avec analytics temps reel, tracking, onboarding multi-organisation et dashboard operable par une equipe marketing.
 
-<p align="center">
-  <strong>Open-source email marketing platform with real-time analytics</strong>
-</p>
+## Ce que contient le projet
 
-<p align="center">
-  <a href="#features">Features</a> &bull;
-  <a href="#tech-stack">Stack</a> &bull;
-  <a href="#getting-started">Setup</a> &bull;
-  <a href="#architecture">Architecture</a> &bull;
-  <a href="#roadmap">Roadmap</a>
-</p>
+- Dashboard App Router pour gerer campagnes, contacts, automations, pages de capture et analytics
+- Authentification Better Auth avec organisations, OAuth et passkeys
+- Persistance metier via Prisma + PostgreSQL
+- Temps reel dashboard via Convex
+- Envoi d'emails et webhooks via Resend
+- Upload d'assets via Cloudflare R2
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Next.js-16-000?logo=next.js" alt="Next.js 16" />
-  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma" alt="Prisma" />
-  <img src="https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind" />
-  <img src="https://img.shields.io/badge/License-MIT-orange" alt="MIT" />
-</p>
+## Stack reelle
 
----
+| Couche | Technologie |
+| --- | --- |
+| Frontend | Next.js 16 App Router + React 19 + Tailwind CSS v4 |
+| UI | composants metier internes + Lucide + Motion + TipTap |
+| Donnees metier | Prisma 7 + PostgreSQL |
+| Temps reel | Convex |
+| Auth | Better Auth + organization plugin + passkeys |
+| Email | Resend |
+| Stockage | Cloudflare R2 |
 
-## Features
+## Architecture
 
-### Core
-- **Campaign Management** — Create, schedule, A/B test, and send email campaigns
-- **Contact Management** — Import CSV, tags, segments, dynamic lists, engagement scoring
-- **Email Templates** — Drag & drop builder with reusable templates
-- **Real-time Dashboard** — Live stats powered by Convex (opens, clicks, bounces)
+```mermaid
+flowchart TD
+  A["Browser"] --> B["Next.js 16 App Router"]
+  B --> C["Server Components + Server Actions"]
+  B --> D["Route Handlers"]
+  C --> E["Prisma + PostgreSQL"]
+  D --> E
+  D --> F["Resend"]
+  D --> G["Cloudflare R2"]
+  B --> H["Convex"]
+  F --> D
+```
 
-### Tracking & Analytics
-- **Open Tracking** — 1x1 transparent pixel with HMAC-signed tokens
-- **Click Tracking** — Link wrapping with 302 redirect, per-link analytics
-- **Bounce Handling** — Automatic hard/soft bounce detection via webhooks
-- **Complaint Detection** — Instant suppression on spam complaints
-- **Unsubscribe** — One-click (RFC 8058) + browser link, GDPR compliant
+### Repartition des responsabilites
 
-### Automation
-- **Drip Campaigns** — Multi-step email sequences with delays
-- **Trigger-based Workflows** — New subscriber, tag added, link clicked, date-based
-- **Conditional Logic** — If/then branching in automation flows
+- `Prisma + PostgreSQL` stocke les contacts, campagnes, analytics, organisations, expediteurs, domaines et tables d'auth.
+- `Convex` porte les notifications live, la presence, l'activity feed et les stats reactives du dashboard.
+- `Resend` gere l'envoi d'emails et renvoie les evenements de delivrabilite, ouverture, clic et plainte.
+- `Cloudflare R2` sert aux uploads et assets publics.
 
-### Infrastructure
-- **Multi-tenant** — Organizations with role-based access (Better Auth)
-- **Deliverability** — SPF/DKIM/DMARC domain verification dashboard
-- **Security** — Credential stuffing protection, bot detection (Better Auth Infra)
+## Organisation du code
 
----
+- `src/app`: pages App Router, layouts, route handlers et pages dashboard
+- `src/components`: UI metier par domaine, dont dashboard, landing, docs et editor
+- `src/lib`: integrations, helpers serveur, auth, analytics, tracking et stockage
+- `convex`: schema et fonctions temps reel
+- `prisma`: schema relationnel et migrations
 
-## Tech Stack
+## Flux importants
 
-| Layer | Technology |
-|-------|-----------|
-| **Framework** | Next.js 16 (App Router, Turbopack) |
-| **Auth** | Better Auth + Organizations + Infra (dash, sentinel) |
-| **Database** | PostgreSQL (Neon) via Prisma 7 |
-| **Real-time** | Convex (live dashboard, notifications, presence) |
-| **Email** | Resend API (sending, webhooks, tracking) |
-| **Storage** | Cloudflare R2 (S3-compatible, zero egress) |
-| **UI** | Tailwind CSS v4 + shadcn/ui + Geist + Lucide |
-| **Deploy** | Vercel |
+### Flux contact
 
----
+1. Un contact est cree depuis le dashboard, un CSV ou une capture page.
+2. La donnee est enregistree dans Prisma.
+3. Les tags, segments, campagnes et analytics reutilisent cette base.
 
-## Getting Started
+### Flux campagne
 
-### Prerequisites
+1. Une campagne est configuree via le dashboard.
+2. Le contenu et les destinataires sont persistes dans Prisma.
+3. L'envoi est confie a Resend.
+4. Les recipients et analytics de campagne sont mis a jour au fil des evenements.
 
-- Node.js 20+
-- pnpm 10+
-- Docker (for local PostgreSQL) or a Neon account
+### Flux tracking et analytics
 
-### 1. Clone & Install
+1. Les clics et ouvertures arrivent via les routes de tracking et webhooks.
+2. Les evenements alimentent Prisma.
+3. Le dashboard live se met a jour via Convex.
+
+## Installation locale
+
+### Prerequis
+
+- Node.js 24+
+- pnpm
+- PostgreSQL local ou instance Neon
+
+### Installation
 
 ```bash
 git clone https://github.com/James10192/mailpulse.git
 cd mailpulse
 pnpm install
-```
-
-### 2. Environment
-
-```bash
 cp .env.example .env.local
-# Edit .env.local with your credentials
 ```
 
-### 3. Database
+### Variables d'environnement principales
+
+- `DATABASE_URL`
+- `BETTER_AUTH_URL`
+- `BETTER_AUTH_SECRET`
+- `NEXT_PUBLIC_CONVEX_URL`
+- `RESEND_API_KEY`
+- `RESEND_WEBHOOK_SECRET`
+- `TRACKING_SECRET`
+- `NEXT_PUBLIC_APP_URL`
+- `CLOUDFLARE_R2_ENDPOINT`
+- `CLOUDFLARE_R2_ACCESS_KEY_ID`
+- `CLOUDFLARE_R2_SECRET_ACCESS_KEY`
+- `CLOUDFLARE_R2_BUCKET`
+- `CLOUDFLARE_R2_PUBLIC_URL`
+
+### Demarrage
 
 ```bash
-# Option A: Local PostgreSQL
 docker compose up -d
-npx prisma migrate dev --name init
-
-# Option B: Neon (cloud)
-# Set DATABASE_URL in .env.local, then:
-npx prisma migrate dev --name init
-```
-
-### 4. Convex (real-time)
-
-```bash
+npx prisma migrate dev
 npx convex dev
-```
-
-### 5. Run
-
-```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+## Conventions utiles
 
----
+- Les mutations UI vivent souvent dans des `actions.ts` proches des pages dashboard.
+- Les integrations externes et helpers serveur vivent sous `src/lib`.
+- Les routes externes sont sous `src/app/api`.
+- Les pages serveur chargent la donnee; les interactions complexes sont deleguees a des composants client.
 
-## Architecture
+## Documentation integree
 
-```
-                    Client (Browser)
-                         |
-                    Next.js 16 App
-                    /     |      \
-               Prisma   Convex   Cloudflare R2
-              (Neon DB)  (Real-time)  (Storage)
-                 |         |           |
-            Campaigns   Dashboard   Templates
-            Contacts    Notifications  Assets
-            Events      Presence     CSV Imports
-            Analytics   Activity
-                 |
-              Resend API
-            (Email Sending)
-                 |
-            Webhooks ───> /api/webhooks/email
-            Tracking ───> /api/track/open + /api/track/click
-```
+La doc embarquee est disponible sous `/docs` et couvre:
 
-**Why hybrid Prisma + Convex?**
-- **Prisma/PostgreSQL**: Complex queries, aggregations, relational data (campaigns, contacts, analytics)
-- **Convex**: Instant reactivity for live features (dashboard updates, notifications, team presence)
+- installation
+- architecture
+- premiere campagne
+- contacts, campagnes, automations et analytics
+- routes API, auth et webhooks
 
----
+## Etat du produit
 
-## Roadmap
+- tracking email et webhooks en place
+- dashboard multi-sections disponible
+- onboarding, presence et notifications presentes
+- responsive actuellement en cours de fiabilisation
 
-- [x] Project scaffolding + auth + database schema
-- [x] Email tracking (open pixel, click redirect, unsubscribe)
-- [x] Webhook handler (Resend events)
-- [x] Dashboard UI (campaigns, contacts, analytics, templates, automations, settings)
-- [ ] Drag & drop email editor
-- [ ] CSV contact import with mapping
-- [ ] Campaign sending engine with rate limiting
-- [ ] A/B testing with auto-winner selection
-- [ ] Automation workflow builder (visual)
-- [ ] Send time optimization (ML-based)
-- [ ] AI subject line generator
-- [ ] Revenue attribution & cohort analysis
-- [ ] Mobile app (React Native)
+## Contribution
 
----
+1. Installe les dependances
+2. Configure `.env.local`
+3. Lance Prisma, Convex et l'app
+4. Verifie `pnpm lint` puis `pnpm build` avant livraison
 
 ## License
 

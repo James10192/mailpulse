@@ -14,28 +14,27 @@ export function AddContactPanel({
   onClose: () => void;
   availableTags?: string[];
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(
-    createContact,
-    null
-  );
   const formRef = useRef<HTMLFormElement>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
-
-  useEffect(() => {
-    if (state?.success) {
-      setShowSuccess(true);
-      setSelectedTags([]);
-      formRef.current?.reset();
-      const timer = setTimeout(() => {
-        setShowSuccess(false);
-        onClose();
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [state, onClose]);
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(
+    async (prev, formData) => {
+      const result = await createContact(prev, formData);
+      if (result?.success) {
+        formRef.current?.reset();
+        setSelectedTags([]);
+        setShowSuccess(true);
+        window.setTimeout(() => {
+          setShowSuccess(false);
+          onClose();
+        }, 1500);
+      }
+      return result;
+    },
+    null
+  );
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {

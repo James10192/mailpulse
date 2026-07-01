@@ -13,6 +13,7 @@
 :root {
   --bg: #ffffff;
   --fg: #09090b;
+  --app-mobile-padding: 1rem;
 }
 
 .dark {
@@ -23,6 +24,7 @@
 body {
   background: var(--bg);
   color: var(--fg);
+  overflow-x: hidden;
 }
 
 pre {
@@ -37,6 +39,39 @@ code {
 
 img, video, canvas, audio, iframe, embed, object {
   max-width: 100%;
+}
+
+table {
+  max-width: 100%;
+}
+
+.app-shell-safe {
+  width: 100%;
+  min-width: 0;
+}
+
+.page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.responsive-card-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .responsive-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 /* React Flow needs SVGs without max-width constraint for edges */

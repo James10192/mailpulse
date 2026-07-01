@@ -215,8 +215,13 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
 
   // Build chart data from campaign recipients (last 30 days)
   const chartData = useMemo(() => {
-    const now = Date.now();
-    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const referenceTime = Math.max(
+      new Date(contact.updatedAt).getTime(),
+      ...contact.campaignRecipients
+        .map((r) => (r.sentAt ? new Date(r.sentAt).getTime() : 0))
+        .filter((time) => Number.isFinite(time))
+    );
+    const thirtyDaysAgo = referenceTime - 30 * 24 * 60 * 60 * 1000;
     const recentRecipients = contact.campaignRecipients.filter(
       (r) => r.sentAt && new Date(r.sentAt).getTime() >= thirtyDaysAgo
     );
@@ -240,7 +245,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
         opens: vals.opens,
         clicks: vals.clicks,
       }));
-  }, [contact.campaignRecipients]);
+  }, [contact.campaignRecipients, contact.updatedAt]);
 
   function handleToggleSubscription() {
     setShowUnsubConfirm(false);

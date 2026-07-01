@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useEffect, useMemo } from "react";
+import { useActionState, useState, useMemo } from "react";
 import { Plus, Tag, Trash2, X, Info, Search, ArrowUpDown, Users } from "lucide-react";
 import { createTag, deleteTag } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
@@ -15,13 +15,13 @@ export function TagsClient({ tags }: { tags: TagData[] }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("name-asc");
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
-    createTag,
+    async (prev, formData) => {
+      const result = await createTag(prev, formData);
+      if (result?.success) setOpen(false);
+      return result;
+    },
     null
   );
-
-  useEffect(() => {
-    if (state?.success) setOpen(false);
-  }, [state]);
 
   const filtered = useMemo(() => {
     let result = tags;

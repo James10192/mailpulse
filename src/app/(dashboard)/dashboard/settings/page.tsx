@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CreditCard, ArrowRight } from "lucide-react";
+import { CreditCard, ArrowRight, PlugZap } from "lucide-react";
 import { ProfileSection } from "@/components/dashboard/profile-section";
 import { LinkedAccounts } from "@/components/dashboard/linked-accounts";
 import { PasskeysSection } from "@/components/dashboard/passkeys-section";
@@ -42,6 +42,24 @@ export default async function SettingsPage() {
       </Link>
 
       <ProfileSection />
+
+      <Link
+        href="/dashboard/settings/integrations"
+        className="flex items-center justify-between p-5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 transition-colors cursor-pointer group"
+      >
+        <div className="flex items-center gap-3">
+          <PlugZap className="h-5 w-5 text-indigo-500" />
+          <div>
+            <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              Integrations
+            </div>
+            <div className="text-xs text-zinc-500 mt-0.5">
+              Connectez Filon et les futurs outils externes
+            </div>
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 text-indigo-500 group-hover:translate-x-1 transition-transform" />
+      </Link>
 
       <LinkedAccounts />
 

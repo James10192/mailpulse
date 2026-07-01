@@ -8,6 +8,7 @@ export class ResendProvider implements IEmailProvider {
       to: options.to,
       subject: options.subject,
       html: options.html,
+      text: options.text,
       replyTo: options.replyTo,
       headers: options.headers,
       tags: options.tags,

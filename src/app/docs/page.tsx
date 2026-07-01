@@ -1,12 +1,10 @@
 import {
-  Mail,
   ArrowRight,
   Terminal,
   Zap,
   BarChart3,
-  Shield,
-  Users,
   Code,
+  Users,
   Webhook,
   Send,
   Settings,
@@ -16,6 +14,7 @@ import {
   ListChecks,
   HelpCircle,
   PanelLeftClose,
+  Blocks,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -68,7 +67,6 @@ function QuickLink({
 export default function DocsPage() {
   return (
     <div>
-      {/* Header */}
       <div className="mb-12">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-orange-500/20 bg-orange-500/5 text-orange-400 text-xs font-medium mb-4">
           <span className="relative flex h-1.5 w-1.5">
@@ -83,29 +81,27 @@ export default function DocsPage() {
         <p className="mt-3 text-zinc-400 text-lg leading-relaxed">
           MailPulse est une plateforme d&apos;email marketing concue pour
           l&apos;Afrique francophone. Campagnes split-panel avec editeur riche
-          et autosave, tracking via webhooks Resend (delivered/opened/clicked),
-          guide interactif, checklist d&apos;onboarding et authentification avancee.
+          et autosave, tracking via webhooks Resend, guide interactif,
+          checklist d&apos;onboarding et authentification avancee.
         </p>
       </div>
 
-      {/* Architecture */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">Architecture</h2>
         <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/20 p-6">
-          <div className="font-mono text-xs text-zinc-400 leading-loose whitespace-pre">{`┌──────────────────────────────────────────────────┐
-│            Next.js 16 (App Router + Turbopack)   │
-│        proxy.ts ── auth guard (cookie-based)     │
-├────────────┬────────────┬────────────────────────┤
-│  Prisma 7  │   Convex   │    Cloudflare R2       │
-│  (Neon PG) │ (Realtime) │     (Storage)          │
-├────────────┴────────────┴────────────────────────┤
-│  Better Auth (Prisma adapter + Organization)     │
-├──────────────────────────────────────────────────┤
-│               Resend API                         │
-│      (Envoi + Webhooks + Tracking HMAC)          │
-└──────────────────────────────────────────────────┘`}</div>
+          <div className="font-mono text-xs text-zinc-400 leading-loose whitespace-pre">{`+--------------------------------------------------+
+|         Next.js 16 (App Router + Turbopack)     |
+|      proxy.ts -> auth guard (cookie-based)      |
++----------------+---------------+-----------------+
+|   Prisma 7     |    Convex     | Cloudflare R2   |
+|   (Neon PG)    |   (Realtime)  |   (Storage)     |
++----------------+---------------+-----------------+
+| Better Auth (Prisma adapter + Organization)     |
++--------------------------------------------------+
+| Resend API (sending, webhooks, tracking HMAC)   |
++--------------------------------------------------+`}</div>
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
           {[
             { label: "Prisma 7 + Neon", desc: "Donnees relationnelles" },
             { label: "Convex", desc: "Dashboard & activite live" },
@@ -119,7 +115,6 @@ export default function DocsPage() {
         </div>
       </div>
 
-      {/* Quick install */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">Demarrage rapide</h2>
         <CodeBlock title="Terminal">{`git clone https://github.com/James10192/mailpulse.git
@@ -131,10 +126,15 @@ npx prisma migrate dev --name init
 pnpm dev`}</CodeBlock>
       </div>
 
-      {/* Quick links grid */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">Guides</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <QuickLink
+            href="/docs/architecture"
+            title="Architecture"
+            desc="Routing App Router, Prisma, Convex, tracking, conventions de code et flux developpeur."
+            icon={Blocks}
+          />
           <QuickLink
             href="/docs/installation"
             title="Installation"
@@ -168,13 +168,12 @@ pnpm dev`}</CodeBlock>
           <QuickLink
             href="/docs/analytics"
             title="Analytics & Webhooks"
-            desc="Webhooks Resend (delivered/opened/clicked), dashboard temps reel et CTR."
+            desc="Webhooks Resend, dashboard temps reel et CTR."
             icon={BarChart3}
           />
         </div>
       </div>
 
-      {/* Features */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">Fonctionnalites</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -217,7 +216,25 @@ pnpm dev`}</CodeBlock>
         </div>
       </div>
 
-      {/* API Reference links */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold mb-4 font-mono">Parcours developpeur</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {[
+            "Comprendre l'architecture globale et la separation Prisma / Convex",
+            "Configurer les variables d'environnement et les integrations externes",
+            "Identifier ou vivent les Server Actions, les routes API et les composants client",
+            "Suivre les flux contacts, campagnes, tracking et analytics de bout en bout",
+          ].map((item) => (
+            <div
+              key={item}
+              className="rounded-xl border border-zinc-800/40 bg-zinc-900/20 px-4 py-3 text-sm text-zinc-400"
+            >
+              {item}
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">API Reference</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -242,7 +259,6 @@ pnpm dev`}</CodeBlock>
         </div>
       </div>
 
-      {/* API quick reference */}
       <div className="mb-12">
         <h2 className="text-xl font-bold mb-4 font-mono">Routes API</h2>
         <div className="space-y-2">
@@ -276,7 +292,6 @@ pnpm dev`}</CodeBlock>
         </div>
       </div>
 
-      {/* Stack */}
       <div>
         <h2 className="text-xl font-bold mb-4 font-mono">Stack technique</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -288,7 +303,7 @@ pnpm dev`}</CodeBlock>
             { name: "Convex", desc: "Temps reel (dashboard)" },
             { name: "Resend", desc: "Email API + webhooks" },
             { name: "Cloudflare R2", desc: "Stockage S3-compatible" },
-            { name: "Tailwind v4", desc: "CSS + shadcn/ui" },
+            { name: "Tailwind v4", desc: "CSS + composants internes" },
             { name: "TipTap", desc: "Editeur email riche" },
           ].map((tech) => (
             <div

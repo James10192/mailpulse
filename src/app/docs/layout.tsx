@@ -13,6 +13,7 @@ import {
   Settings,
   Users,
   BarChart3,
+  Blocks,
   Menu,
   X,
   Send,
@@ -25,6 +26,7 @@ const sections = [
     items: [
       { title: "Introduction", href: "/docs", icon: BookOpen },
       { title: "Installation", href: "/docs/installation", icon: Code },
+      { title: "Architecture", href: "/docs/architecture", icon: Blocks },
       { title: "Premiere campagne", href: "/docs/first-campaign", icon: Send },
     ],
   },

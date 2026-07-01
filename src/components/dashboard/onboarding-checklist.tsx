@@ -103,9 +103,12 @@ export function OnboardingChecklist() {
 
   // Load state from localStorage
   useEffect(() => {
-    setCompleted(getCompletedTasks());
-    setDismissed(localStorage.getItem(DISMISSED_KEY) === "true");
-    setMounted(true);
+    const timer = window.setTimeout(() => {
+      setCompleted(getCompletedTasks());
+      setDismissed(localStorage.getItem(DISMISSED_KEY) === "true");
+      setMounted(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   // Auto-complete tasks based on page visits
@@ -125,8 +128,8 @@ export function OnboardingChecklist() {
     }
 
     if (changed) {
-      setCompleted(newCompleted);
       saveCompletedTasks(newCompleted);
+      window.setTimeout(() => setCompleted(newCompleted), 0);
     }
   }, [pathname, mounted, completed]);
 
@@ -250,7 +253,10 @@ export function ShowChecklistButton() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    setVisible(localStorage.getItem(DISMISSED_KEY) === "true");
+    const timer = window.setTimeout(() => {
+      setVisible(localStorage.getItem(DISMISSED_KEY) === "true");
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   if (!visible) return null;

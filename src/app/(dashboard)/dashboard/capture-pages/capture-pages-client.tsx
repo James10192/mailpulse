@@ -45,7 +45,7 @@ export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="page-stack app-shell-safe">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
@@ -73,6 +73,67 @@ export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
 
         {pages.length > 0 ? (
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
+            <div className="grid grid-cols-1 gap-3 p-4 md:hidden">
+              {pages.map((page) => (
+                <div
+                  key={page.id}
+                  className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-950/30 p-4 space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <Link
+                      href={`/dashboard/capture-pages/${page.id}`}
+                      className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors min-w-0"
+                    >
+                      <Globe className="h-4 w-4 text-zinc-400 shrink-0" />
+                      <span className="truncate">{page.name}</span>
+                    </Link>
+                    {page.published ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        Publiee
+                      </span>
+                    ) : (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
+                        Brouillon
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs font-mono text-zinc-500 break-all">/capture/{page.slug}</div>
+                  <div className="text-xs text-zinc-500">
+                    Creee le {new Date(page.createdAt).toLocaleDateString("fr-FR")}
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    {page.published && (
+                      <a
+                        href={`/capture/${page.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-lg text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors"
+                        title="Voir la page"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                    <button
+                      onClick={() => handleToggle(page.id, page.published)}
+                      disabled={toggling === page.id}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer disabled:opacity-50"
+                      title={page.published ? "Depublier" : "Publier"}
+                    >
+                      {page.published ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(page.id)}
+                      disabled={deleting === page.id}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                      title="Supprimer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="hidden md:block">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-zinc-800">
@@ -164,6 +225,7 @@ export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-12 text-center">

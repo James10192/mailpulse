@@ -6,15 +6,15 @@ import { Mail, Tag, Clock, GitBranch, Globe, Zap, Plus } from "lucide-react";
 import { getNodeColor, type WorkflowNodeData, type WorkflowNodeType } from "./workflow-types";
 import { WorkflowContext } from "./workflow-editor";
 
-function getIcon(type: WorkflowNodeType) {
+function NodeIcon({ type, className }: { type: WorkflowNodeType; className: string }) {
   switch (type) {
-    case "trigger": return Zap;
-    case "send_email": return Mail;
+    case "trigger": return <Zap className={className} />;
+    case "send_email": return <Mail className={className} />;
     case "add_tag":
-    case "remove_tag": return Tag;
-    case "wait": return Clock;
-    case "condition": return GitBranch;
-    case "webhook": return Globe;
+    case "remove_tag": return <Tag className={className} />;
+    case "wait": return <Clock className={className} />;
+    case "condition": return <GitBranch className={className} />;
+    case "webhook": return <Globe className={className} />;
   }
 }
 
@@ -73,7 +73,6 @@ function WorkflowNodeComponent({ data, selected, id }: NodeProps) {
   const nodeData = data as unknown as WorkflowNodeData;
   const { onAddFromNode } = useContext(WorkflowContext);
   const colors = getNodeColor(nodeData.type);
-  const Icon = getIcon(nodeData.type);
   const isCondition = nodeData.type === "condition";
 
   return (
@@ -96,7 +95,7 @@ function WorkflowNodeComponent({ data, selected, id }: NodeProps) {
 
       <div className="flex items-center gap-3">
         <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${colors.bg} ${colors.border} border`}>
-          <Icon className={`h-4 w-4 ${colors.text}`} />
+          <NodeIcon type={nodeData.type} className={`h-4 w-4 ${colors.text}`} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-zinc-100 truncate">

@@ -51,7 +51,7 @@ export default async function CalendarPage() {
   const monthLabel = format(now, "MMMM yyyy", { locale: fr });
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack app-shell-safe">
       <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Campagnes", href: "/dashboard/campaigns" }, { label: "Calendrier" }]} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -76,8 +76,31 @@ export default async function CalendarPage() {
           </button>
         </div>
 
+        <div className="md:hidden p-4 space-y-3">
+          {campaigns.length > 0 ? (
+            campaigns.map((campaign) => (
+              <div
+                key={campaign.id}
+                className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-950/30 p-4"
+              >
+                <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {campaign.name}
+                </div>
+                <div className="mt-1 text-xs text-zinc-500">
+                  {campaign.scheduledAt &&
+                    format(new Date(campaign.scheduledAt), "EEEE d MMMM 'a' HH:mm", { locale: fr })}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-sm text-zinc-500">
+              Aucune campagne planifiee pour ce mois.
+            </div>
+          )}
+        </div>
+
         {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="hidden md:grid grid-cols-7 border-b border-zinc-200 dark:border-zinc-800">
           {DAY_HEADERS.map((day) => (
             <div
               key={day}
@@ -89,7 +112,7 @@ export default async function CalendarPage() {
         </div>
 
         {/* Day cells */}
-        <div className="grid grid-cols-7">
+        <div className="hidden md:grid grid-cols-7">
           {days.map((day) => {
             const inMonth = isSameMonth(day, now);
             const today = isToday(day);
