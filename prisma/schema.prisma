@@ -137,6 +137,8 @@ model Organization {
   senders      EmailSender[]
   capturePages CapturePage[]
   customFields CustomField[]
+  integrationApiKeys IntegrationApiKey[]
+  filonRecoveries FilonRecovery[]
 
   @@map("organization")
 }
@@ -205,6 +207,7 @@ model Contact {
   listMemberships    ContactListMember[]
   emailEvents        EmailEvent[]
   campaignRecipients CampaignRecipient[]
+  filonRecoveries FilonRecovery[]
 
   @@unique([email, organizationId])
   @@index([organizationId, subscribed])
@@ -571,4 +574,106 @@ model AutomationStep {
 
   @@index([automationId, position])
   @@map("automation_step")
+}
+
+// ============================================
+// Integrations — Filon recovery
+// ============================================
+
+model IntegrationApiKey {
+  id             String              @id @default(cuid())
+  provider       IntegrationProvider @default(FILON)
+  name           String
+  keyHash        String              @unique
+  keyPrefix      String
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, provider, revokedAt])
+  @@map("integration_api_key")
+}
+
+enum IntegrationProvider {
+  FILON
+}
+
+model FilonRecovery {
+  id                 String              @id @default(cuid())
+  filonOpportunityId String
+  externalWorkspaceId String?
+  externalUserId      String?
+  opportunityTitle   String
+  amountDue          Decimal             @db.Decimal(12, 2)
+  currency           String
+  dueDate            DateTime
+  clientName         String
+  clientEmail        String
+  clientPhone        String?
+  status             FilonRecoveryStatus @default(PENDING)
+  lastReminderAt     DateTime?
+  nextReminderAt     DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  organizationId     String
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contactId          String
+  contact            Contact             @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  steps              FilonRecoveryStep[]
+
+  @@unique([organizationId, filonOpportunityId])
+  @@index([organizationId, status])
+  @@index([nextReminderAt])
+  @@map("filon_recovery")
+}
+
+enum FilonRecoveryStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+model FilonRecoveryStep {
+  id               String              @id @default(cuid())
+  recoveryId       String
+  recovery         FilonRecovery       @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+  position         Int
+  offsetDays       Int
+  channel          RecoveryStepChannel
+  templateKey      String
+  subject          String?
+  body             String
+  scheduledAt      DateTime
+  status           RecoveryStepStatus  @default(PREPARED)
+  sentAt           DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@unique([recoveryId, position])
+  @@index([recoveryId, scheduledAt])
+  @@index([status, scheduledAt])
+  @@map("filon_recovery_step")
+}
+
+enum RecoveryStepChannel {
+  EMAIL
+  WHATSAPP
+  HUMAN_ACTION
+}
+
+enum RecoveryStepStatus {
+  PENDING
+  PREPARED
+  SENT
+  SKIPPED
+  FAILED
+  CANCELLED
 }

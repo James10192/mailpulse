@@ -27,6 +27,8 @@ import {
   SendHorizonal,
   UserMinus,
   MessageSquare,
+  HandCoins,
+  PlugZap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut, useSession } from "@/lib/auth-client";
@@ -87,6 +89,7 @@ const navigation: NavItem[] = [
     ],
   },
   { name: "WhatsApp", href: "/dashboard/messaging", icon: MessageSquare, pro: true, tourId: "nav-messaging" },
+  { name: "Recouvrements", href: "/dashboard/recoveries", icon: HandCoins, pro: true },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, tourId: "nav-analytics" },
   { name: "Pages de capture", href: "/dashboard/capture-pages", icon: Globe, tourId: "nav-capture" },
   { name: "Automations", href: "/dashboard/automations", icon: Zap, pro: true, tourId: "nav-automations" },
@@ -101,6 +104,7 @@ const navigation: NavItem[] = [
     ],
   },
   { name: "Parametres", href: "/dashboard/settings", icon: Settings, tourId: "nav-settings" },
+  { name: "Integrations", href: "/dashboard/settings/integrations", icon: PlugZap },
 ];
 
 function SidebarNavItem({
