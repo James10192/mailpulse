@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated artifacts are not authored code and can contain patterns
+    // intentionally rejected by the app lint rules.
+    "src/generated/**",
+    "convex/_generated/**",
   ]),
 ]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useEffect, useMemo, useRef } from "react";
+import { useActionState, useState, useMemo, useRef } from "react";
 import { Plus, Filter, Trash2, X, Sparkles, Search, ArrowUpDown, Info, Users, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { createSegment, deleteSegment } from "./actions";
@@ -53,11 +53,14 @@ export function SegmentsClient({
   const [state, formAction, pending] = useActionState<
     ActionState,
     FormData
-  >(createSegment, null);
-
-  useEffect(() => {
-    if (state?.success) setOpen(false);
-  }, [state]);
+  >(
+    async (prev, formData) => {
+      const result = await createSegment(prev, formData);
+      if (result?.success) setOpen(false);
+      return result;
+    },
+    null
+  );
 
   const filtered = useMemo(() => {
     let result = segments;

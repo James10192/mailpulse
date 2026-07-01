@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useEffect } from "react";
+import { useActionState, useState } from "react";
 import { Plus, Globe, CheckCircle, Clock, Trash2, X, Info, RefreshCw, Copy, Check, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { createDomain, deleteDomain, verifyDomain } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
@@ -26,11 +26,14 @@ export function DomainsClient({ domains }: { domains: DomainData[] }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(createDomain, null);
-
-  useEffect(() => {
-    if (state?.success) setOpen(false);
-  }, [state]);
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(
+    async (prev, formData) => {
+      const result = await createDomain(prev, formData);
+      if (result?.success) setOpen(false);
+      return result;
+    },
+    null
+  );
 
   async function handleDelete(id: string) {
     setConfirmDeleteId(null);

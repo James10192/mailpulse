@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -138,11 +138,10 @@ export function CampaignsClient({
     setContentCache((prev) => ({ ...prev, [id]: html }));
   }, [contentCache]);
 
-  useEffect(() => {
-    if (selectedId && contentCache[selectedId] === undefined) {
-      loadContent(selectedId);
-    }
-  }, [selectedId, contentCache, loadContent]);
+  function selectCampaign(id: string) {
+    setSelectedId(id);
+    void loadContent(id);
+  }
 
   async function handleCancel(id: string) {
     setCancellingId(id);
@@ -272,7 +271,7 @@ export function CampaignsClient({
               return (
                 <button
                   key={campaign.id}
-                  onClick={() => setSelectedId(campaign.id)}
+                  onClick={() => selectCampaign(campaign.id)}
                   className={`w-full text-left p-4 border-b border-zinc-100 dark:border-zinc-800/50 transition-colors cursor-pointer ${
                     isSelected
                       ? "bg-orange-500/5 border-l-2 border-l-orange-500"
