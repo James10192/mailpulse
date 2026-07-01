@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, typecheck, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mailpulse
+          POSTGRES_PASSWORD: mailpulse
+          POSTGRES_DB: mailpulse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mailpulse -d mailpulse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://mailpulse:mailpulse@localhost:5432/mailpulse?schema=public
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ci-secret-key-min-32-characters-long
+      BETTER_AUTH_API_KEY: ""
+      NEXT_PUBLIC_BETTER_AUTH_URL: http://localhost:3000
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
+      NEXT_PUBLIC_CONVEX_URL: https://example.convex.cloud
+      RESEND_API_KEY: re_ci_placeholder
+      RESEND_FROM_EMAIL: MailPulse <noreply@example.com>
+      RESEND_WEBHOOK_SECRET: ""
+      CLOUDFLARE_R2_ENDPOINT: https://example.r2.cloudflarestorage.com
+      CLOUDFLARE_R2_ACCESS_KEY_ID: ci-placeholder
+      CLOUDFLARE_R2_SECRET_ACCESS_KEY: ci-placeholder
+      CLOUDFLARE_R2_BUCKET: mailpulse
+      CLOUDFLARE_R2_PUBLIC_URL: https://assets.example.com
+      TRACKING_SECRET: ci-tracking-secret-min-32-chars
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm exec prisma generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Convex codegen and typecheck
+        if: ${{ env.CONVEX_DEPLOY_KEY != '' }}
+        run: |
+          pnpm exec convex codegen --typecheck=enable
+          git diff --exit-code convex/_generated
+
+      - name: Skip Convex check
+        if: ${{ env.CONVEX_DEPLOY_KEY == '' }}
+        run: echo "CONVEX_DEPLOY_KEY is not configured; skipping Convex codegen/typecheck."

@@ -79,13 +79,13 @@ export default async function DashboardPage() {
   const hasOverLimitResources = overLimitResources.length > 0;
 
   return (
-    <div className="space-y-8">
+    <div className="page-stack app-shell-safe">
       <Breadcrumb items={[{ label: "" }]} />
       <OnboardingChecklist />
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Dashboard</h1>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex flex-wrap items-center gap-1.5 text-sm">
             <Link
               href="/dashboard/transactional"
               className="text-zinc-400 hover:text-orange-500 transition-colors cursor-pointer"
@@ -129,7 +129,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Stats — Real-time via Convex with Prisma fallback */}
+      {/* Stats: real-time via Convex with Prisma fallback */}
       <LiveStats fallback={{
         activeContacts: stats.activeContacts,
         totalCampaigns: stats.totalCampaigns,
@@ -150,8 +150,8 @@ export default async function DashboardPage() {
             {campaigns.length > 0 ? (
               <div className="space-y-3">
                 {campaigns.map((campaign) => (
-                  <div key={campaign.id} className="flex items-center justify-between py-2">
-                    <div>
+                  <div key={campaign.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2">
+                    <div className="min-w-0">
                       <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{campaign.name}</div>
                       <div className="text-xs text-zinc-500">
                         {campaign.status} &middot; {new Date(campaign.createdAt).toLocaleDateString("fr-FR")}
@@ -177,11 +177,11 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Activity Feed — Real-time via Convex */}
+        {/* Activity Feed: real-time via Convex */}
         <LiveActivityFeed />
       </div>
 
-      {/* Plan usage — bottom of page */}
+      {/* Plan usage: bottom of page */}
       {isFreePlan && usage && emailUsage && (
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
           <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Utilisation du plan {limits.label}</h3>

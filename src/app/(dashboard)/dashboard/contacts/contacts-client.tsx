@@ -128,7 +128,7 @@ export function ContactsClient({
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="page-stack app-shell-safe">
         {overLimit && limit !== -1 && (
           <LimitWarningBanner
             resourceLabel="contacts"
@@ -138,7 +138,7 @@ export function ContactsClient({
             actionLabel="Vous ne pouvez plus en ajouter. Passez au Pro pour des contacts illimites."
           />
         )}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
               Contacts
@@ -147,7 +147,7 @@ export function ContactsClient({
               Gerez vos listes de contacts et segments
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {canCreate ? (
               <>
                 <Link
@@ -190,7 +190,7 @@ export function ContactsClient({
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { label: "Total contacts", value: stats.total },
             { label: "Abonnes", value: stats.subscribed },
@@ -213,8 +213,8 @@ export function ContactsClient({
         {/* Table */}
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
           <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 space-y-3">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative max-w-sm flex-1">
+            <div className="flex flex-col lg:flex-row gap-3">
+              <div className="relative flex-1 lg:max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                 <input
                   type="text"
@@ -226,10 +226,10 @@ export function ContactsClient({
               </div>
 
               {/* Tag filter dropdown */}
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <button
                   onClick={() => { setTagDropdownOpen(!tagDropdownOpen); setSortDropdownOpen(false); }}
-                  className={`inline-flex items-center gap-2 px-3 py-2 text-xs rounded-lg border transition-colors cursor-pointer ${
+                  className={`inline-flex w-full sm:w-auto items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border transition-colors cursor-pointer ${
                     tagFilter !== "ALL"
                       ? "border-orange-500/30 bg-orange-500/10 text-orange-600 dark:text-orange-400"
                       : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700"
@@ -265,10 +265,10 @@ export function ContactsClient({
               </div>
 
               {/* Sort dropdown */}
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <button
                   onClick={() => { setSortDropdownOpen(!sortDropdownOpen); setTagDropdownOpen(false); }}
-                  className="inline-flex items-center gap-2 px-3 py-2 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer"
+                  className="inline-flex w-full sm:w-auto items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer"
                 >
                   <ArrowUpDown className="h-3.5 w-3.5" />
                   {sortOptions.find((s) => s.value === sortBy)?.label}
@@ -311,7 +311,69 @@ export function ContactsClient({
           </div>
 
           {filtered.length > 0 ? (
-            <div className="overflow-x-auto">
+            <>
+            <div className="grid grid-cols-1 gap-3 p-4 md:hidden">
+              {filtered.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-950/30 p-4 space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/dashboard/contacts/${contact.id}`}
+                        className="block text-sm font-mono text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors break-all"
+                      >
+                        {contact.email}
+                      </Link>
+                      <div className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                        {[contact.firstName, contact.lastName].filter(Boolean).join(" ") || "Sans nom"}
+                      </div>
+                    </div>
+                    <span
+                      className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${
+                        contact.subscribed
+                          ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          : "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      {contact.subscribed ? "Abonne" : "Desabonne"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-zinc-500">
+                    <span>Score engagement</span>
+                    <span className="font-mono">{contact.engagementScore}</span>
+                  </div>
+
+                  {contact.tags.length > 0 && (
+                    <div className="flex gap-1 flex-wrap">
+                      {contact.tags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="px-1.5 py-0.5 text-[10px] rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => setConfirmDeleteId(contact.id)}
+                      disabled={deleting === contact.id}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                      title="Supprimer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-zinc-200 dark:border-zinc-800">
@@ -391,6 +453,7 @@ export function ContactsClient({
                 </tbody>
               </table>
             </div>
+            </>
           ) : contacts.length === 0 ? (
             <div className="p-12 text-center">
               <Users className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
