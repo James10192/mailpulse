@@ -214,6 +214,7 @@ function Sidebar() {
   return (
     <aside
       data-tour="sidebar"
+      style={{ viewTransitionName: "persistent-sidebar" }}
       className={cn(
         "hidden h-screen flex-col border-r border-zinc-200 bg-white text-zinc-900 transition-all duration-300 ease-in-out dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 md:flex",
         collapsed ? "w-16" : "w-60"
@@ -304,7 +305,10 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="mt-14 flex h-14 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 dark:border-zinc-800 dark:bg-zinc-950 md:mt-0 md:px-6">
+        <header
+          style={{ viewTransitionName: "persistent-header" }}
+          className="mt-14 flex h-14 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 dark:border-zinc-800 dark:bg-zinc-950 md:mt-0 md:px-6"
+        >
           <SearchTrigger />
           <div className="md:hidden" />
 

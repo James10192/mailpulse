@@ -18,8 +18,14 @@ type ApiKeyRow = {
   revokedAt: string | null;
 };
 
+const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
+  dateStyle: "short",
+  timeStyle: "short",
+});
+
 export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
   const [revealedKey, setRevealedKey] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
   const [isPending, startTransition] = useTransition();
 
   function generate(environment: "LIVE" | "TEST") {
@@ -27,7 +33,10 @@ export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
     data.set("environment", environment);
     startTransition(async () => {
       const result = await generateMailPulseApiKey(data);
-      if (result && "key" in result && result.key) setRevealedKey(result.key);
+      if (result && "key" in result && result.key) {
+        setRevealedKey(result.key);
+        setCopyStatus("");
+      }
     });
   }
 
@@ -41,6 +50,7 @@ export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
 
   async function copy(value: string) {
     await navigator.clipboard.writeText(value);
+    setCopyStatus("Cle copiee.");
   }
 
   return (
@@ -52,18 +62,18 @@ export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => generate("TEST")} disabled={isPending}>
-            <KeyRound className="h-4 w-4" />
-            Test
+            <KeyRound aria-hidden="true" className="h-4 w-4" />
+            Creer Test
           </Button>
           <Button type="button" size="sm" onClick={() => generate("LIVE")} disabled={isPending}>
-            <KeyRound className="h-4 w-4" />
-            Live
+            <KeyRound aria-hidden="true" className="h-4 w-4" />
+            Creer Live
           </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {revealedKey && (
-          <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-4">
+          <div aria-live="polite" className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-4">
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Nouvelle clé créée</p>
             <p className="mt-1 text-xs text-zinc-500">Copiez-la maintenant. Elle ne sera plus affichée ensuite.</p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -71,10 +81,11 @@ export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
                 {revealedKey}
               </code>
               <Button size="sm" onClick={() => copy(revealedKey)}>
-                <Copy className="h-3.5 w-3.5" />
+                <Copy aria-hidden="true" className="h-3.5 w-3.5" />
                 Copier
               </Button>
             </div>
+            {copyStatus && <p className="mt-2 text-xs text-zinc-500">{copyStatus}</p>}
           </div>
         )}
 
@@ -103,10 +114,10 @@ export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
                   <TableCell>
                     <Badge variant={key.environment === "LIVE" ? "default" : "secondary"}>{key.environment}</Badge>
                   </TableCell>
-                  <TableCell>{key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString("fr-FR") : "Jamais"}</TableCell>
+                  <TableCell>{key.lastUsedAt ? dateFormatter.format(new Date(key.lastUsedAt)) : "Jamais"}</TableCell>
                   <TableCell className="text-right">
                     <Button type="button" variant="outline" size="sm" onClick={() => revoke(key.id)} disabled={isPending}>
-                      <RotateCcw className="h-3.5 w-3.5" />
+                      <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
                       Révoquer
                     </Button>
                   </TableCell>

@@ -16,7 +16,10 @@ export function MobileNav({ navigation }: { navigation: NavItem[] }) {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between border-b border-zinc-200 bg-white/95 px-4 text-zinc-900 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 dark:text-zinc-100 md:hidden">
+      <div
+        style={{ viewTransitionName: "persistent-mobile-nav" }}
+        className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between border-b border-zinc-200 bg-white/95 px-4 text-zinc-900 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 dark:text-zinc-100 md:hidden"
+      >
         <BrandMark href="/dashboard" className="text-base" />
         <Button
           type="button"
@@ -27,7 +30,7 @@ export function MobileNav({ navigation }: { navigation: NavItem[] }) {
           aria-expanded={open}
           aria-label="Ouvrir le menu"
         >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {open ? <X aria-hidden="true" className="h-5 w-5" /> : <Menu aria-hidden="true" className="h-5 w-5" />}
         </Button>
       </div>
 
@@ -64,7 +67,7 @@ export function MobileNav({ navigation }: { navigation: NavItem[] }) {
                     : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon aria-hidden="true" className="h-4 w-4" />
                 <span>{item.name}</span>
                 {item.pro && (
                   <span className="ml-auto rounded border border-orange-500/20 bg-orange-500/10 px-1 py-0.5 text-[8px] font-bold uppercase text-orange-500">

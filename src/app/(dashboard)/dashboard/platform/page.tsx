@@ -1,4 +1,4 @@
-import { Activity, Cable, CheckCircle2, KeyRound, MessageSquare, Radio, ShieldCheck, Webhook } from "lucide-react";
+import { Activity, Cable, KeyRound, MessageSquare, Radio, ShieldCheck, Webhook } from "lucide-react";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,16 @@ function statusVariant(status: string) {
   return "secondary" as const;
 }
 
+const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
+  dateStyle: "short",
+  timeStyle: "short",
+});
+
+const compactDateFormatter = new Intl.DateTimeFormat("fr-FR", {
+  day: "2-digit",
+  month: "2-digit",
+});
+
 function StatCard({
   label,
   value,
@@ -36,7 +46,7 @@ function StatCard({
           <p className="text-sm text-zinc-500 dark:text-zinc-400">{label}</p>
           <p className="mt-2 font-mono text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{value}</p>
         </div>
-        <Icon className="h-5 w-5 text-zinc-400" />
+        <Icon aria-hidden="true" className="h-5 w-5 text-zinc-400" />
       </CardContent>
     </Card>
   );
@@ -111,7 +121,7 @@ export default async function PlatformPage() {
   }));
 
   const volumeData = dailyMessages.map((item) => ({
-    date: item.createdAt.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }),
+    date: compactDateFormatter.format(item.createdAt),
     messages: item._count._all,
   }));
 
@@ -167,11 +177,11 @@ export default async function PlatformPage() {
                       serializedMessages.map((message) => (
                         <TableRow key={message.id}>
                           <TableCell>{message.channel}</TableCell>
-                          <TableCell className="font-mono text-xs">{message.recipient.value}</TableCell>
+                          <TableCell className="max-w-[14rem] truncate font-mono text-xs">{message.recipient.value}</TableCell>
                           <TableCell>
                             <Badge variant={statusVariant(message.status.toUpperCase())}>{message.status}</Badge>
                           </TableCell>
-                          <TableCell>{new Date(message.created_at).toLocaleString("fr-FR")}</TableCell>
+                          <TableCell>{dateFormatter.format(new Date(message.created_at))}</TableCell>
                         </TableRow>
                       ))
                     )}
@@ -205,7 +215,7 @@ export default async function PlatformPage() {
                     ) : (
                       serializedTemplates.map((template) => (
                         <TableRow key={template.id}>
-                          <TableCell className="font-mono text-xs">{template.template_key}</TableCell>
+                          <TableCell className="max-w-[14rem] truncate font-mono text-xs">{template.template_key}</TableCell>
                           <TableCell>{template.channel}</TableCell>
                           <TableCell>{template.locale}</TableCell>
                           <TableCell>
@@ -229,7 +239,7 @@ export default async function PlatformPage() {
               <Card key={channel.label}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <channel.icon className="h-4 w-4 text-orange-500" />
+                    <channel.icon aria-hidden="true" className="h-4 w-4 text-orange-500" />
                     {channel.label}
                   </CardTitle>
                 </CardHeader>
@@ -277,7 +287,7 @@ export default async function PlatformPage() {
                   ) : (
                     serializedWebhooks.map((webhook) => (
                       <TableRow key={webhook.id}>
-                        <TableCell>{webhook.name}</TableCell>
+                        <TableCell className="max-w-[12rem] truncate">{webhook.name}</TableCell>
                         <TableCell className="max-w-xs truncate font-mono text-xs">{webhook.url}</TableCell>
                         <TableCell>{webhook.events.length}</TableCell>
                         <TableCell>
