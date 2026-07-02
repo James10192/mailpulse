@@ -161,8 +161,9 @@ export async function sendText(
       method: "POST",
       body: JSON.stringify({
         number,
-        textMessage: { text },
-        options: { delay: 500, presence: "composing" },
+        text,
+        delay: 500,
+        presence: "composing",
       }),
     },
   );
