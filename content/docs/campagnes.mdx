@@ -1,0 +1,24 @@
+---
+title: Campagnes email
+description: Créer, éditer, envoyer, planifier et suivre des campagnes.
+---
+
+## Cycle de vie
+
+Une campagne peut être préparée en brouillon, éditée, envoyée immédiatement ou planifiée. Les campagnes planifiées sont traitées par GitHub Actions via l’endpoint cron protégé.
+
+## Éditeur
+
+L’éditeur utilise TipTap avec texte riche, liens, images, tables, alignements, couleurs, mentions de variables et compteur de caractères. Les snippets permettent de réutiliser des blocs fréquents.
+
+## Personnalisation
+
+Les variables disponibles incluent `{{firstName}}`, `{{lastName}}` et `{{email}}`. Les champs personnalisés peuvent être ajoutés selon les données disponibles dans l’organisation.
+
+## Suivi
+
+MailPulse ajoute le tracking d’ouverture, de clic et de désinscription. Les webhooks Resend complètent ces événements avec delivered, bounced, complained et autres statuts.
+
+## Calendrier
+
+Le calendrier regroupe les campagnes planifiées afin de vérifier les prochains envois et d’éviter les chevauchements.

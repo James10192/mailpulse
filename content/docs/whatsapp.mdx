@@ -1,0 +1,27 @@
+---
+title: WhatsApp
+description: Choisir entre Meta Cloud API, WhatsApp Web par QR code et ressources MailPulse.
+---
+
+## Modes disponibles
+
+MailPulse supporte deux modes côté organisation :
+
+- Meta Cloud API, recommandé pour la production.
+- WhatsApp Web via Evolution API et Baileys, pratique pour démarrer ou dépanner.
+
+## Meta Cloud API
+
+Meta est le canal officiel. Il nécessite un WhatsApp Business Account, un numéro, un token, un `phone_number_id` et des templates approuvés pour les messages hors fenêtre de 24h.
+
+## Baileys et Evolution API
+
+Le mode QR code connecte une session WhatsApp Web. Il est simple, mais non officiel. La session peut se déconnecter, et un usage en volume peut exposer le numéro à des restrictions ou suspensions.
+
+## Ressource MailPulse
+
+Si `MAILPULSE_MANAGED_WHATSAPP_ENABLED=true`, MailPulse peut proposer une ressource plateforme. C’est utile quand l’utilisateur n’a pas encore de numéro, mais c’est moins personnalisé et soumis aux limites de la plateforme.
+
+## Envoi
+
+La page `WhatsApp` permet d’activer un mode, scanner un QR code, sauvegarder la configuration Meta, envoyer un message simple, faire un envoi groupé et déconnecter la session.

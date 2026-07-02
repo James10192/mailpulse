@@ -1,0 +1,44 @@
+---
+title: Filon Recovery
+description: Connecter Filon, préparer les relances et exécuter la séquence via GitHub Actions.
+---
+
+## Rôle de l’intégration
+
+Filon reste le cockpit commercial. MailPulse reçoit les opportunités à relancer, prépare les étapes, envoie les emails et WhatsApp quand les ressources sont disponibles, puis crée une action humaine quand l’automatisation ne doit pas agir seule.
+
+## Page de configuration
+
+La configuration se trouve dans `Paramètres > Intégrations`. L’URL de production à ouvrir est :
+
+```txt
+https://mailpulse-two.vercel.app/dashboard/settings/integrations
+```
+
+L’endpoint API à coller dans Filon est différent :
+
+```txt
+https://mailpulse-two.vercel.app/api/integrations/filon/recovery
+```
+
+## Clés API
+
+La page permet de générer et révoquer des clés `mp_filon_*`. La clé complète n’est affichée qu’une seule fois. Filon doit appeler l’API avec `Authorization: Bearer <clé>`.
+
+## Séquence standard
+
+- J+0 : email facture.
+- J+3 : email de rappel doux.
+- J+7 : WhatsApp si configuré.
+- J+10 : email ferme.
+- J+14 : action humaine.
+
+## Ressources et fallbacks
+
+L’email utilise le domaine vérifié de l’organisation. Si aucun domaine n’est prêt, MailPulse peut utiliser `MAILPULSE_MANAGED_FROM_EMAIL` si la plateforme l’a configuré.
+
+WhatsApp utilise Meta si la configuration est active, sinon Baileys si une session est connectée. Si rien n’est disponible, l’étape WhatsApp échoue avec un message actionnable et la séquence continue vers les étapes suivantes.
+
+## Recouvrements
+
+La page `Recouvrements` affiche l’état GitHub Actions, la dernière exécution, les prochaines relances, les erreurs récentes et les actions humaines à traiter. Une séquence peut être annulée depuis le dashboard.

@@ -1,0 +1,30 @@
+---
+title: Démarrage
+description: Préparer une organisation MailPulse et lancer les premiers envois.
+---
+
+## Prérequis d’usage
+
+Pour utiliser MailPulse en production, préparez au minimum :
+
+- Une organisation MailPulse active.
+- Un domaine d’envoi vérifié si vous voulez envoyer depuis votre propre marque.
+- Des contacts importés ou collectés depuis une page de capture.
+- Un expéditeur valide.
+- `CRON_SECRET` configuré côté application et côté GitHub Actions pour les tâches planifiées.
+
+## Premier parcours conseillé
+
+1. Allez dans `Contacts`, ajoutez un contact ou importez un CSV.
+2. Allez dans `Envoi > Domaines`, ajoutez le domaine et copiez les entrées DNS.
+3. Allez dans `Envoi > Expéditeurs`, créez une adresse d’envoi liée au domaine vérifié.
+4. Créez une campagne, insérez le contenu, choisissez l’audience, puis envoyez ou planifiez.
+5. Consultez `Analytics` et le détail campagne pour suivre les événements.
+
+## Ressources externes
+
+MailPulse s’appuie sur Resend pour l’email, PostgreSQL via Prisma pour la donnée durable, Convex pour le temps réel, Cloudflare R2 pour les uploads, Evolution API pour WhatsApp Web et Meta Graph API pour WhatsApp Cloud API.
+
+## Environnements importants
+
+Les variables les plus structurantes sont `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `RESEND_API_KEY`, `TRACKING_SECRET`, `NEXT_PUBLIC_APP_URL`, `CRON_SECRET`, `CLOUDFLARE_R2_*`, `EVOLUTION_API_*` et les variables Meta WhatsApp si ce mode est utilisé.

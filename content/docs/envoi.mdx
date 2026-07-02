@@ -1,0 +1,20 @@
+---
+title: Envoi, domaines et expéditeurs
+description: Configurer l’identité d’envoi et protéger la délivrabilité.
+---
+
+## Domaines
+
+Les domaines d’envoi sont gérés via Resend. MailPulse affiche les enregistrements DNS nécessaires, notamment SPF, DKIM et DMARC selon la configuration renvoyée.
+
+## Vérification
+
+Un domaine doit être vérifié avant d’être utilisé comme ressource principale d’envoi. Sans domaine vérifié, certaines fonctions peuvent utiliser un fallback MailPulse si `MAILPULSE_MANAGED_FROM_EMAIL` est configuré.
+
+## Expéditeurs
+
+Les expéditeurs lient une adresse email à un domaine disponible. Ils sont utilisés par les campagnes et les relances Filon.
+
+## Limites
+
+Un domaine mal configuré dégrade la délivrabilité. Les changements DNS peuvent prendre du temps selon le registrar et les caches publics.

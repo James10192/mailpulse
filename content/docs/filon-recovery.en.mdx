@@ -1,0 +1,44 @@
+---
+title: Filon Recovery
+description: Connect Filon, prepare reminders, and run the sequence through GitHub Actions.
+---
+
+## Integration role
+
+Filon remains the sales cockpit. MailPulse receives opportunities to recover, prepares steps, sends emails and WhatsApp messages when resources are available, and creates a human action when automation should not act alone.
+
+## Configuration page
+
+Configuration lives in `Settings > Integrations`. The production page to open is:
+
+```txt
+https://mailpulse-two.vercel.app/dashboard/settings/integrations
+```
+
+The API endpoint to paste into Filon is different:
+
+```txt
+https://mailpulse-two.vercel.app/api/integrations/filon/recovery
+```
+
+## API keys
+
+The page can generate and revoke `mp_filon_*` keys. The full key is shown only once. Filon must call the API with `Authorization: Bearer <key>`.
+
+## Standard sequence
+
+- D+0: invoice email.
+- D+3: soft reminder email.
+- D+7: WhatsApp when configured.
+- D+10: firm email.
+- D+14: human action.
+
+## Resources and fallbacks
+
+Email uses the organization verified domain. If no domain is ready, MailPulse can use `MAILPULSE_MANAGED_FROM_EMAIL` when configured by the platform.
+
+WhatsApp uses Meta when the configuration is active, otherwise Baileys when a session is connected. If nothing is available, the WhatsApp step fails with an actionable message and the sequence continues to the next steps.
+
+## Recoveries
+
+The `Recoveries` page shows GitHub Actions status, last run, upcoming reminders, recent errors, and human actions to handle. A sequence can be cancelled from the dashboard.

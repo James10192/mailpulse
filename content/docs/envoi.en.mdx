@@ -1,0 +1,20 @@
+---
+title: Sending, Domains, and Senders
+description: Configure sending identity and protect deliverability.
+---
+
+## Domains
+
+Sending domains are managed through Resend. MailPulse displays the required DNS records, including SPF, DKIM, and DMARC depending on the provider response.
+
+## Verification
+
+A domain must be verified before it can be used as the main sending resource. Without a verified domain, some features may use the MailPulse fallback when `MAILPULSE_MANAGED_FROM_EMAIL` is configured.
+
+## Senders
+
+Senders attach an email address to an available domain. They are used by campaigns and Filon recovery emails.
+
+## Limits
+
+A misconfigured domain hurts deliverability. DNS changes can take time depending on the registrar and public caches.

@@ -1,0 +1,17 @@
+{
+  "title": "MailPulse",
+  "pages": [
+    "index",
+    "demarrage",
+    "contacts",
+    "campagnes",
+    "automations",
+    "capture-pages",
+    "analytics",
+    "envoi",
+    "whatsapp",
+    "filon-recovery",
+    "api-reference",
+    "operations"
+  ]
+}

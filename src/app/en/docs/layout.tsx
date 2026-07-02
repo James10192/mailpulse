@@ -4,17 +4,17 @@ import type { ReactNode } from "react";
 
 import { source } from "@/lib/source";
 
-export default function DocsRootLayout({ children }: { children: ReactNode }) {
+export default function EnglishDocsLayout({ children }: { children: ReactNode }) {
   return (
     <DocsLayout
-      tree={source.getPageTree("fr")}
+      tree={source.getPageTree("en")}
       nav={{
         title: (
-          <Link href="/docs" className="font-semibold">
+          <Link href="/en/docs" className="font-semibold">
             MailPulse Docs
           </Link>
         ),
-        url: "/docs",
+        url: "/en/docs",
       }}
       sidebar={{ defaultOpenLevel: 1 }}
     >

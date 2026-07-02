@@ -43,7 +43,6 @@ import {
   UserMinus,
   MessageSquare,
   HandCoins,
-  PlugZap,
 } from "lucide-react";
 
 export type NavItem = {
@@ -104,8 +103,7 @@ const navigation: NavItem[] = [
       { name: "Domaines", href: "/dashboard/domains", icon: Globe },
     ],
   },
-  { name: "Parametres", href: "/dashboard/settings", icon: Settings, tourId: "nav-settings" },
-  { name: "Integrations", href: "/dashboard/settings/integrations", icon: PlugZap },
+  { name: "Paramètres", href: "/dashboard/settings", icon: Settings, tourId: "nav-settings" },
 ];
 
 function SidebarNavItem({
@@ -250,10 +248,10 @@ function Sidebar() {
             "flex items-center gap-3 rounded-lg text-sm text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/5 transition-all w-full cursor-pointer",
             collapsed ? "p-2.5 justify-center" : "px-3 py-2"
           )}
-          title={collapsed ? "Deconnexion" : undefined}
+          title={collapsed ? "Déconnexion" : undefined}
         >
           <LogOut className="h-4 w-4 shrink-0" />
-          {!collapsed && <span>Deconnexion</span>}
+          {!collapsed && <span>Déconnexion</span>}
         </button>
       </div>
     </aside>

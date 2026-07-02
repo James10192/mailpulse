@@ -1,0 +1,42 @@
+---
+title: Operations and Limits
+description: GitHub Actions, secrets, deployment, and external constraints.
+---
+
+## GitHub Actions
+
+MailPulse uses GitHub Actions for scheduled jobs. Vercel Cron is not used.
+
+Filon Recovery runs with:
+
+```txt
+3,13,23,33,43,53 * * * *
+```
+
+Scheduled campaigns run through the `send-scheduled.yml` workflow.
+
+## GitHub secrets
+
+Required secrets are:
+
+- `MAILPULSE_APP_URL` for Filon Recovery.
+- `APP_URL` or the equivalent URL depending on the campaign workflow.
+- `CRON_SECRET`, identical to the application environment variable.
+
+## Managed MailPulse variables
+
+- `MAILPULSE_MANAGED_FROM_EMAIL` enables the platform email fallback.
+- `MAILPULSE_MANAGED_WHATSAPP_ENABLED` enables the platform WhatsApp resource.
+- `MAILPULSE_MANAGED_WHATSAPP_MODE` declares the managed mode.
+
+## External limits
+
+GitHub Actions can run late. Runners must stay idempotent and accept delayed executions.
+
+Resend requires properly verified domains for good deliverability. Webhooks depend on Svix signatures.
+
+Meta WhatsApp Cloud API requires WABA, phone number, token, and approved templates outside the 24-hour window.
+
+Baileys and Evolution API rely on WhatsApp Web. It is convenient, but unofficial, fragile, and risky at volume.
+
+MailPulse resources help when users do not yet have a domain or phone number, but remain subject to platform limits.

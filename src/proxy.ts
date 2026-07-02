@@ -10,6 +10,7 @@ const publicPrefixes = [
   "/login",
   "/register",
   "/docs",
+  "/en/docs",
   "/api/auth",
   "/api/webhooks",
   "/api/integrations",

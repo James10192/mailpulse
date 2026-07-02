@@ -1,0 +1,42 @@
+---
+title: API et webhooks
+description: Endpoints publics, tracking, Filon et sécurité.
+---
+
+## Authentification
+
+L’API Filon utilise des clés Bearer `mp_filon_*`. Les endpoints cron utilisent `Authorization: Bearer $CRON_SECRET`. Les routes utilisateur du dashboard passent par Better Auth.
+
+## Filon
+
+```txt
+POST /api/integrations/filon/recovery
+GET /api/integrations/filon/recovery?filonOpportunityId=...
+GET /api/integrations/filon/recovery/status?filonOpportunityId=...
+```
+
+Le POST valide le payload, retrouve l’organisation depuis la clé API et crée ou retourne une séquence idempotente par opportunité Filon.
+
+## Cron
+
+```txt
+GET /api/cron/send-scheduled
+GET /api/cron/filon-recoveries
+```
+
+Ces routes sont protégées par `CRON_SECRET` et appelées par GitHub Actions.
+
+## Tracking
+
+```txt
+GET /api/track/open
+GET /api/track/click
+GET /api/unsubscribe
+POST /api/webhooks/email
+```
+
+Le tracking utilise `TRACKING_SECRET`. Le webhook email traite les événements Resend signés avec Svix.
+
+## Upload
+
+`POST /api/upload` sert aux images et fichiers autorisés par l’application, avec stockage Cloudflare R2 quand la configuration est disponible.
