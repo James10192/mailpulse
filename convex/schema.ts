@@ -77,4 +77,26 @@ export default defineSchema({
     resourceName: v.string(),
     createdAt: v.number(),
   }).index("by_org", ["organizationId", "createdAt"]),
+
+  // Live communication message state mirrored from Prisma.
+  liveMessages: defineTable({
+    organizationId: v.string(),
+    messageId: v.string(),
+    channel: v.union(v.literal("email"), v.literal("whatsapp"), v.literal("sms")),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("retrying"),
+      v.literal("sent"),
+      v.literal("delivered"),
+      v.literal("read"),
+      v.literal("failed"),
+      v.literal("cancelled"),
+      v.literal("template_required")
+    ),
+    recipient: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_messageId", ["messageId"])
+    .index("by_organizationId_and_updatedAt", ["organizationId", "updatedAt"])
+    .index("by_organizationId_and_status", ["organizationId", "status"]),
 });

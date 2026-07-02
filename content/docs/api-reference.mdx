@@ -1,42 +1,132 @@
 ---
 title: API et webhooks
-description: Endpoints publics, tracking, Filon et sécurité.
+description: API publique V1, idempotence, webhooks signés et compatibilité intégrations.
 ---
 
 ## Authentification
 
-L’API Filon utilise des clés Bearer `mp_filon_*`. Les endpoints cron utilisent `Authorization: Bearer $CRON_SECRET`. Les routes utilisateur du dashboard passent par Better Auth.
-
-## Filon
+L’API publique V1 utilise des clés Bearer génériques `mp_live_*` ou `mp_test_*`.
+Les clés sont isolées par organisation MailPulse. Les anciennes clés `mp_filon_*`
+restent acceptées comme compatibilité, mais les nouveaux clients doivent utiliser
+les clés MailPulse.
 
 ```txt
-POST /api/integrations/filon/recovery
-GET /api/integrations/filon/recovery?filonOpportunityId=...
-GET /api/integrations/filon/recovery/status?filonOpportunityId=...
+Authorization: Bearer mp_live_xxx
+Idempotency-Key: source_event_unique_id
 ```
 
-Le POST valide le payload, retrouve l’organisation depuis la clé API et crée ou retourne une séquence idempotente par opportunité Filon.
+## Contacts
 
-## Cron
+```txt
+POST /api/v1/contacts
+GET /api/v1/contacts/{contact_id}
+PATCH /api/v1/contacts/{contact_id}/preferences
+```
+
+Les contacts restent génériques. Les identifiants métier du client doivent aller
+dans `metadata`, par exemple `external_user_id` ou `external_tenant_id`.
+
+## Messages
+
+```txt
+POST /api/v1/messages
+GET /api/v1/messages/{message_id}
+```
+
+Exemple :
+
+```json
+{
+  "channel": "whatsapp",
+  "recipient": { "type": "phone", "value": "+2250700000000" },
+  "content": {
+    "type": "template",
+    "template_key": "absence_alert",
+    "locale": "fr_CI",
+    "variables": { "parent_name": "M. Kouassi" }
+  },
+  "metadata": {
+    "external_user_id": "parent_123",
+    "external_event_id": "absence_987",
+    "source_app": "klassci"
+  },
+  "idempotency_key": "klassci_absence_987_parent_123"
+}
+```
+
+Statuts possibles : `queued`, `retrying`, `sent`, `delivered`, `read`, `failed`,
+`cancelled`, `template_required`.
+
+## Templates
+
+```txt
+POST /api/v1/templates
+GET /api/v1/templates
+PATCH /api/v1/templates/{template_key}
+```
+
+Les templates peuvent contenir du vocabulaire métier client, mais MailPulse ne
+modélise pas ce métier. Pour WhatsApp, les messages libres hors fenêtre de 24h
+sont refusés avec `template_required`; les templates WhatsApp doivent être
+approuvés.
+
+## Conversations
+
+```txt
+GET /api/v1/conversations
+GET /api/v1/conversations/{conversation_id}/messages
+```
+
+MailPulse regroupe les messages par conversation et conserve la fenêtre de
+service WhatsApp lorsqu’elle existe.
+
+## Webhooks sortants
+
+```txt
+POST /api/v1/webhooks
+GET /api/v1/webhooks
+DELETE /api/v1/webhooks/{webhook_id}
+```
+
+Chaque webhook sortant contient :
+
+```json
+{
+  "event_id": "evt_xxx",
+  "type": "message.queued",
+  "tenant_id": "org_xxx",
+  "created_at": "2026-07-02T10:00:00.000Z",
+  "data": {}
+}
+```
+
+Les requêtes sont signées avec HMAC SHA-256 :
+
+```txt
+mailpulse-event-id: evt_xxx
+mailpulse-timestamp: 1782996000
+mailpulse-signature: v1=<signature>
+```
+
+La signature se calcule sur `timestamp + "." + rawBody` avec le secret affiché
+une seule fois lors de la création du webhook.
+
+## Compatibilité Filon et Klassci
+
+Filon et Klassci restent des applications clientes. Elles doivent générer leurs
+propres clés d’idempotence, construire le contenu métier et transmettre les
+identifiants externes dans `metadata`. MailPulse gère uniquement les contraintes
+techniques : canaux, templates, statuts, webhooks, retries, isolation tenant et
+fenêtre WhatsApp.
+
+## Endpoints système existants
 
 ```txt
 GET /api/cron/send-scheduled
 GET /api/cron/filon-recoveries
-```
-
-Ces routes sont protégées par `CRON_SECRET` et appelées par GitHub Actions.
-
-## Tracking
-
-```txt
 GET /api/track/open
 GET /api/track/click
 GET /api/unsubscribe
 POST /api/webhooks/email
+POST /api/upload
 ```
-
-Le tracking utilise `TRACKING_SECRET`. Le webhook email traite les événements Resend signés avec Svix.
-
-## Upload
-
-`POST /api/upload` sert aux images et fichiers autorisés par l’application, avec stockage Cloudflare R2 quand la configuration est disponible.

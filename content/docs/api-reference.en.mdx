@@ -1,42 +1,85 @@
 ---
-title: API and Webhooks
-description: Public endpoints, tracking, Filon, and security.
+title: API and webhooks
+description: Public V1 API, idempotency, signed webhooks, and integration compatibility.
 ---
 
 ## Authentication
 
-The Filon API uses `mp_filon_*` Bearer keys. Cron endpoints use `Authorization: Bearer $CRON_SECRET`. Dashboard user routes are handled through Better Auth.
-
-## Filon
-
-```txt
-POST /api/integrations/filon/recovery
-GET /api/integrations/filon/recovery?filonOpportunityId=...
-GET /api/integrations/filon/recovery/status?filonOpportunityId=...
-```
-
-POST validates the payload, resolves the organization from the API key, and creates or returns an idempotent sequence per Filon opportunity.
-
-## Cron
+The public V1 API uses generic Bearer keys: `mp_live_*` or `mp_test_*`.
+Keys are isolated per MailPulse organization. Legacy `mp_filon_*` keys remain
+accepted for compatibility, but new clients should use MailPulse keys.
 
 ```txt
-GET /api/cron/send-scheduled
-GET /api/cron/filon-recoveries
+Authorization: Bearer mp_live_xxx
+Idempotency-Key: source_event_unique_id
 ```
 
-These routes are protected by `CRON_SECRET` and called by GitHub Actions.
-
-## Tracking
+## Contacts
 
 ```txt
-GET /api/track/open
-GET /api/track/click
-GET /api/unsubscribe
-POST /api/webhooks/email
+POST /api/v1/contacts
+GET /api/v1/contacts/{contact_id}
+PATCH /api/v1/contacts/{contact_id}/preferences
 ```
 
-Tracking uses `TRACKING_SECRET`. The email webhook processes Resend events signed with Svix.
+Contacts stay generic. Client business identifiers belong in `metadata`, such as
+`external_user_id` or `external_tenant_id`.
 
-## Upload
+## Messages
 
-`POST /api/upload` handles images and files allowed by the application, with Cloudflare R2 storage when configured.
+```txt
+POST /api/v1/messages
+GET /api/v1/messages/{message_id}
+```
+
+Statuses: `queued`, `retrying`, `sent`, `delivered`, `read`, `failed`,
+`cancelled`, `template_required`.
+
+## Templates
+
+```txt
+POST /api/v1/templates
+GET /api/v1/templates
+PATCH /api/v1/templates/{template_key}
+```
+
+Templates may contain client business language, but MailPulse does not model the
+client business domain. For WhatsApp, free-form messages outside the 24h service
+window return `template_required`; WhatsApp templates must be approved.
+
+## Conversations
+
+```txt
+GET /api/v1/conversations
+GET /api/v1/conversations/{conversation_id}/messages
+```
+
+MailPulse groups messages by conversation and stores the WhatsApp service window
+when available.
+
+## Outgoing webhooks
+
+```txt
+POST /api/v1/webhooks
+GET /api/v1/webhooks
+DELETE /api/v1/webhooks/{webhook_id}
+```
+
+Events contain `event_id`, `type`, `tenant_id`, `created_at`, and `data`.
+Requests are signed with HMAC SHA-256:
+
+```txt
+mailpulse-event-id: evt_xxx
+mailpulse-timestamp: 1782996000
+mailpulse-signature: v1=<signature>
+```
+
+The signature is computed over `timestamp + "." + rawBody` with the webhook
+secret shown once at creation time.
+
+## Filon and Klassci compatibility
+
+Filon and Klassci remain client applications. They generate idempotency keys,
+build business content, and pass external identifiers through `metadata`.
+MailPulse owns only technical communication concerns: channels, templates,
+statuses, webhooks, retries, tenant isolation, and the WhatsApp window.

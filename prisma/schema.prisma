@@ -139,6 +139,13 @@ model Organization {
   customFields CustomField[]
   integrationApiKeys IntegrationApiKey[]
   filonRecoveries FilonRecovery[]
+  communicationTemplates CommunicationTemplate[]
+  conversations Conversation[]
+  messages CommunicationMessage[]
+  webhooks WebhookEndpoint[]
+  webhookDeliveries WebhookDelivery[]
+  idempotencyRecords IdempotencyRecord[]
+  auditLogs AuditLog[]
 
   @@map("organization")
 }
@@ -208,6 +215,8 @@ model Contact {
   emailEvents        EmailEvent[]
   campaignRecipients CampaignRecipient[]
   filonRecoveries FilonRecovery[]
+  conversations Conversation[]
+  communicationMessages CommunicationMessage[]
 
   @@unique([email, organizationId])
   @@index([organizationId, subscribed])
@@ -586,6 +595,7 @@ model AutomationStep {
 model IntegrationApiKey {
   id             String              @id @default(cuid())
   provider       IntegrationProvider @default(FILON)
+  environment    ApiKeyEnvironment   @default(LIVE)
   name           String
   keyHash        String              @unique
   keyPrefix      String
@@ -602,7 +612,249 @@ model IntegrationApiKey {
 }
 
 enum IntegrationProvider {
+  MAILPULSE
   FILON
+}
+
+enum ApiKeyEnvironment {
+  LIVE
+  TEST
+}
+
+enum CommunicationChannel {
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+enum RecipientType {
+  EMAIL
+  PHONE
+}
+
+enum MessageContentType {
+  TEXT
+  TEMPLATE
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessageStatus {
+  QUEUED
+  RETRYING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  CANCELLED
+  TEMPLATE_REQUIRED
+}
+
+enum TemplateStatus {
+  DRAFT
+  APPROVED
+  PENDING_REVIEW
+  REJECTED
+  ARCHIVED
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRYING
+}
+
+model CommunicationTemplate {
+  id                  String               @id @default(cuid())
+  templateKey         String
+  name                String
+  description         String?
+  channel             CommunicationChannel
+  locale              String               @default("fr")
+  contentType         MessageContentType   @default(TEMPLATE)
+  subject             String?
+  body                String
+  variables           Json?
+  providerTemplateId  String?
+  status              TemplateStatus       @default(DRAFT)
+  metadata            Json?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  organizationId      String
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  messages            CommunicationMessage[]
+
+  @@unique([organizationId, templateKey, locale, channel])
+  @@index([organizationId, channel, status])
+  @@map("communication_template")
+}
+
+model Conversation {
+  id                     String               @id @default(cuid())
+  channel                CommunicationChannel
+  recipientType          RecipientType
+  recipientValue         String
+  status                 ConversationStatus   @default(OPEN)
+  lastInboundAt          DateTime?
+  serviceWindowExpiresAt DateTime?
+  closedAt               DateTime?
+  metadata               Json?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  organizationId         String
+  organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contactId              String?
+  contact                Contact?             @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  messages               CommunicationMessage[]
+
+  @@index([organizationId, channel, status])
+  @@index([organizationId, recipientValue])
+  @@map("conversation")
+}
+
+model CommunicationMessage {
+  id                    String               @id @default(cuid())
+  channel               CommunicationChannel
+  direction             MessageDirection     @default(OUTBOUND)
+  recipientType         RecipientType
+  recipientValue        String
+  contentType           MessageContentType
+  text                  String?
+  templateKey           String?
+  locale                String?
+  variables             Json?
+  metadata              Json?
+  externalUserId        String?
+  externalEventId       String?
+  externalTenantId      String?
+  idempotencyKey        String?
+  providerMessageId     String?
+  status                MessageStatus        @default(QUEUED)
+  errorCode             String?
+  errorMessage          String?
+  queuedAt              DateTime             @default(now())
+  sentAt                DateTime?
+  deliveredAt           DateTime?
+  readAt                DateTime?
+  failedAt              DateTime?
+  cancelledAt           DateTime?
+  retryCount            Int                  @default(0)
+  nextRetryAt           DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  organizationId        String
+  organization          Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contactId             String?
+  contact               Contact?             @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  conversationId        String?
+  conversation          Conversation?         @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  templateId            String?
+  template              CommunicationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  webhookDeliveries     WebhookDelivery[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, channel, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([externalEventId])
+  @@map("communication_message")
+}
+
+model WebhookEndpoint {
+  id             String              @id @default(cuid())
+  name           String
+  url            String
+  events         String[]
+  signingSecret  String
+  secretHash     String
+  secretPreview  String
+  active         Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  deliveries     WebhookDelivery[]
+
+  @@index([organizationId, active])
+  @@map("webhook_endpoint")
+}
+
+model WebhookDelivery {
+  id             String                @id @default(cuid())
+  eventId        String
+  eventType      String
+  payload        Json
+  status         WebhookDeliveryStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  lastError      String?
+  deliveredAt    DateTime?
+  nextRetryAt    DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  organizationId String
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  endpointId     String
+  endpoint       WebhookEndpoint       @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  messageId      String?
+  message        CommunicationMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@unique([endpointId, eventId])
+  @@index([organizationId, status, createdAt])
+  @@map("webhook_delivery")
+}
+
+model IdempotencyRecord {
+  id             String       @id @default(cuid())
+  key            String
+  method         String
+  path           String
+  requestHash    String
+  statusCode     Int
+  responseBody   Json
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key, method, path])
+  @@index([organizationId, createdAt])
+  @@map("idempotency_record")
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  actorType      String
+  actorId        String?
+  action         String
+  resourceType   String
+  resourceId     String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("audit_log")
 }
 
 model FilonRecovery {

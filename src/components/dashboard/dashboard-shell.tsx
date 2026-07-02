@@ -43,6 +43,7 @@ import {
   UserMinus,
   MessageSquare,
   HandCoins,
+  Network,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,7 @@ const navigation: NavItem[] = [
   },
   { name: "WhatsApp", href: "/dashboard/messaging", icon: MessageSquare, pro: true, tourId: "nav-messaging" },
   { name: "Recouvrements", href: "/dashboard/recoveries", icon: HandCoins, pro: true },
+  { name: "Platform", href: "/dashboard/platform", icon: Network, pro: true },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, tourId: "nav-analytics" },
   { name: "Pages de capture", href: "/dashboard/capture-pages", icon: Globe, tourId: "nav-capture" },
   { name: "Automations", href: "/dashboard/automations", icon: Zap, pro: true, tourId: "nav-automations" },
