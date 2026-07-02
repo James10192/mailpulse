@@ -6,6 +6,49 @@ import type { IWhatsAppProvider, WhatsAppSendResult } from "@/lib/whatsapp/types
 const EVO_URL = process.env.EVOLUTION_API_URL || "";
 const EVO_KEY = process.env.EVOLUTION_API_KEY || "";
 
+type EvolutionMessageError = {
+  exists?: boolean;
+  jid?: string;
+  number?: string;
+};
+
+type EvolutionErrorBody = {
+  message?: unknown;
+  response?: {
+    message?: unknown;
+  };
+};
+
+function getEvolutionErrorMessage(status: number, body: string) {
+  try {
+    const parsed = JSON.parse(body) as EvolutionErrorBody;
+    const messages = parsed.response?.message ?? parsed.message;
+    const firstMessage = Array.isArray(messages) ? messages[0] : messages;
+
+    if (
+      firstMessage &&
+      typeof firstMessage === "object" &&
+      "exists" in firstMessage
+    ) {
+      const error = firstMessage as EvolutionMessageError;
+      if (error.exists === false) {
+        const recipient = error.number ?? error.jid?.replace("@s.whatsapp.net", "");
+        return recipient
+          ? `Le numéro ${recipient} n'est pas enregistré sur WhatsApp. Vérifiez le numéro ou utilisez un autre contact.`
+          : "Ce numéro n'est pas enregistré sur WhatsApp. Vérifiez le numéro ou utilisez un autre contact.";
+      }
+    }
+
+    if (typeof firstMessage === "string" && firstMessage.trim()) {
+      return firstMessage;
+    }
+  } catch {
+    // Keep the original body below when Evolution returns a non-JSON error.
+  }
+
+  return body ? `Evolution API ${status}: ${body}` : `Evolution API ${status}`;
+}
+
 async function evoFetch<T = unknown>(
   path: string,
   options: RequestInit = {},
@@ -25,7 +68,7 @@ async function evoFetch<T = unknown>(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Evolution API ${res.status}: ${body}`);
+    throw new Error(getEvolutionErrorMessage(res.status, body));
   }
 
   const text = await res.text();
@@ -136,7 +179,7 @@ export async function recreateInstance(instanceName: string) {
 // ─── Helpers ───────────────────────────────────────────
 
 function normalizePhone(to: string) {
-  return to.replace(/^\+/, "").replace(/\s/g, "");
+  return to.replace(/\D/g, "");
 }
 
 // ─── Messaging ──────────────────────────────────────────
@@ -154,6 +197,9 @@ export async function sendText(
   text: string,
 ) {
   const number = normalizePhone(to);
+  if (!number) {
+    throw new Error("Numéro WhatsApp requis.");
+  }
 
   return evoFetch<SendMessageResult>(
     `/message/sendText/${instanceName}`,
@@ -176,7 +222,10 @@ export async function sendMedia(
   caption: string,
   mediaType: "image" | "video" | "document" = "image",
 ) {
-  const number = to.replace(/^\+/, "").replace(/\s/g, "");
+  const number = normalizePhone(to);
+  if (!number) {
+    throw new Error("Numéro WhatsApp requis.");
+  }
 
   return evoFetch<SendMessageResult>(
     `/message/sendMedia/${instanceName}`,
