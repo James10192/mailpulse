@@ -8,10 +8,22 @@ export default async function MessagingPage() {
   const ctx = await getCurrentUserAndOrg();
   const orgId = ctx.org?.id;
 
-  const [contactsWithPhone, tags, org] = orgId
+  const [contactsWithPhone, contactOptions, tags, org] = orgId
     ? await Promise.all([
         prisma.contact.count({
           where: { organizationId: orgId, subscribed: true, phone: { not: null } },
+        }),
+        prisma.contact.findMany({
+          where: { organizationId: orgId, subscribed: true, phone: { not: null } },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+          },
+          orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+          take: 50,
         }),
         prisma.contactTag.findMany({
           where: { contact: { organizationId: orgId } },
@@ -31,7 +43,7 @@ export default async function MessagingPage() {
           },
         }),
       ])
-    : [0, [], null];
+    : [0, [], [], null];
 
   return (
     <>
@@ -43,6 +55,13 @@ export default async function MessagingPage() {
       />
       <MessagingClient
         contactsWithPhone={contactsWithPhone}
+        contactOptions={contactOptions.map((contact) => ({
+          id: contact.id,
+          email: contact.email,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          phone: contact.phone ?? "",
+        }))}
         availableTags={tags.map((t) => t.name)}
         whatsappEnabled={org?.whatsappEnabled ?? false}
         whatsappMode={org?.whatsappMode ?? "BAILEYS"}

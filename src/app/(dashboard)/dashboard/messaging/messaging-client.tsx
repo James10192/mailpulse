@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   MessageSquare, Send, Loader2, Check,
-  Users, Tag, QrCode, Wifi, WifiOff,
+  QrCode, Wifi, WifiOff,
   Settings2, Unplug, RefreshCw,
 } from "lucide-react";
 import {
@@ -13,11 +13,13 @@ import {
 } from "./actions";
 import { HelpModal, HelpButton, StepList } from "@/components/dashboard/help-modal";
 import { WhatsAppLimitations } from "./whatsapp-limitations";
+import { RecipientPicker, type MessagingContactOption } from "./recipient-picker";
 
 import type { WhatsAppMode } from "@/lib/whatsapp";
 
 export function MessagingClient({
   contactsWithPhone,
+  contactOptions,
   availableTags,
   whatsappEnabled,
   whatsappMode,
@@ -29,6 +31,7 @@ export function MessagingClient({
   mailpulseWhatsAppAvailable,
 }: {
   contactsWithPhone: number;
+  contactOptions: MessagingContactOption[];
   availableTags: string[];
   whatsappEnabled: boolean;
   whatsappMode: WhatsAppMode;
@@ -420,74 +423,17 @@ export function MessagingClient({
 
           <WhatsAppHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
-          {/* Recipient mode */}
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
-            <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Destinataire
-            </h2>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setMode("single")}
-                className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
-                  mode === "single"
-                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-500"
-                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
-                }`}
-              >
-                Un seul contact
-              </button>
-              <button
-                onClick={() => setMode("bulk")}
-                className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
-                  mode === "bulk"
-                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-500"
-                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
-                }`}
-              >
-                Envoi en masse ({contactsWithPhone})
-              </button>
-            </div>
-
-            {mode === "single" && (
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+225 07 XX XX XX XX"
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
-              />
-            )}
-
-            {mode === "bulk" && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  onClick={() => setAudience("all")}
-                  className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
-                    audience === "all"
-                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
-                      : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-400"
-                  }`}
-                >
-                  Tous ({contactsWithPhone})
-                </button>
-                {availableTags.map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => setAudience(tag)}
-                    className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer flex items-center gap-1 ${
-                      audience === tag
-                        ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
-                        : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-400"
-                    }`}
-                  >
-                    <Tag className="h-3 w-3" />
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <RecipientPicker
+            contactsWithPhone={contactsWithPhone}
+            contacts={contactOptions}
+            availableTags={availableTags}
+            mode={mode}
+            phone={phone}
+            audience={audience}
+            onModeChange={setMode}
+            onPhoneChange={setPhone}
+            onAudienceChange={setAudience}
+          />
 
           {/* Message */}
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">

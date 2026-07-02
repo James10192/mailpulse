@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { checkContactLimit, type PlanTier } from "@/lib/plans";
 import { sendWhatsApp, baileys } from "@/lib/whatsapp";
 import type { WhatsAppMode } from "@/lib/whatsapp";
 import type { ActionState } from "@/types/action-state";
@@ -57,6 +58,20 @@ async function createFreshBaileysInstance(orgId: string, previousInstanceName?: 
 
 function getQrImage(qrData: Awaited<ReturnType<typeof baileys.getQrCode>>) {
   return qrData.base64 || qrData.qrcode?.base64 || undefined;
+}
+
+function normalizePhoneForContact(phone: string) {
+  const trimmed = phone.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  return trimmed.startsWith("+") ? `+${digits}` : digits ? `+${digits}` : "";
+}
+
+function getContactDisplayName(contact: {
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+}) {
+  return [contact.firstName, contact.lastName].filter(Boolean).join(" ") || contact.email;
 }
 
 // ─── Activation (Baileys) ───────────────────────────────
@@ -177,6 +192,96 @@ export async function checkConnectionStatus(): Promise<{
     return { state: result.state, phone: orgWa.whatsappPhone || undefined };
   } catch {
     return { state: "error" };
+  }
+}
+
+export async function createMessagingContact(input: {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone: string;
+}): Promise<ActionState & {
+  contact?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    phone: string;
+    name: string;
+  };
+}> {
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: "Non authentifié." };
+
+  const phone = normalizePhoneForContact(input.phone);
+  if (!phone) return { error: "Numéro WhatsApp requis." };
+
+  const existing = await prisma.contact.findFirst({
+    where: { organizationId: org.id, phone },
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+    },
+  });
+
+  if (existing) {
+    return {
+      success: true,
+      contact: {
+        ...existing,
+        phone: existing.phone ?? phone,
+        name: getContactDisplayName(existing),
+      },
+    };
+  }
+
+  const contactCheck = await checkContactLimit(org.id, org.plan as PlanTier);
+  if (!contactCheck.allowed) {
+    return { error: `Limite de contacts atteinte (${contactCheck.limit}). Passez au plan Pro pour plus de contacts.` };
+  }
+
+  const email = input.email?.trim().toLowerCase() || `wa-${phone.replace(/\D/g, "")}@contacts.mailpulse.local`;
+
+  try {
+    const contact = await prisma.contact.create({
+      data: {
+        email,
+        firstName: input.firstName?.trim() || null,
+        lastName: input.lastName?.trim() || null,
+        phone,
+        source: "whatsapp",
+        userId: user.id,
+        organizationId: org.id,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+      },
+    });
+
+    revalidatePath("/dashboard/messaging");
+    revalidatePath("/dashboard/contacts");
+    revalidatePath("/dashboard");
+
+    return {
+      success: true,
+      contact: {
+        ...contact,
+        phone: contact.phone ?? phone,
+        name: getContactDisplayName(contact),
+      },
+    };
+  } catch (e) {
+    if ((e as { code?: string }).code === "P2002") {
+      return { error: "Un contact utilise déjà cet email dans votre organisation." };
+    }
+    return { error: "Erreur lors de la création du contact WhatsApp." };
   }
 }
 
