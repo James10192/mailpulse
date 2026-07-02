@@ -46,7 +46,11 @@ import {
   Network,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
+import { Separator } from "@/components/ui/separator";
 
 export type NavItem = {
   name: string;
@@ -143,7 +147,7 @@ function SidebarNavItem({
           <item.icon className="h-4 w-4 shrink-0" />
           <span className="flex-1 text-left">{item.name}</span>
           {item.pro && (
-            <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase">Pro</span>
+            <Badge variant="default" className="px-1 py-0 text-[8px] uppercase">Pro</Badge>
           )}
           <ChevronDown
             className={cn(
@@ -153,26 +157,28 @@ function SidebarNavItem({
           />
         </Button>
         {expanded && (
-          <div className="ml-4 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5 mt-0.5">
+          <div className="mt-0.5 space-y-0.5 border-l border-zinc-200 pl-3 ml-4 dark:border-zinc-800">
             {item.children!.map((child) => {
               const childActive = pathname === child.href;
               return (
-                <Link
+                <Button
                   key={child.href}
-                  href={child.href}
+                  asChild
+                  variant="ghost"
+                  size="sm"
                   className={cn(
-                    "flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all",
+                    "h-8 w-full justify-start gap-2.5 px-2.5 text-xs",
                     childActive
                       ? "bg-orange-500/10 text-orange-600 dark:text-orange-400"
-                      : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                      : "text-zinc-500 dark:text-zinc-400"
                   )}
                 >
-                  <child.icon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="flex-1">{child.name}</span>
-                  {child.pro && (
-                    <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase">Pro</span>
-                  )}
-                </Link>
+                  <Link href={child.href}>
+                    <child.icon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="flex-1">{child.name}</span>
+                    {child.pro && <Badge variant="default" className="px-1 py-0 text-[7px] uppercase">Pro</Badge>}
+                  </Link>
+                </Button>
               );
             })}
           </div>
@@ -182,31 +188,37 @@ function SidebarNavItem({
   }
 
   return (
-    <Link
-      href={item.href}
-      title={collapsed ? item.name : undefined}
-      data-tour={item.tourId}
+    <Button
+      asChild
+      variant="ghost"
       className={cn(
-        "flex items-center gap-3 rounded-lg text-sm transition-all",
-        collapsed ? "p-2.5 justify-center" : "px-3 py-2",
+        "h-auto w-full gap-3 rounded-lg text-sm",
+        collapsed ? "justify-center p-2.5" : "justify-start px-3 py-2",
         isActive
           ? "bg-orange-500/10 text-orange-600 dark:text-orange-400"
-          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+          : "text-zinc-500 dark:text-zinc-400"
       )}
     >
-      <item.icon className="h-4 w-4 shrink-0" />
-      {!collapsed && (
-        <>
-          <span className="flex-1">{item.name}</span>
-          {item.pro && (
-            <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase">Pro</span>
-          )}
-        </>
-      )}
-    </Link>
+      <Link href={item.href} title={collapsed ? item.name : undefined} data-tour={item.tourId}>
+        <item.icon className="h-4 w-4 shrink-0" />
+        {!collapsed && (
+          <>
+            <span className="flex-1">{item.name}</span>
+            {item.pro && <Badge variant="default" className="px-1 py-0 text-[8px] uppercase">Pro</Badge>}
+          </>
+        )}
+      </Link>
+    </Button>
   );
 }
 
+function SidebarSectionSeparator() {
+  return (
+    <div className="px-2">
+      <Separator />
+    </div>
+  );
+}
 function Sidebar() {
   const pathname = usePathname();
   const { collapsed } = useSidebar();
@@ -238,7 +250,8 @@ function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="p-2 space-y-1 border-t border-zinc-200 dark:border-zinc-800">
+      <div className="space-y-2 p-2">
+        <SidebarSectionSeparator />
         <SidebarToggle />
 
         {/* Logout */}
@@ -272,30 +285,24 @@ function SearchTrigger() {
     >
       <Search className="h-3.5 w-3.5" />
       <span>Rechercher...</span>
-      <kbd className="ml-4 text-[10px] font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">{shortcutLabel}</kbd>
+      <Kbd className="ml-4">{shortcutLabel}</Kbd>
     </Button>
   );
 }
 
 function HeaderAvatar() {
   const { data: session } = useSession();
+  const initial = session?.user?.name?.[0]?.toUpperCase() ?? "?";
+
   return (
     <Link href="/dashboard/settings" title="Paramètres">
-      {session?.user?.image ? (
-        <img
-          src={session.user.image}
-          alt=""
-          className="h-8 w-8 rounded-full object-cover"
-        />
-      ) : (
-        <div className="h-8 w-8 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center text-sm font-medium">
-          {session?.user?.name?.[0]?.toUpperCase() ?? "?"}
-        </div>
-      )}
+      <Avatar className="h-8 w-8">
+        {session?.user?.image ? <AvatarImage src={session.user.image} alt="" /> : null}
+        <AvatarFallback>{initial}</AvatarFallback>
+      </Avatar>
     </Link>
   );
 }
-
 function DashboardContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">

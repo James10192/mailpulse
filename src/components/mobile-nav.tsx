@@ -3,82 +3,135 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { NavItem } from "@/components/dashboard/dashboard-shell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 export function MobileNav({ navigation }: { navigation: NavItem[] }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   return (
-    <>
-      {/* Mobile top bar */}
-      <div
-        style={{ viewTransitionName: "persistent-mobile-nav" }}
-        className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between border-b border-zinc-200 bg-white/95 px-4 text-zinc-900 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 dark:text-zinc-100 md:hidden"
-      >
-        <BrandMark href="/dashboard" className="text-base" />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => setOpen(!open)}
-          className="text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          aria-expanded={open}
-          aria-label="Ouvrir le menu"
-        >
-          {open ? <X aria-hidden="true" className="h-5 w-5" /> : <Menu aria-hidden="true" className="h-5 w-5" />}
-        </Button>
-      </div>
+    <div
+      style={{ viewTransitionName: "persistent-mobile-nav" }}
+      className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between border-b border-zinc-200 bg-white/95 px-4 text-zinc-900 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 dark:text-zinc-100 md:hidden"
+    >
+      <BrandMark href="/dashboard" className="text-base" />
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            aria-label="Ouvrir le menu"
+          >
+            <Menu aria-hidden="true" className="h-5 w-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-72 p-0" showCloseButton={false}>
+          <SheetHeader className="border-b border-zinc-200 dark:border-zinc-800">
+            <SheetTitle asChild>
+              <BrandMark href="/dashboard" className="text-base" />
+            </SheetTitle>
+          </SheetHeader>
+          <nav className="space-y-0.5 p-3">
+            {navigation.map((item) => (
+              <MobileNavItem
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                onSelect={() => setOpen(false)}
+              />
+            ))}
+          </nav>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
 
-      {/* Overlay */}
-      {open && (
-        <div
-          className="md:hidden fixed inset-0 z-40 bg-black/40"
-          onClick={() => setOpen(false)}
-        />
-      )}
+function MobileNavItem({
+  item,
+  pathname,
+  onSelect,
+}: {
+  item: NavItem;
+  pathname: string;
+  onSelect: () => void;
+}) {
+  const Icon = item.icon;
+  const isActive =
+    pathname === item.href ||
+    (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
-      {/* Drawer */}
-      <div
+  return (
+    <div>
+      <Button
+        asChild
+        variant="ghost"
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-72 transform border-r border-zinc-200 bg-white pt-14 text-zinc-900 transition-transform duration-300 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 md:hidden",
-          open ? "translate-x-0" : "-translate-x-full"
+          "h-11 w-full justify-start gap-3 rounded-lg px-3 text-sm",
+          isActive
+            ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/10 dark:text-orange-400"
+            : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
         )}
       >
-        <nav className="p-3 space-y-0.5">
-          {navigation.map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+        <Link href={item.href} onClick={onSelect}>
+          <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+          <span className="flex-1 text-left">{item.name}</span>
+          {item.pro && (
+            <Badge variant="default" className="ml-auto px-1 py-0 text-[8px] uppercase">
+              Pro
+            </Badge>
+          )}
+        </Link>
+      </Button>
+      {item.children && item.children.length > 0 ? (
+        <div className="ml-5 mt-0.5 space-y-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-800">
+          {item.children.map((child) => {
+            const ChildIcon = child.icon;
+            const childActive = pathname === child.href;
+
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
+              <Button
+                key={child.href}
+                asChild
+                variant="ghost"
+                size="sm"
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-                  isActive
+                  "h-9 w-full justify-start gap-2.5 px-2.5 text-xs",
+                  childActive
                     ? "bg-orange-500/10 text-orange-600 dark:text-orange-400"
-                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                    : "text-zinc-500 dark:text-zinc-400"
                 )}
               >
-                <Icon aria-hidden="true" className="h-4 w-4" />
-                <span>{item.name}</span>
-                {item.pro && (
-                  <span className="ml-auto rounded border border-orange-500/20 bg-orange-500/10 px-1 py-0.5 text-[8px] font-bold uppercase text-orange-500">
-                    Pro
-                  </span>
-                )}
-              </Link>
+                <Link href={child.href} onClick={onSelect}>
+                  <ChildIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  <span className="flex-1 text-left">{child.name}</span>
+                  {child.pro && (
+                    <Badge variant="default" className="ml-auto px-1 py-0 text-[7px] uppercase">
+                      Pro
+                    </Badge>
+                  )}
+                </Link>
+              </Button>
             );
           })}
-        </nav>
-      </div>
-    </>
+          <Separator className="my-1" />
+        </div>
+      ) : null}
+    </div>
   );
 }
