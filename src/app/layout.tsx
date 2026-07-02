@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import "fumadocs-ui/style.css";
 import { Providers } from "@/components/providers";
 
 const spaceMono = Space_Mono({

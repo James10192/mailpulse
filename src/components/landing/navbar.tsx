@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Mail, Menu, X, BookOpen, User } from "lucide-react";
+import { BookOpen, Menu, User, X } from "lucide-react";
+
+import { BrandMark } from "@/components/brand-mark";
+import { Button } from "@/components/ui/button";
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
@@ -13,128 +16,92 @@ function GitHubIcon({ className }: { className?: string }) {
 }
 
 const navLinks = [
-  { label: "Features", href: "#features" },
+  { label: "Fonctionnalités", href: "#features" },
   { label: "Tracking", href: "#tracking" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Tarifs", href: "#pricing" },
 ];
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 border-b border-white/5 backdrop-blur-xl bg-zinc-950/80">
-      <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="relative">
-            <Mail className="h-5 w-5 text-orange-500 transition-transform group-hover:scale-110" />
-            <div className="absolute inset-0 bg-orange-500/20 blur-lg rounded-full" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight">
-            Mail<span className="text-orange-500">Pulse</span>
-          </span>
-        </Link>
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-zinc-950/90 text-zinc-100 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <BrandMark className="text-lg text-zinc-50" />
 
-        {/* Desktop nav links (center) */}
-        <nav className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
+        <nav className="hidden items-center gap-8 text-sm text-zinc-400 md:flex">
           {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="hover:text-zinc-100 transition-colors"
-            >
+            <a key={link.href} href={link.href} className="transition-colors hover:text-zinc-100">
               {link.label}
             </a>
           ))}
         </nav>
 
-        {/* Right section: icon buttons + auth */}
-        <div className="flex items-center gap-2">
-          {/* Icon buttons — always visible */}
-          <Link
-            href="/docs"
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50 transition-all"
-            title="Documentation"
-          >
-            <BookOpen className="h-[18px] w-[18px]" />
-          </Link>
-          <a
-            href="https://github.com/James10192/mailpulse"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50 transition-all"
-            title="GitHub"
-          >
-            <GitHubIcon className="h-[18px] w-[18px]" />
-          </a>
+        <div className="flex items-center gap-1.5">
+          <Button asChild variant="ghost" size="icon" className="text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-100" title="Documentation">
+            <Link href="/docs">
+              <BookOpen className="h-[18px] w-[18px]" />
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="icon" className="text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-100" title="GitHub">
+            <a href="https://github.com/James10192/mailpulse" target="_blank" rel="noopener noreferrer">
+              <GitHubIcon className="h-[18px] w-[18px]" />
+            </a>
+          </Button>
 
-          {/* Separator */}
-          <div className="hidden md:block w-px h-5 bg-zinc-800 mx-1" />
+          <div className="mx-1 hidden h-5 w-px bg-zinc-800 md:block" />
 
-          {/* Connexion icon — mobile only */}
-          <Link
-            href="/login"
-            className="md:hidden p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50 transition-all"
-            title="Connexion"
-          >
-            <User className="h-[18px] w-[18px]" />
-          </Link>
+          <Button asChild variant="ghost" size="icon" className="text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-100 md:hidden" title="Connexion">
+            <Link href="/login">
+              <User className="h-[18px] w-[18px]" />
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" className="hidden text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100 md:inline-flex">
+            <Link href="/login">Connexion</Link>
+          </Button>
+          <Button asChild className="hidden md:inline-flex">
+            <Link href="/register">Démarrer</Link>
+          </Button>
 
-          {/* Auth buttons — desktop only */}
-          <Link
-            href="/login"
-            className="hidden md:block text-sm text-zinc-400 hover:text-zinc-100 transition-colors px-3 py-1.5"
-          >
-            Connexion
-          </Link>
-          <Link
-            href="/register"
-            className="hidden md:block text-sm bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg transition-all hover:shadow-lg hover:shadow-orange-500/20"
-          >
-            Demarrer
-          </Link>
-
-          {/* Mobile hamburger */}
-          <button
-            onClick={() => setOpen(!open)}
-            className="md:hidden p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 transition-all ml-1"
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setOpen((value) => !value)}
+            className="ml-1 text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100 md:hidden"
+            aria-expanded={open}
+            aria-label="Ouvrir le menu"
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* Mobile menu — only page links + auth buttons (no Docs/GitHub duplication) */}
       {open && (
-        <div className="md:hidden border-t border-zinc-800/50 bg-zinc-950/95 backdrop-blur-xl">
-          <div className="px-6 py-4 space-y-1">
+        <div className="border-t border-zinc-800/80 bg-zinc-950/95 px-4 py-4 backdrop-blur-xl md:hidden">
+          <nav className="space-y-1">
             {navLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="block py-2.5 text-sm text-zinc-400 hover:text-zinc-100 transition-colors"
+                className="block rounded-lg px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-zinc-50"
               >
                 {link.label}
               </a>
             ))}
-
-            <div className="pt-3 mt-3 border-t border-zinc-800/50 space-y-2">
-              <Link
-                href="/login"
-                onClick={() => setOpen(false)}
-                className="block text-center py-2.5 text-sm text-zinc-300 border border-zinc-800 rounded-lg hover:bg-zinc-900 transition-colors"
-              >
+          </nav>
+          <div className="mt-3 grid gap-2 border-t border-zinc-800 pt-3">
+            <Button asChild variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900">
+              <Link href="/login" onClick={() => setOpen(false)}>
                 Connexion
               </Link>
-              <Link
-                href="/register"
-                onClick={() => setOpen(false)}
-                className="block text-center py-2.5 text-sm text-white bg-orange-600 hover:bg-orange-500 rounded-lg transition-colors font-medium"
-              >
-                Demarrer gratuitement
+            </Button>
+            <Button asChild>
+              <Link href="/register" onClick={() => setOpen(false)}>
+                Démarrer gratuitement
               </Link>
-            </div>
+            </Button>
           </div>
         </div>
       )}

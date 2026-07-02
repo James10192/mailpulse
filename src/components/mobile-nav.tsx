@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Mail, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/components/dashboard/dashboard-shell";
 
@@ -14,19 +16,19 @@ export function MobileNav({ navigation }: { navigation: NavItem[] }) {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 inset-x-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl flex items-center justify-between px-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <Mail className="h-5 w-5 text-orange-500" />
-          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-            Mail<span className="text-orange-500">Pulse</span>
-          </span>
-        </Link>
-        <button
+      <div className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between border-b border-zinc-200 bg-white/95 px-4 text-zinc-900 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 dark:text-zinc-100 md:hidden">
+        <BrandMark href="/dashboard" className="text-base" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
           onClick={() => setOpen(!open)}
-          className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          className="text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          aria-expanded={open}
+          aria-label="Ouvrir le menu"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        </Button>
       </div>
 
       {/* Overlay */}
@@ -40,7 +42,7 @@ export function MobileNav({ navigation }: { navigation: NavItem[] }) {
       {/* Drawer */}
       <div
         className={cn(
-          "md:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 transform transition-transform duration-300 pt-14",
+          "fixed inset-y-0 left-0 z-50 w-72 transform border-r border-zinc-200 bg-white pt-14 text-zinc-900 transition-transform duration-300 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 md:hidden",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -63,7 +65,12 @@ export function MobileNav({ navigation }: { navigation: NavItem[] }) {
                 )}
               >
                 <Icon className="h-4 w-4" />
-                {item.name}
+                <span>{item.name}</span>
+                {item.pro && (
+                  <span className="ml-auto rounded border border-orange-500/20 bg-orange-500/10 px-1 py-0.5 text-[8px] font-bold uppercase text-orange-500">
+                    Pro
+                  </span>
+                )}
               </Link>
             );
           })}

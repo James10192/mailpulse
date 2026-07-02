@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Eye, EyeOff, ArrowRight, Fingerprint } from "lucide-react";
-import { signIn, authClient } from "@/lib/auth-client";
+import { ArrowRight, Eye, EyeOff, Fingerprint } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
+
+import { BrandMark } from "@/components/brand-mark";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { EVENTS } from "@/lib/analytics-events";
+import { authClient, signIn } from "@/lib/auth-client";
 
 function GoogleIcon() {
   return (
@@ -68,7 +75,7 @@ function LoginForm() {
       await signIn.social({ provider: "google", callbackURL: callbackUrl });
     } catch {
       posthog?.capture(EVENTS.LOGIN_FAILED, { method: "google" });
-      setError("Erreur avec Google. Reessayez.");
+      setError("Erreur avec Google. Réessayez.");
     }
   }
 
@@ -78,157 +85,109 @@ function LoginForm() {
       await signIn.social({ provider: "github", callbackURL: callbackUrl });
     } catch {
       posthog?.capture(EVENTS.LOGIN_FAILED, { method: "github" });
-      setError("Erreur avec GitHub. Reessayez.");
+      setError("Erreur avec GitHub. Réessayez.");
+    }
+  }
+
+  async function handlePasskey() {
+    try {
+      await authClient.signIn.passkey({
+        fetchOptions: {
+          onSuccess: () => {
+            router.push(callbackUrl);
+          },
+        },
+      });
+    } catch {
+      setError("Passkey non disponible ou annulée.");
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-6 py-12">
-      {/* Background subtle grid */}
-      <div
-        className="fixed inset-0 opacity-[0.02] pointer-events-none"
-        style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-          backgroundSize: "48px 48px",
-        }}
-      />
-
-      <div className="relative w-full max-w-sm">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2.5 mb-6">
-            <div className="relative">
-              <Mail className="h-6 w-6 text-orange-500" />
-              <div className="absolute inset-0 bg-orange-500/20 blur-lg rounded-full" />
-            </div>
-            <span className="text-xl font-semibold">
-              Mail<span className="text-orange-500">Pulse</span>
-            </span>
-          </Link>
+    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12 text-zinc-100 sm:px-6">
+      <Card className="w-full max-w-sm border-zinc-800 bg-zinc-950 text-zinc-100 shadow-none">
+        <CardHeader className="items-center p-0 pb-8 text-center">
+          <BrandMark className="mb-4 text-xl text-zinc-50" />
           <h1 className="text-2xl font-bold tracking-tight">Bon retour</h1>
-          <p className="mt-1.5 text-sm text-zinc-500">
-            Connectez-vous a votre compte
+          <p className="text-sm text-zinc-400">Connectez-vous à votre compte.</p>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="space-y-2.5">
+            <Button type="button" variant="outline" className="w-full border-zinc-800 bg-zinc-900/50 text-zinc-100 hover:bg-zinc-900" onClick={handleGoogle}>
+              <GoogleIcon />
+              Continuer avec Google
+            </Button>
+            <Button type="button" variant="outline" className="w-full border-zinc-800 bg-zinc-900/50 text-zinc-100 hover:bg-zinc-900" onClick={handleGitHub}>
+              <GitHubIcon />
+              Continuer avec GitHub
+            </Button>
+            <Button type="button" variant="outline" className="w-full border-orange-500/30 bg-orange-500/5 text-orange-400 hover:bg-orange-500/10" onClick={handlePasskey}>
+              <Fingerprint className="h-5 w-5" />
+              Se connecter avec une passkey
+            </Button>
+          </div>
+
+          <div className="my-6 flex items-center gap-3 text-xs text-zinc-500">
+            <Separator className="flex-1 bg-zinc-800" />
+            ou par email
+            <Separator className="flex-1 bg-zinc-800" />
+          </div>
+
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-300">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@entreprise.com" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Mot de passe</Label>
+                <a href="#" className="text-xs font-medium text-orange-500 hover:text-orange-400">
+                  Mot de passe oublié ?
+                </a>
+              </div>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pr-11"
+                  placeholder="••••••••"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 text-zinc-500 hover:bg-transparent hover:text-zinc-200"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <Button type="submit" disabled={loading} className="group w-full">
+              {loading ? "Connexion..." : "Se connecter"}
+              {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
+            </Button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-zinc-400">
+            Pas encore de compte ?{" "}
+            <Link href="/register" className="font-medium text-orange-500 hover:text-orange-400">
+              Créer un compte
+            </Link>
           </p>
-        </div>
-
-        {/* Social login */}
-        <div className="space-y-2.5 mb-6">
-          <button
-            onClick={handleGoogle}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800/80 transition-all text-sm font-medium"
-          >
-            <GoogleIcon />
-            Continuer avec Google
-          </button>
-          <button
-            onClick={handleGitHub}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800/80 transition-all text-sm font-medium"
-          >
-            <GitHubIcon />
-            Continuer avec GitHub
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                await authClient.signIn.passkey({
-                  fetchOptions: {
-                    onSuccess: () => { router.push(callbackUrl); },
-                  },
-                });
-              } catch {
-                setError("Passkey non disponible ou annulee.");
-              }
-            }}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 transition-all text-sm font-medium text-orange-400"
-          >
-            <Fingerprint className="h-5 w-5" />
-            Se connecter avec une passkey
-          </button>
-        </div>
-
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-zinc-800" />
-          </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="px-3 bg-zinc-950 text-zinc-600">ou par email</span>
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-4 text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-zinc-300 mb-1.5">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-zinc-900/50 border border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 transition-all placeholder:text-zinc-600"
-              placeholder="vous@entreprise.com"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="password" className="block text-sm font-medium text-zinc-300">
-                Mot de passe
-              </label>
-              <a href="#" className="text-xs text-orange-500 hover:text-orange-400">
-                Mot de passe oublie ?
-              </a>
-            </div>
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3.5 py-2.5 pr-11 bg-zinc-900/50 border border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 transition-all placeholder:text-zinc-600"
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="group w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-semibold transition-all hover:shadow-lg hover:shadow-orange-500/20"
-          >
-            {loading ? (
-              "Connexion..."
-            ) : (
-              <>
-                Se connecter
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </>
-            )}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-zinc-500">
-          Pas encore de compte ?{" "}
-          <Link href="/register" className="text-orange-500 hover:text-orange-400 font-medium">
-            Creer un compte
-          </Link>
-        </p>
-      </div>
-    </div>
+        </CardContent>
+      </Card>
+    </main>
   );
 }

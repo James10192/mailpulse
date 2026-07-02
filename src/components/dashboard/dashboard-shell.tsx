@@ -44,6 +44,8 @@ import {
   MessageSquare,
   HandCoins,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
+import { Button } from "@/components/ui/button";
 
 export type NavItem = {
   name: string;
@@ -99,7 +101,7 @@ const navigation: NavItem[] = [
     icon: AtSign,
     tourId: "nav-senders",
     children: [
-      { name: "Expediteurs", href: "/dashboard/senders", icon: AtSign },
+      { name: "Expéditeurs", href: "/dashboard/senders", icon: AtSign },
       { name: "Domaines", href: "/dashboard/domains", icon: Globe },
     ],
   },
@@ -125,13 +127,15 @@ function SidebarNavItem({
   if (hasChildren && !collapsed) {
     return (
       <div data-tour={item.tourId}>
-        <button
+        <Button
+          type="button"
+          variant="ghost"
           onClick={() => setExpanded(!expanded)}
           className={cn(
-            "flex items-center gap-3 rounded-lg text-sm transition-all w-full px-3 py-2 cursor-pointer",
+            "h-auto w-full justify-start gap-3 rounded-lg px-3 py-2 text-sm",
             isActive || isChildActive
-              ? "text-orange-600 dark:text-orange-400"
-              : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/10 dark:text-orange-400"
+              : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
           )}
         >
           <item.icon className="h-4 w-4 shrink-0" />
@@ -145,7 +149,7 @@ function SidebarNavItem({
               expanded ? "rotate-0" : "-rotate-90"
             )}
           />
-        </button>
+        </Button>
         {expanded && (
           <div className="ml-4 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5 mt-0.5">
             {item.children!.map((child) => {
@@ -209,7 +213,7 @@ function Sidebar() {
     <aside
       data-tour="sidebar"
       className={cn(
-        "hidden md:flex border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 flex-col transition-all duration-300 ease-in-out shrink-0",
+        "hidden h-screen flex-col border-r border-zinc-200 bg-white text-zinc-900 transition-all duration-300 ease-in-out dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 md:flex",
         collapsed ? "w-16" : "w-60"
       )}
     >
@@ -220,14 +224,7 @@ function Sidebar() {
           collapsed ? "justify-center px-3" : "px-4"
         )}
       >
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <Mail className="h-5 w-5 text-orange-500 shrink-0" />
-          {!collapsed && (
-            <span className="font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-              Mail<span className="text-orange-500">Pulse</span>
-            </span>
-          )}
-        </Link>
+        <BrandMark href="/dashboard" compact={collapsed} className="text-base" />
       </div>
 
       {/* Navigation */}
@@ -242,17 +239,19 @@ function Sidebar() {
         <SidebarToggle />
 
         {/* Logout */}
-        <button
+        <Button
+          type="button"
+          variant="ghost"
           onClick={() => signOut({ fetchOptions: { onSuccess: () => { window.location.href = "/login"; } } })}
           className={cn(
-            "flex items-center gap-3 rounded-lg text-sm text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/5 transition-all w-full cursor-pointer",
-            collapsed ? "p-2.5 justify-center" : "px-3 py-2"
+            "h-auto w-full gap-3 rounded-lg text-sm text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-500/10 dark:hover:text-red-400",
+            collapsed ? "justify-center p-2.5" : "justify-start px-3 py-2"
           )}
           title={collapsed ? "Déconnexion" : undefined}
         >
           <LogOut className="h-4 w-4 shrink-0" />
           {!collapsed && <span>Déconnexion</span>}
-        </button>
+        </Button>
       </div>
     </aside>
   );
@@ -261,22 +260,24 @@ function Sidebar() {
 function SearchTrigger() {
   const shortcutLabel = useShortcutLabel();
   return (
-    <button
+    <Button
+      type="button"
+      variant="outline"
       data-tour="search"
       onClick={() => document.dispatchEvent(new Event("open-command-palette"))}
-      className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer text-sm"
+      className="hidden h-9 items-center gap-2 border-zinc-200 bg-white px-3 text-sm text-zinc-500 hover:text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-200 md:flex"
     >
       <Search className="h-3.5 w-3.5" />
       <span>Rechercher...</span>
       <kbd className="ml-4 text-[10px] font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">{shortcutLabel}</kbd>
-    </button>
+    </Button>
   );
 }
 
 function HeaderAvatar() {
   const { data: session } = useSession();
   return (
-    <Link href="/dashboard/settings" title="Parametres">
+    <Link href="/dashboard/settings" title="Paramètres">
       {session?.user?.image ? (
         <img
           src={session.user.image}
@@ -294,18 +295,18 @@ function HeaderAvatar() {
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <PresenceHeartbeat />
       <Sidebar />
       <MobileNav navigation={navigation} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-6 bg-white dark:bg-zinc-950 shrink-0 mt-14 md:mt-0">
+        <header className="mt-14 flex h-14 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 dark:border-zinc-800 dark:bg-zinc-950 md:mt-0 md:px-6">
           <SearchTrigger />
           <div className="md:hidden" />
 
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2 md:gap-3">
             <OnlineUsers />
             <div data-tour="theme"><ThemeToggle /></div>
             <ShowChecklistButton />
@@ -318,7 +319,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
         <CommandPalette />
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-zinc-100/50 dark:bg-zinc-950">
+        <main className="flex-1 overflow-y-auto bg-zinc-50 p-4 dark:bg-zinc-950 md:p-6">
           {children}
         </main>
       </div>
