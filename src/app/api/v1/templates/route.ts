@@ -2,6 +2,7 @@ import { authenticateApiRequest } from "@/lib/mailpulse/api-keys";
 import { findIdempotentResponse, idempotentJson, storeIdempotentResponse } from "@/lib/mailpulse/idempotency";
 import { serializeTemplate } from "@/lib/mailpulse/serializers";
 import { createTemplateSchema, toChannel, toContentType, toTemplateStatus, validationError } from "@/lib/mailpulse/schemas";
+import { toPrismaJson } from "@/lib/mailpulse/json";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -50,10 +51,10 @@ export async function POST(request: Request) {
       contentType: toContentType(input.content_type),
       subject: input.subject,
       body: input.body,
-      variables: input.variables,
+      variables: input.variables ? toPrismaJson(input.variables) : undefined,
       providerTemplateId: input.provider_template_id,
       status: toTemplateStatus(input.status),
-      metadata: input.metadata,
+      metadata: input.metadata ? toPrismaJson(input.metadata) : undefined,
     },
     create: {
       organizationId: auth.organizationId,
@@ -65,10 +66,10 @@ export async function POST(request: Request) {
       contentType: toContentType(input.content_type),
       subject: input.subject,
       body: input.body,
-      variables: input.variables,
+      variables: input.variables ? toPrismaJson(input.variables) : undefined,
       providerTemplateId: input.provider_template_id,
       status: toTemplateStatus(input.status),
-      metadata: input.metadata,
+      metadata: input.metadata ? toPrismaJson(input.metadata) : undefined,
     },
   });
 

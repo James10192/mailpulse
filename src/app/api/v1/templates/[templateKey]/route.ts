@@ -1,6 +1,7 @@
 import { authenticateApiRequest } from "@/lib/mailpulse/api-keys";
 import { findIdempotentResponse, idempotentJson, storeIdempotentResponse } from "@/lib/mailpulse/idempotency";
 import { serializeTemplate } from "@/lib/mailpulse/serializers";
+import { toPrismaJson } from "@/lib/mailpulse/json";
 import { toContentType, toTemplateStatus, updateTemplateSchema, validationError } from "@/lib/mailpulse/schemas";
 import { prisma } from "@/lib/prisma";
 
@@ -37,10 +38,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ templ
       contentType: input.content_type ? toContentType(input.content_type) : undefined,
       subject: input.subject,
       body: input.body,
-      variables: input.variables,
+      variables: input.variables ? toPrismaJson(input.variables) : undefined,
       providerTemplateId: input.provider_template_id,
       status: input.status ? toTemplateStatus(input.status) : undefined,
-      metadata: input.metadata,
+      metadata: input.metadata ? toPrismaJson(input.metadata) : undefined,
     },
   });
 
