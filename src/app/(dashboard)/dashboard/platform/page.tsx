@@ -11,6 +11,8 @@ import { serializeMessage, serializeTemplate, serializeWebhook } from "@/lib/mai
 import { DeliveryByChannelChart, MessageVolumeChart } from "./platform-charts";
 import { ApiKeysPanel } from "./platform-client";
 
+export const dynamic = "force-dynamic";
+
 function statusVariant(status: string) {
   if (["DELIVERED", "SENT", "READ", "APPROVED"].includes(status)) return "success" as const;
   if (["FAILED", "REJECTED", "TEMPLATE_REQUIRED"].includes(status)) return "destructive" as const;
