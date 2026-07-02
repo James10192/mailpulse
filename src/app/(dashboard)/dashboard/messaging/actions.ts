@@ -27,33 +27,51 @@ async function getOrgWhatsApp(orgId: string) {
   });
 }
 
+function freshInstanceName(orgId: string) {
+  const safeOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24);
+  return `mp-${safeOrgId}-${Date.now().toString(36)}`;
+}
+
+async function createFreshBaileysInstance(orgId: string, previousInstanceName?: string | null) {
+  if (previousInstanceName) {
+    await baileys.logoutInstance(previousInstanceName).catch(() => {});
+    await baileys.deleteInstance(previousInstanceName).catch(() => {});
+  }
+
+  const instanceName = freshInstanceName(orgId);
+  await baileys.createInstance(instanceName);
+
+  await prisma.organization.update({
+    where: { id: orgId },
+    data: {
+      whatsappEnabled: true,
+      whatsappMode: "BAILEYS",
+      evoInstanceName: instanceName,
+      evoInstanceStatus: "connecting",
+      whatsappPhone: null,
+    },
+  });
+
+  return instanceName;
+}
+
+function getQrImage(qrData: Awaited<ReturnType<typeof baileys.getQrCode>>) {
+  return qrData.base64 || qrData.qrcode?.base64 || undefined;
+}
+
 // ─── Activation (Baileys) ───────────────────────────────
 
 export async function activateBaileys(): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
-  if (!user || !org) return { error: "Non authentifie." };
+  if (!user || !org) return { error: "Non authentifié." };
 
   if (!baileys.isConfigured()) {
-    return { error: "Le service WhatsApp n'est pas configure sur cette instance." };
+    return { error: "Le service WhatsApp n'est pas configuré sur cette instance." };
   }
 
   try {
-    // Create unique instance name from org ID
-    const instanceName = `mp-${org.id}`;
-
-    // Create Evolution API instance
-    const result = await baileys.createInstance(instanceName);
-
-    // Save to org
-    await prisma.organization.update({
-      where: { id: org.id },
-      data: {
-        whatsappEnabled: true,
-        whatsappMode: "BAILEYS",
-        evoInstanceName: instanceName,
-        evoInstanceStatus: "connecting",
-      },
-    });
+    const orgWa = await getOrgWhatsApp(org.id);
+    await createFreshBaileysInstance(org.id, orgWa?.evoInstanceName);
 
     revalidatePath("/dashboard/messaging");
     return { success: true };
@@ -72,10 +90,10 @@ export async function getQrCode(): Promise<{
   error?: string;
 }> {
   const { user, org } = await getCurrentUserAndOrg();
-  if (!user || !org) return { error: "Non authentifie." };
+  if (!user || !org) return { error: "Non authentifié." };
 
   const orgWa = await getOrgWhatsApp(org.id);
-  if (!orgWa?.evoInstanceName) return { error: "Instance non creee." };
+  if (!orgWa?.evoInstanceName) return { error: "Instance non créée." };
 
   try {
     // Check if already connected
@@ -84,7 +102,7 @@ export async function getQrCode(): Promise<{
       state = await baileys.getConnectionState(orgWa.evoInstanceName);
     } catch {
       // Instance doesn't exist on server (e.g. after server migration) — recreate it
-      await baileys.createInstance(orgWa.evoInstanceName);
+      await createFreshBaileysInstance(org.id, orgWa.evoInstanceName);
       return { state: "reconnecting" };
     }
 
@@ -101,7 +119,7 @@ export async function getQrCode(): Promise<{
     // Get QR code
     const qrData = await baileys.getQrCode(orgWa.evoInstanceName);
     return {
-      qr: qrData.base64 || qrData.code || undefined,
+      qr: getQrImage(qrData),
       pairingCode: qrData.pairingCode || undefined,
       state: "connecting",
     };
@@ -112,6 +130,26 @@ export async function getQrCode(): Promise<{
 }
 
 // ─── Check Status ───────────────────────────────────────
+
+export async function resetBaileysConnection(): Promise<ActionState> {
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: "Non authentifié." };
+
+  if (!baileys.isConfigured()) {
+    return { error: "Le service WhatsApp n'est pas configuré sur cette instance." };
+  }
+
+  const orgWa = await getOrgWhatsApp(org.id);
+
+  try {
+    await createFreshBaileysInstance(org.id, orgWa?.evoInstanceName);
+    revalidatePath("/dashboard/messaging");
+    return { success: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Erreur de réinitialisation WhatsApp";
+    return { error: msg };
+  }
+}
 
 export async function checkConnectionStatus(): Promise<{
   state: string;

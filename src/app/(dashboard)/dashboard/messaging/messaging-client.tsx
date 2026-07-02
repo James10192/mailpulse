@@ -9,7 +9,7 @@ import {
 import {
   activateBaileys, getQrCode, checkConnectionStatus,
   sendMessage, sendBulkMessages, saveMetaConfig,
-  disconnectWhatsApp,
+  disconnectWhatsApp, resetBaileysConnection,
 } from "./actions";
 import { HelpModal, HelpButton, StepList } from "@/components/dashboard/help-modal";
 import { WhatsAppLimitations } from "./whatsapp-limitations";
@@ -53,6 +53,7 @@ export function MessagingClient({
   type ConnectionState = "open" | "close" | "connecting" | "none" | "error";
   const [connectionState, setConnectionState] = useState<ConnectionState>((evoStatus as ConnectionState) ?? "none");
   const [pollingQr, setPollingQr] = useState(false);
+  const [resettingQr, setResettingQr] = useState(false);
   const connectionStateRef = useRef(connectionState);
   useEffect(() => { connectionStateRef.current = connectionState; }, [connectionState]);
 
@@ -161,6 +162,20 @@ export function MessagingClient({
       setConnectionState("none");
       setQrCode(null);
     }
+  }
+
+  async function handleResetBaileys() {
+    setResettingQr(true);
+    setResult(null);
+    setQrCode(null);
+    const res = await resetBaileysConnection();
+    if (res?.success) {
+      setConnectionState("connecting");
+      setTimeout(pollQrCode, 1500);
+    } else {
+      setResult(res);
+    }
+    setResettingQr(false);
   }
 
   return (
@@ -351,6 +366,22 @@ export function MessagingClient({
             <RefreshCw className={`h-3 w-3 ${pollingQr ? "animate-spin" : ""}`} />
             Rafraichir
           </button>
+
+          <div className="mx-auto max-w-md rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-left">
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              Si WhatsApp indique qu&apos;il est impossible de lier un appareil maintenant,
+              réinitialisez le QR. MailPulse supprimera la session Baileys actuelle et
+              créera une nouvelle instance propre.
+            </p>
+            <button
+              onClick={handleResetBaileys}
+              disabled={resettingQr || pollingQr}
+              className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-amber-500/30 px-3 py-2 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-amber-300"
+            >
+              {resettingQr ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Réinitialiser le QR
+            </button>
+          </div>
         </div>
       )}
 

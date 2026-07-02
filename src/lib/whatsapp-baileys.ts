@@ -10,6 +10,10 @@ async function evoFetch<T = unknown>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  if (!EVO_URL || !EVO_KEY) {
+    throw new Error("Evolution API non configurée.");
+  }
+
   const res = await fetch(`${EVO_URL}${path}`, {
     ...options,
     headers: {
@@ -24,7 +28,14 @@ async function evoFetch<T = unknown>(
     throw new Error(`Evolution API ${res.status}: ${body}`);
   }
 
-  return res.json() as Promise<T>;
+  const text = await res.text();
+  if (!text) return {} as T;
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return text as T;
+  }
 }
 
 // ─── Instance Management ────────────────────────────────
@@ -48,6 +59,7 @@ export async function createInstance(instanceName: string) {
       groupsIgnore: true,
       alwaysOnline: false,
       readMessages: false,
+      readStatus: false,
       syncFullHistory: false,
     }),
   });
@@ -57,6 +69,10 @@ interface ConnectResult {
   pairingCode?: string;
   code?: string;
   base64?: string;
+  qrcode?: {
+    base64?: string;
+    code?: string;
+  };
   count?: number;
 }
 
@@ -67,14 +83,23 @@ export async function getQrCode(instanceName: string) {
 }
 
 interface ConnectionState {
-  instanceName: string;
-  state: "open" | "close" | "connecting";
+  instance?: {
+    instanceName: string;
+    state: "open" | "close" | "connecting";
+  };
+  instanceName?: string;
+  state?: "open" | "close" | "connecting";
 }
 
 export async function getConnectionState(instanceName: string) {
-  return evoFetch<ConnectionState>(
+  const result = await evoFetch<ConnectionState>(
     `/instance/connectionState/${instanceName}`,
   );
+
+  return {
+    instanceName: result.instance?.instanceName ?? result.instanceName ?? instanceName,
+    state: result.instance?.state ?? result.state ?? "close",
+  };
 }
 
 interface InstanceInfo {
@@ -96,6 +121,16 @@ export async function deleteInstance(instanceName: string) {
 
 export async function logoutInstance(instanceName: string) {
   return evoFetch(`/instance/logout/${instanceName}`, { method: "DELETE" });
+}
+
+export async function restartInstance(instanceName: string) {
+  return evoFetch(`/instance/restart/${instanceName}`, { method: "PUT" });
+}
+
+export async function recreateInstance(instanceName: string) {
+  await logoutInstance(instanceName).catch(() => {});
+  await deleteInstance(instanceName).catch(() => {});
+  return createInstance(instanceName);
 }
 
 // ─── Helpers ───────────────────────────────────────────
