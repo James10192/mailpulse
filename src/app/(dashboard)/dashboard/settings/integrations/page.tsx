@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { SettingsPageFrame } from "../settings-page-frame";
 import { IntegrationsClient } from "./integrations-client";
-import { SettingsTabs } from "../settings-tabs";
 
 export default async function IntegrationsPage() {
   const { org } = await getCurrentUserAndOrg();
@@ -28,16 +27,16 @@ export default async function IntegrationsPage() {
       ])
     : [[], 0, null];
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mailpulse-two.vercel.app";
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const baseUrl =
+    configuredBaseUrl && !configuredBaseUrl.includes("mailpulse.vercel.app")
+      ? configuredBaseUrl
+      : "https://mailpulse-two.vercel.app";
   const mailpulseEmailAvailable = !!process.env.MAILPULSE_MANAGED_FROM_EMAIL;
   const mailpulseWhatsAppAvailable = process.env.MAILPULSE_MANAGED_WHATSAPP_ENABLED === "true";
 
   return (
-    <>
-      <div className="mx-auto max-w-4xl space-y-6">
-        <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Paramètres", href: "/dashboard/settings" }, { label: "Intégrations" }]} />
-        <SettingsTabs />
-      </div>
+    <SettingsPageFrame section="integrations">
       <IntegrationsClient
         endpointUrl={`${baseUrl.replace(/\/$/, "")}/api/integrations/filon/recovery`}
         resourceStatus={{
@@ -55,6 +54,6 @@ export default async function IntegrationsPage() {
           lastUsedAt: key.lastUsedAt?.toISOString() ?? null,
         }))}
       />
-    </>
+    </SettingsPageFrame>
   );
 }

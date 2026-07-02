@@ -1,8 +1,8 @@
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import "fumadocs-ui/style.css";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { DocsBrandTitle } from "@/components/docs/docs-brand-title";
 import { DocsProvider } from "@/components/docs/docs-provider";
 import { source } from "@/lib/source";
 
@@ -12,11 +12,7 @@ export default function EnglishDocsLayout({ children }: { children: ReactNode })
       <DocsLayout
         tree={source.getPageTree("en")}
         nav={{
-          title: (
-            <Link href="/en/docs" className="font-semibold">
-              MailPulse Docs
-            </Link>
-          ),
+          title: <DocsBrandTitle docsHref="/en/docs" />,
           url: "/en/docs",
         }}
         sidebar={{ defaultOpenLevel: 1 }}

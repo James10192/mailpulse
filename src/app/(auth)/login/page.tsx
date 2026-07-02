@@ -105,7 +105,7 @@ function LoginForm() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12 text-zinc-100 sm:px-6">
-      <Card className="w-full max-w-sm border-zinc-800 bg-zinc-950 text-zinc-100 shadow-none">
+      <Card className="w-full max-w-sm border-0 bg-transparent text-zinc-100 shadow-none">
         <CardHeader className="items-center p-0 pb-8 text-center">
           <BrandMark className="mb-4 text-xl text-zinc-50" />
           <h1 className="text-2xl font-bold tracking-tight">Bon retour</h1>

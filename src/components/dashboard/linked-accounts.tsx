@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
-import { Link2, Unlink, Loader2, Check, Mail, Key } from "lucide-react";
+import { Link2, Unlink, Loader2, Check, Mail } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -77,7 +80,7 @@ export function LinkedAccounts() {
   if (loading) {
     return (
       <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-4">
-        <h2 className="font-medium text-zinc-900 dark:text-zinc-100">Comptes lies</h2>
+        <h2 className="font-medium text-zinc-900 dark:text-zinc-100">Comptes liés</h2>
         <div className="flex items-center justify-center h-20">
           <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
         </div>
@@ -86,13 +89,18 @@ export function LinkedAccounts() {
   }
 
   return (
-    <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-4">
-      <h2 className="font-medium text-zinc-900 dark:text-zinc-100">Comptes lies</h2>
-      <p className="text-xs text-zinc-500">Gerez vos methodes de connexion. Liez des comptes pour vous connecter de differentes facons.</p>
+    <Card>
+      <CardHeader>
+        <CardTitle>Comptes liés</CardTitle>
+        <CardDescription>
+          Gérez vos méthodes de connexion. Liez des comptes pour vous connecter de différentes façons.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
 
       <div className="space-y-2">
         {/* Email/password */}
-        <div className="flex items-center justify-between p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="flex items-center justify-between rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center">
               <Mail className="h-4 w-4 text-zinc-300" />
@@ -107,7 +115,7 @@ export function LinkedAccounts() {
               <Check className="h-3 w-3" /> Connecte
             </span>
           ) : (
-            <span className="text-xs text-zinc-500">Non configure</span>
+            <Badge variant="outline">Non configuré</Badge>
           )}
         </div>
 
@@ -117,7 +125,7 @@ export function LinkedAccounts() {
           const Icon = provider.icon;
 
           return (
-            <div key={provider.id} className="flex items-center justify-between p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
+            <div key={provider.id} className="flex items-center justify-between rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center">
                   <Icon className="h-4 w-4" />
@@ -125,7 +133,7 @@ export function LinkedAccounts() {
                 <div>
                   <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{provider.label}</div>
                   <div className="text-xs text-zinc-500">
-                    {isLinked ? "Compte lie" : "Non lie"}
+                    {isLinked ? "Compte lié" : "Non lié"}
                   </div>
                 </div>
               </div>
@@ -135,30 +143,35 @@ export function LinkedAccounts() {
                     <Check className="h-3 w-3" /> Connecte
                   </span>
                   {accounts.length > 1 && (
-                    <button
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => handleUnlink(provider.id)}
                       disabled={unlinking === provider.id}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-[10px] border border-zinc-700 text-zinc-500 rounded hover:text-red-400 hover:border-red-500/30 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {unlinking === provider.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
-                      Delier
-                    </button>
+                      Délier
+                    </Button>
                   )}
                 </div>
               ) : (
-                <button
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleLink(provider.id)}
                   disabled={linking === provider.id}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-orange-500/30 text-orange-500 rounded-lg hover:bg-orange-500/10 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {linking === provider.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Link2 className="h-3 w-3" />}
                   Lier
-                </button>
+                </Button>
               )}
             </div>
           );
         })}
       </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

@@ -2,14 +2,18 @@
 
 import { useSession } from "@/lib/auth-client";
 import { User } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function ProfileSection() {
   const { data: session } = useSession();
   const user = session?.user;
 
   return (
-    <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-4">
-      <h2 className="font-medium text-zinc-900 dark:text-zinc-100">Profil</h2>
+    <Card>
+      <CardHeader>
+        <CardTitle>Profil</CardTitle>
+      </CardHeader>
+      <CardContent>
       <div className="flex items-center gap-4">
         {user?.image ? (
           <img
@@ -29,6 +33,7 @@ export function ProfileSection() {
           <div className="text-sm text-zinc-500">{user?.email}</div>
         </div>
       </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

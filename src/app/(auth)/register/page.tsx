@@ -163,7 +163,7 @@ export default function RegisterPage() {
       </section>
 
       <section className="flex items-center justify-center px-4 py-12 sm:px-6">
-        <Card className="w-full max-w-sm border-zinc-800 bg-zinc-950 text-zinc-100 shadow-none">
+        <Card className="w-full max-w-sm border-0 bg-transparent text-zinc-100 shadow-none">
           <CardHeader className="p-0 pb-8">
             <div className="mb-4 lg:hidden">
               <BrandMark className="text-xl text-zinc-50" />
