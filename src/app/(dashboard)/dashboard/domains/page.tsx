@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { DomainsClient } from "./domains-client";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 
-async function getDomains() {
+async function getDomains(orgId: string) {
   const domains = await prisma.sendingDomain.findMany({
+    where: { organizationId: orgId },
     orderBy: { createdAt: "desc" },
     take: 100,
     select: {
@@ -17,6 +19,7 @@ async function getDomains() {
       dkimRecord: true,
       dkimName: true,
       dkimStatus: true,
+      region: true,
       createdAt: true,
     },
   });
@@ -27,7 +30,8 @@ async function getDomains() {
 }
 
 export default async function DomainsPage() {
-  const domains = await getDomains();
+  const ctx = await getCurrentUserAndOrg();
+  const domains = ctx.org ? await getDomains(ctx.org.id) : [];
 
   return (
     <>

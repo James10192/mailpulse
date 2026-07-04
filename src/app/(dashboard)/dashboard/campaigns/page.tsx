@@ -4,6 +4,66 @@ import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { PLAN_LIMITS, type PlanTier } from "@/lib/plans";
 
+async function getWhatsAppAnalytics(orgId: string, campaign: {
+  id: string;
+  channel: string;
+  createdAt: Date;
+  sentAt: Date | null;
+}) {
+  if (campaign.channel !== "WHATSAPP") return null;
+
+  const recipients = await prisma.campaignRecipient.findMany({
+    where: { campaignId: campaign.id },
+    select: {
+      sentAt: true,
+      contactId: true,
+    },
+  });
+  const contactIds = recipients.map((recipient) => recipient.contactId);
+  const since = campaign.sentAt ?? campaign.createdAt;
+
+  const [delivered, read, inboundReplies] = await Promise.all([
+    prisma.communicationMessage.count({
+      where: {
+        organizationId: orgId,
+        channel: "WHATSAPP",
+        direction: "OUTBOUND",
+        status: { in: ["DELIVERED", "READ"] },
+        metadata: { path: ["campaignId"], equals: campaign.id },
+      },
+    }),
+    prisma.communicationMessage.count({
+      where: {
+        organizationId: orgId,
+        channel: "WHATSAPP",
+        direction: "OUTBOUND",
+        status: "READ",
+        metadata: { path: ["campaignId"], equals: campaign.id },
+      },
+    }),
+    contactIds.length
+      ? prisma.communicationMessage.findMany({
+          where: {
+            organizationId: orgId,
+            channel: "WHATSAPP",
+            direction: "INBOUND",
+            contactId: { in: contactIds },
+            createdAt: { gte: since },
+          },
+          select: { contactId: true },
+          distinct: ["contactId"],
+        })
+      : Promise.resolve([]),
+  ]);
+
+  return {
+    sent: recipients.filter((recipient) => recipient.sentAt).length,
+    delivered,
+    read,
+    replied: inboundReplies.length,
+  };
+}
+
 async function getCampaigns(orgId: string) {
   const campaigns = await prisma.campaign.findMany({
     where: { organizationId: orgId },
@@ -19,6 +79,7 @@ async function getCampaigns(orgId: string) {
       fromEmail: true,
       replyTo: true,
       status: true,
+      channel: true,
       type: true,
       createdAt: true,
       updatedAt: true,
@@ -30,14 +91,15 @@ async function getCampaigns(orgId: string) {
       _count: { select: { recipients: true } },
     },
   });
-  return campaigns.map((c) => ({
+  return Promise.all(campaigns.map(async (c) => ({
     ...c,
+    whatsappAnalytics: await getWhatsAppAnalytics(orgId, c),
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
     sentAt: c.sentAt?.toISOString() ?? null,
     scheduledAt: c.scheduledAt?.toISOString() ?? null,
     completedAt: c.completedAt?.toISOString() ?? null,
-  }));
+  })));
 }
 
 export default async function CampaignsPage() {

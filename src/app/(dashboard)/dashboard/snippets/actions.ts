@@ -11,19 +11,24 @@ import { trackServerEvent, EVENTS } from "@/lib/analytics";
 
 const snippetSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
+  channel: z.enum(["EMAIL", "WHATSAPP"]).default("EMAIL"),
 });
 
 const updateSnippetSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
   description: z.string().optional(),
   htmlContent: z.string().optional(),
+  channel: z.enum(["EMAIL", "WHATSAPP"]).optional(),
 });
 
 export async function createSnippetAndRedirect(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const result = snippetSchema.safeParse({ name: formData.get("name") });
+  const result = snippetSchema.safeParse({
+    name: formData.get("name"),
+    channel: formData.get("channel") || "EMAIL",
+  });
   if (!result.success) return { error: "Nom requis" };
 
   const { user, org } = await getCurrentUserAndOrg();
@@ -42,6 +47,7 @@ export async function createSnippetAndRedirect(
         name: result.data.name,
         htmlContent: "<p></p>",
         category: "snippet",
+        channel: result.data.channel,
         userId: user.id,
         organizationId: org.id,
       },
@@ -57,7 +63,7 @@ export async function createSnippetAndRedirect(
 
 export async function updateSnippet(
   id: string,
-  data: { name?: string; description?: string; htmlContent?: string }
+  data: { name?: string; description?: string; htmlContent?: string; channel?: "EMAIL" | "WHATSAPP" }
 ): Promise<ActionState> {
   const result = updateSnippetSchema.safeParse(data);
   if (!result.success) return { error: "Donnees invalides" };
@@ -72,6 +78,7 @@ export async function updateSnippet(
         ...(result.data.name !== undefined && { name: result.data.name }),
         ...(result.data.description !== undefined && { description: result.data.description }),
         ...(result.data.htmlContent !== undefined && { htmlContent: result.data.htmlContent }),
+        ...(result.data.channel !== undefined && { channel: result.data.channel }),
       },
     });
     trackServerEvent(user.id, EVENTS.SNIPPET_UPDATED, { snippet_id: id }, org.id);

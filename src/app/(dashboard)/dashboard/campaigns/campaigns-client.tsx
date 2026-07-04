@@ -1,83 +1,96 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { useRouter } from "next/navigation";
 import {
-  Plus, Send, FileEdit, Clock, CheckCircle, PauseCircle, XCircle,
-  Trash2, Sparkles, Info, Search, ChevronDown, ArrowUpDown,
-  AtSign, Users, Eye, Pencil, Ban, CalendarClock, Mail,
-  BarChart3, SendHorizonal,
+  ArrowUpDown,
+  BarChart3,
+  Mail,
+  MessageCircle,
+  MousePointerClick,
+  Plus,
+  Send,
+  Sparkles,
+  Users,
 } from "lucide-react";
-import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { deleteCampaign, cancelCampaign, getCampaignContent } from "./actions";
+
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
-import { wrapHtmlForPreview } from "@/lib/preview-html";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cancelCampaign, deleteCampaign } from "./actions";
+import { CampaignChannelChart, CampaignPerformanceChart } from "./campaigns-charts";
+import {
+  campaignSentCount,
+  formatNumber,
+  formatRate,
+  getClickOrReplyRate,
+  getOpenRate,
+  statusLabels,
+  type Campaign,
+  type CampaignSort,
+  type SenderInfo,
+} from "./campaigns-types";
+import { CampaignActions, ChannelBadge, MetricCard, StatusBadge } from "./campaigns-ui";
 
-type CampaignSort = "date-desc" | "date-asc" | "name-asc" | "open-rate";
-
-const campaignSortOptions: { label: string; value: CampaignSort }[] = [
-  { label: "Plus recentes", value: "date-desc" },
+const sortOptions: Array<{ label: string; value: CampaignSort }> = [
+  { label: "Plus récentes", value: "date-desc" },
   { label: "Plus anciennes", value: "date-asc" },
   { label: "Nom A-Z", value: "name-asc" },
-  { label: "Taux d'ouverture", value: "open-rate" },
+  { label: "Performance", value: "performance" },
 ];
 
-type Campaign = {
-  id: string;
-  name: string;
-  subject: string | null;
-  previewText: string | null;
-  fromName: string | null;
-  fromEmail: string | null;
-  replyTo: string | null;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  sentAt: string | null;
-  scheduledAt: string | null;
-  completedAt: string | null;
-  analytics: {
-    openRate: number;
-    clickRate: number;
-    totalSent: number;
-    totalDelivered: number;
-    totalOpened: number;
-    totalClicked: number;
-    totalBounced: number;
-    totalUnsubscribed: number;
-  } | null;
-  contactList: {
-    name: string;
-    contactCount: number;
-  } | null;
-  _count?: { recipients: number };
-};
+function buildSummary(campaigns: Campaign[]) {
+  return campaigns.reduce(
+    (acc, campaign) => {
+      acc.total += 1;
+      acc[campaign.channel.toLowerCase() as "email" | "whatsapp" | "sms"] += 1;
+      if (campaign.status === "SENT") acc.sent += 1;
+      if (campaign.status === "DRAFT") acc.drafts += 1;
+      if (campaign.status === "SCHEDULED" || campaign.status === "SENDING") acc.active += 1;
+      acc.recipients += campaign._count?.recipients ?? 0;
+      acc.sentVolume += campaignSentCount(campaign);
+      acc.opened += campaign.channel === "WHATSAPP" ? campaign.whatsappAnalytics?.read ?? 0 : campaign.analytics?.totalOpened ?? 0;
+      acc.clickedOrReplied += campaign.channel === "WHATSAPP" ? campaign.whatsappAnalytics?.replied ?? 0 : campaign.analytics?.totalClicked ?? 0;
+      return acc;
+    },
+    { total: 0, email: 0, whatsapp: 0, sms: 0, sent: 0, drafts: 0, active: 0, recipients: 0, sentVolume: 0, opened: 0, clickedOrReplied: 0 },
+  );
+}
 
-const statusConfig: Record<string, { label: string; icon: React.ElementType; className: string }> = {
-  DRAFT: { label: "Brouillon", icon: FileEdit, className: "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400" },
-  SCHEDULED: { label: "Planifiee", icon: Clock, className: "bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-  SENDING: { label: "En cours", icon: Send, className: "bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400" },
-  SENT: { label: "Envoyee", icon: CheckCircle, className: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
-  PAUSED: { label: "Pausee", icon: PauseCircle, className: "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400" },
-  CANCELLED: { label: "Annulee", icon: XCircle, className: "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400" },
-};
-
-const filterOptions = [
-  { label: "Toutes", value: "ALL" },
-  { label: "Brouillons", value: "DRAFT" },
-  { label: "Planifiees", value: "SCHEDULED" },
-  { label: "En cours", value: "SENDING" },
-  { label: "Envoyees", value: "SENT" },
-  { label: "Archivees", value: "CANCELLED" },
-];
-
-type SenderInfo = { id: string; name: string; email: string };
+function filterCampaigns(campaigns: Campaign[], channel: string, status: string, search: string, sortBy: CampaignSort) {
+  const query = search.trim().toLowerCase();
+  return campaigns
+    .filter((campaign) => {
+      const matchesChannel = channel === "ALL" || campaign.channel === channel;
+      const matchesStatus = status === "ALL" || campaign.status === status;
+      const matchesSearch = !query || campaign.name.toLowerCase().includes(query) || (campaign.subject ?? "").toLowerCase().includes(query);
+      return matchesChannel && matchesStatus && matchesSearch;
+    })
+    .sort((a, b) => {
+      if (sortBy === "date-asc") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (sortBy === "name-asc") return a.name.localeCompare(b.name);
+      if (sortBy === "performance") return getOpenRate(b) + getClickOrReplyRate(b) - (getOpenRate(a) + getClickOrReplyRate(a));
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+}
 
 export function CampaignsClient({
   campaigns,
-  senders,
   canCreate,
   limit,
   currentCount,
@@ -92,623 +105,201 @@ export function CampaignsClient({
   planLabel: string;
   overLimit: boolean;
 }) {
-  const [filter, setFilter] = useState("ALL");
-  const [search, setSearch] = useState("");
+  const router = useRouter();
+  const [channel, setChannel] = useState("ALL");
+  const [status, setStatus] = useState("ALL");
   const [sortBy, setSortBy] = useState<CampaignSort>("date-desc");
-  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [cancelError, setCancelError] = useState("");
-  const [contentCache, setContentCache] = useState<Record<string, string | null>>({});
+  const [search, setSearch] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [cancelId, setCancelId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const summary = useMemo(() => buildSummary(campaigns), [campaigns]);
+  const filtered = useMemo(() => filterCampaigns(campaigns, channel, status, search, sortBy), [campaigns, channel, search, sortBy, status]);
 
-  const filtered = useMemo(() => {
-    const lowerSearch = search.toLowerCase();
-    let result = campaigns.filter((c) => {
-      const matchesFilter = filter === "ALL" || c.status === filter;
-      const matchesSearch = c.name.toLowerCase().includes(lowerSearch);
-      return matchesFilter && matchesSearch;
+  const channelData = [
+    { channel: "Email", value: summary.email, fill: "#f97316" },
+    { channel: "WhatsApp", value: summary.whatsapp, fill: "#22c55e" },
+    { channel: "SMS", value: summary.sms, fill: "#71717a" },
+  ].filter((item) => item.value > 0);
+
+  const performanceData = campaigns
+    .filter((campaign) => campaign.status === "SENT")
+    .slice(0, 8)
+    .map((campaign) => ({
+      name: campaign.name.length > 12 ? `${campaign.name.slice(0, 12)}…` : campaign.name,
+      sent: campaignSentCount(campaign),
+      opened: campaign.channel === "WHATSAPP" ? campaign.whatsappAnalytics?.read ?? 0 : campaign.analytics?.totalOpened ?? 0,
+      clicked: campaign.channel === "WHATSAPP" ? 0 : campaign.analytics?.totalClicked ?? 0,
+      replied: campaign.channel === "WHATSAPP" ? campaign.whatsappAnalytics?.replied ?? 0 : 0,
+    }));
+
+  function runAction(action: "delete" | "cancel") {
+    const id = action === "delete" ? deleteId : cancelId;
+    if (!id) return;
+    startTransition(async () => {
+      if (action === "delete") await deleteCampaign(id);
+      else await cancelCampaign(id);
+      setDeleteId(null);
+      setCancelId(null);
+      router.refresh();
     });
-
-    result = [...result].sort((a, b) => {
-      switch (sortBy) {
-        case "date-desc":
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        case "date-asc":
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        case "name-asc":
-          return a.name.localeCompare(b.name);
-        case "open-rate":
-          return (b.analytics?.openRate ?? 0) - (a.analytics?.openRate ?? 0);
-        default:
-          return 0;
-      }
-    });
-
-    return result;
-  }, [campaigns, filter, search, sortBy]);
-
-  const selected = selectedId ? campaigns.find((c) => c.id === selectedId) : null;
-
-  // Lazy-load htmlContent when a campaign is selected
-  const loadContent = useCallback(async (id: string) => {
-    if (contentCache[id] !== undefined) return;
-    setContentCache((prev) => ({ ...prev, [id]: null })); // mark as loading
-    const html = await getCampaignContent(id);
-    setContentCache((prev) => ({ ...prev, [id]: html }));
-  }, [contentCache]);
-
-  function selectCampaign(id: string) {
-    setSelectedId(id);
-    void loadContent(id);
-  }
-
-  async function handleCancel(id: string) {
-    setCancellingId(id);
-    setCancelError("");
-    const result = await cancelCampaign(id);
-    setCancellingId(null);
-    if (result?.error) setCancelError(result.error);
   }
 
   return (
     <div className="page-stack app-shell-safe">
-      {overLimit && limit !== -1 && (
-        <LimitWarningBanner
-          resourceLabel="campagnes actives"
-          current={currentCount}
-          limit={limit}
-          planLabel={planLabel}
-        />
-      )}
+      {overLimit && limit !== -1 ? <LimitWarningBanner resourceLabel="campagnes actives" current={currentCount} limit={limit} planLabel={planLabel} /> : null}
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Campagnes</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Gerez et suivez vos campagnes email
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Campagnes</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+            Pilotage des campagnes email et WhatsApp, avec performance, audience et état d’envoi.
           </p>
         </div>
-        {canCreate ? (
-          <Link
-            href="/dashboard/campaigns/new"
-            className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Nouvelle campagne
+        <Button asChild>
+          <Link href={canCreate ? "/dashboard/campaigns/new" : "/dashboard/settings/billing"}>
+            {canCreate ? <Plus className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+            {canCreate ? "Nouvelle campagne" : "Passer au Pro"}
           </Link>
-        ) : (
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-zinc-500">
-              {currentCount}/{limit === -1 ? "\u221E" : limit} campagnes actives
-            </span>
-            <Link
-              href="/dashboard/settings/billing"
-              className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Passer au Pro
-            </Link>
-          </div>
-        )}
+        </Button>
       </div>
 
-      {/* Info tip */}
-      <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
-        <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-        <p className="text-sm text-blue-300/80">
-          Selectionnez une campagne pour voir les details, editer le contenu ou lancer l&apos;envoi.
-        </p>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Campagnes" value={formatNumber(summary.total)} description={`${formatNumber(summary.email)} email · ${formatNumber(summary.whatsapp)} WhatsApp · ${formatNumber(summary.active)} actives`} icon={BarChart3} />
+        <MetricCard label="Volume envoyé" value={formatNumber(summary.sentVolume)} description={`${formatNumber(summary.sent)} terminées · ${formatNumber(summary.drafts)} brouillons`} icon={Send} />
+        <MetricCard label="Audience cumulée" value={formatNumber(summary.recipients)} description="Total des destinataires associés aux campagnes listées." icon={Users} />
+        <MetricCard label="Engagement" value={formatRate(summary.sentVolume > 0 ? ((summary.opened + summary.clickedOrReplied) / summary.sentVolume) * 100 : 0)} description={`${formatNumber(summary.opened)} ouvertures ou lectures · ${formatNumber(summary.clickedOrReplied)} clics ou réponses`} icon={MousePointerClick} />
       </div>
 
-      {/* Filters row */}
-      <div className="flex flex-col lg:flex-row gap-3">
-        <div className="relative flex-1 lg:max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher une campagne..."
-            className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
-          />
-        </div>
-        <div className="relative w-full sm:w-auto">
-          <button
-            onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
-            className="inline-flex w-full sm:w-auto items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer"
-          >
-            <ArrowUpDown className="h-3.5 w-3.5" />
-            {campaignSortOptions.find((s) => s.value === sortBy)?.label}
-            <ChevronDown className="h-3 w-3" />
-          </button>
-          {sortDropdownOpen && (
-            <div className="absolute z-20 top-full mt-1 right-0 min-w-[170px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg py-1">
-              {campaignSortOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => { setSortBy(opt.value); setSortDropdownOpen(false); }}
-                  className={`w-full text-left px-3 py-1.5 text-xs transition-colors cursor-pointer ${
-                    sortBy === opt.value ? "text-orange-500 bg-orange-500/5" : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.8fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance par campagne</CardTitle>
+            <CardDescription>Envois, ouvertures, clics email et réponses WhatsApp.</CardDescription>
+          </CardHeader>
+          <CardContent>{performanceData.length ? <CampaignPerformanceChart data={performanceData} /> : <EmptyChart label="Les performances apparaîtront après les premiers envois." />}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Répartition par canal</CardTitle>
+            <CardDescription>Lecture immédiate du poids email et WhatsApp.</CardDescription>
+          </CardHeader>
+          <CardContent>{channelData.length ? <CampaignChannelChart data={channelData} /> : <EmptyChart label="Aucune campagne créée." height="h-[220px]" />}</CardContent>
+        </Card>
       </div>
 
-      {/* Status filters */}
-      <div className="flex gap-2 flex-wrap">
-        {filterOptions.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => setFilter(opt.value)}
-            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors cursor-pointer ${
-              filter === opt.value
-                ? "border-orange-500/30 bg-orange-500/10 text-orange-600 dark:text-orange-400"
-                : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700"
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      <Card>
+        <CampaignFilters search={search} status={status} sortBy={sortBy} channel={channel} onSearch={setSearch} onStatus={setStatus} onSort={(value) => setSortBy(value as CampaignSort)} onChannel={setChannel} />
+        <CampaignTable campaigns={filtered} pending={isPending} onCancel={setCancelId} onDelete={setDeleteId} />
+      </Card>
 
-      {/* Split panel */}
-      {filtered.length > 0 ? (
-        <div className="flex gap-0 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden min-h-[500px]">
-          {/* Left: Campaign list */}
-          <div className={`${selected ? "hidden lg:block lg:w-[380px]" : "w-full"} shrink-0 border-r border-zinc-200 dark:border-zinc-800 overflow-y-auto max-h-[700px]`}>
-            {filtered.map((campaign) => {
-              const status = statusConfig[campaign.status] ?? statusConfig.DRAFT;
-              const StatusIcon = status.icon;
-              const isSelected = selectedId === campaign.id;
-
-              return (
-                <button
-                  key={campaign.id}
-                  onClick={() => selectCampaign(campaign.id)}
-                  className={`w-full text-left p-4 border-b border-zinc-100 dark:border-zinc-800/50 transition-colors cursor-pointer ${
-                    isSelected
-                      ? "bg-orange-500/5 border-l-2 border-l-orange-500"
-                      : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30 border-l-2 border-l-transparent"
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-1">
-                    <h3 className="font-medium text-sm text-zinc-900 dark:text-zinc-100 truncate pr-2">
-                      {campaign.name}
-                    </h3>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${status.className}`}>
-                      <StatusIcon className="h-2.5 w-2.5" />
-                      {status.label}
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-500 truncate">
-                    {campaign.subject || "Sans sujet"}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-zinc-400">
-                    {campaign._count?.recipients !== undefined && (
-                      <span className="inline-flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {campaign._count.recipients}
-                      </span>
-                    )}
-                    {campaign.scheduledAt && (
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarClock className="h-3 w-3" />
-                        {format(new Date(campaign.scheduledAt), "d MMM HH:mm", { locale: fr })}
-                      </span>
-                    )}
-                    {!campaign.scheduledAt && (
-                      <span>
-                        {format(new Date(campaign.updatedAt), "d MMM yyyy", { locale: fr })}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Right: Campaign detail */}
-          {selected ? (
-            <CampaignDetailPanel
-              campaign={selected}
-              htmlContent={contentCache[selected.id] ?? undefined}
-              senders={senders}
-              onClose={() => setSelectedId(null)}
-              onDelete={(id) => setConfirmDeleteId(id)}
-              onCancel={handleCancel}
-              cancelling={cancellingId === selected.id}
-              cancelError={cancelError}
-            />
-          ) : (
-            <div className="hidden lg:flex flex-1 items-center justify-center text-center p-12">
-              <div>
-                <Mail className="h-12 w-12 text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500 text-sm">
-                  Selectionnez une campagne pour voir ses details
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-12 text-center">
-          <Send className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
-          <p className="text-zinc-500 text-sm mb-4">
-            {search
-              ? `Aucun resultat pour "${search}".`
-              : filter === "ALL"
-                ? "Aucune campagne creee pour le moment."
-                : `Aucune campagne avec le statut "${filterOptions.find((o) => o.value === filter)?.label}".`}
-          </p>
-          {filter === "ALL" && (
-            <Link
-              href="/dashboard/campaigns/new"
-              className="text-orange-500 hover:text-orange-400 text-sm font-medium"
-            >
-              Creer votre premiere campagne
-            </Link>
-          )}
-        </div>
-      )}
-
-      <ConfirmDialog
-        open={confirmDeleteId !== null}
-        title="Supprimer cette campagne"
-        message="Cette action est irreversible. La campagne sera definitivement supprimee."
-        confirmLabel="Supprimer"
-        cancelLabel="Annuler"
-        destructive
-        onConfirm={() => {
-          if (confirmDeleteId) deleteCampaign(confirmDeleteId);
-          setConfirmDeleteId(null);
-          if (confirmDeleteId === selectedId) setSelectedId(null);
-        }}
-        onCancel={() => setConfirmDeleteId(null)}
-      />
+      <ConfirmCampaignAction type="delete" open={!!deleteId} pending={isPending} onOpenChange={(open) => !open && setDeleteId(null)} onConfirm={() => runAction("delete")} />
+      <ConfirmCampaignAction type="cancel" open={!!cancelId} pending={isPending} onOpenChange={(open) => !open && setCancelId(null)} onConfirm={() => runAction("cancel")} />
     </div>
   );
 }
 
-/* Campaign Detail Panel */
+function EmptyChart({ label, height = "h-[260px]" }: { label: string; height?: string }) {
+  return <div className={`flex ${height} items-center justify-center text-center text-sm text-zinc-500`}>{label}</div>;
+}
 
-function CampaignDetailPanel({
-  campaign,
-  htmlContent,
-  senders,
-  onClose,
-  onDelete,
-  onCancel,
-  cancelling,
-  cancelError,
-}: {
-  campaign: Campaign;
-  htmlContent?: string;
-  senders: SenderInfo[];
-  onClose: () => void;
-  onDelete: (id: string) => void;
-  onCancel: (id: string) => void;
-  cancelling: boolean;
-  cancelError?: string;
+function CampaignFilters(props: {
+  search: string;
+  status: string;
+  sortBy: CampaignSort;
+  channel: string;
+  onSearch: (value: string) => void;
+  onStatus: (value: string) => void;
+  onSort: (value: string) => void;
+  onChannel: (value: string) => void;
 }) {
-  const status = statusConfig[campaign.status] ?? statusConfig.DRAFT;
-  const StatusIcon = status.icon;
-  const a = campaign.analytics;
-
   return (
-    <div className="flex-1 overflow-y-auto max-h-[700px]">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-zinc-900/95 backdrop-blur border-b border-zinc-200 dark:border-zinc-800 px-5 py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-              {campaign.name}
-            </h2>
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${status.className}`}>
-              <StatusIcon className="h-3 w-3" />
-              {status.label}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {campaign.status === "DRAFT" && (
-              <>
-                <Link
-                  href={`/dashboard/campaigns/${campaign.id}/edit`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                >
-                  <Pencil className="h-3 w-3" />
-                  Editer
-                </Link>
-                <Link
-                  href={`/dashboard/campaigns/${campaign.id}/send`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-orange-600 hover:bg-orange-500 text-white transition-colors"
-                >
-                  <Send className="h-3 w-3" />
-                  Envoyer
-                </Link>
-              </>
-            )}
-            {campaign.status === "SCHEDULED" && (
-              <>
-                <button
-                  onClick={() => onCancel(campaign.id)}
-                  disabled={cancelling}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-red-500 hover:border-red-500/30 transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  <Ban className="h-3 w-3" />
-                  Annuler
-                </button>
-                <Link
-                  href={`/dashboard/campaigns/${campaign.id}/send`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                >
-                  <CalendarClock className="h-3 w-3" />
-                  Replanifier
-                </Link>
-              </>
-            )}
-            {campaign.status === "SENDING" && (
-              <button
-                onClick={() => onCancel(campaign.id)}
-                disabled={cancelling}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <Ban className="h-3 w-3" />
-                Annuler
-              </button>
-            )}
-            <button
-              onClick={() => onDelete(campaign.id)}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
-              title="Supprimer"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-            {/* Mobile back button */}
-            <button
-              onClick={onClose}
-              className="lg:hidden p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors cursor-pointer"
-              title="Fermer"
-            >
-              <XCircle className="h-4 w-4" />
-            </button>
-          </div>
+    <CardHeader>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <CardTitle>Liste des campagnes</CardTitle>
+          <CardDescription>Filtrez par canal, statut, nom ou performance.</CardDescription>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_11rem_11rem]">
+          <Input value={props.search} onChange={(event) => props.onSearch(event.target.value)} placeholder="Rechercher..." />
+          <Select value={props.status} onValueChange={props.onStatus}>
+            <SelectTrigger><SelectValue placeholder="Statut" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tous les statuts</SelectItem>
+              {Object.entries(statusLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={props.sortBy} onValueChange={props.onSort}>
+            <SelectTrigger><ArrowUpDown className="h-4 w-4" /><SelectValue /></SelectTrigger>
+            <SelectContent>{sortOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+          </Select>
         </div>
       </div>
-
-      <div className="p-4 sm:p-5 space-y-5">
-        {/* Cancel error */}
-        {cancelError && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
-            {cancelError}
-          </div>
-        )}
-
-        {/* Sender info */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-zinc-500 uppercase tracking-wider font-medium">
-            <AtSign className="h-3.5 w-3.5" />
-            Expediteur
-          </div>
-          {campaign.fromEmail ? (
-            <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800">
-              <p className="text-sm text-zinc-900 dark:text-zinc-100">
-                {campaign.fromName || "-"} &lt;{campaign.fromEmail}&gt;
-              </p>
-              {campaign.replyTo && (
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  Reponses a : {campaign.replyTo}
-                </p>
-              )}
-            </div>
-          ) : senders.length > 0 ? (
-            <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800">
-              <p className="text-xs text-zinc-500 mb-1">Expediteurs disponibles :</p>
-              {senders.map((s) => (
-                <p key={s.id} className="text-sm text-zinc-900 dark:text-zinc-100">
-                  {s.name} &lt;{s.email}&gt;
-                </p>
-              ))}
-              <p className="text-[11px] text-zinc-500 mt-1.5">
-                Sera choisi lors de l&apos;envoi
-              </p>
-            </div>
-          ) : (
-            <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
-              <p className="text-sm text-amber-400 mb-1.5">
-                Aucun expediteur configure
-              </p>
-              <Link
-                href="/dashboard/senders"
-                className="text-xs text-orange-500 hover:text-orange-400 font-medium"
-              >
-                Configurer un expediteur -&gt;
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* Subject + Preview */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-zinc-500 uppercase tracking-wider font-medium">
-            <Mail className="h-3.5 w-3.5" />
-            Sujet
-          </div>
-          <p className="text-sm text-zinc-900 dark:text-zinc-100">
-            {campaign.subject || <span className="text-zinc-500 italic">Aucun sujet</span>}
-          </p>
-          {campaign.previewText && (
-            <p className="text-xs text-zinc-400">
-              Apercu : {campaign.previewText}
-            </p>
-          )}
-        </div>
-
-        {/* Schedule info */}
-        {campaign.scheduledAt && (
-          <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
-            <div className="flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-blue-400" />
-              <p className="text-sm text-blue-300">
-                Planifie pour le {format(new Date(campaign.scheduledAt), "d MMMM yyyy 'a' HH:mm", { locale: fr })}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Sending progress */}
-        {campaign.status === "SENDING" && (
-          <div className="p-4 rounded-lg bg-orange-500/5 border border-orange-500/20 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
-              <p className="text-sm font-medium text-orange-400">Envoi en cours</p>
-            </div>
-            <p className="text-xs text-zinc-400">
-              La campagne est en cours d&apos;envoi. Ce processus peut prendre quelques minutes.
-            </p>
-            {a && a.totalSent > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-400 flex items-center gap-1.5">
-                    <SendHorizonal className="h-3.5 w-3.5" />
-                    {a.totalSent} emails envoyes
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-orange-500 transition-all"
-                    style={{ width: "100%" }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Sent analytics */}
-        {campaign.status === "SENT" && a && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs text-zinc-500 uppercase tracking-wider font-medium">
-              <BarChart3 className="h-3.5 w-3.5" />
-              Resultats
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <StatCard label="Envoyes" value={a.totalSent} />
-              <StatCard label="Delivres" value={a.totalDelivered} />
-              <StatCard
-                label="Taux d'ouverture"
-                value={`${(a.openRate * 100).toFixed(1)}%`}
-                sub={`${a.totalOpened} ont ouvert l'email`}
-              />
-              <StatCard
-                label="Taux de clic"
-                value={`${(a.clickRate * 100).toFixed(1)}%`}
-                sub={`${a.totalClicked} ont clique un lien`}
-              />
-              {a.totalBounced > 0 && (
-                <StatCard label="Rebonds" value={a.totalBounced} negative />
-              )}
-              {a.totalUnsubscribed > 0 && (
-                <StatCard label="Desabonnes" value={a.totalUnsubscribed} negative />
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Sent/completed timestamps */}
-        {campaign.sentAt && (
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
-            <Send className="h-3 w-3" />
-            Envoye le {format(new Date(campaign.sentAt), "d MMM yyyy 'a' HH:mm", { locale: fr })}
-          </div>
-        )}
-        {campaign.completedAt && campaign.status === "SENT" && (
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
-            <CheckCircle className="h-3 w-3" />
-            Termine le {format(new Date(campaign.completedAt), "d MMM yyyy 'a' HH:mm", { locale: fr })}
-          </div>
-        )}
-
-        {/* Content preview */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs text-zinc-500 uppercase tracking-wider font-medium">
-              <Eye className="h-3.5 w-3.5" />
-              Apercu du contenu
-            </div>
-            {campaign.status === "DRAFT" && (
-              <Link
-                href={`/dashboard/campaigns/${campaign.id}/edit`}
-                className="inline-flex items-center gap-1 text-xs text-orange-500 hover:text-orange-400 transition-colors"
-              >
-                <Pencil className="h-3 w-3" />
-                Editer le contenu
-              </Link>
-            )}
-          </div>
-          {htmlContent ? (
-            <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden bg-white">
-              <iframe
-                srcDoc={wrapHtmlForPreview(htmlContent)}
-                className="w-full h-64 pointer-events-none"
-                sandbox=""
-                title="Apercu email"
-              />
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-8 text-center">
-              <FileEdit className="h-6 w-6 text-zinc-400 mx-auto mb-2" />
-              <p className="text-xs text-zinc-500">Aucun contenu</p>
-              {campaign.status === "DRAFT" && (
-                <Link
-                  href={`/dashboard/campaigns/${campaign.id}/edit`}
-                  className="text-xs text-orange-500 hover:text-orange-400 mt-1 inline-block"
-                >
-                  Creer le contenu -&gt;
-                </Link>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Audience */}
-        {campaign.contactList && (
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
-            <Users className="h-3 w-3" />
-            Audience : {campaign.contactList.name} ({campaign.contactList.contactCount} contacts)
-          </div>
-        )}
-      </div>
-    </div>
+      <Tabs value={props.channel} onValueChange={props.onChannel}>
+        <TabsList className="h-auto flex-wrap justify-start">
+          <TabsTrigger value="ALL">Tous les canaux</TabsTrigger>
+          <TabsTrigger value="EMAIL" className="gap-2"><Mail className="h-4 w-4" />Email</TabsTrigger>
+          <TabsTrigger value="WHATSAPP" className="gap-2"><MessageCircle className="h-4 w-4" />WhatsApp</TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </CardHeader>
   );
 }
 
-/* Stat Card */
-
-function StatCard({
-  label,
-  value,
-  sub,
-  negative,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  negative?: boolean;
-}) {
+function CampaignTable({ campaigns, pending, onCancel, onDelete }: { campaigns: Campaign[]; pending: boolean; onCancel: (id: string) => void; onDelete: (id: string) => void }) {
   return (
-    <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800">
-      <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{label}</p>
-      <p className={`text-lg font-semibold font-mono mt-0.5 ${negative ? "text-red-400" : "text-zinc-900 dark:text-zinc-100"}`}>
-        {typeof value === "number" ? value.toLocaleString("fr-FR") : value}
-      </p>
-      {sub && <p className="text-[10px] text-zinc-500 mt-0.5">{sub}</p>}
-    </div>
+    <CardContent>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Campagne</TableHead>
+            <TableHead>Canal</TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead>Audience</TableHead>
+            <TableHead className="text-right">Ouverture/Lecture</TableHead>
+            <TableHead className="text-right">Clic/Réponse</TableHead>
+            <TableHead className="w-12" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {campaigns.length === 0 ? (
+            <TableRow><TableCell colSpan={7} className="h-28 text-center text-zinc-500">Aucune campagne ne correspond aux filtres.</TableCell></TableRow>
+          ) : campaigns.map((campaign) => (
+            <TableRow key={campaign.id}>
+              <TableCell>
+                <p className="truncate font-medium text-zinc-950 dark:text-zinc-50">{campaign.name}</p>
+                <p className="mt-1 truncate text-xs text-zinc-500">{campaign.channel === "EMAIL" ? campaign.subject || "Sans sujet" : campaign.previewText || "Message WhatsApp"}</p>
+              </TableCell>
+              <TableCell><ChannelBadge channel={campaign.channel} /></TableCell>
+              <TableCell><StatusBadge status={campaign.status} /></TableCell>
+              <TableCell><span className="font-mono">{formatNumber(campaign._count?.recipients ?? 0)}</span><p className="mt-1 text-xs text-zinc-500">{campaign.contactList?.name ?? "Tous les contacts"}</p></TableCell>
+              <TableCell className="text-right font-mono">{formatRate(getOpenRate(campaign))}</TableCell>
+              <TableCell className="text-right font-mono">{formatRate(getClickOrReplyRate(campaign))}</TableCell>
+              <TableCell><CampaignActions campaign={campaign} pending={pending} onCancel={onCancel} onDelete={onDelete} /></TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </CardContent>
+  );
+}
+
+function ConfirmCampaignAction({ type, open, pending, onOpenChange, onConfirm }: { type: "delete" | "cancel"; open: boolean; pending: boolean; onOpenChange: (open: boolean) => void; onConfirm: () => void }) {
+  const isDelete = type === "delete";
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{isDelete ? "Supprimer cette campagne ?" : "Annuler cette campagne ?"}</AlertDialogTitle>
+          <AlertDialogDescription>{isDelete ? "Cette action supprimera définitivement la campagne sélectionnée." : "La campagne repassera en brouillon et ne sera plus planifiée."}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{isDelete ? "Annuler" : "Retour"}</AlertDialogCancel>
+          <AlertDialogAction className={isDelete ? "bg-red-600 text-white hover:bg-red-500" : undefined} disabled={pending} onClick={onConfirm}>
+            {isDelete ? "Supprimer" : "Annuler la campagne"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

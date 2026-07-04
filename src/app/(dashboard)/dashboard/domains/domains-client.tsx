@@ -18,6 +18,7 @@ type DomainData = {
   dkimRecord: string | null;
   dkimName: string | null;
   dkimStatus: string | null;
+  region: string;
   createdAt: string;
 };
 
@@ -163,6 +164,7 @@ function DomainCard({
 }) {
   const [expanded, setExpanded] = useState(!domain.verified);
   const [verifying, setVerifying] = useState(false);
+  const dnsRecords = buildDnsRecords(domain);
 
   async function handleVerify() {
     setVerifying(true);
@@ -224,35 +226,66 @@ function DomainCard({
         </div>
       </div>
 
-      {expanded && (domain.spfRecord || domain.dkimRecord) && (
+      {expanded && dnsRecords.length > 0 && (
         <div className="px-5 pb-5 border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-4">
           <p className="text-xs text-zinc-500">
-            Ajoutez ces enregistrements DNS chez votre fournisseur, puis cliquez sur Verifier.
+            Ajoutez ces enregistrements DNS chez votre fournisseur, puis cliquez sur Verifier. Dans cPanel, utilisez le champ Nom tel qu&apos;affiche ici.
           </p>
 
-          {domain.spfRecord && (
-            <DnsRecord
-              label="SPF"
-              type="TXT"
-              name={domain.domain}
-              value={domain.spfRecord}
-              status={domain.spfStatus}
-            />
-          )}
-
-          {domain.dkimRecord && (
-            <DnsRecord
-              label="DKIM"
-              type="CNAME"
-              name={domain.dkimName || `default._domainkey.${domain.domain}`}
-              value={domain.dkimRecord}
-              status={domain.dkimStatus}
-            />
-          )}
+          {dnsRecords.map((record) => (
+            <DnsRecord key={`${record.label}-${record.type}-${record.name}`} {...record} />
+          ))}
         </div>
       )}
     </div>
   );
+}
+
+function buildDnsRecords(domain: DomainData) {
+  const region = domain.region || "us-east-1";
+  const storedSpf = domain.spfRecord?.replace(/^"|"$/g, "") ?? "";
+  const spfTxtValue = storedSpf.startsWith("v=spf1") ? storedSpf : "v=spf1 include:amazonses.com ~all";
+  const mxValue = storedSpf.startsWith("feedback-smtp.") ? storedSpf : `feedback-smtp.${region}.amazonses.com`;
+  const dkimName = normalizeDnsName(domain.dkimName || "resend._domainkey", domain.domain);
+
+  return [
+    {
+      label: "MX",
+      type: "MX",
+      name: "send",
+      fqdn: `send.${domain.domain}`,
+      value: mxValue,
+      status: domain.spfStatus,
+      priority: "10",
+      hint: "Dans cPanel, saisissez seulement send. cPanel ajoutera automatiquement votre domaine.",
+    },
+    {
+      label: "SPF",
+      type: "TXT",
+      name: "send",
+      fqdn: `send.${domain.domain}`,
+      value: spfTxtValue,
+      status: domain.spfStatus,
+      hint: "Dans cPanel, saisissez seulement send. Le record complet sera send.votredomaine.",
+    },
+    ...(domain.dkimRecord
+      ? [{
+          label: "DKIM",
+          type: "TXT",
+          name: dkimName,
+          fqdn: `${dkimName}.${domain.domain}`,
+          value: domain.dkimRecord,
+          status: domain.dkimStatus,
+          hint: "Important : ce record est TXT, pas CNAME. Ne collez pas le domaine si cPanel l'ajoute automatiquement.",
+        }]
+      : []),
+  ];
+}
+
+function normalizeDnsName(name: string, domain: string) {
+  const cleanName = name.replace(/\.$/, "");
+  const cleanDomain = domain.replace(/\.$/, "");
+  return cleanName.endsWith(`.${cleanDomain}`) ? cleanName.slice(0, -(cleanDomain.length + 1)) : cleanName;
 }
 
 function DnsRecord({
@@ -261,12 +294,18 @@ function DnsRecord({
   name,
   value,
   status,
+  priority,
+  hint,
+  fqdn,
 }: {
   label: string;
   type: string;
   name: string;
   value: string;
   status: string | null;
+  priority?: string;
+  hint?: string;
+  fqdn?: string;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -293,6 +332,7 @@ function DnsRecord({
           {statusIcon}
         </div>
       </div>
+      {hint && <p className="text-[11px] text-zinc-500">{hint}</p>}
       <div className="space-y-1.5">
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-zinc-500 w-10 shrink-0">Nom</span>
@@ -301,6 +341,24 @@ function DnsRecord({
             {copied === `${label}-name` ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
           </button>
         </div>
+        {fqdn && (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-zinc-500 w-10 shrink-0">Final</span>
+            <code className="flex-1 text-xs font-mono text-zinc-300 bg-zinc-900 px-2 py-1 rounded truncate">{fqdn}</code>
+            <button onClick={() => copy(fqdn, `${label}-fqdn`)} className="p-1 text-zinc-400 hover:text-zinc-200 cursor-pointer">
+              {copied === `${label}-fqdn` ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+            </button>
+          </div>
+        )}
+        {priority && (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-zinc-500 w-10 shrink-0">Prio.</span>
+            <code className="flex-1 text-xs font-mono text-zinc-300 bg-zinc-900 px-2 py-1 rounded truncate">{priority}</code>
+            <button onClick={() => copy(priority, `${label}-priority`)} className="p-1 text-zinc-400 hover:text-zinc-200 cursor-pointer">
+              {copied === `${label}-priority` ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+            </button>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-zinc-500 w-10 shrink-0">Valeur</span>
           <code className="flex-1 text-xs font-mono text-zinc-300 bg-zinc-900 px-2 py-1 rounded truncate">{value}</code>
@@ -393,8 +451,9 @@ function DomainHelpModal({ open, onClose }: { open: boolean; onClose: () => void
               <StepList steps={[
                 "Connectez-vous a votre registrar (Cloudflare, Namecheap, OVH...)",
                 "Allez dans la section DNS / Zone DNS de votre domaine",
-                "Ajoutez les enregistrements SPF (type TXT) : copiez le Nom et la Valeur depuis MailPulse",
-                "Ajoutez les enregistrements DKIM (type CNAME ou TXT) : copiez le Nom et la Valeur depuis MailPulse",
+                "Ajoutez le record MX : type MX, nom send, valeur feedback-smtp, priorité 10",
+                "Ajoutez le record SPF : type TXT, nom send, valeur v=spf1 include:amazonses.com ~all",
+                "Ajoutez le record DKIM : type TXT, nom resend._domainkey, valeur qui commence par p=",
                 "Sauvegardez les changements. La propagation peut prendre 5 minutes a 48 heures",
               ]} />
             </div>

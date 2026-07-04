@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as communication from "../communication.js";
 import type * as dashboard from "../dashboard.js";
+import type * as lib from "../lib.js";
 import type * as notifications from "../notifications.js";
 import type * as presence from "../presence.js";
 
@@ -19,7 +21,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  communication: typeof communication;
   dashboard: typeof dashboard;
+  lib: typeof lib;
   notifications: typeof notifications;
   presence: typeof presence;
 }>;

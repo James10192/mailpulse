@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { resend } from "@/lib/resend";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { PLAN_LIMITS, type PlanTier } from "@/lib/plans";
+import type { PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
@@ -48,9 +48,11 @@ export async function createDomain(
       return { error: `Erreur Resend: ${resendError.message}` };
     }
 
-    // Extract DNS records from Resend response
-    const spfRecord = resendDomain?.records?.find((r: { record: string }) => r.record === "SPF");
-    const dkimRecord = resendDomain?.records?.find((r: { record: string }) => r.record === "DKIM");
+    const records = resendDomain?.records ?? [];
+    const spfRecord = records.find((r: { record: string; type?: string }) => r.record === "SPF" && r.type === "TXT")
+      ?? records.find((r: { record: string }) => r.record === "SPF");
+    const dkimRecord = records.find((r: { record: string; type?: string }) => r.record === "DKIM" && r.type === "TXT")
+      ?? records.find((r: { record: string }) => r.record === "DKIM");
 
     await prisma.sendingDomain.create({
       data: {
@@ -94,15 +96,21 @@ export async function verifyDomain(id: string): Promise<ActionState> {
     const { data: updated } = await resend.domains.get(domain.resendDomainId);
 
     if (updated) {
-      const spfRecord = updated.records?.find((r: { record: string }) => r.record === "SPF");
-      const dkimRecord = updated.records?.find((r: { record: string }) => r.record === "DKIM");
+      const records = updated.records ?? [];
+      const spfRecord = records.find((r: { record: string; type?: string }) => r.record === "SPF" && r.type === "TXT")
+        ?? records.find((r: { record: string }) => r.record === "SPF");
+      const dkimRecord = records.find((r: { record: string; type?: string }) => r.record === "DKIM" && r.type === "TXT")
+        ?? records.find((r: { record: string }) => r.record === "DKIM");
 
       await prisma.sendingDomain.update({
         where: { id },
         data: {
           status: updated.status ?? domain.status,
           verified: updated.status === "verified",
+          spfRecord: spfRecord?.value ?? domain.spfRecord,
           spfStatus: spfRecord?.status ?? domain.spfStatus,
+          dkimRecord: dkimRecord?.value ?? domain.dkimRecord,
+          dkimName: dkimRecord?.name ?? domain.dkimName,
           dkimStatus: dkimRecord?.status ?? domain.dkimStatus,
           verifiedAt: updated.status === "verified" ? new Date() : null,
         },

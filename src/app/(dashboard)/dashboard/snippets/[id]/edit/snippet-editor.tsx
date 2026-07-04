@@ -3,40 +3,49 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Loader2, Cloud, CloudOff } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Cloud, CloudOff, Mail, MessageCircle } from "lucide-react";
 import { updateSnippet } from "../../actions";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { useAutosave } from "@/hooks/use-autosave";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface SnippetData {
   id: string;
   name: string;
   description: string | null;
   htmlContent: string;
+  channel: "EMAIL" | "WHATSAPP" | "SMS";
 }
 
 interface SnippetOption {
   id: string;
   name: string;
   htmlContent: string;
+  channel: "EMAIL" | "WHATSAPP" | "SMS";
 }
 
 export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData; snippets?: SnippetOption[] }) {
   const [name, setName] = useState(snippet.name);
   const [description, setDescription] = useState(snippet.description ?? "");
   const [htmlContent, setHtmlContent] = useState(snippet.htmlContent);
+  const [channel, setChannel] = useState<"EMAIL" | "WHATSAPP">(snippet.channel === "WHATSAPP" ? "WHATSAPP" : "EMAIL");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const channelSnippets = snippets.filter((item) => item.channel === channel);
 
   const { autoStatus, setValue } = useAutosave({
-    initial: { name: snippet.name, description: snippet.description ?? "", htmlContent: snippet.htmlContent },
+    initial: { name: snippet.name, description: snippet.description ?? "", htmlContent: snippet.htmlContent, channel },
     onSave: useCallback(
-      (values: { name: string; description: string; htmlContent: string }) =>
+      (values: { name: string; description: string; htmlContent: string; channel: "EMAIL" | "WHATSAPP" }) =>
         updateSnippet(snippet.id, {
           name: values.name,
           description: values.description || undefined,
           htmlContent: values.htmlContent,
+          channel: values.channel,
         }),
       [snippet.id]
     ),
@@ -51,6 +60,11 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
     setValue(key, value);
   }
 
+  function handleChannel(nextChannel: "EMAIL" | "WHATSAPP") {
+    setChannel(nextChannel);
+    setValue("channel", nextChannel);
+  }
+
   async function handleSave() {
     setSaving(true);
     setError("");
@@ -58,6 +72,7 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
       name,
       description: description || undefined,
       htmlContent,
+      channel,
     });
     setSaving(false);
     if (result?.error) {
@@ -105,10 +120,11 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
           </div>
         </div>
 
-        <button
+        <Button
+          type="button"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+          className="gap-2 bg-orange-600 hover:bg-orange-500"
         >
           {saving ? (
             <>
@@ -121,7 +137,7 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
               Enregistrer et quitter
             </>
           )}
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -131,12 +147,39 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
       )}
 
       {/* Details section */}
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 space-y-4">
+      <Card>
+        <CardContent className="p-6 space-y-4">
         <div>
           <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Details</h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Definissez le nom et la description de votre snippet.
+            Definissez le canal, le nom et la description de votre snippet.
           </p>
+        </div>
+
+        <div>
+          <p className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+            Canal
+          </p>
+          <RadioGroup value={channel} onValueChange={(value) => handleChannel(value as "EMAIL" | "WHATSAPP")} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Label htmlFor="snippet-channel-email" className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm transition-colors ${
+              channel === "EMAIL"
+                ? "border-orange-500/40 bg-orange-500/10 text-zinc-900 dark:text-zinc-100"
+                : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
+            }`}>
+              <RadioGroupItem id="snippet-channel-email" value="EMAIL" />
+              <Mail className="h-4 w-4 text-orange-500" />
+              Email
+            </Label>
+            <Label htmlFor="snippet-channel-whatsapp" className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm transition-colors ${
+              channel === "WHATSAPP"
+                ? "border-orange-500/40 bg-orange-500/10 text-zinc-900 dark:text-zinc-100"
+                : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
+            }`}>
+              <RadioGroupItem id="snippet-channel-whatsapp" value="WHATSAPP" />
+              <MessageCircle className="h-4 w-4 text-orange-500" />
+              WhatsApp
+            </Label>
+          </RadioGroup>
         </div>
 
         <div>
@@ -164,24 +207,31 @@ export function SnippetEditor({ snippet, snippets = [] }: { snippet: SnippetData
             placeholder="Decrivez votre snippet..."
           />
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Content section */}
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 space-y-4">
+      <Card>
+        <CardContent className="p-6 space-y-4">
         <div>
           <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Contenu</h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Creez le contenu reutilisable pour vos emails. Utilisez les variables pour personnaliser.
+            {channel === "WHATSAPP"
+              ? "Créez le contenu réutilisable pour vos messages WhatsApp."
+              : "Creez le contenu reutilisable pour vos emails. Utilisez les variables pour personnaliser."}
           </p>
         </div>
 
         <RichEditor
           content={htmlContent}
           onChange={(html) => handleField("htmlContent", setHtmlContent, html)}
-          placeholder="Ecrivez votre contenu ici... Utilisez le bouton Variables pour inserer des champs dynamiques."
-          snippets={snippets}
+          placeholder={channel === "WHATSAPP"
+            ? "Écrivez votre snippet WhatsApp..."
+            : "Ecrivez votre contenu ici... Utilisez le bouton Variables pour inserer des champs dynamiques."}
+          snippets={channelSnippets}
         />
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

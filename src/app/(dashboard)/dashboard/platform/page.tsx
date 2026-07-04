@@ -10,6 +10,7 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { serializeMessage, serializeTemplate, serializeWebhook } from "@/lib/mailpulse/serializers";
 import { DeliveryByChannelChart, MessageVolumeChart } from "./platform-charts";
 import { ApiKeysPanel } from "./platform-client";
+import { PlatformMessagesPanel, type ApiMessageDetail } from "./platform-messages-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -19,12 +20,6 @@ function statusVariant(status: string) {
   if (["RETRYING", "PENDING_REVIEW"].includes(status)) return "warning" as const;
   return "secondary" as const;
 }
-
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "short",
-  timeStyle: "short",
-});
-
 const compactDateFormatter = new Intl.DateTimeFormat("fr-FR", {
   day: "2-digit",
   month: "2-digit",
@@ -51,7 +46,6 @@ function StatCard({
     </Card>
   );
 }
-
 export default async function PlatformPage() {
   const { org } = await getCurrentUserAndOrg();
   const orgId = org?.id ?? "";
@@ -73,8 +67,36 @@ export default async function PlatformPage() {
     }),
     prisma.communicationMessage.findMany({
       where: { organizationId: orgId },
+      include: {
+        contact: {
+          select: {
+            email: true,
+            phone: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        template: {
+          select: {
+            templateKey: true,
+            name: true,
+            providerTemplateId: true,
+          },
+        },
+        webhookDeliveries: {
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          include: {
+            endpoint: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
-      take: 12,
+      take: 25,
     }),
     prisma.communicationTemplate.findMany({
       where: { organizationId: orgId },
@@ -106,7 +128,33 @@ export default async function PlatformPage() {
     }),
   ]);
 
-  const serializedMessages = messages.map(serializeMessage);
+  const serializedMessages: ApiMessageDetail[] = messages.map((message) => ({
+    ...serializeMessage(message),
+    contact: message.contact
+      ? {
+          email: message.contact.email,
+          phone: message.contact.phone,
+          first_name: message.contact.firstName,
+          last_name: message.contact.lastName,
+        }
+      : null,
+    template: message.template
+      ? {
+          key: message.template.templateKey,
+          name: message.template.name,
+          provider_template_id: message.template.providerTemplateId,
+        }
+      : null,
+    webhook_deliveries: message.webhookDeliveries.map((delivery) => ({
+      id: delivery.id,
+      endpoint_name: delivery.endpoint.name,
+      event_type: delivery.eventType,
+      status: delivery.status,
+      attempts: delivery.attempts,
+      last_error: delivery.lastError,
+      delivered_at: delivery.deliveredAt?.toISOString() ?? null,
+    })),
+  }));
   const serializedTemplates = templates.map(serializeTemplate);
   const serializedWebhooks = webhooks.map(serializeWebhook);
   const activeKeys = apiKeys.filter((key) => !key.revokedAt).length;
@@ -151,44 +199,7 @@ export default async function PlatformPage() {
 
         <TabsContent value="operations" className="space-y-4">
           <div className="grid gap-4 xl:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Messages récents</CardTitle>
-                <CardDescription>Statuts durables, indépendants du métier client.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Canal</TableHead>
-                      <TableHead>Destinataire</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead>Créé</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {serializedMessages.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="py-8 text-center text-sm text-zinc-500">
-                          Aucun message V1 pour le moment.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      serializedMessages.map((message) => (
-                        <TableRow key={message.id}>
-                          <TableCell>{message.channel}</TableCell>
-                          <TableCell className="max-w-[14rem] truncate font-mono text-xs">{message.recipient.value}</TableCell>
-                          <TableCell>
-                            <Badge variant={statusVariant(message.status.toUpperCase())}>{message.status}</Badge>
-                          </TableCell>
-                          <TableCell>{dateFormatter.format(new Date(message.created_at))}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <PlatformMessagesPanel messages={serializedMessages} />
 
             <Card>
               <CardHeader>

@@ -22,12 +22,13 @@ export default async function CampaignEditPage({
         subject: true,
         previewText: true,
         htmlContent: true,
+        channel: true,
         status: true,
       },
     }),
     prisma.emailTemplate.findMany({
       where: { organizationId: ctx.org.id, category: "snippet" },
-      select: { id: true, name: true, htmlContent: true },
+      select: { id: true, name: true, htmlContent: true, channel: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -50,9 +51,13 @@ export default async function CampaignEditPage({
           subject: campaign.subject ?? "",
           previewText: campaign.previewText ?? "",
           htmlContent: campaign.htmlContent ?? "",
+          channel: campaign.channel === "WHATSAPP" ? "WHATSAPP" : "EMAIL",
           status: campaign.status,
         }}
-        snippets={snippets}
+        snippets={snippets.map((snippet) => ({
+          ...snippet,
+          channel: snippet.channel === "WHATSAPP" ? "WHATSAPP" : "EMAIL",
+        }))}
       />
     </>
   );

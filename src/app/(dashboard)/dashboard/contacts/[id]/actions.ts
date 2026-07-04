@@ -7,6 +7,7 @@ import { api } from "../../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
 import type { ActionState } from "@/types/action-state";
+import { normalizeContactPhone } from "@/lib/phone-numbers";
 
 export async function toggleContactSubscription(
   contactId: string
@@ -76,7 +77,7 @@ export async function updateContact(
       data: {
         ...(data.firstName !== undefined && { firstName: data.firstName || null }),
         ...(data.lastName !== undefined && { lastName: data.lastName || null }),
-        ...(data.phone !== undefined && { phone: data.phone || null }),
+        ...(data.phone !== undefined && { phone: normalizeContactPhone(data.phone) || null }),
         ...(data.metadata !== undefined && { metadata: data.metadata as object }),
       },
     });

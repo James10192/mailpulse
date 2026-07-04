@@ -5,7 +5,7 @@ const titles = {
   general: {
     breadcrumb: "Paramètres",
     title: "Paramètres",
-    description: "Configuration de votre organisation et domaines d'envoi.",
+    description: "Gérez votre profil, votre organisation et les accès de sécurité.",
   },
   integrations: {
     breadcrumb: "Intégrations",
@@ -14,7 +14,7 @@ const titles = {
   },
   billing: {
     breadcrumb: "Facturation",
-    title: "Abonnement & Facturation",
+    title: "Abonnement et facturation",
     description: "Gérez votre plan et suivez votre utilisation.",
   },
 } as const;
@@ -29,7 +29,7 @@ export function SettingsPageFrame({
   const copy = titles[section];
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       <Breadcrumb
         items={[
           { label: "", href: "/dashboard" },
@@ -39,16 +39,21 @@ export function SettingsPageFrame({
           ...(section === "general" ? [] : [{ label: copy.breadcrumb }]),
         ]}
       />
-      <div>
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-          {copy.title}
-        </h1>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          {copy.description}
-        </p>
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-normal text-zinc-950 dark:text-zinc-50">
+            {copy.title}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+            {copy.description}
+          </p>
+        </div>
       </div>
+
       <SettingsTabs />
-      {children}
+
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }

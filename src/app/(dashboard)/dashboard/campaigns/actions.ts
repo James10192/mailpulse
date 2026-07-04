@@ -11,6 +11,7 @@ import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
 import { sendCampaignEmail } from "@/lib/resend";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { personalizeHtml } from "@/lib/email-utils";
 import {
   generateTrackingToken,
@@ -21,6 +22,7 @@ import {
 
 const campaignCreateSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
+  channel: z.enum(["EMAIL", "WHATSAPP"]).default("EMAIL"),
 });
 
 export async function createCampaign(
@@ -29,6 +31,7 @@ export async function createCampaign(
 ): Promise<ActionState> {
   const result = campaignCreateSchema.safeParse({
     name: formData.get("name"),
+    channel: formData.get("channel") || "EMAIL",
   });
   if (!result.success) {
     return { error: "Le nom de la campagne est requis." };
@@ -51,6 +54,7 @@ export async function createCampaign(
       data: {
         name: result.data.name,
         status: "DRAFT",
+        channel: result.data.channel,
         type: "REGULAR",
         userId: user.id,
         organizationId: org.id,
@@ -130,8 +134,10 @@ export async function scheduleCampaign(
   if (!campaign) return { error: "Campagne introuvable." };
   if (campaign.status !== "DRAFT") return { error: "Seules les campagnes en brouillon peuvent etre planifiees." };
 
-  const sender = await prisma.emailSender.findUnique({ where: { id: senderId } });
-  if (!sender) return { error: "Expediteur introuvable." };
+  const sender = campaign.channel === "EMAIL"
+    ? await prisma.emailSender.findUnique({ where: { id: senderId } })
+    : null;
+  if (campaign.channel === "EMAIL" && !sender) return { error: "Expediteur introuvable." };
 
   const scheduledDate = new Date(scheduledAt);
   if (isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
@@ -144,9 +150,9 @@ export async function scheduleCampaign(
       data: {
         status: "SCHEDULED",
         scheduledAt: scheduledDate,
-        fromName: sender.name,
-        fromEmail: sender.email,
-        replyTo: sender.replyTo,
+        fromName: sender?.name ?? null,
+        fromEmail: sender?.email ?? null,
+        replyTo: sender?.replyTo ?? null,
         contactListId: audience === "all" ? null : audience,
       },
     });
@@ -176,7 +182,7 @@ export async function scheduleCampaign(
 
 export async function updateCampaign(
   campaignId: string,
-  data: { name?: string; subject?: string; previewText?: string; htmlContent?: string },
+  data: { name?: string; subject?: string; previewText?: string; htmlContent?: string; channel?: "EMAIL" | "WHATSAPP" },
   options?: { revalidate?: boolean }
 ): Promise<ActionState> {
   try {
@@ -188,6 +194,7 @@ export async function updateCampaign(
     if (data.subject !== undefined) updateData.subject = data.subject || null;
     if (data.previewText !== undefined) updateData.previewText = data.previewText || null;
     if (data.htmlContent !== undefined) updateData.htmlContent = data.htmlContent || null;
+    if (data.channel !== undefined) updateData.channel = data.channel;
 
     // updateOrThrow ensures campaign exists and belongs to org; only DRAFT campaigns can be edited
     await prisma.campaign.update({
@@ -257,7 +264,8 @@ export async function getCampaignContent(campaignId: string): Promise<string | n
 
 
 
-type ContactRow = { id: string; email: string; firstName: string | null; lastName: string | null };
+type CampaignChannel = "EMAIL" | "WHATSAPP";
+type ContactRow = { id: string; email: string; phone: string | null; firstName: string | null; lastName: string | null };
 
 async function validateCampaignForSending(campaignId: string, orgId: string) {
   const campaign = await prisma.campaign.findUnique({
@@ -265,32 +273,42 @@ async function validateCampaignForSending(campaignId: string, orgId: string) {
   });
   if (!campaign) return { error: "Campagne introuvable." } as const;
   if (campaign.status !== "DRAFT") return { error: "Seules les campagnes en brouillon peuvent etre envoyees." } as const;
-  if (!campaign.subject) return { error: "Le sujet de la campagne est requis." } as const;
+  if (campaign.channel === "EMAIL" && !campaign.subject) return { error: "Le sujet de la campagne est requis." } as const;
   if (!campaign.htmlContent) return { error: "Le contenu de la campagne est requis." } as const;
   return { campaign } as const;
 }
 
-async function fetchSenderAndContacts(senderId: string, audience: "all" | string, orgId: string) {
-  const sender = await prisma.emailSender.findUnique({ where: { id: senderId } });
-  if (!sender) return { error: "Expediteur introuvable. Creez un expediteur d'abord." } as const;
+async function fetchSenderAndContacts(senderId: string, audience: "all" | string, orgId: string, channel: CampaignChannel) {
+  const sender = channel === "EMAIL" ? await prisma.emailSender.findUnique({ where: { id: senderId } }) : null;
+  if (channel === "EMAIL" && !sender) return { error: "Expediteur introuvable. Creez un expediteur d'abord." } as const;
 
   let contacts: ContactRow[];
+  const channelWhere = channel === "WHATSAPP" ? { phone: { not: null } } : {};
+  const contactSelect = { id: true, email: true, phone: true, firstName: true, lastName: true };
   if (audience === "all") {
     contacts = await prisma.contact.findMany({
-      where: { organizationId: orgId, subscribed: true },
-      select: { id: true, email: true, firstName: true, lastName: true },
+      where: { organizationId: orgId, subscribed: true, ...channelWhere },
+      select: contactSelect,
     });
   } else {
     const members = await prisma.contactListMember.findMany({
       where: { contactListId: audience },
       select: {
-        contact: { select: { id: true, email: true, firstName: true, lastName: true, subscribed: true } },
+        contact: { select: { ...contactSelect, subscribed: true } },
       },
     });
-    contacts = members.filter((m) => m.contact.subscribed).map((m) => m.contact);
+    contacts = members
+      .filter((m) => m.contact.subscribed && (channel !== "WHATSAPP" || !!m.contact.phone))
+      .map((m) => m.contact);
   }
 
-  if (contacts.length === 0) return { error: "Aucun abonne actif trouve. Ajoutez des contacts d'abord." } as const;
+  if (contacts.length === 0) {
+    return {
+      error: channel === "WHATSAPP"
+        ? "Aucun contact actif avec un numero WhatsApp trouve. Ajoutez un numero avec son indicatif."
+        : "Aucun abonne actif trouve. Ajoutez des contacts d'abord.",
+    } as const;
+  }
   return { sender, contacts } as const;
 }
 
@@ -390,6 +408,95 @@ async function sendEmailsToRecipients(
   return sentCount;
 }
 
+function stripHtmlForWhatsApp(html: string) {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function personalizeText(text: string, contact: ContactRow) {
+  return text
+    .replace(/\{\{firstName\}\}/g, contact.firstName || "")
+    .replace(/\{\{lastName\}\}/g, contact.lastName || "")
+    .replace(/\{\{email\}\}/g, contact.email || "")
+    .replace(/\{\{phone\}\}/g, contact.phone || "");
+}
+
+async function getOrgWhatsApp(orgId: string) {
+  return prisma.organization.findUnique({
+    where: { id: orgId },
+    select: {
+      whatsappEnabled: true,
+      whatsappMode: true,
+      whatsappPhone: true,
+      evoInstanceName: true,
+      evoInstanceStatus: true,
+      metaWabaId: true,
+      metaPhoneNumberId: true,
+      metaAccessToken: true,
+    },
+  });
+}
+
+async function sendWhatsAppToRecipients(
+  campaign: { id: string; htmlContent: string },
+  contacts: ContactRow[],
+  recipientMap: Map<string, string>,
+  orgId: string,
+) {
+  const orgWa = await getOrgWhatsApp(orgId);
+  if (!orgWa?.whatsappEnabled) {
+    throw new Error("WhatsApp non active. Connectez WhatsApp dans Messagerie avant l'envoi.");
+  }
+
+  const text = stripHtmlForWhatsApp(campaign.htmlContent);
+  if (!text) throw new Error("Le message WhatsApp est vide.");
+
+  let sentCount = 0;
+  for (const contact of contacts) {
+    const recipientId = recipientMap.get(contact.id);
+    if (!recipientId || !contact.phone) continue;
+
+    try {
+      const sent = await sendWhatsApp(orgWa, contact.phone, personalizeText(text, contact));
+      await prisma.campaignRecipient.update({
+        where: { id: recipientId },
+        data: { sentAt: new Date() },
+      });
+      await prisma.communicationMessage.create({
+        data: {
+          organizationId: orgId,
+          contactId: contact.id,
+          channel: "WHATSAPP",
+          direction: "OUTBOUND",
+          recipientType: "PHONE",
+          recipientValue: contact.phone,
+          contentType: "TEXT",
+          text: personalizeText(text, contact),
+          providerMessageId: sent.messageId ?? null,
+          status: "SENT",
+          sentAt: new Date(),
+          metadata: { campaignId: campaign.id, recipientId },
+        },
+      });
+      sentCount++;
+    } catch {
+      await prisma.emailEvent.create({
+        data: { type: "BOUNCED_SOFT", contactId: contact.id, recipientId, metadata: { error: "whatsapp_send_failed" } },
+      });
+    }
+  }
+
+  return sentCount;
+}
+
 async function completeCampaignSending(
   campaignId: string,
   orgId: string,
@@ -446,22 +553,26 @@ export async function sendCampaign(
   if ("error" in validation) return { error: validation.error };
   const { campaign } = validation;
 
-  const fetched = await fetchSenderAndContacts(senderId, audience, org.id);
+  const fetched = await fetchSenderAndContacts(senderId, audience, org.id, campaign.channel as CampaignChannel);
   if ("error" in fetched) return { error: fetched.error };
   const { sender, contacts } = fetched;
 
-  const quotaError = await checkSendingQuota(org.id, org.plan as PlanTier, contacts.length);
-  if (quotaError) return quotaError;
+  if (campaign.channel === "EMAIL") {
+    const quotaError = await checkSendingQuota(org.id, org.plan as PlanTier, contacts.length);
+    if (quotaError) return quotaError;
+  }
 
   try {
-    const recipientMap = await initializeCampaignSending(campaignId, contacts, sender);
+    const recipientMap = await initializeCampaignSending(campaignId, contacts, sender ?? { name: "WhatsApp", email: "", replyTo: null });
 
-    const sentCount = await sendEmailsToRecipients(
-      { id: campaignId, subject: campaign.subject!, htmlContent: campaign.htmlContent! },
-      contacts,
-      sender,
-      recipientMap,
-    );
+    const sentCount = campaign.channel === "WHATSAPP"
+      ? await sendWhatsAppToRecipients({ id: campaignId, htmlContent: campaign.htmlContent! }, contacts, recipientMap, org.id)
+      : await sendEmailsToRecipients(
+          { id: campaignId, subject: campaign.subject!, htmlContent: campaign.htmlContent! },
+          contacts,
+          sender!,
+          recipientMap,
+        );
 
     await completeCampaignSending(campaignId, org.id, sentCount, user, campaign.name);
     return { success: true };

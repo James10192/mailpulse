@@ -4,16 +4,17 @@ import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { PLAN_LIMITS, type PlanTier } from "@/lib/plans";
 
-async function getContactStats() {
+async function getContactStats(orgId: string) {
   const [total, subscribed] = await Promise.all([
-    prisma.contact.count(),
-    prisma.contact.count({ where: { subscribed: true } }),
+    prisma.contact.count({ where: { organizationId: orgId } }),
+    prisma.contact.count({ where: { organizationId: orgId, subscribed: true } }),
   ]);
   return { total, subscribed, unsubscribed: total - subscribed };
 }
 
-async function getContacts() {
+async function getContacts(orgId: string) {
   const contacts = await prisma.contact.findMany({
+    where: { organizationId: orgId },
     orderBy: { createdAt: "desc" },
     take: 50,
     include: { tags: true },
@@ -27,11 +28,11 @@ async function getContacts() {
 }
 
 export default async function ContactsPage() {
-  const [stats, contacts, ctx] = await Promise.all([
-    getContactStats(),
-    getContacts(),
-    getCurrentUserAndOrg(),
-  ]);
+  const ctx = await getCurrentUserAndOrg();
+  const orgId = ctx.org?.id;
+  const [stats, contacts] = orgId
+    ? await Promise.all([getContactStats(orgId), getContacts(orgId)])
+    : [{ total: 0, subscribed: 0, unsubscribed: 0 }, []];
 
   const plan = (ctx.org?.plan ?? "FREE") as PlanTier;
   const limits = PLAN_LIMITS[plan];

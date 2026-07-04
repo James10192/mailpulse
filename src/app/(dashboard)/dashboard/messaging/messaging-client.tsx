@@ -28,6 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { HelpButton } from "@/components/dashboard/help-modal";
+import { PhoneNumberInput } from "@/components/dashboard/phone-number-input";
 import type { WhatsAppMode } from "@/lib/whatsapp";
 import {
   activateBaileys,
@@ -300,10 +301,11 @@ export function MessagingClient({
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
-            <Input
+            <PhoneNumberInput
+              id="meta-whatsapp-phone"
+              label="Numéro WhatsApp"
               value={metaForm.phone}
-              onChange={(event) => setMetaForm({ ...metaForm, phone: event.target.value })}
-              placeholder="Numéro WhatsApp (+225...)"
+              onChange={(phone) => setMetaForm({ ...metaForm, phone })}
             />
             <Input
               value={metaForm.wabaId}

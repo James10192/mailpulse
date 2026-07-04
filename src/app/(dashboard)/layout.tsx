@@ -1,9 +1,12 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <DashboardShell>{children}</DashboardShell>;
+  const { isAdmin } = await getCurrentUserAndOrg();
+
+  return <DashboardShell isAdmin={isAdmin}>{children}</DashboardShell>;
 }

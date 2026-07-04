@@ -1,7 +1,9 @@
 import { Building2, Check, Crown, Sparkles } from "lucide-react";
+import { Suspense } from "react";
 
 import { ContactButton } from "@/components/dashboard/contact-dialog";
 import { UsageBar } from "@/components/dashboard/feature-gate";
+import { PaystackReturnVerifier, PaystackUpgradeButton } from "@/components/dashboard/paystack-upgrade-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,6 +77,10 @@ export default async function BillingPage() {
 
   return (
     <SettingsPageFrame section="billing">
+      <Suspense fallback={null}>
+        <PaystackReturnVerifier />
+      </Suspense>
+
       <Card>
         <CardHeader className="flex-row items-start justify-between gap-4">
           <div>
@@ -140,7 +146,7 @@ export default async function BillingPage() {
                         Nous contacter
                       </ContactButton>
                     ) : (
-                      <Button className="w-full">Upgrader</Button>
+                      <PaystackUpgradeButton />
                     )}
                   </div>
                 </CardContent>
@@ -153,7 +159,7 @@ export default async function BillingPage() {
       <Card className="border-dashed">
         <CardContent className="p-6 text-center">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Le paiement en FCFA via Mobile Money, Orange Money et Wave sera bientôt disponible via CinetPay.
+            Les paiements Pro sont encaissés via Paystack. Configurez `PAYSTACK_SECRET_KEY` et `NEXT_PUBLIC_APP_URL` en production.
           </p>
         </CardContent>
       </Card>

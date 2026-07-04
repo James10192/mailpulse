@@ -33,6 +33,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { PhoneNumberInput } from "@/components/dashboard/phone-number-input";
 import { toggleContactSubscription, triggerAutomation, updateContact, addTagToContact, removeTagFromContact } from "./actions";
 
 // ────────────────────────────────────────────────────────
@@ -434,10 +435,12 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                   <input value={editData.lastName} onChange={(e) => setEditData({ ...editData, lastName: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30" />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs text-zinc-500 mb-1">Telephone</label>
-                <input value={editData.phone} onChange={(e) => setEditData({ ...editData, phone: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30" />
-              </div>
+              <PhoneNumberInput
+                id="contact-phone"
+                label="Telephone"
+                value={editData.phone}
+                onChange={(phone) => setEditData({ ...editData, phone })}
+              />
               {customFields.length > 0 && (
                 <>
                   <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">

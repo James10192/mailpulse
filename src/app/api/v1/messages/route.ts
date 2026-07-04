@@ -22,12 +22,20 @@ export async function POST(request: Request) {
 
   const message = await createCommunicationMessage({
     organizationId: auth.organizationId,
+    organization: auth.organization,
     input: parsed.data,
     idempotencyKey,
   });
 
-  const status = message.status === "failed" ? 422 : 202;
-  const response = { message };
+  const failed = message.status === "failed";
+  const status = failed ? 422 : 202;
+  const response = failed
+    ? {
+        error: message.error_message ?? "Message failed",
+        code: message.error_code ?? "message_failed",
+        message,
+      }
+    : { message };
   await storeIdempotentResponse({
     organizationId: auth.organizationId,
     key: idempotencyKey,

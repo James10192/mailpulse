@@ -14,6 +14,15 @@ const ORG_SELECT = {
   metadata: true,
 } as const;
 
+function adminAllowlist() {
+  return new Set(
+    (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
 /**
  * Get the current authenticated user and their organization.
  * Tries Better Auth session first, falls back to findFirst for dev/transition.
@@ -33,7 +42,7 @@ export async function getCurrentUserAndOrg() {
       if (user) {
         const member = await prisma.member.findFirst({
           where: { userId: user.id },
-          select: { organizationId: true },
+          select: { organizationId: true, role: true },
           orderBy: { createdAt: "asc" },
         });
 
@@ -59,12 +68,14 @@ export async function getCurrentUserAndOrg() {
           }).catch(() => {});
         }
 
-        return { user, org };
+        const isAdmin = member?.role === "admin" || adminAllowlist().has(user.email.toLowerCase());
+
+        return { user, org, memberRole: member?.role ?? null, isAdmin };
       }
     }
   } catch {
     // Session failed — no fallback, return null
   }
 
-  return { user: null, org: null };
+  return { user: null, org: null, memberRole: null, isAdmin: false };
 }

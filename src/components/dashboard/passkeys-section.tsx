@@ -1,9 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Fingerprint, Key, Loader2, Monitor, Plus, Shield, Smartphone, Trash2 } from "lucide-react";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
-import { Fingerprint, Plus, Trash2, Loader2, Smartphone, Monitor, Key, Shield } from "lucide-react";
-import { ConfirmDialog } from "./confirm-dialog";
 
 interface PasskeyData {
   id: string;
@@ -21,7 +35,7 @@ function getDeviceIcon(deviceType: string) {
 function getDeviceLabel(deviceType: string) {
   if (deviceType === "singleDevice") return "Appareil unique";
   if (deviceType === "multiDevice") return "Multi-appareil";
-  return "Cle de securite";
+  return "Clé de sécurité";
 }
 
 function getPlatformHint() {
@@ -29,8 +43,8 @@ function getPlatformHint() {
   const ua = navigator.userAgent.toLowerCase();
   if (ua.includes("mac")) return "Touch ID";
   if (ua.includes("win")) return "Windows Hello";
-  if (ua.includes("iphone") || ua.includes("ipad")) return "Face ID / Touch ID";
-  if (ua.includes("android")) return "Empreinte digitale";
+  if (ua.includes("iphone") || ua.includes("ipad")) return "Face ID ou Touch ID";
+  if (ua.includes("android")) return "empreinte digitale";
   return "votre appareil";
 }
 
@@ -50,25 +64,20 @@ export function PasskeysSection() {
       const res = await authClient.passkey.listUserPasskeys();
       if (res?.data) setPasskeys(res.data as unknown as PasskeyData[]);
     } catch {
-      // No passkeys or not available
+      setPasskeys([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   useEffect(() => {
-    // Check WebAuthn support
     if (typeof window !== "undefined" && !window.PublicKeyCredential) {
-      const timer = window.setTimeout(() => {
-        setSupported(false);
-        setLoading(false);
-      }, 0);
-      return () => window.clearTimeout(timer);
+      setSupported(false);
+      setLoading(false);
+      return;
     }
 
-    const timer = window.setTimeout(() => {
-      void loadPasskeys();
-    }, 0);
-    return () => window.clearTimeout(timer);
+    void loadPasskeys();
   }, []);
 
   async function handleAddPlatform() {
@@ -83,14 +92,15 @@ export function PasskeysSection() {
       if (res?.error) {
         setError(String(res.error.message ?? "Erreur lors de l'ajout."));
       } else {
-        setSuccess("Passkey ajoutee avec succes !");
-        setTimeout(() => setSuccess(""), 3000);
-        loadPasskeys();
+        setSuccess("Passkey ajoutée avec succès.");
+        window.setTimeout(() => setSuccess(""), 3000);
+        void loadPasskeys();
       }
-    } catch (e) {
-      setError("L'operation a ete annulee ou n'est pas supportee.");
+    } catch {
+      setError("L'opération a été annulée ou n'est pas supportée.");
+    } finally {
+      setAdding(false);
     }
-    setAdding(false);
   }
 
   async function handleAddCrossPlatform() {
@@ -99,20 +109,21 @@ export function PasskeysSection() {
     setSuccess("");
     try {
       const res = await authClient.passkey.addPasskey({
-        name: "Cle de securite",
+        name: "Clé de sécurité",
         authenticatorAttachment: "cross-platform",
       });
       if (res?.error) {
         setError(String(res.error.message ?? "Erreur lors de l'ajout."));
       } else {
-        setSuccess("Cle de securite ajoutee !");
-        setTimeout(() => setSuccess(""), 3000);
-        loadPasskeys();
+        setSuccess("Clé de sécurité ajoutée.");
+        window.setTimeout(() => setSuccess(""), 3000);
+        void loadPasskeys();
       }
     } catch {
-      setError("L'operation a ete annulee.");
+      setError("L'opération a été annulée.");
+    } finally {
+      setAddingCross(false);
     }
-    setAddingCross(false);
   }
 
   async function handleDelete() {
@@ -120,129 +131,161 @@ export function PasskeysSection() {
     setDeleting(true);
     try {
       await authClient.passkey.deletePasskey({ id: deleteId });
-      setPasskeys((prev) => prev.filter((p) => p.id !== deleteId));
+      setPasskeys((prev) => prev.filter((passkey) => passkey.id !== deleteId));
     } catch {
       setError("Erreur lors de la suppression.");
+    } finally {
+      setDeleteId(null);
+      setDeleting(false);
     }
-    setDeleteId(null);
-    setDeleting(false);
   }
 
   if (!supported) {
     return (
-      <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-4">
-        <h2 className="font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-          <Fingerprint className="h-5 w-5 text-orange-500" />
-          Passkeys
-        </h2>
-        <p className="text-sm text-zinc-500">
-          Votre navigateur ne supporte pas les passkeys (WebAuthn).
-        </p>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Fingerprint className="h-5 w-5 text-orange-500" />
+            Passkeys
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="warning">
+            <Shield className="h-4 w-4" />
+            <AlertTitle>Navigateur non compatible</AlertTitle>
+            <AlertDescription>Votre navigateur ne supporte pas les passkeys WebAuthn.</AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-          <Fingerprint className="h-5 w-5 text-orange-500" />
-          Passkeys
-        </h2>
-      </div>
-      <p className="text-xs text-zinc-500">
-        Connectez-vous sans mot de passe avec {getPlatformHint()}, une cle de securite USB, ou un autre appareil.
-      </p>
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Fingerprint className="h-5 w-5 text-orange-500" />
+              Passkeys
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Connectez-vous sans mot de passe avec {getPlatformHint()} ou une clé de sécurité.
+            </CardDescription>
+          </div>
+          <Badge variant={passkeys.length > 0 ? "success" : "secondary"} className="shrink-0">
+            {passkeys.length > 0 ? `${passkeys.length} active${passkeys.length > 1 ? "s" : ""}` : "Aucune"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Action impossible</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
 
-      {error && (
-        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-sm text-red-600 dark:text-red-400">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-sm text-emerald-600 dark:text-emerald-400">
-          {success}
-        </div>
-      )}
+        {success ? (
+          <Alert variant="success">
+            <AlertTitle>Action confirmée</AlertTitle>
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        ) : null}
 
-      {loading ? (
-        <div className="flex items-center justify-center h-16">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
-        </div>
-      ) : (
-        <>
-          {/* Existing passkeys */}
-          {passkeys.length > 0 && (
-            <div className="space-y-2">
-              {passkeys.map((pk) => {
-                const DeviceIcon = getDeviceIcon(pk.deviceType);
+        {loading ? (
+          <div className="flex min-h-24 items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800">
+            <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {passkeys.length === 0 ? (
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertTitle>Aucune passkey configurée</AlertTitle>
+                <AlertDescription>
+                  Les passkeys remplacent les mots de passe et restent synchronisées avec vos appareils compatibles.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              passkeys.map((passkey) => {
+                const DeviceIcon = getDeviceIcon(passkey.deviceType);
+
                 return (
-                  <div key={pk.id} className="flex items-center justify-between p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center">
+                  <div
+                    key={passkey.id}
+                    className="flex min-w-0 flex-col gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
                         <DeviceIcon className="h-4 w-4 text-orange-500" />
                       </div>
-                      <div>
-                        <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                          {pk.name || "Passkey"}
-                        </div>
-                        <div className="text-xs text-zinc-500">
-                          {getDeviceLabel(pk.deviceType)} — {new Date(pk.createdAt).toLocaleDateString("fr-FR")}
-                        </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-zinc-950 dark:text-zinc-50">
+                          {passkey.name || "Passkey"}
+                        </p>
+                        <p className="mt-1 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                          {getDeviceLabel(passkey.deviceType)} ·{" "}
+                          {new Date(passkey.createdAt).toLocaleDateString("fr-FR")}
+                        </p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => setDeleteId(pk.id)}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-11 w-11 shrink-0 self-end text-zinc-500 hover:text-red-600 sm:self-auto"
+                      onClick={() => setDeleteId(passkey.id)}
+                      aria-label="Supprimer cette passkey"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 );
-              })}
-            </div>
-          )}
-
-          {/* Add buttons */}
-          <div className="flex gap-2">
-            <button
-              onClick={handleAddPlatform}
-              disabled={adding}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border border-orange-500/30 text-orange-500 rounded-lg hover:bg-orange-500/10 transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
-              {adding ? "En attente..." : `Ajouter ${getPlatformHint()}`}
-            </button>
-            <button
-              onClick={handleAddCrossPlatform}
-              disabled={addingCross}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {addingCross ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
-              Cle USB
-            </button>
+              })
+            )}
           </div>
+        )}
 
-          {passkeys.length === 0 && (
-            <div className="flex items-start gap-3 p-3 rounded-lg border border-blue-500/20 bg-blue-500/5">
-              <Shield className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
-              <p className="text-xs text-blue-300/80">
-                Les passkeys remplacent les mots de passe. Plus securisees, plus rapides, et synchronisees entre vos appareils.
-              </p>
-            </div>
-          )}
-        </>
-      )}
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <Button type="button" className="min-h-11" onClick={handleAddPlatform} disabled={adding || loading}>
+            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {adding ? "En attente..." : `Ajouter ${getPlatformHint()}`}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={handleAddCrossPlatform}
+            disabled={addingCross || loading}
+          >
+            {addingCross ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
+            Clé USB
+          </Button>
+        </div>
+      </CardContent>
 
-      <ConfirmDialog
-        open={!!deleteId}
-        title="Supprimer cette passkey ?"
-        message="Vous ne pourrez plus vous connecter avec cet appareil."
-        confirmLabel="Supprimer"
-        destructive
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteId(null)}
-      />
-    </section>
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette passkey ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vous ne pourrez plus vous connecter avec cet appareil.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-500"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
   );
 }

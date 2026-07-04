@@ -3,10 +3,14 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Loader2, Cloud, CloudOff, Send } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Cloud, CloudOff, Send, Mail, MessageCircle } from "lucide-react";
 import { updateCampaign } from "../../actions";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { useAutosave } from "@/hooks/use-autosave";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface CampaignData {
   id: string;
@@ -14,6 +18,7 @@ interface CampaignData {
   subject: string;
   previewText: string;
   htmlContent: string;
+  channel: "EMAIL" | "WHATSAPP";
   status: string;
 }
 
@@ -21,6 +26,7 @@ interface SnippetOption {
   id: string;
   name: string;
   htmlContent: string;
+  channel: "EMAIL" | "WHATSAPP";
 }
 
 export function CampaignEditor({
@@ -35,13 +41,15 @@ export function CampaignEditor({
   const [subject, setSubject] = useState(campaign.subject);
   const [previewText, setPreviewText] = useState(campaign.previewText);
   const [htmlContent, setHtmlContent] = useState(campaign.htmlContent);
+  const [channel, setChannel] = useState<"EMAIL" | "WHATSAPP">(campaign.channel);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const channelSnippets = snippets.filter((snippet) => snippet.channel === channel);
 
   const { autoStatus, setValue } = useAutosave({
-    initial: { name: campaign.name, subject: campaign.subject, previewText: campaign.previewText, htmlContent: campaign.htmlContent },
+    initial: { name: campaign.name, subject: campaign.subject, previewText: campaign.previewText, htmlContent: campaign.htmlContent, channel: campaign.channel },
     onSave: useCallback(
-      (values: { name: string; subject: string; previewText: string; htmlContent: string }) =>
+      (values: { name: string; subject: string; previewText: string; htmlContent: string; channel: "EMAIL" | "WHATSAPP" }) =>
         updateCampaign(campaign.id, values),
       [campaign.id]
     ),
@@ -56,11 +64,16 @@ export function CampaignEditor({
     setValue(key, value);
   }
 
+  function handleChannel(nextChannel: "EMAIL" | "WHATSAPP") {
+    setChannel(nextChannel);
+    setValue("channel", nextChannel);
+  }
+
   async function handleSave() {
     setSaving(true);
     setError("");
     const result = await updateCampaign(campaign.id, {
-      name, subject, previewText, htmlContent,
+      name, subject, previewText, htmlContent, channel,
     }, { revalidate: true });
     setSaving(false);
     if (result?.error) {
@@ -118,10 +131,11 @@ export function CampaignEditor({
               Envoyer
             </Link>
           )}
-          <button
+          <Button
+            type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+            className="gap-2 bg-orange-600 hover:bg-orange-500"
           >
             {saving ? (
               <>
@@ -134,7 +148,7 @@ export function CampaignEditor({
                 Enregistrer et quitter
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -145,12 +159,45 @@ export function CampaignEditor({
       )}
 
       {/* Details section */}
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 space-y-4">
+      <Card>
+        <CardContent className="p-6 space-y-4">
         <div>
           <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Details</h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Definissez le nom, sujet et apercu de votre campagne.
+            Definissez le canal, le nom et le contenu de votre campagne.
           </p>
+        </div>
+
+        <div>
+          <p className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+            Canal
+          </p>
+          <RadioGroup value={channel} onValueChange={(value) => handleChannel(value as "EMAIL" | "WHATSAPP")} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Label htmlFor="campaign-edit-email" className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left text-sm transition-colors ${
+              channel === "EMAIL"
+                ? "border-orange-500/40 bg-orange-500/10 text-zinc-900 dark:text-zinc-100"
+                : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
+            }`}>
+              <RadioGroupItem id="campaign-edit-email" value="EMAIL" className="mt-0.5" />
+              <Mail className="mt-0.5 h-4 w-4 text-orange-500" />
+              <span>
+                <span className="block font-medium">Email</span>
+                <span className="mt-1 block text-xs text-zinc-500">Utilise sujet, aperçu, expéditeur et tracking.</span>
+              </span>
+            </Label>
+            <Label htmlFor="campaign-edit-whatsapp" className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left text-sm transition-colors ${
+              channel === "WHATSAPP"
+                ? "border-orange-500/40 bg-orange-500/10 text-zinc-900 dark:text-zinc-100"
+                : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
+            }`}>
+              <RadioGroupItem id="campaign-edit-whatsapp" value="WHATSAPP" className="mt-0.5" />
+              <MessageCircle className="mt-0.5 h-4 w-4 text-orange-500" />
+              <span>
+                <span className="block font-medium">WhatsApp</span>
+                <span className="mt-1 block text-xs text-zinc-500">Envoie aux contacts avec téléphone WhatsApp.</span>
+              </span>
+            </Label>
+          </RadioGroup>
         </div>
 
         <div>
@@ -166,6 +213,7 @@ export function CampaignEditor({
           />
         </div>
 
+        {channel === "EMAIL" && (
         <div>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
             Sujet de l&apos;email
@@ -181,7 +229,9 @@ export function CampaignEditor({
             Le sujet apparait dans la boite de reception. Variables disponibles : {"{{firstName}}"}, {"{{lastName}}"}, {"{{email}}"}
           </p>
         </div>
+        )}
 
+        {channel === "EMAIL" && (
         <div>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
             Texte d&apos;apercu (optionnel)
@@ -194,24 +244,34 @@ export function CampaignEditor({
             placeholder="Texte visible apres le sujet dans la boite de reception"
           />
         </div>
-      </div>
+        )}
+        </CardContent>
+      </Card>
 
       {/* Content section */}
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 space-y-4">
+      <Card>
+        <CardContent className="p-6 space-y-4">
         <div>
-          <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Contenu de l&apos;email</h2>
+          <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
+            {channel === "WHATSAPP" ? "Message WhatsApp" : "Contenu de l'email"}
+          </h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Redigez le contenu de votre campagne. Utilisez les variables pour personnaliser chaque email.
+            {channel === "WHATSAPP"
+              ? "Rédigez le message WhatsApp. Les variables personnalisent chaque contact."
+              : "Redigez le contenu de votre campagne. Utilisez les variables pour personnaliser chaque email."}
           </p>
         </div>
 
         <RichEditor
           content={htmlContent}
           onChange={(html) => handleField("htmlContent", setHtmlContent, html)}
-          placeholder="Ecrivez le contenu de votre email... Utilisez le bouton Variables pour inserer des champs dynamiques."
-          snippets={snippets}
+          placeholder={channel === "WHATSAPP"
+            ? "Écrivez le message WhatsApp... Variables disponibles : {{firstName}}, {{lastName}}, {{phone}}."
+            : "Ecrivez le contenu de votre email... Utilisez le bouton Variables pour inserer des champs dynamiques."}
+          snippets={channelSnippets}
         />
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

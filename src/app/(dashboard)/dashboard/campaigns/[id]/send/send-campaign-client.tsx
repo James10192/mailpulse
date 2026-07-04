@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Users, AtSign, AlertTriangle, Check, Loader2, ArrowLeft, Clock, CalendarDays, Tag } from "lucide-react";
+import { Send, Users, AtSign, AlertTriangle, Check, Loader2, ArrowLeft, Clock, CalendarDays, Tag, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { sendCampaign, scheduleCampaign } from "../../actions";
 
@@ -12,6 +12,7 @@ interface CampaignData {
   subject: string | null;
   previewText: string | null;
   htmlContent: string | null;
+  channel: "EMAIL" | "WHATSAPP" | "SMS";
   status: string;
 }
 
@@ -58,6 +59,7 @@ export function SendCampaignClient({
   const [scheduledTime, setScheduledTime] = useState("");
 
   const selectedSender = senders.find((s) => s.id === senderId);
+  const isWhatsApp = campaign.channel === "WHATSAPP";
 
   // Compute audience string for the server action
   const audience = audienceMode === "all" ? "all" : audienceMode === "segment" ? selectedSegment : "all";
@@ -70,9 +72,8 @@ export function SendCampaignClient({
 
   const canSend =
     campaign.status === "DRAFT" &&
-    senders.length > 0 &&
-    senderId &&
-    campaign.subject &&
+    (isWhatsApp || (senders.length > 0 && senderId)) &&
+    (isWhatsApp || campaign.subject) &&
     campaign.htmlContent &&
     recipientCount > 0;
 
@@ -138,6 +139,7 @@ export function SendCampaignClient({
       </div>
 
       {/* Campaign summary */}
+      {!isWhatsApp ? (
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
         <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Campagne</h2>
         <div>
@@ -161,8 +163,23 @@ export function SendCampaignClient({
           </div>
         )}
       </div>
+      ) : (
+      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
+        <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+          <MessageCircle className="h-4 w-4" />
+          Canal
+        </h2>
+        <p className="text-sm text-zinc-600 dark:text-zinc-300">
+          Envoi WhatsApp via la configuration de Messagerie. Seuls les contacts actifs avec un numéro WhatsApp seront ciblés.
+        </p>
+        <Link href="/dashboard/messaging" className="text-sm text-orange-500 hover:text-orange-400 font-medium">
+          Vérifier WhatsApp
+        </Link>
+      </div>
+      )}
 
       {/* Sender selection */}
+      {!isWhatsApp && (
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
         <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-2">
           <AtSign className="h-4 w-4" />
@@ -196,6 +213,7 @@ export function SendCampaignClient({
           <p className="text-xs text-zinc-500">Reponses a : {selectedSender.replyTo}</p>
         )}
       </div>
+      )}
 
       {/* Audience selection — toggle pills */}
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
@@ -214,7 +232,7 @@ export function SendCampaignClient({
                 : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
             }`}
           >
-            Tous les abonnes ({subscribedCount})
+            {isWhatsApp ? "Contacts WhatsApp" : "Tous les abonnes"} ({subscribedCount})
           </button>
           {availableSegments.length > 0 && (
             <button
@@ -288,7 +306,7 @@ export function SendCampaignClient({
         {recipientCount === 0 && (
           <div className="flex items-center gap-2 text-sm text-amber-500">
             <AlertTriangle className="h-4 w-4" />
-            Aucun abonne dans cette audience.
+            {isWhatsApp ? "Aucun contact WhatsApp dans cette audience." : "Aucun abonne dans cette audience."}
           </div>
         )}
       </div>
@@ -358,7 +376,7 @@ export function SendCampaignClient({
       {/* Send button */}
       <div className="flex items-center justify-between pt-2">
         <p className="text-xs text-zinc-500">
-          {recipientCount > 0 && senders.length > 0
+          {recipientCount > 0 && (isWhatsApp || senders.length > 0)
             ? `Pret a envoyer a ${recipientCount} contact${recipientCount > 1 ? "s" : ""}`
             : "Completez les etapes ci-dessus pour envoyer"}
         </p>

@@ -11,6 +11,7 @@ import {
   Globe,
   Sparkles,
   Check,
+  MessageCircle,
 } from "lucide-react";
 
 function GithubIcon({ className }: { className?: string }) {
@@ -37,15 +38,15 @@ import { LandingCTATracker, PricingSectionTracker } from "@/components/landing/l
 
 const features = [
   {
-    icon: Mail,
-    title: "Campagnes intelligentes",
-    desc: "Editeur visuel, templates personnalisables, A/B testing automatise sur les sujets, le contenu et les horaires d'envoi.",
+    icon: MessageCircle,
+    title: "Campagnes email et WhatsApp",
+    desc: "Choisissez le canal par campagne, reutilisez vos snippets et ciblez les contacts avec email et numero WhatsApp.",
     gradient: "from-orange-500/10 to-transparent",
   },
   {
     icon: BarChart3,
     title: "Analytics temps reel",
-    desc: "Open rate, CTR, bounces, heat maps email, revenue attribution. Dashboard live powered by Convex.",
+    desc: "Ouvertures, clics, messages WhatsApp lus, réponses, bounces et attribution. Dashboard live powered by Convex.",
     gradient: "from-amber-500/10 to-transparent",
   },
   {
@@ -77,6 +78,7 @@ const features = [
 const trackingFeatures = [
   { icon: Eye, label: "Open tracking", desc: "Pixel invisible 1x1" },
   { icon: MousePointerClick, label: "Click tracking", desc: "Redirect 302 signe HMAC" },
+  { icon: MessageCircle, label: "WhatsApp tracking", desc: "Lus et reponses par campagne" },
   { icon: Globe, label: "Geo & Device", desc: "Localisation et appareil" },
   { icon: Sparkles, label: "Engagement score", desc: "Scoring automatique" },
 ];
@@ -97,11 +99,12 @@ const pricingPlans = [
     features: [
       "25 000 contacts",
       "Emails illimites",
+      "Campagnes WhatsApp",
       "A/B testing",
       "Automations",
       "Segmentation avancee",
       "Support prioritaire",
-      "WhatsApp",
+      "Tracking WhatsApp",
     ],
     cta: "Essai gratuit 14 jours",
     highlighted: true,
@@ -118,6 +121,7 @@ const pricingPlans = [
       "Account manager",
       "API avancee",
       "WhatsApp illimites",
+      "Analytics conversations",
     ],
     cta: "Nous contacter",
     highlighted: false,
@@ -150,16 +154,16 @@ export default function LandingPage() {
                 Vos campagnes email
                 <br />
                 <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-amber-500 bg-clip-text text-transparent">
-                  meritent mieux
+                  et WhatsApp
                 </span>
               </h1>
             </AnimatedSection>
 
             <AnimatedSection delay={0.2}>
               <p className="mt-6 text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-                Tracking pixel-level, analytics en temps reel, automations
-                intelligentes. Tout ce qu&apos;il faut pour envoyer des emails qui
-                convertissent.
+                Campagnes email et WhatsApp, analytics en temps reel,
+                automations intelligentes. Tout ce qu&apos;il faut pour envoyer,
+                suivre les lus et mesurer les réponses.
               </p>
             </AnimatedSection>
 
@@ -359,11 +363,11 @@ export default function LandingPage() {
                     {[
                       { time: "23:04:12", event: "email.delivered", color: "text-emerald-400", email: "marie@startup.io" },
                       { time: "23:04:15", event: "email.opened", color: "text-blue-400", email: "jean@corp.fr" },
-                      { time: "23:04:18", event: "email.clicked", color: "text-orange-400", email: "marie@startup.io" },
-                      { time: "23:04:22", event: "email.delivered", color: "text-emerald-400", email: "alex@dev.co" },
-                      { time: "23:04:25", event: "email.opened", color: "text-blue-400", email: "alex@dev.co" },
-                      { time: "23:04:31", event: "email.clicked", color: "text-orange-400", email: "alex@dev.co" },
-                      { time: "23:04:33", event: "email.opened", color: "text-blue-400", email: "sarah@agency.com" },
+                      { time: "23:04:18", event: "whatsapp.read", color: "text-emerald-400", email: "+2250700000000" },
+                      { time: "23:04:22", event: "email.clicked", color: "text-orange-400", email: "marie@startup.io" },
+                      { time: "23:04:25", event: "whatsapp.replied", color: "text-orange-400", email: "+2250500000000" },
+                      { time: "23:04:31", event: "email.opened", color: "text-blue-400", email: "alex@dev.co" },
+                      { time: "23:04:33", event: "whatsapp.delivered", color: "text-emerald-400", email: "+2250100000000" },
                     ].map((log, i) => (
                       <div key={i} className="flex gap-3">
                         <span className="text-zinc-700">{log.time}</span>

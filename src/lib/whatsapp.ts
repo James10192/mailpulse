@@ -6,6 +6,7 @@ import { BaileysProvider } from "@/lib/whatsapp-baileys";
 import { MetaProvider } from "@/lib/whatsapp-meta";
 import * as baileys from "@/lib/whatsapp-baileys";
 import * as meta from "@/lib/whatsapp-meta";
+import { getWhatsAppPhoneCandidates } from "@/lib/phone-numbers";
 
 export type WhatsAppMode = "BAILEYS" | "META";
 
@@ -60,7 +61,13 @@ export async function sendWhatsApp(
 
   const config = resolveProviderConfig(org);
   const provider = createProvider(config);
-  const result = await provider.sendText(to, text);
+  const candidates = getWhatsAppPhoneCandidates(to);
+  let result = await provider.sendText(candidates[0] ?? to, text);
+
+  for (const candidate of candidates.slice(1)) {
+    if (result.success) break;
+    result = await provider.sendText(candidate, text);
+  }
 
   if (!result.success) {
     throw new Error(result.error ?? "Echec de l'envoi WhatsApp.");

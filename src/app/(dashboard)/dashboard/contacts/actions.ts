@@ -9,6 +9,7 @@ import { checkContactLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
+import { normalizeContactPhone } from "@/lib/phone-numbers";
 
 const createContactSchema = z.object({
   email: z.string().email("Email invalide"),
@@ -57,7 +58,7 @@ export async function createContact(
         email: data.email,
         firstName: data.firstName || null,
         lastName: data.lastName || null,
-        phone: data.phone || null,
+        phone: normalizeContactPhone(data.phone) || null,
         userId: user.id,
         organizationId: org.id,
       },
@@ -121,7 +122,7 @@ export async function importContacts(
         email: c.email.toLowerCase().trim(),
         firstName: c.firstName || null,
         lastName: c.lastName || null,
-        phone: c.phone || null,
+        phone: normalizeContactPhone(c.phone) || null,
         userId: user.id,
         organizationId: org.id,
       })),

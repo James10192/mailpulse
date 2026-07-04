@@ -146,6 +146,8 @@ model Organization {
   webhookDeliveries WebhookDelivery[]
   idempotencyRecords IdempotencyRecord[]
   auditLogs AuditLog[]
+  feedback Feedback[]
+  billingPayments BillingPayment[]
 
   @@map("organization")
 }
@@ -288,6 +290,7 @@ model Campaign {
   templateId     String?
   template       EmailTemplate? @relation(fields: [templateId], references: [id])
   status         CampaignStatus @default(DRAFT)
+  channel        CommunicationChannel @default(EMAIL)
   type           CampaignType   @default(REGULAR)
   scheduledAt    DateTime?
   sentAt         DateTime?
@@ -414,6 +417,7 @@ model EmailTemplate {
   textContent    String?
   thumbnailUrl   String?
   category       String       @default("custom")
+  channel        CommunicationChannel @default(EMAIL)
   isPublic       Boolean      @default(false)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -932,4 +936,78 @@ enum RecoveryStepStatus {
   SKIPPED
   FAILED
   CANCELLED
+}
+
+enum FeedbackType {
+  BUG
+  IDEA
+  OTHER
+}
+
+enum FeedbackPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum FeedbackStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+  DISMISSED
+}
+
+model Feedback {
+  id             String           @id @default(cuid())
+  type           FeedbackType
+  priority       FeedbackPriority @default(MEDIUM)
+  status         FeedbackStatus   @default(NEW)
+  message        String
+  context        String?
+  pageTitle      String?
+  browser        String?
+  viewport       String?
+  screenshotUrl  String?
+  canContactBack Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+
+  @@index([organizationId, status, createdAt])
+  @@index([type, priority])
+  @@map("feedback")
+}
+
+enum BillingPaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  ABANDONED
+}
+
+model BillingPayment {
+  id                String               @id @default(cuid())
+  provider          String               @default("PAYSTACK")
+  reference         String               @unique
+  authorizationUrl  String?
+  accessCode        String?
+  plan              PlanTier
+  amount            Int
+  currency          String               @default("XOF")
+  status            BillingPaymentStatus @default(PENDING)
+  providerStatus    String?
+  paidAt            DateTime?
+  rawResponse        Json?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  organizationId    String
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId            String?
+
+  @@index([organizationId, status, createdAt])
+  @@map("billing_payment")
 }

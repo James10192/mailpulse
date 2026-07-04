@@ -1,13 +1,16 @@
 import Link from "next/link";
+import { Code2, Globe2, KeyRound } from "lucide-react";
 
 import { LinkedAccounts } from "@/components/dashboard/linked-accounts";
 import { PasskeysSection } from "@/components/dashboard/passkeys-section";
 import { ProfileSection } from "@/components/dashboard/profile-section";
 import { ProBadge } from "@/components/dashboard/feature-gate";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { canAccessFeature, type PlanTier } from "@/lib/plans";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { SettingsPageFrame } from "./settings-page-frame";
@@ -19,73 +22,114 @@ export default async function SettingsPage() {
 
   return (
     <SettingsPageFrame section="general">
-      <ProfileSection />
-      <LinkedAccounts />
-      <PasskeysSection />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,25rem)]">
+        <div className="min-w-0 space-y-6">
+          <ProfileSection />
+          <LinkedAccounts />
+          <PasskeysSection />
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Organisation</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="organization-name">Nom de l&apos;organisation</Label>
-            <Input id="organization-name" placeholder="Mon entreprise" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="default-from">Email par défaut (From)</Label>
-            <Input id="default-from" type="email" placeholder="newsletter@mondomaine.com" />
-          </div>
-        </CardContent>
-      </Card>
+        <div className="min-w-0 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Organisation</CardTitle>
+              <CardDescription>Paramètres utilisés par défaut dans vos envois.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="organization-name">Nom de l&apos;organisation</Label>
+                <Input id="organization-name" placeholder="Mon entreprise" defaultValue={org?.name ?? ""} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="default-from">Email par défaut</Label>
+                <Input id="default-from" type="email" placeholder="newsletter@mondomaine.com" />
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CardTitle>Domaines d&apos;envoi</CardTitle>
-            {!canUseDomains && <ProBadge />}
-          </div>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/dashboard/domains">Gérer les domaines</Link>
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Configurez SPF, DKIM et DMARC pour vos domaines d&apos;envoi afin
-            d&apos;améliorer la délivrabilité.
-          </p>
-          {!canUseDomains ? (
-            <div className="rounded-lg border border-dashed border-orange-500/30 bg-orange-500/5 p-4 text-center text-sm text-zinc-500">
-              Passez au plan Pro pour configurer vos propres domaines d&apos;envoi.
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-zinc-300 p-4 text-center text-sm text-zinc-500 dark:border-zinc-700">
-              Aucun domaine configuré
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Globe2 className="h-5 w-5 text-orange-500" />
+                    Domaines d&apos;envoi
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    SPF, DKIM et DMARC pour protéger votre délivrabilité.
+                  </CardDescription>
+                </div>
+                {!canUseDomains ? <ProBadge /> : null}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {canUseDomains ? (
+                <Alert>
+                  <Globe2 className="h-4 w-4" />
+                  <AlertTitle>Aucun domaine configuré</AlertTitle>
+                  <AlertDescription>
+                    Ajoutez votre domaine pour signer vos emails et améliorer la réception.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Alert variant="warning">
+                  <Globe2 className="h-4 w-4" />
+                  <AlertTitle>Plan Pro requis</AlertTitle>
+                  <AlertDescription>
+                    Passez au plan Pro pour configurer vos propres domaines d&apos;envoi.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <Button asChild variant="outline" className="min-h-11 w-full justify-center">
+                <Link href="/dashboard/domains">Gérer les domaines</Link>
+              </Button>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <CardTitle>Clés API</CardTitle>
-            {!canUseApi && <ProBadge />}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Gérez vos clés API pour l&apos;intégration avec vos applications.
-          </p>
-          {canUseApi ? (
-            <Button variant="secondary">Générer une clé API</Button>
-          ) : (
-            <div className="rounded-lg border border-dashed border-orange-500/30 bg-orange-500/5 p-4 text-center text-sm text-zinc-500">
-              Passez au plan Pro pour accéder à l&apos;API.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <KeyRound className="h-5 w-5 text-orange-500" />
+                    Clés API
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    Connexion de vos applications à MailPulse.
+                  </CardDescription>
+                </div>
+                {!canUseApi ? <ProBadge /> : null}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {canUseApi ? (
+                <Alert variant="success">
+                  <Code2 className="h-4 w-4" />
+                  <AlertTitle>API disponible</AlertTitle>
+                  <AlertDescription>
+                    Générez une clé et gardez-la dans votre gestionnaire de secrets.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Alert variant="warning">
+                  <Code2 className="h-4 w-4" />
+                  <AlertTitle>Accès réservé au plan Pro</AlertTitle>
+                  <AlertDescription>
+                    Les clés API sont disponibles avec le plan Pro.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <Separator />
+
+              <Button disabled={!canUseApi} className="min-h-11 w-full">
+                <KeyRound className="h-4 w-4" />
+                Générer une clé API
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </SettingsPageFrame>
   );
 }

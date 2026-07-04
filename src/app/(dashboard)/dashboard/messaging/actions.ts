@@ -7,6 +7,7 @@ import { checkContactLimit, type PlanTier } from "@/lib/plans";
 import { sendWhatsApp, baileys } from "@/lib/whatsapp";
 import type { WhatsAppMode } from "@/lib/whatsapp";
 import type { ActionState } from "@/types/action-state";
+import { normalizeContactPhone } from "@/lib/phone-numbers";
 
 // ─── Helpers ────────────────────────────────────────────
 
@@ -58,12 +59,6 @@ async function createFreshBaileysInstance(orgId: string, previousInstanceName?: 
 
 function getQrImage(qrData: Awaited<ReturnType<typeof baileys.getQrCode>>) {
   return qrData.base64 || qrData.qrcode?.base64 || undefined;
-}
-
-function normalizePhoneForContact(phone: string) {
-  const trimmed = phone.trim();
-  const digits = trimmed.replace(/\D/g, "");
-  return trimmed.startsWith("+") ? `+${digits}` : digits ? `+${digits}` : "";
 }
 
 function getContactDisplayName(contact: {
@@ -213,7 +208,7 @@ export async function createMessagingContact(input: {
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifié." };
 
-  const phone = normalizePhoneForContact(input.phone);
+  const phone = normalizeContactPhone(input.phone);
   if (!phone) return { error: "Numéro WhatsApp requis." };
 
   const existing = await prisma.contact.findFirst({
@@ -308,7 +303,7 @@ export async function saveMetaConfig(
       metaWabaId: wabaId,
       metaPhoneNumberId: phoneNumberId,
       metaAccessToken: accessToken,
-      whatsappPhone: phone || null,
+      whatsappPhone: normalizeContactPhone(phone) || null,
     },
   });
 
@@ -342,8 +337,8 @@ export async function sendMessage(to: string, body: string): Promise<ActionState
 
   if (!to || !body) return { error: "Numero et message requis." };
 
-  const phone = to.replace(/\s/g, "");
-  if (!phone.startsWith("+")) return { error: "Le numero doit commencer par + (ex: +225XXXXXXXXX)." };
+  const phone = normalizeContactPhone(to);
+  if (!phone) return { error: "Le numero WhatsApp est invalide." };
 
   try {
     await sendWhatsApp(orgWa, phone, body);
@@ -371,14 +366,14 @@ export async function sendBulkMessages(
     where: {
       organizationId: org.id,
       subscribed: true,
-      phone: { startsWith: "+" },
+      phone: { not: null },
       ...(audience !== "all" ? { tags: { some: { name: audience } } } : {}),
     },
     select: { id: true, phone: true, firstName: true, lastName: true },
   });
 
   if (withPhone.length === 0) {
-    return { error: "Aucun contact avec un numero de telephone valide (+XXX)." };
+    return { error: "Aucun contact avec un numero WhatsApp." };
   }
 
   let sent = 0;

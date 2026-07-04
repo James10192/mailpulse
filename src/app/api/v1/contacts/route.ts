@@ -3,6 +3,7 @@ import { sha256 } from "@/lib/mailpulse/crypto";
 import { storeIdempotentResponse, findIdempotentResponse, idempotentJson } from "@/lib/mailpulse/idempotency";
 import { serializeContact } from "@/lib/mailpulse/serializers";
 import { upsertContactSchema, validationError } from "@/lib/mailpulse/schemas";
+import { normalizeContactPhone } from "@/lib/phone-numbers";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "node:crypto";
 
@@ -24,8 +25,9 @@ export async function POST(request: Request) {
   if (replay) return idempotentJson(replay.responseBody, replay.statusCode);
 
   const input = parsed.data;
+  const phone = normalizeContactPhone(input.phone);
   const syntheticEmail = !input.email;
-  const email = input.email?.toLowerCase().trim() ?? syntheticContactEmail(input.phone ?? input.external_id ?? randomUUID());
+  const email = input.email?.toLowerCase().trim() ?? syntheticContactEmail(phone || input.external_id || randomUUID());
   const metadata = {
     ...(input.metadata ?? {}),
     ...(input.external_id ? { external_id: input.external_id } : {}),
@@ -52,7 +54,7 @@ export async function POST(request: Request) {
     update: {
       firstName: input.first_name,
       lastName: input.last_name,
-      phone: input.phone,
+      phone: phone || null,
       subscribed: input.subscribed ?? true,
       metadata,
     },
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
       email,
       firstName: input.first_name,
       lastName: input.last_name,
-      phone: input.phone,
+      phone: phone || null,
       subscribed: input.subscribed ?? true,
       metadata,
     },

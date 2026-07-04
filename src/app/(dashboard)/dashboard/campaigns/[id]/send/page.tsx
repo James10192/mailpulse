@@ -22,6 +22,7 @@ export default async function SendCampaignPage({
         subject: true,
         previewText: true,
         htmlContent: true,
+        channel: true,
         status: true,
       },
     }),
@@ -53,6 +54,12 @@ export default async function SendCampaignPage({
 
   if (!campaign) notFound();
 
+  const recipientCount = campaign.channel === "WHATSAPP"
+    ? await prisma.contact.count({
+        where: { organizationId: org.id, subscribed: true, phone: { not: null } },
+      })
+    : subscribedCount;
+
   return (
     <>
       <Breadcrumb
@@ -64,10 +71,13 @@ export default async function SendCampaignPage({
         ]}
       />
       <SendCampaignClient
-        campaign={campaign}
+        campaign={{
+          ...campaign,
+          channel: campaign.channel === "WHATSAPP" ? "WHATSAPP" : "EMAIL",
+        }}
         senders={senders}
         contactLists={contactLists}
-        subscribedCount={subscribedCount}
+        subscribedCount={recipientCount}
         availableTags={tags.map((t) => t.name)}
         availableSegments={segments}
       />

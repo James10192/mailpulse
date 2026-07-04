@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { X, UserPlus, Loader2, Plus, Tag } from "lucide-react";
 import { createContact } from "@/app/(dashboard)/dashboard/contacts/actions";
+import { PhoneNumberInput } from "@/components/dashboard/phone-number-input";
 import type { ActionState } from "@/types/action-state";
 
 export function AddContactPanel({
@@ -148,18 +149,7 @@ export function AddContactPanel({
             </div>
           </div>
 
-          <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-              Telephone
-            </label>
-            <input
-              id="phone"
-              name="phone"
-              type="tel"
-              className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 transition-all"
-              placeholder="+225 07 00 00 00"
-            />
-          </div>
+          <PhoneNumberInput id="phone" name="phone" label="Telephone" />
 
           {/* Tags multi-select */}
           <div>

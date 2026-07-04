@@ -1,26 +1,28 @@
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
-import {
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  format,
-  isSameMonth,
-  isToday,
-  isSameDay,
-} from "date-fns";
+import Link from "next/link";
+import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, parse, startOfMonth, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
-import { prisma } from "@/lib/prisma";
+import { BarChart3, CalendarDays, ChevronLeft, ChevronRight, Clock, Send, Users } from "lucide-react";
+
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { cn } from "@/lib/utils";
+import { CalendarChannelChart, CalendarDayChart } from "./calendar-charts";
+import { CampaignPill, ChannelBadge, MetricCard, StatusBadge } from "./calendar-ui";
+import { formatNumber, type CalendarCampaign } from "./calendar-types";
 
-async function getScheduledCampaigns() {
-  const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
+const DAY_HEADERS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
-  return prisma.campaign.findMany({
+async function getScheduledCampaigns(orgId: string, month: Date) {
+  const monthStart = startOfMonth(month);
+  const monthEnd = endOfMonth(month);
+
+  const campaigns = await prisma.campaign.findMany({
     where: {
+      organizationId: orgId,
       scheduledAt: {
         not: null,
         gte: monthStart,
@@ -30,170 +32,266 @@ async function getScheduledCampaigns() {
     select: {
       id: true,
       name: true,
+      subject: true,
+      previewText: true,
       scheduledAt: true,
+      sentAt: true,
       status: true,
+      channel: true,
+      contactList: { select: { name: true, contactCount: true } },
+      _count: { select: { recipients: true } },
     },
     orderBy: { scheduledAt: "asc" },
   });
+
+  return campaigns.map((campaign) => ({
+    ...campaign,
+    scheduledAt: campaign.scheduledAt?.toISOString() ?? new Date().toISOString(),
+    sentAt: campaign.sentAt?.toISOString() ?? null,
+  })) as CalendarCampaign[];
 }
 
-const DAY_HEADERS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+function getMonthParam(value?: string) {
+  if (!value) return new Date();
+  const parsed = parse(value, "yyyy-MM", new Date());
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
 
-export default async function CalendarPage() {
-  const campaigns = await getScheduledCampaigns();
-  const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
+function buildSummary(campaigns: CalendarCampaign[]) {
+  return campaigns.reduce(
+    (acc, campaign) => {
+      acc.total += 1;
+      acc[campaign.channel.toLowerCase() as "email" | "whatsapp" | "sms"] += 1;
+      acc.recipients += campaign._count.recipients;
+      if (campaign.status === "SCHEDULED") acc.scheduled += 1;
+      if (campaign.status === "SENDING") acc.sending += 1;
+      if (campaign.status === "SENT") acc.sent += 1;
+      return acc;
+    },
+    { total: 0, email: 0, whatsapp: 0, sms: 0, recipients: 0, scheduled: 0, sending: 0, sent: 0 },
+  );
+}
+
+type PageProps = {
+  searchParams?: Promise<{ month?: string }>;
+};
+
+export default async function CalendarPage({ searchParams }: PageProps) {
+  const params = searchParams ? await searchParams : {};
+  const currentMonth = getMonthParam(params.month);
+  const ctx = await getCurrentUserAndOrg();
+  const campaigns = ctx.org ? await getScheduledCampaigns(ctx.org.id, currentMonth) : [];
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  const summary = buildSummary(campaigns);
+  const monthLabel = format(currentMonth, "MMMM yyyy", { locale: fr });
+  const previousMonth = format(addMonths(currentMonth, -1), "yyyy-MM");
+  const nextMonth = format(addMonths(currentMonth, 1), "yyyy-MM");
+  const todayMonth = format(new Date(), "yyyy-MM");
 
-  const monthLabel = format(now, "MMMM yyyy", { locale: fr });
+  const channelData = [
+    { channel: "Email", value: summary.email, fill: "#f97316" },
+    { channel: "WhatsApp", value: summary.whatsapp, fill: "#22c55e" },
+    { channel: "SMS", value: summary.sms, fill: "#71717a" },
+  ].filter((item) => item.value > 0);
+
+  const dayData = days
+    .filter((day) => isSameMonth(day, currentMonth))
+    .map((day) => {
+      const dayCampaigns = campaigns.filter((campaign) => isSameDay(new Date(campaign.scheduledAt), day));
+      return {
+        day: format(day, "d"),
+        email: dayCampaigns.filter((campaign) => campaign.channel === "EMAIL").length,
+        whatsapp: dayCampaigns.filter((campaign) => campaign.channel === "WHATSAPP").length,
+      };
+    })
+    .filter((item) => item.email + item.whatsapp > 0);
 
   return (
     <div className="page-stack app-shell-safe">
       <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Campagnes", href: "/dashboard/campaigns" }, { label: "Calendrier" }]} />
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Calendrier</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Visualisez vos campagnes planifiees
+
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Calendrier</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+            Vue mensuelle des campagnes planifiées, avec canal, audience et statut d’envoi.
           </p>
         </div>
-      </div>
-
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
-        {/* Month header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
-          <button className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors cursor-pointer">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 capitalize">
-            {monthLabel}
-          </h2>
-          <button className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors cursor-pointer">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="md:hidden p-4 space-y-3">
-          {campaigns.length > 0 ? (
-            campaigns.map((campaign) => (
-              <div
-                key={campaign.id}
-                className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-950/30 p-4"
-              >
-                <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                  {campaign.name}
-                </div>
-                <div className="mt-1 text-xs text-zinc-500">
-                  {campaign.scheduledAt &&
-                    format(new Date(campaign.scheduledAt), "EEEE d MMMM 'a' HH:mm", { locale: fr })}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-sm text-zinc-500">
-              Aucune campagne planifiee pour ce mois.
-            </div>
-          )}
-        </div>
-
-        {/* Day headers */}
-        <div className="hidden md:grid grid-cols-7 border-b border-zinc-200 dark:border-zinc-800">
-          {DAY_HEADERS.map((day) => (
-            <div
-              key={day}
-              className="px-2 py-2 text-center text-xs font-medium text-zinc-500 uppercase tracking-wider"
-            >
-              {day}
-            </div>
-          ))}
-        </div>
-
-        {/* Day cells */}
-        <div className="hidden md:grid grid-cols-7">
-          {days.map((day) => {
-            const inMonth = isSameMonth(day, now);
-            const today = isToday(day);
-            const dayCampaigns = campaigns.filter(
-              (c) => c.scheduledAt && isSameDay(new Date(c.scheduledAt), day)
-            );
-
-            return (
-              <div
-                key={day.toISOString()}
-                className={`min-h-[80px] p-2 border-b border-r border-zinc-100 dark:border-zinc-800/50 ${
-                  !inMonth ? "bg-zinc-50/50 dark:bg-zinc-950/30" : ""
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={`text-xs tabular-nums ${
-                      today
-                        ? "flex items-center justify-center h-6 w-6 rounded-full bg-orange-600 text-white font-medium"
-                        : inMonth
-                          ? "text-zinc-900 dark:text-zinc-100"
-                          : "text-zinc-400 dark:text-zinc-600"
-                    }`}
-                  >
-                    {format(day, "d")}
-                  </span>
-                </div>
-                {dayCampaigns.length > 0 && (
-                  <div className="mt-1 space-y-0.5">
-                    {dayCampaigns.slice(0, 2).map((campaign) => (
-                      <div
-                        key={campaign.id}
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 dark:bg-orange-500/10"
-                        title={campaign.name}
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full bg-orange-500 shrink-0" />
-                        <span className="text-[10px] text-orange-700 dark:text-orange-400 truncate">
-                          {campaign.name}
-                        </span>
-                      </div>
-                    ))}
-                    {dayCampaigns.length > 2 && (
-                      <span className="text-[10px] text-zinc-500 px-1.5">
-                        +{dayCampaigns.length - 2} autre{dayCampaigns.length - 2 > 1 ? "s" : ""}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href={`/dashboard/calendar?month=${previousMonth}`} aria-label="Mois précédent">
+              <ChevronLeft className="h-4 w-4" />
+              Précédent
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={`/dashboard/calendar?month=${todayMonth}`}>Aujourd’hui</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={`/dashboard/calendar?month=${nextMonth}`} aria-label="Mois suivant">
+              Suivant
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/dashboard/campaigns/new">
+              <Send className="h-4 w-4" />
+              Nouvelle campagne
+            </Link>
+          </Button>
         </div>
       </div>
 
-      {/* Upcoming scheduled campaigns */}
-      {campaigns.length > 0 ? (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-4">
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3">
-            Campagnes planifiees ce mois
-          </h3>
-          <div className="space-y-2">
-            {campaigns.map((campaign) => (
-              <div key={campaign.id} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-orange-500" />
-                  <span className="text-zinc-900 dark:text-zinc-100">{campaign.name}</span>
-                </div>
-                <span className="text-xs text-zinc-500">
-                  {campaign.scheduledAt &&
-                    format(new Date(campaign.scheduledAt), "d MMM a HH:mm", { locale: fr })}
-                </span>
-              </div>
-            ))}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Planifiées" value={formatNumber(summary.total)} description={`${formatNumber(summary.email)} email · ${formatNumber(summary.whatsapp)} WhatsApp`} icon={CalendarDays} />
+        <MetricCard label="Audience prévue" value={formatNumber(summary.recipients)} description="Destinataires associés aux campagnes du mois." icon={Users} />
+        <MetricCard label="En attente" value={formatNumber(summary.scheduled)} description={`${formatNumber(summary.sending)} en cours · ${formatNumber(summary.sent)} déjà envoyées`} icon={Clock} />
+        <MetricCard label="Mois affiché" value={format(currentMonth, "MMM", { locale: fr })} description={format(currentMonth, "yyyy", { locale: fr })} icon={BarChart3} />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.8fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Charge par jour</CardTitle>
+            <CardDescription>Nombre de campagnes planifiées sur le mois affiché.</CardDescription>
+          </CardHeader>
+          <CardContent>{dayData.length ? <CalendarDayChart data={dayData} /> : <EmptyChart label="Aucune charge planifiée sur ce mois." />}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Répartition par canal</CardTitle>
+            <CardDescription>Email, WhatsApp et SMS dans le planning.</CardDescription>
+          </CardHeader>
+          <CardContent>{channelData.length ? <CalendarChannelChart data={channelData} /> : <EmptyChart label="Aucune campagne planifiée." height="h-[220px]" />}</CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-3">
+          <div>
+            <CardTitle className="capitalize">{monthLabel}</CardTitle>
+            <CardDescription>Planning mensuel des campagnes.</CardDescription>
           </div>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-12 text-center">
-          <CalendarDays className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
-          <p className="text-zinc-500 text-sm">Aucune campagne planifiee ce mois.</p>
-        </div>
-      )}
+        </CardHeader>
+        <CardContent>
+          <div className="md:hidden">
+            <MobileAgenda campaigns={campaigns} />
+          </div>
+          <div className="hidden overflow-hidden rounded-lg border md:block">
+            <div className="grid grid-cols-7 border-b bg-zinc-50 dark:bg-zinc-900/60">
+              {DAY_HEADERS.map((day) => (
+                <div key={day} className="px-3 py-2 text-center text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  {day}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {days.map((day) => {
+                const dayCampaigns = campaigns.filter((campaign) => isSameDay(new Date(campaign.scheduledAt), day));
+                const inMonth = isSameMonth(day, currentMonth);
+                const today = isToday(day);
+
+                return (
+                  <div key={day.toISOString()} className={cn("min-h-32 border-b border-r p-2", !inMonth && "bg-zinc-50/70 text-zinc-400 dark:bg-zinc-950/30")}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className={cn("flex h-7 w-7 items-center justify-center rounded-full text-xs tabular-nums", today ? "bg-orange-600 font-medium text-white" : "text-zinc-700 dark:text-zinc-200")}>
+                        {format(day, "d")}
+                      </span>
+                      {dayCampaigns.length ? <span className="font-mono text-[10px] text-zinc-500">{dayCampaigns.length}</span> : null}
+                    </div>
+                    <div className="space-y-1">
+                      {dayCampaigns.slice(0, 3).map((campaign) => (
+                        <CampaignPill key={campaign.id} campaign={campaign} />
+                      ))}
+                      {dayCampaigns.length > 3 ? (
+                        <p className="px-1 text-[10px] text-zinc-500">+{dayCampaigns.length - 3} autre{dayCampaigns.length - 3 > 1 ? "s" : ""}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Campagnes du mois</CardTitle>
+          <CardDescription>Canal, audience, statut et horaire d’envoi prévus.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CampaignTable campaigns={campaigns} />
+        </CardContent>
+      </Card>
     </div>
+  );
+}
+
+function EmptyChart({ label, height = "h-[260px]" }: { label: string; height?: string }) {
+  return <div className={`flex ${height} items-center justify-center text-center text-sm text-zinc-500`}>{label}</div>;
+}
+
+function MobileAgenda({ campaigns }: { campaigns: CalendarCampaign[] }) {
+  if (!campaigns.length) return <div className="rounded-lg border border-dashed p-8 text-center text-sm text-zinc-500">Aucune campagne planifiée pour ce mois.</div>;
+
+  return (
+    <div className="space-y-3">
+      {campaigns.map((campaign) => (
+        <Link key={campaign.id} href={`/dashboard/campaigns/${campaign.id}/edit`} className="block rounded-lg border p-4 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/70">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate font-medium text-zinc-950 dark:text-zinc-50">{campaign.name}</p>
+              <p className="mt-1 text-xs text-zinc-500">{format(new Date(campaign.scheduledAt), "EEEE d MMMM à HH:mm", { locale: fr })}</p>
+            </div>
+            <ChannelBadge channel={campaign.channel} />
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function CampaignTable({ campaigns }: { campaigns: CalendarCampaign[] }) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Campagne</TableHead>
+          <TableHead>Canal</TableHead>
+          <TableHead>Statut</TableHead>
+          <TableHead>Audience</TableHead>
+          <TableHead className="text-right">Planifiée</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {campaigns.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={5} className="h-28 text-center text-zinc-500">Aucune campagne planifiée sur ce mois.</TableCell>
+          </TableRow>
+        ) : campaigns.map((campaign) => (
+          <TableRow key={campaign.id}>
+            <TableCell>
+              <Link href={`/dashboard/campaigns/${campaign.id}/edit`} className="font-medium text-zinc-950 hover:text-orange-600 dark:text-zinc-50">
+                {campaign.name}
+              </Link>
+              <p className="mt-1 line-clamp-1 text-xs text-zinc-500">{campaign.subject || campaign.previewText || "Sans sujet"}</p>
+            </TableCell>
+            <TableCell><ChannelBadge channel={campaign.channel} /></TableCell>
+            <TableCell><StatusBadge status={campaign.status} /></TableCell>
+            <TableCell>
+              <span className="font-mono">{formatNumber(campaign._count.recipients)}</span>
+              <p className="mt-1 text-xs text-zinc-500">{campaign.contactList?.name ?? "Tous les contacts"}</p>
+            </TableCell>
+            <TableCell className="text-right font-mono">{format(new Date(campaign.scheduledAt), "d MMM · HH:mm", { locale: fr })}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

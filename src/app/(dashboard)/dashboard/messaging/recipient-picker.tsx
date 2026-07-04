@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { PhoneNumberInput } from "@/components/dashboard/phone-number-input";
 import { cn } from "@/lib/utils";
 import { createMessagingContact } from "./actions";
 
@@ -238,16 +239,12 @@ export function RecipientPicker({
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="whatsapp-phone">Téléphone WhatsApp</Label>
-                    <Input
-                      id="whatsapp-phone"
-                      type="tel"
-                      value={newContact.phone}
-                      onChange={(event) => setNewContact((current) => ({ ...current, phone: event.target.value }))}
-                      placeholder="+225 07 XX XX XX XX"
-                    />
-                  </div>
+                  <PhoneNumberInput
+                    id="whatsapp-phone"
+                    label="Téléphone WhatsApp"
+                    value={newContact.phone}
+                    onChange={(phone) => setNewContact((current) => ({ ...current, phone }))}
+                  />
                   <div className="space-y-2">
                     <Label htmlFor="whatsapp-email">Email optionnel</Label>
                     <Input

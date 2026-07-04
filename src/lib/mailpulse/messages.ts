@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../convex/_generated/api";
 import type { z } from "zod";
-import type { MessageStatus } from "@/generated/prisma";
+import type { MessageStatus, Prisma } from "@/generated/prisma";
 import {
   createMessageSchema,
   toChannel,
@@ -12,19 +12,35 @@ import {
 import { serializeMessage } from "./serializers";
 import { emitWebhookEvent } from "./webhooks";
 import { toPrismaJson } from "./json";
+import { sendWhatsApp, meta } from "@/lib/whatsapp";
+import { normalizeContactPhone } from "@/lib/phone-numbers";
+import { sendEmail } from "@/lib/resend";
 
 type CreateMessageInput = z.infer<typeof createMessageSchema>;
+type CommunicationMessageWithTemplate = Prisma.CommunicationMessageGetPayload<{ include: { template: true } }>;
+type MailPulseMessageOrganization = {
+  whatsappEnabled: boolean;
+  whatsappMode: "BAILEYS" | "META";
+  whatsappPhone: string | null;
+  evoInstanceName: string | null;
+  evoInstanceStatus: string | null;
+  metaWabaId: string | null;
+  metaPhoneNumberId: string | null;
+  metaAccessToken: string | null;
+};
 
 const WHATSAPP_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export async function createCommunicationMessage(params: {
   organizationId: string;
+  organization?: MailPulseMessageOrganization;
   input: CreateMessageInput;
   idempotencyKey?: string | null;
 }) {
   const channel = toChannel(params.input.channel);
   const recipientType = toRecipientType(params.input.recipient.type);
-  const recipientValue = params.input.recipient.value.trim();
+  const rawRecipientValue = params.input.recipient.value.trim();
+  const recipientValue = recipientType === "PHONE" ? normalizeContactPhone(rawRecipientValue) : rawRecipientValue;
   const contentType = toContentType(params.input.content.type);
   const metadata = params.input.metadata ?? {};
   const externalUserId = typeof metadata.external_user_id === "string" ? metadata.external_user_id : null;
@@ -56,6 +72,7 @@ export async function createCommunicationMessage(params: {
   const compliance = evaluateCompliance({
     channel,
     contentType,
+    whatsappMode: params.organization?.whatsappMode ?? "META",
     serviceWindowExpiresAt: conversation.serviceWindowExpiresAt,
     templateStatus: template?.status ?? null,
   });
@@ -85,12 +102,13 @@ export async function createCommunicationMessage(params: {
     },
   });
 
-  const response = serializeMessage(message);
+  const dispatchedMessage = await dispatchQueuedMessage(message.id, params.organization);
+  const response = serializeMessage(dispatchedMessage);
   await syncLiveMessage(params.organizationId, response);
   await emitWebhookEvent({
     organizationId: params.organizationId,
-    type: webhookEventForStatus(message.status),
-    messageId: message.id,
+    type: webhookEventForStatus(dispatchedMessage.status),
+    messageId: dispatchedMessage.id,
     data: { message: response },
   });
 
@@ -144,12 +162,15 @@ async function findOrCreateConversation(params: {
 function evaluateCompliance(params: {
   channel: "EMAIL" | "WHATSAPP" | "SMS";
   contentType: "TEXT" | "TEMPLATE";
+  whatsappMode: "BAILEYS" | "META";
   serviceWindowExpiresAt: Date | null;
   templateStatus: string | null;
 }): { status: MessageStatus; errorCode?: string; errorMessage?: string } {
   if (params.channel !== "WHATSAPP") return { status: "QUEUED" };
 
   if (params.contentType === "TEXT") {
+    if (params.whatsappMode === "BAILEYS") return { status: "QUEUED" };
+
     const windowOpen =
       params.serviceWindowExpiresAt !== null && params.serviceWindowExpiresAt.getTime() > Date.now();
     if (!windowOpen) {
@@ -171,6 +192,153 @@ function evaluateCompliance(params: {
   }
 
   return { status: "QUEUED" };
+}
+
+async function dispatchQueuedMessage(messageId: string, organization?: MailPulseMessageOrganization) {
+  const message = await prisma.communicationMessage.findUnique({
+    where: { id: messageId },
+    include: { template: true },
+  });
+  if (!message) throw new Error("Message introuvable apres creation.");
+  if (message.status !== "QUEUED") return message;
+
+  if (message.channel === "EMAIL") {
+    return dispatchEmailMessage(message);
+  }
+
+  if (message.channel !== "WHATSAPP") return message;
+
+  if (!organization?.whatsappEnabled) {
+    return markMessageFailed(message.id, "channel_not_configured", "WhatsApp non configure pour cette organisation.");
+  }
+
+  try {
+    const result = message.contentType === "TEMPLATE"
+      ? await sendWhatsAppTemplate(organization, message)
+      : await sendWhatsApp(organization, message.recipientValue, message.text ?? "");
+
+    return prisma.communicationMessage.update({
+      where: { id: message.id },
+      data: {
+        status: "SENT",
+        sentAt: new Date(),
+        providerMessageId: result.messageId ?? null,
+        errorCode: null,
+        errorMessage: null,
+      },
+    });
+  } catch (error) {
+    return markMessageFailed(
+      message.id,
+      "provider_error",
+      error instanceof Error ? error.message : "Echec de l'envoi WhatsApp.",
+    );
+  }
+}
+
+async function dispatchEmailMessage(message: CommunicationMessageWithTemplate) {
+  try {
+    const result = await sendEmail({
+      to: message.recipientValue,
+      from: emailMetadataValue(message.metadata, "sender_email") || undefined,
+      subject: emailSubject(message),
+      html: textToHtml(message.text ?? ""),
+      text: message.text ?? "",
+      tags: [
+        { name: "message_id", value: message.id },
+        { name: "channel", value: "email" },
+      ],
+    });
+
+    return prisma.communicationMessage.update({
+      where: { id: message.id },
+      data: {
+        status: "SENT",
+        sentAt: new Date(),
+        providerMessageId: result.id,
+        errorCode: null,
+        errorMessage: null,
+      },
+    });
+  } catch (error) {
+    return markMessageFailed(
+      message.id,
+      "provider_error",
+      error instanceof Error ? error.message : "Echec de l'envoi email.",
+    );
+  }
+}
+
+async function sendWhatsAppTemplate(
+  organization: MailPulseMessageOrganization,
+  message: CommunicationMessageWithTemplate,
+) {
+  if (organization.whatsappMode === "META") {
+    const parameters = jsonObjectValues(message.variables);
+    const result = await meta.sendTemplate(
+      organization,
+      message.recipientValue,
+      message.templateKey ?? "",
+      message.locale ?? "fr",
+      parameters,
+    );
+    return { success: true, messageId: result.messages?.[0]?.id };
+  }
+
+  const body = renderTemplateBody(message.template?.body ?? "", message.variables);
+  return sendWhatsApp(organization, message.recipientValue, body);
+}
+
+function jsonObjectValues(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  return Object.values(value).map((item) => String(item ?? ""));
+}
+
+function renderTemplateBody(body: string, variables: unknown) {
+  if (!variables || typeof variables !== "object" || Array.isArray(variables)) return body;
+  return Object.entries(variables).reduce(
+    (content, [key, value]) => content.replaceAll(`{{${key}}}`, String(value ?? "")),
+    body,
+  );
+}
+
+function emailSubject(message: CommunicationMessageWithTemplate) {
+  const metadataSubject = emailMetadataValue(message.metadata, "subject");
+  if (metadataSubject) return metadataSubject;
+
+  const firstLine = (message.text ?? "").split(/\r?\n/).find((line) => line.trim() !== "");
+  return firstLine?.trim().slice(0, 140) || "Message MailPulse";
+}
+
+function emailMetadataValue(metadata: unknown, key: string) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return "";
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function textToHtml(text: string) {
+  return `<div style="font-family:Arial,sans-serif;line-height:1.55;color:#111827;white-space:pre-wrap;">${escapeHtml(text)}</div>`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function markMessageFailed(messageId: string, errorCode: string, errorMessage: string) {
+  return prisma.communicationMessage.update({
+    where: { id: messageId },
+    data: {
+      status: "FAILED",
+      failedAt: new Date(),
+      errorCode,
+      errorMessage,
+    },
+  });
 }
 
 function webhookEventForStatus(status: MessageStatus) {

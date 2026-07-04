@@ -4,47 +4,59 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CreditCard, PlugZap, Settings } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import {
+  NavigationMenu,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  navigationMenuTriggerStyle,
+} from "@/components/ui/navigation-menu";
 import { cn } from "@/lib/utils";
 
-const settingsTabs = [
+const settingsLinks = [
   { label: "Général", href: "/dashboard/settings", icon: Settings },
   { label: "Intégrations", href: "/dashboard/settings/integrations", icon: PlugZap },
   { label: "Facturation", href: "/dashboard/settings/billing", icon: CreditCard },
-];
+] as const;
+
+function isActive(pathname: string, href: string) {
+  if (href === "/dashboard/settings") return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function SettingsTabs() {
   const pathname = usePathname();
 
   return (
-    <nav
-      aria-label="Sections des paramètres"
-      role="tablist"
-      className="flex w-full gap-1 overflow-x-auto rounded-lg border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900/50"
-    >
-      {settingsTabs.map((tab) => {
-        const active =
-          pathname === tab.href ||
-          (tab.href !== "/dashboard/settings" && pathname.startsWith(tab.href));
+    <div className="overflow-x-auto">
+      <NavigationMenu viewport={false} className="max-w-none justify-start">
+        <NavigationMenuList className="justify-start gap-1">
+          {settingsLinks.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(pathname, item.href);
 
-        return (
-          <Button
-            key={tab.href}
-            asChild
-            variant={active ? "default" : "ghost"}
-            className={cn(
-              "h-10 shrink-0 justify-start rounded-md px-3",
-              !active &&
-                "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
-            )}
-          >
-            <Link href={tab.href} role="tab" aria-selected={active}>
-              <tab.icon className="h-4 w-4" />
-              {tab.label}
-            </Link>
-          </Button>
-        );
-      })}
-    </nav>
+            return (
+              <NavigationMenuItem key={item.href}>
+                <NavigationMenuLink
+                  asChild
+                  active={active}
+                  className={cn(
+                    navigationMenuTriggerStyle(),
+                    "h-11 gap-2 bg-transparent px-3 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-50",
+                    active &&
+                      "bg-zinc-100 text-zinc-950 shadow-sm dark:bg-zinc-800 dark:text-zinc-50",
+                  )}
+                >
+                  <Link href={item.href}>
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+            );
+          })}
+        </NavigationMenuList>
+      </NavigationMenu>
+    </div>
   );
 }
