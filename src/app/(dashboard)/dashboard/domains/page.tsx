@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { syncSendingDomainFromResend } from "@/lib/resend-domains";
 import { DomainsClient } from "./domains-client";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
@@ -23,7 +24,14 @@ async function getDomains(orgId: string) {
       createdAt: true,
     },
   });
-  return domains.map((d) => ({
+  const syncedDomains = await Promise.all(
+    domains.map((domain) => {
+      if (domain.verified || !domain.resendDomainId) return domain;
+      return syncSendingDomainFromResend(domain).catch(() => domain);
+    })
+  );
+
+  return syncedDomains.map((d) => ({
     ...d,
     createdAt: d.createdAt.toISOString(),
   }));

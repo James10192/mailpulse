@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { resend } from "@/lib/resend";
+import { syncSendingDomainFromResend } from "@/lib/resend-domains";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import type { PlanTier } from "@/lib/plans";
 import { z } from "zod";
@@ -89,33 +90,11 @@ export async function verifyDomain(id: string): Promise<ActionState> {
     });
     if (!domain || !domain.resendDomainId) return { error: "Domaine introuvable." };
 
-    // Trigger verification via Resend API
-    await resend.domains.verify(domain.resendDomainId);
-
-    // Fetch updated status
-    const { data: updated } = await resend.domains.get(domain.resendDomainId);
-
-    if (updated) {
-      const records = updated.records ?? [];
-      const spfRecord = records.find((r: { record: string; type?: string }) => r.record === "SPF" && r.type === "TXT")
-        ?? records.find((r: { record: string }) => r.record === "SPF");
-      const dkimRecord = records.find((r: { record: string; type?: string }) => r.record === "DKIM" && r.type === "TXT")
-        ?? records.find((r: { record: string }) => r.record === "DKIM");
-
-      await prisma.sendingDomain.update({
-        where: { id },
-        data: {
-          status: updated.status ?? domain.status,
-          verified: updated.status === "verified",
-          spfRecord: spfRecord?.value ?? domain.spfRecord,
-          spfStatus: spfRecord?.status ?? domain.spfStatus,
-          dkimRecord: dkimRecord?.value ?? domain.dkimRecord,
-          dkimName: dkimRecord?.name ?? domain.dkimName,
-          dkimStatus: dkimRecord?.status ?? domain.dkimStatus,
-          verifiedAt: updated.status === "verified" ? new Date() : null,
-        },
-      });
-    }
+    await syncSendingDomainFromResend(domain, {
+      triggerVerify: true,
+      attempts: 4,
+      delayMs: 1500,
+    });
 
     revalidatePath("/dashboard/domains");
     return { success: true };
