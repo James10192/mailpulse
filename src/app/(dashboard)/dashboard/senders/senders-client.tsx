@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Plus, AtSign, Trash2, X, Info, Pencil } from "lucide-react";
-import { createSender, updateSender, deleteSender } from "./actions";
+import { Plus, AtSign, Trash2, X, Info, Pencil, Star } from "lucide-react";
+import { createSender, updateSender, deleteSender, setDefaultSender } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { HelpModal, HelpButton, StepList, LinkOut } from "@/components/dashboard/help-modal";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { ActionState } from "@/types/action-state";
 
 interface SenderData {
@@ -28,6 +30,7 @@ export function SendersClient({
   const [editSender, setEditSender] = useState<SenderData | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [defaulting, setDefaulting] = useState<string | null>(null);
 
   const [createState, createAction, isCreating] = useActionState<ActionState, FormData>(
     async (prev, formData) => {
@@ -52,6 +55,12 @@ export function SendersClient({
     setDeleting(id);
     await deleteSender(id);
     setDeleting(null);
+  }
+
+  async function handleSetDefault(id: string) {
+    setDefaulting(id);
+    await setDefaultSender(id);
+    setDefaulting(null);
   }
 
   return (
@@ -98,6 +107,9 @@ export function SendersClient({
                   <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
                     Email
                   </th>
+                  <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
+                    Statut
+                  </th>
                   <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">
                     Repondre a
                   </th>
@@ -119,6 +131,28 @@ export function SendersClient({
                     </td>
                     <td className="px-4 py-3 text-sm font-mono text-zinc-500">
                       {sender.email}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {sender.isDefault ? (
+                        <Badge variant="success" className="gap-1">
+                          <Star className="h-3 w-3" />
+                          Par defaut
+                        </Badge>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={defaulting === sender.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetDefault(sender.id);
+                          }}
+                        >
+                          <Star className="h-3.5 w-3.5" />
+                          Definir
+                        </Button>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm font-mono text-zinc-500 hidden sm:table-cell">
                       {sender.replyTo || "—"}

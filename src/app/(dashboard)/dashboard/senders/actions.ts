@@ -28,11 +28,16 @@ export async function createSender(
   if (!user || !org) return { error: "Non authentifie." };
 
   try {
+    const existingCount = await prisma.emailSender.count({
+      where: { organizationId: org.id },
+    });
+
     await prisma.emailSender.create({
       data: {
         name: result.data.name,
         email: result.data.email,
         replyTo: result.data.replyTo || null,
+        isDefault: existingCount === 0,
         organizationId: org.id,
       },
     });
@@ -84,12 +89,62 @@ export async function updateSender(
   }
 }
 
+export async function setDefaultSender(id: string): Promise<ActionState> {
+  const { org } = await getCurrentUserAndOrg();
+  if (!org) return { error: "Non authentifie." };
+
+  const sender = await prisma.emailSender.findUnique({
+    where: { id, organizationId: org.id },
+    select: { id: true },
+  });
+
+  if (!sender) return { error: "Expediteur introuvable." };
+
+  await prisma.$transaction([
+    prisma.emailSender.updateMany({
+      where: { organizationId: org.id },
+      data: { isDefault: false },
+    }),
+    prisma.emailSender.update({
+      where: { id },
+      data: { isDefault: true },
+    }),
+  ]);
+
+  revalidatePath("/dashboard/senders");
+  revalidatePath("/dashboard/platform");
+  return { success: true };
+}
+
 export async function deleteSender(id: string): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifie." };
 
   try {
+    const sender = await prisma.emailSender.findUnique({
+      where: { id, organizationId: org.id },
+      select: { isDefault: true },
+    });
+
+    if (!sender) return { error: "Expediteur introuvable." };
+
     await prisma.emailSender.delete({ where: { id, organizationId: org.id } });
+
+    if (sender.isDefault) {
+      const nextSender = await prisma.emailSender.findFirst({
+        where: { organizationId: org.id },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+
+      if (nextSender) {
+        await prisma.emailSender.update({
+          where: { id: nextSender.id },
+          data: { isDefault: true },
+        });
+      }
+    }
+
     trackServerEvent(user.id, EVENTS.SENDER_DELETED, { sender_id: id }, org.id);
     revalidatePath("/dashboard/senders");
     return { success: true };
