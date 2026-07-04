@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AtSign,
@@ -168,6 +168,14 @@ const navbarGroups = [
   },
 ];
 
+const dashboardPrefetchHrefs = Array.from(
+  new Set([
+    ...navigation.map((item) => item.href),
+    ...navigation.flatMap((item) => item.children?.map((child) => child.href) ?? []),
+    ...navbarGroups.flatMap((group) => group.items.map((item) => item.href)),
+  ])
+);
+
 function isActiveRoute(pathname: string, href: string) {
   return pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 }
@@ -206,7 +214,7 @@ function AppSidebarNavItem({ item, pathname }: { item: NavItem; pathname: string
               return (
                 <SidebarMenuSubItem key={child.href}>
                   <SidebarMenuSubButton asChild isActive={isChildActive}>
-                    <Link href={child.href} onClick={() => setOpenMobile(false)}>
+                    <Link href={child.href} prefetch onClick={() => setOpenMobile(false)}>
                       <ChildIcon />
                       <span>{child.name}</span>
                       {child.pro ? <SidebarProBadge compact /> : null}
@@ -224,7 +232,7 @@ function AppSidebarNavItem({ item, pathname }: { item: NavItem; pathname: string
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={active} tooltip={item.name} data-tour={item.tourId} className="h-9">
-        <Link href={item.href} onClick={() => setOpenMobile(false)}>
+        <Link href={item.href} prefetch onClick={() => setOpenMobile(false)}>
           <Icon />
           <span>{item.name}</span>
           {item.pro ? <SidebarProBadge /> : null}
@@ -317,7 +325,7 @@ function DashboardNavbar({ isAdmin }: { isAdmin: boolean }) {
                   return (
                     <li key={item.href}>
                       <NavigationMenuLink asChild>
-                        <Link href={item.href} className="flex-row items-center gap-3">
+                        <Link href={item.href} prefetch className="flex-row items-center gap-3">
                           <Icon className="size-4" />
                           <span>{item.name}</span>
                         </Link>
@@ -387,9 +395,60 @@ function HeaderFeedbackButton() {
   );
 }
 
+function DashboardRoutePrefetcher({ isAdmin }: { isAdmin: boolean }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const hrefs = useMemo(
+    () =>
+      dashboardPrefetchHrefs.filter((href) => {
+        if (href === pathname) return false;
+        if (!isAdmin && href === "/dashboard/admin") return false;
+        return true;
+      }),
+    [isAdmin, pathname]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const timers: number[] = [];
+
+    const schedule = () => {
+      hrefs.forEach((href, index) => {
+        const timer = window.setTimeout(() => {
+          if (!cancelled) router.prefetch(href);
+        }, 250 + index * 120);
+        timers.push(timer);
+      });
+    };
+
+    let idleId: number;
+    let usedIdleCallback = false;
+
+    if (typeof window.requestIdleCallback === "function") {
+      usedIdleCallback = true;
+      idleId = window.requestIdleCallback(schedule, { timeout: 1500 });
+    } else {
+      idleId = window.setTimeout(schedule, 700);
+    }
+
+    return () => {
+      cancelled = true;
+      timers.forEach((timer) => window.clearTimeout(timer));
+      if (usedIdleCallback && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId);
+      }
+    };
+  }, [hrefs, router]);
+
+  return null;
+}
+
 function DashboardContent({ children, isAdmin }: { children: React.ReactNode; isAdmin: boolean }) {
   return (
     <SidebarProvider>
+      <DashboardRoutePrefetcher isAdmin={isAdmin} />
       <PresenceHeartbeat />
       <AppSidebar isAdmin={isAdmin} />
       <SidebarInset className="h-svh min-w-0 overflow-hidden">
