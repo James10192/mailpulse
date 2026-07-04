@@ -59,6 +59,7 @@ export default async function PlatformPage() {
     webhookDeliveryCounts,
     channelCounts,
     dailyMessages,
+    emailSenders,
   ] = await Promise.all([
     prisma.integrationApiKey.findMany({
       where: { organizationId: orgId, provider: "MAILPULSE" },
@@ -125,6 +126,16 @@ export default async function PlatformPage() {
       _count: { _all: true },
       orderBy: { createdAt: "asc" },
       take: 14,
+    }),
+    prisma.emailSender.findMany({
+      where: { organizationId: orgId },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isDefault: true,
+      },
     }),
   ]);
 
@@ -267,10 +278,12 @@ export default async function PlatformPage() {
               name: key.name,
               keyPrefix: key.keyPrefix,
               environment: key.environment,
+              defaultEmailSenderId: key.defaultEmailSenderId,
               lastUsedAt: key.lastUsedAt?.toISOString() ?? null,
               createdAt: key.createdAt.toISOString(),
               revokedAt: key.revokedAt?.toISOString() ?? null,
             }))}
+            emailSenders={emailSenders}
           />
 
           <Card>

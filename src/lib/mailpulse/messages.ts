@@ -36,6 +36,7 @@ export async function createCommunicationMessage(params: {
   organization?: MailPulseMessageOrganization;
   input: CreateMessageInput;
   idempotencyKey?: string | null;
+  defaultEmailSenderId?: string | null;
 }) {
   const channel = toChannel(params.input.channel);
   const recipientType = toRecipientType(params.input.recipient.type);
@@ -102,7 +103,10 @@ export async function createCommunicationMessage(params: {
     },
   });
 
-  const dispatchedMessage = await dispatchQueuedMessage(message.id, params.organization);
+  const dispatchedMessage = await dispatchQueuedMessage(message.id, {
+    organization: params.organization,
+    defaultEmailSenderId: params.defaultEmailSenderId ?? null,
+  });
   const response = serializeMessage(dispatchedMessage);
   await syncLiveMessage(params.organizationId, response);
   await emitWebhookEvent({
@@ -194,7 +198,13 @@ function evaluateCompliance(params: {
   return { status: "QUEUED" };
 }
 
-async function dispatchQueuedMessage(messageId: string, organization?: MailPulseMessageOrganization) {
+async function dispatchQueuedMessage(
+  messageId: string,
+  options: {
+    organization?: MailPulseMessageOrganization;
+    defaultEmailSenderId?: string | null;
+  } = {},
+) {
   const message = await prisma.communicationMessage.findUnique({
     where: { id: messageId },
     include: { template: true },
@@ -203,19 +213,19 @@ async function dispatchQueuedMessage(messageId: string, organization?: MailPulse
   if (message.status !== "QUEUED") return message;
 
   if (message.channel === "EMAIL") {
-    return dispatchEmailMessage(message);
+    return dispatchEmailMessage(message, options.defaultEmailSenderId ?? null);
   }
 
   if (message.channel !== "WHATSAPP") return message;
 
-  if (!organization?.whatsappEnabled) {
+  if (!options.organization?.whatsappEnabled) {
     return markMessageFailed(message.id, "channel_not_configured", "WhatsApp non configure pour cette organisation.");
   }
 
   try {
     const result = message.contentType === "TEMPLATE"
-      ? await sendWhatsAppTemplate(organization, message)
-      : await sendWhatsApp(organization, message.recipientValue, message.text ?? "");
+      ? await sendWhatsAppTemplate(options.organization, message)
+      : await sendWhatsApp(options.organization, message.recipientValue, message.text ?? "");
 
     return prisma.communicationMessage.update({
       where: { id: message.id },
@@ -236,11 +246,12 @@ async function dispatchQueuedMessage(messageId: string, organization?: MailPulse
   }
 }
 
-async function dispatchEmailMessage(message: CommunicationMessageWithTemplate) {
+async function dispatchEmailMessage(message: CommunicationMessageWithTemplate, defaultEmailSenderId: string | null) {
   try {
+    const from = await resolveEmailFromAddress(message, defaultEmailSenderId);
     const result = await sendEmail({
       to: message.recipientValue,
-      from: emailMetadataValue(message.metadata, "sender_email") || undefined,
+      from,
       subject: emailSubject(message),
       html: textToHtml(message.text ?? ""),
       text: message.text ?? "",
@@ -267,6 +278,91 @@ async function dispatchEmailMessage(message: CommunicationMessageWithTemplate) {
       error instanceof Error ? error.message : "Echec de l'envoi email.",
     );
   }
+}
+
+async function resolveEmailFromAddress(message: CommunicationMessageWithTemplate, defaultEmailSenderId: string | null) {
+  const requestedEmail = emailMetadataValue(message.metadata, "sender_email");
+  const requestedName = emailMetadataValue(message.metadata, "sender_name") || "MailPulse";
+
+  if (requestedEmail && await isVerifiedSenderEmail(message.organizationId, requestedEmail)) {
+    return formatFromAddress(requestedName, requestedEmail);
+  }
+
+  const apiKeySender = defaultEmailSenderId
+    ? await findVerifiedSenderById(message.organizationId, defaultEmailSenderId)
+    : null;
+  if (apiKeySender) return formatFromAddress(apiKeySender.name, apiKeySender.email);
+
+  const sender = await findVerifiedSender(message.organizationId);
+  if (sender) return formatFromAddress(sender.name, sender.email);
+
+  const verifiedDomain = await prisma.sendingDomain.findFirst({
+    where: {
+      organizationId: message.organizationId,
+      verified: true,
+      status: "verified",
+    },
+    orderBy: { createdAt: "desc" },
+    select: { domain: true },
+  });
+
+  if (verifiedDomain) return formatFromAddress(requestedName, `noreply@${verifiedDomain.domain}`);
+
+  throw new Error("Aucun domaine expediteur verifie n'est configure pour cette organisation.");
+}
+
+async function isVerifiedSenderEmail(organizationId: string, email: string) {
+  const domain = emailDomain(email);
+  if (!domain) return false;
+
+  const verifiedDomain = await prisma.sendingDomain.findFirst({
+    where: {
+      organizationId,
+      domain,
+      verified: true,
+      status: "verified",
+    },
+    select: { id: true },
+  });
+
+  return Boolean(verifiedDomain);
+}
+
+async function findVerifiedSender(organizationId: string) {
+  const senders = await prisma.emailSender.findMany({
+    where: { organizationId },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+    select: { name: true, email: true },
+  });
+
+  for (const sender of senders) {
+    if (await isVerifiedSenderEmail(organizationId, sender.email)) return sender;
+  }
+
+  return null;
+}
+
+async function findVerifiedSenderById(organizationId: string, senderId: string) {
+  const sender = await prisma.emailSender.findFirst({
+    where: { id: senderId, organizationId },
+    select: { name: true, email: true },
+  });
+
+  if (!sender || !await isVerifiedSenderEmail(organizationId, sender.email)) return null;
+  return sender;
+}
+
+function emailDomain(email: string) {
+  const [, domain] = email.toLowerCase().split("@");
+  return domain || "";
+}
+
+function formatFromAddress(name: string, email: string) {
+  return `${sanitizeFromName(name)} <${email.toLowerCase()}>`;
+}
+
+function sanitizeFromName(name: string) {
+  return name.replace(/[<>\r\n"]/g, "").trim() || "MailPulse";
 }
 
 async function sendWhatsAppTemplate(

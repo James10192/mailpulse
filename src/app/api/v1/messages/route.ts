@@ -25,6 +25,7 @@ export async function POST(request: Request) {
     organization: auth.organization,
     input: parsed.data,
     idempotencyKey,
+    defaultEmailSenderId: auth.defaultEmailSenderId,
   });
 
   const failed = message.status === "failed";

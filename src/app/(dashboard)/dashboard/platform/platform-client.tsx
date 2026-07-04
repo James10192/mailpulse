@@ -6,16 +6,25 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { generateMailPulseApiKey, revokeMailPulseApiKey } from "./actions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { generateMailPulseApiKey, revokeMailPulseApiKey, updateMailPulseApiKeySender } from "./actions";
 
 type ApiKeyRow = {
   id: string;
   name: string;
   keyPrefix: string;
   environment: "LIVE" | "TEST";
+  defaultEmailSenderId: string | null;
   lastUsedAt: string | null;
   createdAt: string;
   revokedAt: string | null;
+};
+
+type EmailSenderOption = {
+  id: string;
+  name: string;
+  email: string;
+  isDefault: boolean;
 };
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
@@ -23,14 +32,24 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   timeStyle: "short",
 });
 
-export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
+export function ApiKeysPanel({
+  apiKeys,
+  emailSenders,
+}: {
+  apiKeys: ApiKeyRow[];
+  emailSenders: EmailSenderOption[];
+}) {
   const [revealedKey, setRevealedKey] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
+  const [selectedSenderId, setSelectedSenderId] = useState(
+    emailSenders.find((sender) => sender.isDefault)?.id ?? emailSenders[0]?.id ?? "inherit"
+  );
   const [isPending, startTransition] = useTransition();
 
   function generate(environment: "LIVE" | "TEST") {
     const data = new FormData();
     data.set("environment", environment);
+    data.set("defaultEmailSenderId", selectedSenderId);
     startTransition(async () => {
       const result = await generateMailPulseApiKey(data);
       if (result && "key" in result && result.key) {
@@ -48,6 +67,15 @@ export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
     });
   }
 
+  function updateSender(keyId: string, defaultEmailSenderId: string) {
+    const data = new FormData();
+    data.set("keyId", keyId);
+    data.set("defaultEmailSenderId", defaultEmailSenderId);
+    startTransition(async () => {
+      await updateMailPulseApiKeySender(data);
+    });
+  }
+
   async function copy(value: string) {
     await navigator.clipboard.writeText(value);
     setCopyStatus("Cle copiee.");
@@ -60,7 +88,19 @@ export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
           <CardTitle>API Keys</CardTitle>
           <CardDescription>Clés génériques par tenant pour l’API publique MailPulse V1.</CardDescription>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Select value={selectedSenderId} onValueChange={setSelectedSenderId} disabled={isPending || emailSenders.length === 0}>
+            <SelectTrigger className="h-9 min-w-56">
+              <SelectValue placeholder="Expediteur API" />
+            </SelectTrigger>
+            <SelectContent>
+              {emailSenders.map((sender) => (
+                <SelectItem key={sender.id} value={sender.id}>
+                  {sender.name} · {sender.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button type="button" variant="outline" size="sm" onClick={() => generate("TEST")} disabled={isPending}>
             <KeyRound aria-hidden="true" className="h-4 w-4" />
             Creer Test
@@ -95,6 +135,7 @@ export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
               <TableHead>Nom</TableHead>
               <TableHead>Clé</TableHead>
               <TableHead>Env</TableHead>
+              <TableHead>Expediteur</TableHead>
               <TableHead>Dernier usage</TableHead>
               <TableHead className="text-right">Action</TableHead>
             </TableRow>
@@ -102,7 +143,7 @@ export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
           <TableBody>
             {apiKeys.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-sm text-zinc-500">
+                <TableCell colSpan={6} className="py-8 text-center text-sm text-zinc-500">
                   Aucune clé MailPulse active.
                 </TableCell>
               </TableRow>
@@ -113,6 +154,25 @@ export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
                   <TableCell className="font-mono text-xs">{key.keyPrefix}</TableCell>
                   <TableCell>
                     <Badge variant={key.environment === "LIVE" ? "default" : "secondary"}>{key.environment}</Badge>
+                  </TableCell>
+                  <TableCell className="min-w-56">
+                    <Select
+                      value={key.defaultEmailSenderId ?? "inherit"}
+                      onValueChange={(value) => updateSender(key.id, value)}
+                      disabled={isPending || Boolean(key.revokedAt)}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Expediteur" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="inherit">Expediteur par defaut</SelectItem>
+                        {emailSenders.map((sender) => (
+                          <SelectItem key={sender.id} value={sender.id}>
+                            {sender.name} · {sender.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>{key.lastUsedAt ? dateFormatter.format(new Date(key.lastUsedAt)) : "Jamais"}</TableCell>
                   <TableCell className="text-right">

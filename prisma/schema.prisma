@@ -601,6 +601,7 @@ model IntegrationApiKey {
   provider       IntegrationProvider @default(FILON)
   environment    ApiKeyEnvironment   @default(LIVE)
   name           String
+  defaultEmailSenderId String?
   keyHash        String              @unique
   keyPrefix      String
   lastUsedAt     DateTime?
