@@ -212,12 +212,12 @@ export default async function PlatformPage() {
           <div className="grid gap-4 xl:grid-cols-2">
             <PlatformMessagesPanel messages={serializedMessages} />
 
-            <Card>
-              <CardHeader>
+            <Card className="flex max-h-[34rem] min-h-0 flex-col overflow-hidden">
+              <CardHeader className="shrink-0">
                 <CardTitle>Templates</CardTitle>
                 <CardDescription>Clés de templates client, y compris WhatsApp approuvé.</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="min-h-0 overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>

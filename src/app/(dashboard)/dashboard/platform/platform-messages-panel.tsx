@@ -11,12 +11,12 @@ export function PlatformMessagesPanel({ messages }: { messages: ApiMessageDetail
 
   return (
     <>
-      <Card>
-        <CardHeader>
+      <Card className="flex max-h-[34rem] min-h-0 flex-col overflow-hidden">
+        <CardHeader className="shrink-0">
           <CardTitle>Messages API récents</CardTitle>
           <CardDescription>Destinataires, statuts provider, erreurs, IDs et webhooks sortants.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-h-0 overflow-y-auto px-0 pb-0">
           <MessageTable messages={messages} onSelect={setSelectedMessage} />
         </CardContent>
       </Card>

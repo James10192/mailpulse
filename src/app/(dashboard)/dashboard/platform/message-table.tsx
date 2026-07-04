@@ -20,23 +20,21 @@ export function MessageTable({
   onSelect: (message: ApiMessageDetail) => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-md border">
-      <Table>
-        <TableHeader>
+    <div className="overflow-hidden border-t">
+      <Table className="w-full table-fixed">
+        <TableHeader className="sticky top-0 z-10 bg-card">
           <TableRow>
-            <TableHead>Destinataire</TableHead>
-            <TableHead>Canal</TableHead>
-            <TableHead>Statut</TableHead>
-            <TableHead>Provider</TableHead>
-            <TableHead>Erreur</TableHead>
-            <TableHead>Créé</TableHead>
-            <TableHead className="w-16 text-right">Voir</TableHead>
+            <TableHead className="w-[28%]">Destinataire</TableHead>
+            <TableHead className="w-[20%]">Statut</TableHead>
+            <TableHead className="w-[30%]">Erreur</TableHead>
+            <TableHead className="w-[16%]">Créé</TableHead>
+            <TableHead className="w-[6%] text-right">Voir</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {messages.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={5} className="h-24 text-center text-sm text-muted-foreground">
                 Aucun message API pour le moment.
               </TableCell>
             </TableRow>
@@ -44,20 +42,25 @@ export function MessageTable({
             messages.map((message) => (
               <TableRow key={message.id} className="align-middle">
                 <TableCell>
-                  <div className="max-w-[13rem] space-y-1">
+                  <div className="min-w-0 space-y-1">
                     <p className="truncate font-mono text-xs">{message.recipient.value}</p>
-                    <p className="text-xs text-muted-foreground">{message.recipient.type}</p>
+                    <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                      <span>{message.recipient.type}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="truncate uppercase">{message.channel}</span>
+                    </div>
                   </div>
                 </TableCell>
-                <TableCell className="uppercase">{message.channel}</TableCell>
                 <TableCell>
-                  <Badge variant={messageStatusVariant(message.status)}>{message.status}</Badge>
-                </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
-                  {shortIdentifier(message.provider_message_id, 8, 5)}
+                  <div className="min-w-0 space-y-1">
+                    <Badge variant={messageStatusVariant(message.status)}>{message.status}</Badge>
+                    <p className="truncate font-mono text-xs text-muted-foreground">
+                      {shortIdentifier(message.provider_message_id, 8, 5)}
+                    </p>
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex max-w-[12rem] items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
                     {message.error_code || message.error_message ? (
                       <AlertCircle className="size-4 shrink-0 text-destructive" />
                     ) : (
@@ -66,8 +69,8 @@ export function MessageTable({
                     <span className="truncate text-xs text-muted-foreground">{messageErrorLabel(message)}</span>
                   </div>
                 </TableCell>
-                <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                  {formatMessageDate(message.created_at)}
+                <TableCell className="text-sm text-muted-foreground">
+                  <span className="block truncate">{formatMessageDate(message.created_at)}</span>
                 </TableCell>
                 <TableCell className="text-right">
                   <Button type="button" variant="ghost" size="icon" onClick={() => onSelect(message)} aria-label="Voir le message">
