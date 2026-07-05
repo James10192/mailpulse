@@ -253,7 +253,7 @@ async function dispatchEmailMessage(message: CommunicationMessageWithTemplate, d
       to: message.recipientValue,
       from,
       subject: emailSubject(message),
-      html: textToHtml(message.text ?? ""),
+      html: emailHtml(message),
       text: message.text ?? "",
       tags: [
         { name: "message_id", value: message.id },
@@ -396,6 +396,12 @@ function renderTemplateBody(body: string, variables: unknown) {
     (content, [key, value]) => content.replaceAll(`{{${key}}}`, String(value ?? "")),
     body,
   );
+}
+
+function emailHtml(message: CommunicationMessageWithTemplate) {
+  const metadataHtml = emailMetadataValue(message.metadata, "email_html");
+
+  return metadataHtml || textToHtml(message.text ?? "");
 }
 
 function emailSubject(message: CommunicationMessageWithTemplate) {
