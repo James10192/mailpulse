@@ -193,4 +193,25 @@ export class MetaProvider implements IWhatsAppProvider {
       };
     }
   }
+
+  async sendImage(to: string, imageUrl: string, caption?: string): Promise<WhatsAppSendResult> {
+    try {
+      const result = await sendImage(
+        { metaPhoneNumberId: this.phoneNumberId, metaAccessToken: this.accessToken },
+        to,
+        imageUrl,
+        caption,
+      );
+      const messageId = result.messages?.[0]?.id;
+      return {
+        success: true,
+        messageId,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Unknown Meta API error",
+      };
+    }
+  }
 }

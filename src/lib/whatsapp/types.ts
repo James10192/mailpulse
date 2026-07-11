@@ -6,6 +6,7 @@ export interface WhatsAppSendResult {
 
 export interface IWhatsAppProvider {
   sendText(to: string, text: string): Promise<WhatsAppSendResult>;
+  sendImage(to: string, imageUrl: string, caption?: string): Promise<WhatsAppSendResult>;
 }
 
 // Discriminated union for config

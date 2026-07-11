@@ -287,4 +287,19 @@ export class BaileysProvider implements IWhatsAppProvider {
       };
     }
   }
+
+  async sendImage(to: string, imageUrl: string, caption?: string): Promise<WhatsAppSendResult> {
+    try {
+      const result = await sendMedia(this.instanceName, to, imageUrl, caption ?? "", "image");
+      return {
+        success: true,
+        messageId: result.key.id,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Unknown Baileys error",
+      };
+    }
+  }
 }

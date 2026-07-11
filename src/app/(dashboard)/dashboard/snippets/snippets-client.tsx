@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpDown, Check, Code, Copy, Mail, MessageCircle, Plus, Sparkles } from "lucide-react";
+import { ArrowUpDown, Check, Code, Copy, ImageIcon, Mail, MessageCircle, Plus, Sparkles } from "lucide-react";
 
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -408,7 +408,17 @@ function SnippetTable({
                 </p>
               </TableCell>
               <TableCell><ChannelBadge channel={snippet.channel} /></TableCell>
-              <TableCell><SnippetStatusBadge ready={hasContent(snippet)} /></TableCell>
+              <TableCell>
+                <div className="flex flex-wrap gap-1.5">
+                  <SnippetStatusBadge ready={hasContent(snippet)} />
+                  {snippet.channel === "WHATSAPP" && snippet.whatsappImageUrl ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                      <ImageIcon className="h-3 w-3" />
+                      Image
+                    </span>
+                  ) : null}
+                </div>
+              </TableCell>
               <TableCell className="text-right text-xs text-zinc-500">
                 <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">{formatNumber(getWordCount(snippet))}</span> mots
                 <span className="mx-1 text-zinc-300">·</span>

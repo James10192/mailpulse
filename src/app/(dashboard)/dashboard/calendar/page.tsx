@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, parse, startOfMonth, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
-import { BarChart3, CalendarDays, ChevronLeft, ChevronRight, Clock, Send, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, Send } from "lucide-react";
 
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { cn } from "@/lib/utils";
 import { CalendarChannelChart, CalendarDayChart } from "./calendar-charts";
-import { CampaignPill, ChannelBadge, MetricCard, StatusBadge } from "./calendar-ui";
+import { CampaignPill, ChannelBadge, StatusBadge } from "./calendar-ui";
 import { formatNumber, type CalendarCampaign } from "./calendar-types";
 
 const DAY_HEADERS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
@@ -23,11 +23,7 @@ async function getScheduledCampaigns(orgId: string, month: Date) {
   const campaigns = await prisma.campaign.findMany({
     where: {
       organizationId: orgId,
-      scheduledAt: {
-        not: null,
-        gte: monthStart,
-        lte: monthEnd,
-      },
+      scheduledAt: { not: null, gte: monthStart, lte: monthEnd },
     },
     select: {
       id: true,
@@ -117,28 +113,28 @@ export default async function CalendarPage({ searchParams }: PageProps) {
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Calendrier</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-            Vue mensuelle des campagnes planifiées, avec canal, audience et statut d’envoi.
+          <h1 className="text-balance text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Calendrier</h1>
+          <p className="mt-2 max-w-2xl text-pretty text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+            Planning mensuel des campagnes planifiées, avec canal, audience et statut d’envoi.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="h-10">
             <Link href={`/dashboard/calendar?month=${previousMonth}`} aria-label="Mois précédent">
               <ChevronLeft className="h-4 w-4" />
               Précédent
             </Link>
           </Button>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="h-10">
             <Link href={`/dashboard/calendar?month=${todayMonth}`}>Aujourd’hui</Link>
           </Button>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="h-10">
             <Link href={`/dashboard/calendar?month=${nextMonth}`} aria-label="Mois suivant">
               Suivant
               <ChevronRight className="h-4 w-4" />
             </Link>
           </Button>
-          <Button asChild>
+          <Button asChild className="h-10">
             <Link href="/dashboard/campaigns/new">
               <Send className="h-4 w-4" />
               Nouvelle campagne
@@ -147,29 +143,7 @@ export default async function CalendarPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Planifiées" value={formatNumber(summary.total)} description={`${formatNumber(summary.email)} email · ${formatNumber(summary.whatsapp)} WhatsApp`} icon={CalendarDays} />
-        <MetricCard label="Audience prévue" value={formatNumber(summary.recipients)} description="Destinataires associés aux campagnes du mois." icon={Users} />
-        <MetricCard label="En attente" value={formatNumber(summary.scheduled)} description={`${formatNumber(summary.sending)} en cours · ${formatNumber(summary.sent)} déjà envoyées`} icon={Clock} />
-        <MetricCard label="Mois affiché" value={format(currentMonth, "MMM", { locale: fr })} description={format(currentMonth, "yyyy", { locale: fr })} icon={BarChart3} />
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.8fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Charge par jour</CardTitle>
-            <CardDescription>Nombre de campagnes planifiées sur le mois affiché.</CardDescription>
-          </CardHeader>
-          <CardContent>{dayData.length ? <CalendarDayChart data={dayData} /> : <EmptyChart label="Aucune charge planifiée sur ce mois." />}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Répartition par canal</CardTitle>
-            <CardDescription>Email, WhatsApp et SMS dans le planning.</CardDescription>
-          </CardHeader>
-          <CardContent>{channelData.length ? <CalendarChannelChart data={channelData} /> : <EmptyChart label="Aucune campagne planifiée." height="h-[220px]" />}</CardContent>
-        </Card>
-      </div>
+      <CompactCalendarMetrics summary={summary} currentMonth={currentMonth} />
 
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-3">
@@ -229,7 +203,57 @@ export default async function CalendarPage({ searchParams }: PageProps) {
           <CampaignTable campaigns={campaigns} />
         </CardContent>
       </Card>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Analyse</h2>
+          <p className="mt-1 text-pretty text-sm text-zinc-500 dark:text-zinc-400">
+            Vue secondaire pour comprendre la charge du mois sans masquer le planning.
+          </p>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.8fr)]">
+          <Card>
+            <CardHeader>
+              <CardTitle>Charge par jour</CardTitle>
+              <CardDescription>Nombre de campagnes planifiées sur le mois affiché.</CardDescription>
+            </CardHeader>
+            <CardContent>{dayData.length ? <CalendarDayChart data={dayData} /> : <EmptyChart label="Aucune charge planifiée sur ce mois." />}</CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Répartition par canal</CardTitle>
+              <CardDescription>Email, WhatsApp et SMS dans le planning.</CardDescription>
+            </CardHeader>
+            <CardContent>{channelData.length ? <CalendarChannelChart data={channelData} /> : <EmptyChart label="Aucune campagne planifiée." height="h-[220px]" />}</CardContent>
+          </Card>
+        </div>
+      </section>
     </div>
+  );
+}
+
+function CompactCalendarMetrics({ summary, currentMonth }: { summary: ReturnType<typeof buildSummary>; currentMonth: Date }) {
+  const metrics = [
+    { label: "Planifiées", value: formatNumber(summary.total), hint: `${formatNumber(summary.email)} email · ${formatNumber(summary.whatsapp)} WhatsApp` },
+    { label: "Audience", value: formatNumber(summary.recipients), hint: "destinataires" },
+    { label: "En attente", value: formatNumber(summary.scheduled), hint: `${formatNumber(summary.sending)} en cours · ${formatNumber(summary.sent)} envoyées` },
+    { label: "Mois", value: format(currentMonth, "LLLL", { locale: fr }), hint: format(currentMonth, "yyyy", { locale: fr }) },
+  ];
+
+  return (
+    <Card>
+      <CardContent className="grid gap-0 p-0 sm:grid-cols-2 lg:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="border-b border-zinc-200 px-4 py-3 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0 dark:border-zinc-800">
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{metric.label}</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <p className="font-mono text-xl font-semibold tabular-nums text-zinc-950 dark:text-zinc-50">{metric.value}</p>
+              <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{metric.hint}</p>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -238,12 +262,19 @@ function EmptyChart({ label, height = "h-[260px]" }: { label: string; height?: s
 }
 
 function MobileAgenda({ campaigns }: { campaigns: CalendarCampaign[] }) {
-  if (!campaigns.length) return <div className="rounded-lg border border-dashed p-8 text-center text-sm text-zinc-500">Aucune campagne planifiée pour ce mois.</div>;
+  if (!campaigns.length) {
+    return (
+      <div className="rounded-lg border border-dashed p-8 text-center text-sm text-zinc-500">
+        <p className="font-medium text-zinc-700 dark:text-zinc-200">Aucune campagne planifiée pour ce mois.</p>
+        <p className="mt-1 text-pretty">Planifiez une campagne email ou WhatsApp pour remplir ce calendrier.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
       {campaigns.map((campaign) => (
-        <Link key={campaign.id} href={`/dashboard/campaigns/${campaign.id}/edit`} className="block rounded-lg border p-4 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/70">
+        <Link key={campaign.id} href={`/dashboard/campaigns/${campaign.id}/edit`} className="block rounded-lg border p-4 transition-[background-color,box-shadow] hover:bg-zinc-50 dark:hover:bg-zinc-900/70">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate font-medium text-zinc-950 dark:text-zinc-50">{campaign.name}</p>
@@ -272,12 +303,14 @@ function CampaignTable({ campaigns }: { campaigns: CalendarCampaign[] }) {
       <TableBody>
         {campaigns.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={5} className="h-28 text-center text-zinc-500">Aucune campagne planifiée sur ce mois.</TableCell>
+            <TableCell colSpan={5} className="h-28 text-center text-zinc-500">
+              Aucune campagne planifiée sur ce mois. Créez une campagne, puis choisissez une date d’envoi.
+            </TableCell>
           </TableRow>
         ) : campaigns.map((campaign) => (
           <TableRow key={campaign.id}>
             <TableCell>
-              <Link href={`/dashboard/campaigns/${campaign.id}/edit`} className="font-medium text-zinc-950 hover:text-orange-600 dark:text-zinc-50">
+              <Link href={`/dashboard/campaigns/${campaign.id}/edit`} className="font-medium text-zinc-950 transition-colors hover:text-orange-600 dark:text-zinc-50">
                 {campaign.name}
               </Link>
               <p className="mt-1 line-clamp-1 text-xs text-zinc-500">{campaign.subject || campaign.previewText || "Sans sujet"}</p>

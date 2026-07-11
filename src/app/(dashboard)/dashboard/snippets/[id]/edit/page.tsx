@@ -16,11 +16,11 @@ export default async function EditSnippetPage({
   const [snippet, allSnippets] = await Promise.all([
     prisma.emailTemplate.findUnique({
       where: { id, organizationId: ctx.org.id },
-      select: { id: true, name: true, description: true, htmlContent: true, channel: true },
+      select: { id: true, name: true, description: true, htmlContent: true, channel: true, whatsappImageUrl: true, whatsappImageName: true },
     }),
     prisma.emailTemplate.findMany({
       where: { organizationId: ctx.org.id, category: "snippet", id: { not: id } },
-      select: { id: true, name: true, htmlContent: true, channel: true },
+      select: { id: true, name: true, htmlContent: true, channel: true, whatsappImageUrl: true, whatsappImageName: true },
       take: 50,
     }),
   ]);
@@ -29,7 +29,7 @@ export default async function EditSnippetPage({
 
   return (
     <>
-      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Campagnes", href: "/dashboard/campaigns" }, { label: "Snippets", href: "/dashboard/snippets" }, { label: "Edition" }]} />
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Campagnes", href: "/dashboard/campaigns" }, { label: "Snippets", href: "/dashboard/snippets" }, { label: "Édition" }]} />
       <SnippetEditor
         snippet={{
           ...snippet,

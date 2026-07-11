@@ -8,6 +8,8 @@ export type Snippet = {
   htmlContent: string;
   channel: SnippetChannel;
   createdAt: string;
+  whatsappImageUrl: string | null;
+  whatsappImageName: string | null;
 };
 
 export const channelLabels: Record<SnippetChannel, string> = {
@@ -52,5 +54,5 @@ export function getCharacterCount(snippet: Snippet) {
 }
 
 export function hasContent(snippet: Snippet) {
-  return getCharacterCount(snippet) > 0;
+  return getCharacterCount(snippet) > 0 || Boolean(snippet.whatsappImageUrl);
 }

@@ -216,6 +216,9 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
   const [bgOpen, setBgOpen] = useState(false);
   const [fontSizeOpen, setFontSizeOpen] = useState(false);
   const [tableOpen, setTableOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [uploadError, setUploadError] = useState("");
   const varsRef = useRef<HTMLDivElement>(null);
   const snipsRef = useRef<HTMLDivElement>(null);
   const headRef = useRef<HTMLDivElement>(null);
@@ -223,6 +226,7 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
   const bgRef = useRef<HTMLDivElement>(null);
   const fontSizeRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+  const linkRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const onChangeRef = useRef(onChange);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -232,7 +236,7 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
 
   const closeAll = useCallback(() => {
     setVarsOpen(false); setSnipsOpen(false); setHeadOpen(false);
-    setColorOpen(false); setBgOpen(false); setFontSizeOpen(false); setTableOpen(false);
+    setColorOpen(false); setBgOpen(false); setFontSizeOpen(false); setTableOpen(false); setLinkOpen(false);
   }, []);
 
   const editor = useEditor({
@@ -328,19 +332,37 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
   function doLink() {
     if (!editor) return;
     const prev = editor.getAttributes("link").href;
-    const url = window.prompt("URL du lien", prev);
-    if (url === null) return;
-    if (url === "") { editor.chain().focus().extendMarkRange("link").unsetLink().run(); return; }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    setLinkUrl(prev || "");
+    closeAll();
+    setLinkOpen(true);
+  }
+
+  function applyLink() {
+    if (!editor) return;
+    if (!linkUrl.trim()) {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      setLinkOpen(false);
+      return;
+    }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: linkUrl.trim() }).run();
+    setLinkOpen(false);
+  }
+
+  function clearLink() {
+    if (!editor) return;
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    setLinkUrl("");
+    setLinkOpen(false);
   }
 
   async function doImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !editor) return;
+    setUploadError("");
     const fd = new FormData(); fd.append("file", file);
     try {
       const res = await fetch("/api/upload", { method: "POST", body: fd });
-      if (!res.ok) { alert("Erreur upload"); return; }
+      if (!res.ok) { setUploadError("Erreur upload"); return; }
       const data = await res.json();
       if (data.url) {
         // Insert image as a new block after current position (never replaces selection)
@@ -351,8 +373,8 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
             { type: "paragraph" },
           ])
           .run();
-      } else alert(data.error || "Erreur upload");
-    } catch { alert("Erreur upload"); }
+      } else setUploadError(data.error || "Erreur upload");
+    } catch { setUploadError("Erreur upload"); }
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -429,7 +451,31 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
         <Btn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Italique"><Italic className="w-4 h-4" /></Btn>
         <Btn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Souligne"><UnderlineIcon className="w-4 h-4" /></Btn>
         <Btn onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="Barre"><Strikethrough className="w-4 h-4" /></Btn>
-        <Btn onClick={doLink} active={editor.isActive("link")} title="Lien"><LinkIcon className="w-4 h-4" /></Btn>
+        <div className="relative" ref={linkRef}>
+          <Btn onClick={doLink} active={editor.isActive("link") || linkOpen} title="Lien"><LinkIcon className="w-4 h-4" /></Btn>
+          <Drop open={linkOpen} onClose={() => setLinkOpen(false)} dropRef={linkRef}>
+            <div className="w-72 p-2">
+              <label className="block text-[10px] uppercase tracking-wider text-zinc-500" htmlFor="rich-editor-link-url">
+                URL du lien
+              </label>
+              <input
+                id="rich-editor-link-url"
+                value={linkUrl}
+                onChange={(event) => setLinkUrl(event.target.value)}
+                placeholder="https://..."
+                className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-orange-500/30 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+              />
+              <div className="mt-2 flex justify-end gap-2">
+                <button type="button" onClick={clearLink} className="h-9 rounded-md px-3 text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                  Retirer
+                </button>
+                <button type="button" onClick={applyLink} className="h-9 rounded-md bg-orange-600 px-3 text-xs font-medium text-white hover:bg-orange-500">
+                  Appliquer
+                </button>
+              </div>
+            </div>
+          </Drop>
+        </div>
 
         <Sep />
 
@@ -647,6 +693,11 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
       </BubbleMenu>
 
       {/* ─── Editor Content ─── */}
+      {uploadError ? (
+        <div className="mx-3 mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
+          {uploadError}
+        </div>
+      ) : null}
       <EditorContent editor={editor} />
 
       {/* ─── Character / Word Count ─── */}

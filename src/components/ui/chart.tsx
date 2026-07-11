@@ -29,6 +29,7 @@ function ChartContainer({
   config: ChartConfig;
   children: React.ReactElement;
 }) {
+  const [mounted, setMounted] = React.useState(false);
   const generatedId = React.useId();
   const chartId = `chart-${id ?? generatedId.replace(/:/g, "")}`;
   const cssVars = Object.entries(config).reduce<Record<string, string>>((acc, [key, item]) => {
@@ -36,16 +37,22 @@ function ChartContainer({
     return acc;
   }, {});
 
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <ChartContext.Provider value={{ config }}>
       <div
         data-chart={chartId}
-        className={cn("flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-zinc-500 dark:[&_.recharts-cartesian-axis-tick_text]:fill-zinc-400", className)}
+        className={cn("flex aspect-video min-w-0 justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-zinc-500 dark:[&_.recharts-cartesian-axis-tick_text]:fill-zinc-400", className)}
         style={cssVars as React.CSSProperties}
       >
-        <ResponsiveContainer width="100%" height="100%">
-          {children}
-        </ResponsiveContainer>
+        {mounted ? (
+          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+            {children}
+          </ResponsiveContainer>
+        ) : null}
       </div>
     </ChartContext.Provider>
   );

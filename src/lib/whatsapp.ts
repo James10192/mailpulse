@@ -76,6 +76,33 @@ export async function sendWhatsApp(
   return result;
 }
 
+export async function sendWhatsAppImage(
+  org: OrgWhatsAppConfig,
+  to: string,
+  imageUrl: string,
+  caption?: string,
+) {
+  if (!org.whatsappEnabled) {
+    throw new Error("WhatsApp non active pour cette organisation.");
+  }
+
+  const config = resolveProviderConfig(org);
+  const provider = createProvider(config);
+  const candidates = getWhatsAppPhoneCandidates(to);
+  let result = await provider.sendImage(candidates[0] ?? to, imageUrl, caption);
+
+  for (const candidate of candidates.slice(1)) {
+    if (result.success) break;
+    result = await provider.sendImage(candidate, imageUrl, caption);
+  }
+
+  if (!result.success) {
+    throw new Error(result.error ?? "Echec de l'envoi WhatsApp.");
+  }
+
+  return result;
+}
+
 export async function getConnectionStatus(org: OrgWhatsAppConfig) {
   if (org.whatsappMode === "META") {
     return {

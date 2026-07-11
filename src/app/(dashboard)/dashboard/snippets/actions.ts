@@ -19,6 +19,8 @@ const updateSnippetSchema = z.object({
   description: z.string().optional(),
   htmlContent: z.string().optional(),
   channel: z.enum(["EMAIL", "WHATSAPP"]).optional(),
+  whatsappImageUrl: z.string().nullable().optional(),
+  whatsappImageName: z.string().nullable().optional(),
 });
 
 export async function createSnippetAndRedirect(
@@ -63,7 +65,14 @@ export async function createSnippetAndRedirect(
 
 export async function updateSnippet(
   id: string,
-  data: { name?: string; description?: string; htmlContent?: string; channel?: "EMAIL" | "WHATSAPP" }
+  data: {
+    name?: string;
+    description?: string;
+    htmlContent?: string;
+    channel?: "EMAIL" | "WHATSAPP";
+    whatsappImageUrl?: string | null;
+    whatsappImageName?: string | null;
+  }
 ): Promise<ActionState> {
   const result = updateSnippetSchema.safeParse(data);
   if (!result.success) return { error: "Donnees invalides" };
@@ -79,6 +88,8 @@ export async function updateSnippet(
         ...(result.data.description !== undefined && { description: result.data.description }),
         ...(result.data.htmlContent !== undefined && { htmlContent: result.data.htmlContent }),
         ...(result.data.channel !== undefined && { channel: result.data.channel }),
+        ...(result.data.whatsappImageUrl !== undefined && { whatsappImageUrl: result.data.whatsappImageUrl }),
+        ...(result.data.whatsappImageName !== undefined && { whatsappImageName: result.data.whatsappImageName }),
       },
     });
     trackServerEvent(user.id, EVENTS.SNIPPET_UPDATED, { snippet_id: id }, org.id);

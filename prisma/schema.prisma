@@ -287,6 +287,8 @@ model Campaign {
   replyTo        String?
   htmlContent    String?
   textContent    String?
+  whatsappImageUrl  String?
+  whatsappImageName String?
   templateId     String?
   template       EmailTemplate? @relation(fields: [templateId], references: [id])
   status         CampaignStatus @default(DRAFT)
@@ -415,6 +417,8 @@ model EmailTemplate {
   description    String?
   htmlContent    String
   textContent    String?
+  whatsappImageUrl  String?
+  whatsappImageName String?
   thumbnailUrl   String?
   category       String       @default("custom")
   channel        CommunicationChannel @default(EMAIL)

@@ -9,7 +9,16 @@ async function getSnippets(orgId: string) {
     where: { organizationId: orgId, category: "snippet" },
     orderBy: { createdAt: "desc" },
     take: 50,
-    select: { id: true, name: true, description: true, htmlContent: true, channel: true, createdAt: true },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      htmlContent: true,
+      channel: true,
+      createdAt: true,
+      whatsappImageUrl: true,
+      whatsappImageName: true,
+    },
   });
   return snippets.map((s) => ({ ...s, createdAt: s.createdAt.toISOString() }));
 }

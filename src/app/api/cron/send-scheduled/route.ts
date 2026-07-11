@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendCampaignEmail } from "@/lib/resend";
+import { sendWhatsApp, sendWhatsAppImage } from "@/lib/whatsapp";
+import { htmlToPlainText } from "@/lib/message-content";
 import { personalizeHtml } from "@/lib/email-utils";
 import {
   generateTrackingToken,
@@ -8,6 +10,22 @@ import {
   wrapLinksForTracking,
   generateUnsubscribeUrl,
 } from "@/lib/tracking";
+
+type ScheduledContact = {
+  id: string;
+  email: string;
+  phone: string | null;
+  firstName: string | null;
+  lastName: string | null;
+};
+
+function personalizeText(text: string, contact: ScheduledContact) {
+  return text
+    .replace(/\{\{firstName\}\}/g, contact.firstName || "")
+    .replace(/\{\{lastName\}\}/g, contact.lastName || "")
+    .replace(/\{\{email\}\}/g, contact.email || "")
+    .replace(/\{\{phone\}\}/g, contact.phone || "");
+}
 
 export async function GET(request: NextRequest) {
   // Verify CRON_SECRET
@@ -25,7 +43,20 @@ export async function GET(request: NextRequest) {
       scheduledAt: { lte: now },
     },
     include: {
-      organization: { select: { id: true, plan: true } },
+      organization: {
+        select: {
+          id: true,
+          plan: true,
+          whatsappEnabled: true,
+          whatsappMode: true,
+          whatsappPhone: true,
+          evoInstanceName: true,
+          evoInstanceStatus: true,
+          metaWabaId: true,
+          metaPhoneNumberId: true,
+          metaAccessToken: true,
+        },
+      },
     },
   });
 
@@ -36,7 +67,9 @@ export async function GET(request: NextRequest) {
   let totalSent = 0;
 
   for (const campaign of campaigns) {
-    if (!campaign.subject || !campaign.htmlContent || !campaign.fromEmail || !campaign.fromName) {
+    const incompleteEmail = campaign.channel === "EMAIL" && (!campaign.subject || !campaign.htmlContent || !campaign.fromEmail || !campaign.fromName);
+    const incompleteWhatsApp = campaign.channel === "WHATSAPP" && !htmlToPlainText(campaign.htmlContent);
+    if (incompleteEmail || incompleteWhatsApp) {
       // Skip incomplete campaigns
       await prisma.campaign.update({
         where: { id: campaign.id },
@@ -52,19 +85,26 @@ export async function GET(request: NextRequest) {
     });
 
     // Get contacts
-    let contacts: { id: string; email: string; firstName: string | null; lastName: string | null }[];
+    let contacts: ScheduledContact[];
+    const contactSelect = { id: true, email: true, phone: true, firstName: true, lastName: true, subscribed: true };
     if (campaign.contactListId) {
       const members = await prisma.contactListMember.findMany({
         where: { contactListId: campaign.contactListId },
         select: {
-          contact: { select: { id: true, email: true, firstName: true, lastName: true, subscribed: true } },
+          contact: { select: contactSelect },
         },
       });
-      contacts = members.filter((m) => m.contact.subscribed).map((m) => m.contact);
+      contacts = members
+        .filter((m) => m.contact.subscribed && (campaign.channel !== "WHATSAPP" || !!m.contact.phone))
+        .map((m) => m.contact);
     } else {
       contacts = await prisma.contact.findMany({
-        where: { organizationId: campaign.organizationId, subscribed: true },
-        select: { id: true, email: true, firstName: true, lastName: true },
+        where: {
+          organizationId: campaign.organizationId,
+          subscribed: true,
+          ...(campaign.channel === "WHATSAPP" ? { phone: { not: null } } : {}),
+        },
+        select: { id: true, email: true, phone: true, firstName: true, lastName: true },
       });
     }
 
@@ -97,6 +137,7 @@ export async function GET(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mailpulse-two.vercel.app";
     const fromAddress = `${campaign.fromName} <${campaign.fromEmail}>`;
     const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const whatsappText = campaign.channel === "WHATSAPP" ? htmlToPlainText(campaign.htmlContent) : "";
 
     let sentCount = 0;
     for (let i = 0; i < contacts.length; i++) {
@@ -104,24 +145,54 @@ export async function GET(request: NextRequest) {
       const recipientId = recipientMap.get(contact.id);
       if (!recipientId) continue;
 
-      const token = generateTrackingToken(recipientId, campaign.id);
-      const unsubscribeUrl = generateUnsubscribeUrl(baseUrl, contact.id, campaign.id);
-
-      let html = personalizeHtml(campaign.htmlContent, contact);
-      html = wrapLinksForTracking(html, `${baseUrl}/api/track/click`, token);
-      html = injectTrackingPixel(html, `${baseUrl}/api/track/open?t=${token}`);
-
       try {
-        await sendCampaignEmail({
-          to: contact.email,
-          from: fromAddress,
-          subject: campaign.subject,
-          html,
-          replyTo: campaign.replyTo || undefined,
-          campaignId: campaign.id,
-          recipientId,
-          unsubscribeUrl,
-        });
+        if (campaign.channel === "WHATSAPP") {
+          if (!contact.phone) continue;
+          const text = personalizeText(whatsappText, contact);
+          const sent = campaign.whatsappImageUrl
+            ? await sendWhatsAppImage(campaign.organization, contact.phone, campaign.whatsappImageUrl, text)
+            : await sendWhatsApp(campaign.organization, contact.phone, text);
+
+          await prisma.communicationMessage.create({
+            data: {
+              organizationId: campaign.organizationId,
+              contactId: contact.id,
+              channel: "WHATSAPP",
+              direction: "OUTBOUND",
+              recipientType: "PHONE",
+              recipientValue: contact.phone,
+              contentType: "TEXT",
+              text,
+              providerMessageId: sent.messageId ?? null,
+              status: "SENT",
+              sentAt: now,
+              metadata: {
+                campaignId: campaign.id,
+                recipientId,
+                ...(campaign.whatsappImageUrl
+                  ? { whatsappImageUrl: campaign.whatsappImageUrl, whatsappImageName: campaign.whatsappImageName }
+                  : {}),
+              },
+            },
+          });
+        } else {
+          const token = generateTrackingToken(recipientId, campaign.id);
+          const unsubscribeUrl = generateUnsubscribeUrl(baseUrl, contact.id, campaign.id);
+          let html = personalizeHtml(campaign.htmlContent!, contact);
+          html = wrapLinksForTracking(html, `${baseUrl}/api/track/click`, token);
+          html = injectTrackingPixel(html, `${baseUrl}/api/track/open?t=${token}`);
+
+          await sendCampaignEmail({
+            to: contact.email,
+            from: fromAddress,
+            subject: campaign.subject!,
+            html,
+            replyTo: campaign.replyTo || undefined,
+            campaignId: campaign.id,
+            recipientId,
+            unsubscribeUrl,
+          });
+        }
 
         await prisma.campaignRecipient.update({
           where: { id: recipientId },

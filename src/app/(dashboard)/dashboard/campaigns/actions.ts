@@ -11,7 +11,8 @@ import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
 import { sendCampaignEmail } from "@/lib/resend";
-import { sendWhatsApp } from "@/lib/whatsapp";
+import { sendWhatsApp, sendWhatsAppImage } from "@/lib/whatsapp";
+import { htmlToPlainText } from "@/lib/message-content";
 import { personalizeHtml } from "@/lib/email-utils";
 import {
   generateTrackingToken,
@@ -182,7 +183,15 @@ export async function scheduleCampaign(
 
 export async function updateCampaign(
   campaignId: string,
-  data: { name?: string; subject?: string; previewText?: string; htmlContent?: string; channel?: "EMAIL" | "WHATSAPP" },
+  data: {
+    name?: string;
+    subject?: string;
+    previewText?: string;
+    htmlContent?: string;
+    channel?: "EMAIL" | "WHATSAPP";
+    whatsappImageUrl?: string | null;
+    whatsappImageName?: string | null;
+  },
   options?: { revalidate?: boolean }
 ): Promise<ActionState> {
   try {
@@ -195,6 +204,8 @@ export async function updateCampaign(
     if (data.previewText !== undefined) updateData.previewText = data.previewText || null;
     if (data.htmlContent !== undefined) updateData.htmlContent = data.htmlContent || null;
     if (data.channel !== undefined) updateData.channel = data.channel;
+    if (data.whatsappImageUrl !== undefined) updateData.whatsappImageUrl = data.whatsappImageUrl || null;
+    if (data.whatsappImageName !== undefined) updateData.whatsappImageName = data.whatsappImageName || null;
 
     // updateOrThrow ensures campaign exists and belongs to org; only DRAFT campaigns can be edited
     await prisma.campaign.update({
@@ -408,19 +419,6 @@ async function sendEmailsToRecipients(
   return sentCount;
 }
 
-function stripHtmlForWhatsApp(html: string) {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
 function personalizeText(text: string, contact: ContactRow) {
   return text
     .replace(/\{\{firstName\}\}/g, contact.firstName || "")
@@ -446,7 +444,7 @@ async function getOrgWhatsApp(orgId: string) {
 }
 
 async function sendWhatsAppToRecipients(
-  campaign: { id: string; htmlContent: string },
+  campaign: { id: string; htmlContent: string; whatsappImageUrl: string | null; whatsappImageName: string | null },
   contacts: ContactRow[],
   recipientMap: Map<string, string>,
   orgId: string,
@@ -456,7 +454,7 @@ async function sendWhatsAppToRecipients(
     throw new Error("WhatsApp non active. Connectez WhatsApp dans Messagerie avant l'envoi.");
   }
 
-  const text = stripHtmlForWhatsApp(campaign.htmlContent);
+  const text = htmlToPlainText(campaign.htmlContent);
   if (!text) throw new Error("Le message WhatsApp est vide.");
 
   let sentCount = 0;
@@ -465,7 +463,10 @@ async function sendWhatsAppToRecipients(
     if (!recipientId || !contact.phone) continue;
 
     try {
-      const sent = await sendWhatsApp(orgWa, contact.phone, personalizeText(text, contact));
+      const messageText = personalizeText(text, contact);
+      const sent = campaign.whatsappImageUrl
+        ? await sendWhatsAppImage(orgWa, contact.phone, campaign.whatsappImageUrl, messageText)
+        : await sendWhatsApp(orgWa, contact.phone, messageText);
       await prisma.campaignRecipient.update({
         where: { id: recipientId },
         data: { sentAt: new Date() },
@@ -479,11 +480,17 @@ async function sendWhatsAppToRecipients(
           recipientType: "PHONE",
           recipientValue: contact.phone,
           contentType: "TEXT",
-          text: personalizeText(text, contact),
+          text: messageText,
           providerMessageId: sent.messageId ?? null,
           status: "SENT",
           sentAt: new Date(),
-          metadata: { campaignId: campaign.id, recipientId },
+          metadata: {
+            campaignId: campaign.id,
+            recipientId,
+            ...(campaign.whatsappImageUrl
+              ? { whatsappImageUrl: campaign.whatsappImageUrl, whatsappImageName: campaign.whatsappImageName }
+              : {}),
+          },
         },
       });
       sentCount++;
@@ -566,7 +573,17 @@ export async function sendCampaign(
     const recipientMap = await initializeCampaignSending(campaignId, contacts, sender ?? { name: "WhatsApp", email: "", replyTo: null });
 
     const sentCount = campaign.channel === "WHATSAPP"
-      ? await sendWhatsAppToRecipients({ id: campaignId, htmlContent: campaign.htmlContent! }, contacts, recipientMap, org.id)
+      ? await sendWhatsAppToRecipients(
+          {
+            id: campaignId,
+            htmlContent: campaign.htmlContent!,
+            whatsappImageUrl: campaign.whatsappImageUrl,
+            whatsappImageName: campaign.whatsappImageName,
+          },
+          contacts,
+          recipientMap,
+          org.id,
+        )
       : await sendEmailsToRecipients(
           { id: campaignId, subject: campaign.subject!, htmlContent: campaign.htmlContent! },
           contacts,
