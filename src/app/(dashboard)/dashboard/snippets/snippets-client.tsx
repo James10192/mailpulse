@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useMemo, useState, useTransition } from "react";
+import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpDown, Blocks, Code, FileText, Mail, MessageCircle, Plus, Sparkles } from "lucide-react";
+import { ArrowUpDown, Check, Code, Copy, Mail, MessageCircle, Plus, Sparkles } from "lucide-react";
 
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -48,7 +48,7 @@ import {
   type Snippet,
   type SnippetSort,
 } from "./snippets-types";
-import { ChannelBadge, MetricCard, SnippetActions } from "./snippets-ui";
+import { ChannelBadge, SnippetActions, SnippetStatusBadge } from "./snippets-ui";
 
 const sortOptions: Array<{ label: string; value: SnippetSort }> = [
   { label: "Plus récents", value: "date-desc" },
@@ -111,6 +111,7 @@ export function SnippetsClient({
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SnippetSort>("date-desc");
   const [actionError, setActionError] = useState("");
+  const [copiedKey, setCopiedKey] = useState("");
   const [isPending, startTransition] = useTransition();
   const [createState, formAction, isCreating] = useActionState<ActionState, FormData>(createSnippetAndRedirect, null);
 
@@ -131,6 +132,29 @@ export function SnippetsClient({
       words: getWordCount(snippet),
       chars: getCharacterCount(snippet),
     }));
+
+  useEffect(() => {
+    if (!copiedKey) return;
+    const timeout = window.setTimeout(() => setCopiedKey(""), 1600);
+    return () => window.clearTimeout(timeout);
+  }, [copiedKey]);
+
+  async function copySnippet(snippet: Snippet, format: "text" | "html") {
+    const content = format === "html" ? snippet.htmlContent : getPlainText(snippet.htmlContent);
+    setActionError("");
+
+    if (!content.trim() || (format === "text" && !hasContent(snippet))) {
+      setActionError("Ce snippet ne contient pas encore de contenu à copier.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedKey(`${snippet.id}:${format}`);
+    } catch {
+      setActionError("Impossible de copier le snippet depuis ce navigateur.");
+    }
+  }
 
   function confirmDelete() {
     if (!deleteTarget) return;
@@ -157,8 +181,8 @@ export function SnippetsClient({
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Snippets</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+          <h1 className="text-balance text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Snippets</h1>
+          <p className="mt-2 max-w-2xl text-pretty text-sm leading-6 text-zinc-500 dark:text-zinc-400">
             Bibliothèque de blocs réutilisables pour vos campagnes email et WhatsApp.
           </p>
         </div>
@@ -177,33 +201,7 @@ export function SnippetsClient({
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Snippets" value={formatNumber(summary.total)} description={`${formatNumber(summary.email)} email · ${formatNumber(summary.whatsapp)} WhatsApp`} icon={Blocks} />
-        <MetricCard label="Prêts à utiliser" value={formatNumber(summary.withContent)} description={`${formatNumber(Math.max(summary.total - summary.withContent, 0))} brouillons sans contenu.`} icon={FileText} />
-        <MetricCard label="Volume contenu" value={formatNumber(summary.words)} description={`${formatNumber(summary.characters)} caractères dans la bibliothèque.`} icon={Code} />
-        <MetricCard label="Limite du plan" value={limit === -1 ? "∞" : formatNumber(limit)} description={`${formatNumber(currentCount)} utilisés sur le plan ${planLabel}.`} icon={Sparkles} />
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.8fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Longueur des snippets</CardTitle>
-            <CardDescription>Lecture rapide des blocs les plus fournis.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {contentData.length ? <SnippetContentChart data={contentData} /> : <EmptyChart label="Le volume apparaîtra après l’ajout de contenu." />}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Répartition par canal</CardTitle>
-            <CardDescription>Email, WhatsApp et SMS dans la bibliothèque.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {channelData.length ? <SnippetChannelChart data={channelData} /> : <EmptyChart label="Aucun snippet créé." height="h-[220px]" />}
-          </CardContent>
-        </Card>
-      </div>
+      <CompactMetrics summary={summary} limit={limit} currentCount={currentCount} planLabel={planLabel} />
 
       <Card>
         <SnippetFilters
@@ -217,20 +215,92 @@ export function SnippetsClient({
         <SnippetTable
           snippets={filtered}
           pending={isPending}
+          copiedKey={copiedKey}
           onPreview={setPreviewSnippet}
+          onCopy={copySnippet}
           onDelete={setDeleteTarget}
           onCreate={() => setCreateOpen(true)}
         />
       </Card>
 
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Analyse</h2>
+          <p className="mt-1 text-pretty text-sm text-zinc-500 dark:text-zinc-400">
+            Vue secondaire pour comprendre le volume et la répartition de votre bibliothèque.
+          </p>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Longueur des snippets</CardTitle>
+              <CardDescription>Blocs les plus fournis.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {contentData.length ? <SnippetContentChart data={contentData} /> : <EmptyChart label="Ajoutez du contenu pour afficher le volume." />}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Répartition par canal</CardTitle>
+              <CardDescription>Email et WhatsApp dans la bibliothèque.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {channelData.length ? <SnippetChannelChart data={channelData} /> : <EmptyChart label="Aucun snippet créé." height="h-[220px]" />}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
       <CreateSnippetDialog open={createOpen} pending={isCreating} state={createState} onOpenChange={setCreateOpen} formAction={formAction} />
-      <PreviewSnippetDialog snippet={previewSnippet} onOpenChange={(open) => !open && setPreviewSnippet(null)} />
+      <PreviewSnippetDialog
+        snippet={previewSnippet}
+        copied={previewSnippet ? copiedKey === `${previewSnippet.id}:text` : false}
+        onCopy={(snippet) => copySnippet(snippet, "text")}
+        onOpenChange={(open) => !open && setPreviewSnippet(null)}
+      />
       <DeleteSnippetDialog snippet={deleteTarget} pending={isPending} onOpenChange={(open) => !open && setDeleteTarget(null)} onConfirm={confirmDelete} />
     </div>
   );
 }
 
-function EmptyChart({ label, height = "h-[260px]" }: { label: string; height?: string }) {
+function CompactMetrics({
+  summary,
+  limit,
+  currentCount,
+  planLabel,
+}: {
+  summary: ReturnType<typeof buildSummary>;
+  limit: number;
+  currentCount: number;
+  planLabel: string;
+}) {
+  const metrics = [
+    { label: "Total", value: formatNumber(summary.total), hint: "snippets" },
+    { label: "Prêts", value: formatNumber(summary.withContent), hint: `${formatNumber(Math.max(summary.total - summary.withContent, 0))} à compléter` },
+    { label: "Email", value: formatNumber(summary.email), hint: "blocs email" },
+    { label: "WhatsApp", value: formatNumber(summary.whatsapp), hint: "messages prêts" },
+    { label: "Plan", value: limit === -1 ? "∞" : formatNumber(limit), hint: `${formatNumber(currentCount)} utilisés · ${planLabel}` },
+  ];
+
+  return (
+    <Card>
+      <CardContent className="grid gap-0 p-0 sm:grid-cols-2 lg:grid-cols-5">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="border-b border-zinc-200 px-4 py-3 last:border-b-0 sm:[&:nth-last-child(-n+1)]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0 dark:border-zinc-800">
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{metric.label}</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <p className="font-mono text-xl font-semibold tabular-nums text-zinc-950 dark:text-zinc-50">{metric.value}</p>
+              <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{metric.hint}</p>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EmptyChart({ label, height = "h-[220px]" }: { label: string; height?: string }) {
   return <div className={`flex ${height} items-center justify-center text-center text-sm text-zinc-500`}>{label}</div>;
 }
 
@@ -247,12 +317,17 @@ function SnippetFilters(props: {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <CardTitle>Bibliothèque</CardTitle>
-          <CardDescription>Filtrez par canal, nom, description ou contenu.</CardDescription>
+          <CardDescription className="text-pretty">Retrouvez un bloc, copiez-le, puis adaptez-le dans votre campagne.</CardDescription>
         </div>
-        <div className="grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_12rem]">
-          <Input value={props.search} onChange={(event) => props.onSearch(event.target.value)} placeholder="Rechercher..." />
+        <div className="grid gap-2 sm:grid-cols-[minmax(14rem,1fr)_12rem]">
+          <Input
+            value={props.search}
+            onChange={(event) => props.onSearch(event.target.value)}
+            placeholder="Rechercher un snippet..."
+            className="min-h-10"
+          />
           <Select value={props.sortBy} onValueChange={props.onSort}>
-            <SelectTrigger>
+            <SelectTrigger className="min-h-10">
               <ArrowUpDown className="h-4 w-4" />
               <SelectValue />
             </SelectTrigger>
@@ -266,9 +341,9 @@ function SnippetFilters(props: {
       </div>
       <Tabs value={props.channel} onValueChange={props.onChannel}>
         <TabsList className="h-auto flex-wrap justify-start">
-          <TabsTrigger value="ALL">Tous les canaux</TabsTrigger>
-          <TabsTrigger value="EMAIL" className="gap-2"><Mail className="h-4 w-4" />Email</TabsTrigger>
-          <TabsTrigger value="WHATSAPP" className="gap-2"><MessageCircle className="h-4 w-4" />WhatsApp</TabsTrigger>
+          <TabsTrigger value="ALL" className="min-h-10">Tous les canaux</TabsTrigger>
+          <TabsTrigger value="EMAIL" className="min-h-10 gap-2"><Mail className="h-4 w-4" />Email</TabsTrigger>
+          <TabsTrigger value="WHATSAPP" className="min-h-10 gap-2"><MessageCircle className="h-4 w-4" />WhatsApp</TabsTrigger>
         </TabsList>
       </Tabs>
     </CardHeader>
@@ -278,13 +353,17 @@ function SnippetFilters(props: {
 function SnippetTable({
   snippets,
   pending,
+  copiedKey,
   onPreview,
+  onCopy,
   onDelete,
   onCreate,
 }: {
   snippets: Snippet[];
   pending: boolean;
+  copiedKey: string;
   onPreview: (snippet: Snippet) => void;
+  onCopy: (snippet: Snippet, format: "text" | "html") => void;
   onDelete: (snippet: Snippet) => void;
   onCreate: () => void;
 }) {
@@ -295,39 +374,64 @@ function SnippetTable({
           <TableRow>
             <TableHead>Snippet</TableHead>
             <TableHead>Canal</TableHead>
-            <TableHead className="text-right">Mots</TableHead>
-            <TableHead className="text-right">Caractères</TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead className="text-right">Volume</TableHead>
             <TableHead>Créé le</TableHead>
-            <TableHead className="w-12" />
+            <TableHead className="min-w-32 text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {snippets.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="h-32 text-center">
-                <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-zinc-500">
+                <div className="mx-auto flex max-w-md flex-col items-center gap-3 text-zinc-500">
                   <Code className="h-8 w-8 text-zinc-400" />
-                  <p className="text-sm">Aucun snippet ne correspond aux filtres.</p>
-                  <Button type="button" variant="outline" onClick={onCreate}>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">Aucun snippet disponible.</p>
+                    <p className="text-pretty text-sm">
+                      Créez des signatures, relances, introductions ou réponses fréquentes pour les réutiliser en un clic.
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" onClick={onCreate} className="min-h-10">
                     <Plus className="h-4 w-4" />
-                    Créer un snippet
+                    Nouveau snippet
                   </Button>
                 </div>
               </TableCell>
             </TableRow>
           ) : snippets.map((snippet) => (
             <TableRow key={snippet.id}>
-              <TableCell>
+              <TableCell className="min-w-[18rem]">
                 <p className="truncate font-medium text-zinc-950 dark:text-zinc-50">{snippet.name}</p>
                 <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
                   {snippet.description || getPlainText(snippet.htmlContent) || "Aucun contenu enregistré."}
                 </p>
               </TableCell>
               <TableCell><ChannelBadge channel={snippet.channel} /></TableCell>
-              <TableCell className="text-right font-mono">{formatNumber(getWordCount(snippet))}</TableCell>
-              <TableCell className="text-right font-mono">{formatNumber(getCharacterCount(snippet))}</TableCell>
+              <TableCell><SnippetStatusBadge ready={hasContent(snippet)} /></TableCell>
+              <TableCell className="text-right text-xs text-zinc-500">
+                <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">{formatNumber(getWordCount(snippet))}</span> mots
+                <span className="mx-1 text-zinc-300">·</span>
+                <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">{formatNumber(getCharacterCount(snippet))}</span> car.
+              </TableCell>
               <TableCell className="text-sm text-zinc-500">{formatDate(snippet.createdAt)}</TableCell>
-              <TableCell><SnippetActions snippet={snippet} pending={pending} onPreview={onPreview} onDelete={onDelete} /></TableCell>
+              <TableCell>
+                <SnippetActions
+                  snippet={snippet}
+                  pending={pending}
+                  copied={
+                    copiedKey === `${snippet.id}:text`
+                      ? "text"
+                      : copiedKey === `${snippet.id}:html`
+                        ? "html"
+                        : null
+                  }
+                  onPreview={onPreview}
+                  onCopyText={(target) => onCopy(target, "text")}
+                  onCopyHtml={(target) => onCopy(target, "html")}
+                  onDelete={onDelete}
+                />
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -391,7 +495,19 @@ function CreateSnippetDialog({
   );
 }
 
-function PreviewSnippetDialog({ snippet, onOpenChange }: { snippet: Snippet | null; onOpenChange: (open: boolean) => void }) {
+function PreviewSnippetDialog({
+  snippet,
+  copied,
+  onCopy,
+  onOpenChange,
+}: {
+  snippet: Snippet | null;
+  copied: boolean;
+  onCopy: (snippet: Snippet) => void;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const ready = snippet ? hasContent(snippet) : false;
+
   return (
     <Dialog open={!!snippet} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl">
@@ -403,19 +519,31 @@ function PreviewSnippetDialog({ snippet, onOpenChange }: { snippet: Snippet | nu
         </DialogHeader>
         <div className="min-h-[320px] overflow-hidden rounded-lg border bg-zinc-950">
           {snippet ? (
-            <iframe
-              srcDoc={wrapHtmlForPreview(snippet.htmlContent)}
-              sandbox="allow-same-origin"
-              title={`Prévisualisation de ${snippet.name}`}
-              className="h-[55vh] min-h-[320px] w-full border-0"
-            />
+            ready ? (
+              <iframe
+                srcDoc={wrapHtmlForPreview(snippet.htmlContent)}
+                sandbox="allow-same-origin"
+                title={`Prévisualisation de ${snippet.name}`}
+                className="h-[55vh] min-h-[320px] w-full border-0"
+              />
+            ) : (
+              <div className="flex min-h-[320px] items-center justify-center px-6 text-center text-sm text-zinc-400">
+                Ce snippet ne contient pas encore de texte. Éditez-le pour le rendre réutilisable.
+              </div>
+            )
           ) : null}
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:justify-between">
           {snippet ? (
-            <Button asChild>
-              <Link href={`/dashboard/snippets/${snippet.id}/edit`}>Éditer</Link>
-            </Button>
+            <>
+              <Button type="button" variant={copied ? "secondary" : "outline"} onClick={() => onCopy(snippet)} disabled={!ready}>
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? "Copié" : "Copier"}
+              </Button>
+              <Button asChild>
+                <Link href={`/dashboard/snippets/${snippet.id}/edit`}>Éditer</Link>
+              </Button>
+            </>
           ) : null}
         </DialogFooter>
       </DialogContent>

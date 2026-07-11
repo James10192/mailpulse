@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import type { ElementType } from "react";
-import { Edit, Ellipsis, Eye, Mail, MessageCircle, Trash2 } from "lucide-react";
+import { Check, Code2, Edit, Ellipsis, Eye, Mail, MessageCircle, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,33 +13,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { channelLabels, type Snippet, type SnippetChannel } from "./snippets-types";
-
-export function MetricCard({
-  label,
-  value,
-  description,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  description: string;
-  icon: ElementType;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex-row items-start justify-between gap-3 pb-3">
-        <div>
-          <CardDescription>{label}</CardDescription>
-          <CardTitle className="mt-2 font-mono text-2xl">{value}</CardTitle>
-        </div>
-        <Icon className="h-5 w-5 shrink-0 text-zinc-400" />
-      </CardHeader>
-      <CardContent>
-        <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">{description}</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 export function ChannelBadge({ channel }: { channel: SnippetChannel }) {
   const variant = channel === "WHATSAPP" ? "success" : channel === "SMS" ? "secondary" : "default";
@@ -55,41 +26,74 @@ export function ChannelBadge({ channel }: { channel: SnippetChannel }) {
   );
 }
 
+export function SnippetStatusBadge({ ready }: { ready: boolean }) {
+  return (
+    <Badge variant={ready ? "success" : "secondary"} className="whitespace-nowrap">
+      {ready ? "Prêt" : "À compléter"}
+    </Badge>
+  );
+}
+
 export function SnippetActions({
   snippet,
   pending,
+  copied,
   onPreview,
+  onCopyText,
+  onCopyHtml,
   onDelete,
 }: {
   snippet: Snippet;
   pending: boolean;
+  copied: "text" | "html" | null;
   onPreview: (snippet: Snippet) => void;
+  onCopyText: (snippet: Snippet) => void;
+  onCopyHtml: (snippet: Snippet) => void;
   onDelete: (snippet: Snippet) => void;
 }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" disabled={pending} aria-label="Actions snippet">
-          <Ellipsis className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => onPreview(snippet)}>
-          <Eye className="h-4 w-4" />
-          Prévisualiser
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href={`/dashboard/snippets/${snippet.id}/edit`}>
-            <Edit className="h-4 w-4" />
-            Éditer
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => onDelete(snippet)} className="text-red-600 focus:text-red-600">
-          <Trash2 className="h-4 w-4" />
-          Supprimer
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex items-center justify-end gap-1.5">
+      <Button
+        type="button"
+        variant={copied === "text" ? "secondary" : "outline"}
+        size="sm"
+        disabled={pending}
+        onClick={() => onCopyText(snippet)}
+        className="min-h-10 min-w-[5.75rem]"
+      >
+        {copied === "text" ? <Check className="h-4 w-4" /> : null}
+        {copied === "text" ? "Copié" : "Copier"}
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" disabled={pending} aria-label="Actions snippet">
+            <Ellipsis className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => onPreview(snippet)}>
+            <Eye className="h-4 w-4" />
+            Prévisualiser
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href={`/dashboard/snippets/${snippet.id}/edit`}>
+              <Edit className="h-4 w-4" />
+              Éditer
+            </Link>
+          </DropdownMenuItem>
+          {snippet.channel === "EMAIL" ? (
+            <DropdownMenuItem onSelect={() => onCopyHtml(snippet)}>
+              {copied === "html" ? <Check className="h-4 w-4" /> : <Code2 className="h-4 w-4" />}
+              {copied === "html" ? "HTML copié" : "Copier le HTML"}
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => onDelete(snippet)} className="text-red-600 focus:text-red-600">
+            <Trash2 className="h-4 w-4" />
+            Supprimer
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
