@@ -9,6 +9,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock3,
+  Edit,
   Eye,
   Mail,
   MessageCircle,
@@ -16,7 +17,6 @@ import {
   Plus,
   Send,
   Sparkles,
-  Users,
 } from "lucide-react";
 
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
@@ -50,7 +50,7 @@ import {
   type CampaignSort,
   type SenderInfo,
 } from "./campaigns-types";
-import { CampaignActions, ChannelBadge, MetricCard, StatusBadge } from "./campaigns-ui";
+import { CampaignActions, ChannelBadge, StatusBadge } from "./campaigns-ui";
 
 const sortOptions: Array<{ label: string; value: CampaignSort }> = [
   { label: "Plus récentes", value: "date-desc" },
@@ -158,9 +158,9 @@ export function CampaignsClient({
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Campagnes</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-            Pilotage des campagnes email et WhatsApp, avec performance, audience et état d’envoi.
+          <h1 className="text-balance text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Campagnes</h1>
+          <p className="mt-2 max-w-2xl text-pretty text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+            Créez, retrouvez et pilotez vos campagnes email et WhatsApp.
           </p>
         </div>
         <Button asChild>
@@ -171,29 +171,7 @@ export function CampaignsClient({
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Campagnes" value={formatNumber(summary.total)} description={`${formatNumber(summary.email)} email · ${formatNumber(summary.whatsapp)} WhatsApp · ${formatNumber(summary.active)} actives`} icon={BarChart3} />
-        <MetricCard label="Volume envoyé" value={formatNumber(summary.sentVolume)} description={`${formatNumber(summary.sent)} terminées · ${formatNumber(summary.drafts)} brouillons`} icon={Send} />
-        <MetricCard label="Audience cumulée" value={formatNumber(summary.recipients)} description="Total des destinataires associés aux campagnes listées." icon={Users} />
-        <MetricCard label="Engagement" value={formatRate(summary.sentVolume > 0 ? ((summary.opened + summary.clickedOrReplied) / summary.sentVolume) * 100 : 0)} description={`${formatNumber(summary.opened)} ouvertures ou lectures · ${formatNumber(summary.clickedOrReplied)} clics ou réponses`} icon={MousePointerClick} />
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.8fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance par campagne</CardTitle>
-            <CardDescription>Envois, ouvertures, clics email et réponses WhatsApp.</CardDescription>
-          </CardHeader>
-          <CardContent>{performanceData.length ? <CampaignPerformanceChart data={performanceData} /> : <EmptyChart label="Les performances apparaîtront après les premiers envois." />}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Répartition par canal</CardTitle>
-            <CardDescription>Lecture immédiate du poids email et WhatsApp.</CardDescription>
-          </CardHeader>
-          <CardContent>{channelData.length ? <CampaignChannelChart data={channelData} /> : <EmptyChart label="Aucune campagne créée." height="h-[220px]" />}</CardContent>
-        </Card>
-      </div>
+      <CompactKpiBar summary={summary} />
 
       <Card>
         <CampaignFilters search={search} status={status} sortBy={sortBy} channel={channel} onSearch={setSearch} onStatus={setStatus} onSort={(value) => setSortBy(value as CampaignSort)} onChannel={setChannel} />
@@ -208,6 +186,31 @@ export function CampaignsClient({
         />
       </Card>
 
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-balance text-lg font-semibold text-zinc-950 dark:text-zinc-50">Analyse</h2>
+          <p className="mt-1 text-pretty text-sm text-zinc-500 dark:text-zinc-400">
+            Consultez les tendances une fois les campagnes envoyées.
+          </p>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.8fr)]">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Performance par campagne</CardTitle>
+              <CardDescription>Envois, ouvertures, clics email et réponses WhatsApp.</CardDescription>
+            </CardHeader>
+            <CardContent>{performanceData.length ? <CampaignPerformanceChart data={performanceData} /> : <EmptyChart label="Les performances apparaîtront après les premiers envois." />}</CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Répartition par canal</CardTitle>
+              <CardDescription>Poids email, WhatsApp et SMS dans vos campagnes.</CardDescription>
+            </CardHeader>
+            <CardContent>{channelData.length ? <CampaignChannelChart data={channelData} /> : <EmptyChart label="Aucune campagne créée." height="h-[220px]" />}</CardContent>
+          </Card>
+        </div>
+      </section>
+
       <CampaignDetailSheet campaign={selectedCampaign} onOpenChange={(open) => !open && setSelectedCampaign(null)} />
       <ConfirmCampaignAction type="delete" open={!!deleteId} pending={isPending} onOpenChange={(open) => !open && setDeleteId(null)} onConfirm={() => runAction("delete")} />
       <ConfirmCampaignAction type="cancel" open={!!cancelId} pending={isPending} onOpenChange={(open) => !open && setCancelId(null)} onConfirm={() => runAction("cancel")} />
@@ -217,6 +220,40 @@ export function CampaignsClient({
 
 function EmptyChart({ label, height = "h-[260px]" }: { label: string; height?: string }) {
   return <div className={`flex ${height} items-center justify-center text-center text-sm text-zinc-500`}>{label}</div>;
+}
+
+function CompactKpiBar({ summary }: { summary: ReturnType<typeof buildSummary> }) {
+  const engagement = summary.sentVolume > 0
+    ? ((summary.opened + summary.clickedOrReplied) / summary.sentVolume) * 100
+    : 0;
+  const items = [
+    { label: "Total", value: formatNumber(summary.total), detail: `${formatNumber(summary.email)} email · ${formatNumber(summary.whatsapp)} WhatsApp`, icon: BarChart3 },
+    { label: "Actives", value: formatNumber(summary.active), detail: `${formatNumber(summary.drafts)} brouillon${summary.drafts > 1 ? "s" : ""}`, icon: Clock3 },
+    { label: "Envoyées", value: formatNumber(summary.sent), detail: `${formatNumber(summary.sentVolume)} envois`, icon: Send },
+    { label: "Engagement", value: formatRate(engagement), detail: `${formatNumber(summary.opened)} lectures · ${formatNumber(summary.clickedOrReplied)} réponses`, icon: MousePointerClick },
+  ];
+
+  return (
+    <div className="grid overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(24,24,27,0.04)] sm:grid-cols-2 xl:grid-cols-4 dark:border-zinc-800 dark:bg-zinc-900/55">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <div key={item.label} className="flex min-h-16 items-center gap-3 border-b border-zinc-100 px-4 py-3 last:border-b-0 sm:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r xl:last:border-r-0 dark:border-zinc-800">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400">
+              <Icon className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">{item.label}</p>
+              <div className="mt-0.5 flex min-w-0 items-baseline gap-2">
+                <p className="font-mono text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-50">{item.value}</p>
+                <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{item.detail}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function CampaignFilters(props: {
@@ -281,12 +318,13 @@ function CampaignTable({
 }) {
   return (
     <CardContent>
-      <Table>
+      <Table className="min-w-[960px]">
         <TableHeader>
           <TableRow>
             <TableHead>Campagne</TableHead>
-            <TableHead>Canal</TableHead>
             <TableHead>Statut</TableHead>
+            <TableHead>Prochaine action</TableHead>
+            <TableHead>Canal</TableHead>
             <TableHead>Audience</TableHead>
             <TableHead className="text-right">Ouverture/Lecture</TableHead>
             <TableHead className="text-right">Clic/Réponse</TableHead>
@@ -337,8 +375,13 @@ function CampaignTable({
                 <p className="truncate font-medium text-zinc-950 dark:text-zinc-50">{campaign.name}</p>
                 <p className="mt-1 truncate text-xs text-zinc-500">{campaign.channel === "EMAIL" ? campaign.subject || "Sans sujet" : campaign.previewText || "Message WhatsApp"}</p>
               </TableCell>
+              <TableCell>
+                <StatusBadge status={campaign.status} />
+              </TableCell>
+              <TableCell onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+                <CampaignNextAction campaign={campaign} onOpenDetail={onOpenDetail} />
+              </TableCell>
               <TableCell><ChannelBadge channel={campaign.channel} /></TableCell>
-              <TableCell><StatusBadge status={campaign.status} /></TableCell>
               <TableCell><span className="font-mono">{formatNumber(campaign._count?.recipients ?? 0)}</span><p className="mt-1 text-xs text-zinc-500">{campaign.contactList?.name ?? "Tous les contacts"}</p></TableCell>
               <TableCell className="text-right font-mono">{formatRate(getOpenRate(campaign))}</TableCell>
               <TableCell className="text-right font-mono">{formatRate(getClickOrReplyRate(campaign))}</TableCell>
@@ -350,6 +393,50 @@ function CampaignTable({
         </TableBody>
       </Table>
     </CardContent>
+  );
+}
+
+function CampaignNextAction({ campaign, onOpenDetail }: { campaign: Campaign; onOpenDetail: (campaign: Campaign) => void }) {
+  if (campaign.status === "DRAFT") {
+    const href = campaign.subject ? `/dashboard/campaigns/${campaign.id}/send` : `/dashboard/campaigns/${campaign.id}/edit`;
+    const label = campaign.subject ? "Envoyer" : "Éditer";
+    const Icon = campaign.subject ? Send : Edit;
+
+    return (
+      <Button asChild size="sm" variant={campaign.subject ? "default" : "outline"} className="min-h-10">
+        <Link href={href}>
+          <Icon className="h-4 w-4" />
+          {label}
+        </Link>
+      </Button>
+    );
+  }
+
+  if (campaign.status === "SENT") {
+    return (
+      <Button type="button" size="sm" variant="outline" className="min-h-10" onClick={() => onOpenDetail(campaign)}>
+        <BarChart3 className="h-4 w-4" />
+        Analyser
+      </Button>
+    );
+  }
+
+  if (campaign.status === "SCHEDULED" || campaign.status === "SENDING") {
+    return (
+      <Button type="button" size="sm" variant="outline" className="min-h-10" onClick={() => onOpenDetail(campaign)}>
+        <Clock3 className="h-4 w-4" />
+        Suivre
+      </Button>
+    );
+  }
+
+  return (
+    <Button asChild size="sm" variant="outline" className="min-h-10">
+      <Link href={`/dashboard/campaigns/${campaign.id}/edit`}>
+        <Edit className="h-4 w-4" />
+        Reprendre
+      </Link>
+    </Button>
   );
 }
 
