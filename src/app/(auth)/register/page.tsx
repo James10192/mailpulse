@@ -128,9 +128,10 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="grid min-h-screen bg-zinc-950 text-zinc-100 lg:grid-cols-2">
-      <section className="relative hidden overflow-hidden border-r border-zinc-800 bg-zinc-950 lg:flex">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_20%,rgba(234,88,12,0.18),transparent_36%)]" />
+    <main className="grid min-h-screen overflow-hidden bg-zinc-950 text-zinc-100 lg:grid-cols-[0.9fr_1.1fr]">
+      <section className="relative hidden overflow-hidden bg-zinc-950 shadow-[inset_-1px_0_0_rgba(255,255,255,0.08)] lg:flex">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[linear-gradient(180deg,rgba(249,115,22,0.16),transparent)]" />
+        <div className="pointer-events-none absolute inset-y-12 right-0 w-px bg-orange-500/30" />
         <div className="relative z-10 flex w-full flex-col justify-between p-12">
           <BrandMark className="text-lg text-zinc-50" />
 
@@ -149,7 +150,7 @@ export default function RegisterPage() {
             <div className="space-y-3">
               {features.map((feature) => (
                 <div key={feature.text} className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-orange-500/20 bg-orange-500/10">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/10 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.24)]">
                     <feature.icon className="h-4 w-4 text-orange-500" />
                   </span>
                   <span className="text-sm text-zinc-300">{feature.text}</span>
@@ -162,8 +163,9 @@ export default function RegisterPage() {
         </div>
       </section>
 
-      <section className="flex items-center justify-center px-4 py-12 sm:px-6">
-        <Card className="w-full max-w-sm border-0 bg-transparent text-zinc-100 shadow-none">
+      <section className="relative flex items-center justify-center px-4 py-12 sm:px-6">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,rgba(249,115,22,0.1),transparent)] lg:hidden" />
+        <Card className="relative w-full max-w-md border-0 bg-zinc-950/95 p-6 text-zinc-100 shadow-[var(--shadow-overlay)] ring-1 ring-white/10 sm:p-8">
           <CardHeader className="p-0 pb-8">
             <div className="mb-4 lg:hidden">
               <BrandMark className="text-xl text-zinc-50" />
@@ -173,11 +175,11 @@ export default function RegisterPage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="space-y-2.5">
-              <Button type="button" variant="outline" disabled={googleLoading} className="w-full border-zinc-800 bg-zinc-900/50 text-zinc-100 hover:bg-zinc-900" onClick={handleGoogle}>
+              <Button type="button" variant="outline" disabled={googleLoading} className="w-full bg-zinc-900/80 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:bg-zinc-900" onClick={handleGoogle}>
                 <GoogleIcon />
                 {googleLoading ? "Connexion..." : "Continuer avec Google"}
               </Button>
-              <Button type="button" variant="outline" className="w-full border-zinc-800 bg-zinc-900/50 text-zinc-100 hover:bg-zinc-900" onClick={handleGitHub}>
+              <Button type="button" variant="outline" className="w-full bg-zinc-900/80 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:bg-zinc-900" onClick={handleGitHub}>
                 <GitHubIcon />
                 Continuer avec GitHub
               </Button>
@@ -190,7 +192,7 @@ export default function RegisterPage() {
             </div>
 
             {error && (
-              <div className="mb-4 rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-300">
+              <div className="mb-4 rounded-lg bg-red-400/10 px-4 py-3 text-sm text-red-300 shadow-[inset_0_0_0_1px_rgba(248,113,113,0.24)]">
                 {error}
               </div>
             )}
@@ -224,7 +226,7 @@ export default function RegisterPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowPassword((value) => !value)}
-                    className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 text-zinc-500 hover:bg-transparent hover:text-zinc-200"
+                    className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>

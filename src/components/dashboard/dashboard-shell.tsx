@@ -246,7 +246,7 @@ function SidebarProBadge({ compact = false }: { compact?: boolean }) {
   return (
     <Badge
       variant="default"
-      className={cn("ml-auto h-5 px-1 text-[8px] uppercase group-data-[collapsible=icon]:hidden", compact && "text-[7px]")}
+      className={cn("ml-auto h-5 px-1.5 text-[8px] uppercase tracking-wide group-data-[collapsible=icon]:hidden", compact && "text-[7px]")}
     >
       Pro
     </Badge>
@@ -261,8 +261,8 @@ function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <Sidebar data-tour="sidebar" collapsible="icon" style={{ viewTransitionName: "persistent-sidebar" }}>
-      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border">
-        <BrandMark href="/dashboard" compact={collapsed} className="px-2 text-base" />
+      <SidebarHeader className="h-16 justify-center bg-sidebar/95">
+        <BrandMark href="/dashboard" compact={collapsed} className="px-2 text-base font-semibold" />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -351,7 +351,7 @@ function SearchTrigger() {
       variant="outline"
       data-tour="search"
       onClick={() => deferDashboardEvent("open-command-palette")}
-      className="hidden h-9 items-center gap-2 px-3 text-sm text-muted-foreground md:flex"
+      className="hidden h-10 min-w-64 items-center justify-start gap-2 px-3 text-sm text-muted-foreground md:flex xl:min-w-80"
     >
       <Search className="size-3.5" />
       <span>Rechercher...</span>
@@ -387,7 +387,7 @@ function HeaderFeedbackButton() {
       variant="outline"
       size="sm"
       onClick={() => deferDashboardEvent("open-feedback-widget")}
-      className="hidden h-9 sm:inline-flex"
+      className="hidden h-10 sm:inline-flex"
     >
       <MessageSquare className="size-4" />
       Avis
@@ -451,10 +451,10 @@ function DashboardContent({ children, isAdmin }: { children: React.ReactNode; is
       <DashboardRoutePrefetcher isAdmin={isAdmin} />
       <PresenceHeartbeat />
       <AppSidebar isAdmin={isAdmin} />
-      <SidebarInset className="h-svh min-w-0 overflow-hidden">
+      <SidebarInset className="h-svh min-w-0 overflow-hidden bg-zinc-50 dark:bg-zinc-950">
         <header
           style={{ viewTransitionName: "persistent-header" }}
-          className="flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background px-3 md:px-6"
+          className="flex h-16 shrink-0 items-center justify-between gap-3 bg-white/92 px-3 shadow-[inset_0_-1px_0_rgba(24,24,27,0.1)] backdrop-blur md:px-6 dark:bg-zinc-950/88 dark:shadow-[inset_0_-1px_0_rgba(255,255,255,0.08)]"
         >
           <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger className="md:hidden" />
@@ -477,7 +477,9 @@ function DashboardContent({ children, isAdmin }: { children: React.ReactNode; is
           </div>
         </header>
         <CommandPalette />
-        <main className="flex-1 overflow-y-auto bg-zinc-50 p-4 dark:bg-zinc-950 md:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-[linear-gradient(180deg,rgba(249,115,22,0.035),transparent_220px),#fafafa] p-4 dark:bg-[linear-gradient(180deg,rgba(249,115,22,0.055),transparent_240px),#09090b] md:p-6">
+          <div className="mx-auto w-full max-w-[1500px]">{children}</div>
+        </main>
         <FeedbackWidget />
         <AutoTour />
         <WhatsNewModal />

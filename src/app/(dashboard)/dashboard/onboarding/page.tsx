@@ -70,11 +70,11 @@ const INITIAL_DATA: OnboardingData = {
 // ---------------------------------------------------------------------------
 
 const STEPS = [
-  { label: "Details", title: "Parlez-nous de votre entreprise" },
+  { label: "D?tails", title: "Parlez-nous de votre entreprise" },
   { label: "Besoins", title: "Parlez-nous de vos besoins" },
   { label: "Domaine", title: "Configurez votre domaine d'envoi" },
-  { label: "Expediteur", title: "Configurez votre expediteur" },
-  { label: "Termine", title: "Vous etes pret !" },
+  { label: "Exp?diteur", title: "Configurez votre exp?diteur" },
+  { label: "Termin?", title: "Vous ?tes pr?t !" },
 ];
 
 const SUBSCRIBER_OPTIONS = [
@@ -116,9 +116,9 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
         return (
           <div
             key={i}
-            className={`h-2 flex-1 rounded-full transition-all duration-500 ${
+            className={`h-2 flex-1 rounded-full transition-[background-color,box-shadow] duration-500 ${
               filled
-                ? "bg-gradient-to-r from-blue-500 to-orange-500"
+                ? "bg-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.28)]"
                 : "border border-dashed border-zinc-700 bg-transparent"
             }`}
           />
@@ -175,7 +175,7 @@ function StepDetails({
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
           <Share2 size={16} className="text-zinc-500" />
-          Profil de reseau social
+          Profil de r?seau social
         </label>
         <input
           type="text"
@@ -190,7 +190,7 @@ function StepDetails({
       <div className="space-y-3">
         <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
           <Users size={16} className="text-zinc-500" />
-          Combien d&apos;abonnes avez-vous ?
+          Combien d&apos;abonn?s avez-vous ?
         </label>
         <div className="grid grid-cols-2 gap-3">
           {SUBSCRIBER_OPTIONS.map((option) => (
@@ -219,7 +219,7 @@ function StepDetails({
         <textarea
           value={data.usageDescription}
           onChange={(e) => onChange({ usageDescription: e.target.value })}
-          placeholder="Decrivez brievement votre cas d'utilisation..."
+          placeholder="D?crivez bri?vement votre cas d'utilisation..."
           rows={3}
           className="w-full resize-none rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/25"
         />
@@ -280,7 +280,7 @@ function StepSurvey({
           Que souhaitez-vous faire ?
         </label>
         <p className="text-xs text-zinc-500">
-          Selectionnez tous les objectifs qui vous correspondent.
+          S?lectionnez tous les objectifs qui vous correspondent.
         </p>
         <div className="grid grid-cols-2 gap-3">
           {GOAL_OPTIONS.map((goal) => {
@@ -382,14 +382,14 @@ function StepSender({
   return (
     <div className="space-y-6">
       <p className="text-sm text-zinc-400">
-        Configurez les informations qui apparaitront dans les emails envoyes a
+        Configurez les informations qui appara?tront dans les emails envoy?s ?
         vos contacts.
       </p>
 
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
           <Users size={16} className="text-zinc-500" />
-          Nom de l&apos;expediteur
+          Nom de l&apos;exp?diteur
         </label>
         <input
           type="text"
@@ -417,7 +417,7 @@ function StepSender({
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
           <Reply size={16} className="text-zinc-500" />
-          Adresse de reponse
+          Adresse de r?ponse
           <span className="text-xs text-zinc-600">(optionnel)</span>
         </label>
         <input
@@ -442,23 +442,23 @@ function StepComplete() {
       {/* Success animation */}
       <div className="relative mb-8">
         <div className="absolute inset-0 animate-ping rounded-full bg-orange-500/20" />
-        <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-orange-500">
+        <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-orange-600 shadow-[0_16px_40px_rgba(234,88,12,0.28)]">
           <Check size={40} className="text-white" strokeWidth={3} />
         </div>
       </div>
 
       <h2 className="mb-3 text-2xl font-semibold text-zinc-100">
-        Felicitations !
+        F?licitations !
       </h2>
       <p className="max-w-sm text-sm leading-relaxed text-zinc-400">
-        Votre compte MailPulse est configure. Vous pouvez maintenant creer votre
-        premiere campagne, importer vos contacts, ou explorer le tableau de
+        Votre compte MailPulse est configur?. Vous pouvez maintenant cr?er votre
+        premi?re campagne, importer vos contacts, ou explorer le tableau de
         bord.
       </p>
 
       <div className="mt-8 flex items-center gap-2 text-xs text-zinc-600">
         <Sparkles size={14} />
-        Pret a envoyer vos premiers emails
+        Pr?t ? envoyer vos premiers emails
       </div>
     </div>
   );
@@ -495,7 +495,7 @@ export default function OnboardingPage() {
         goals: data.goals,
         discovery_source: data.discoverySource,
       });
-      // Final step — redirect to dashboard
+      // Final step, redirect to dashboard
       // TODO: persist onboarding data via API call
       router.push("/dashboard");
     }
@@ -504,12 +504,13 @@ export default function OnboardingPage() {
   const isLastStep = step === STEPS.length - 1;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-950 px-4 py-12">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,rgba(249,115,22,0.14),transparent)]" />
       <div className="w-full max-w-lg">
         <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Onboarding" }]} />
         {/* Logo / Brand */}
         <div className="mb-8 flex items-center justify-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-orange-500">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-600 shadow-[0_16px_40px_rgba(234,88,12,0.28)]">
             <Mail size={16} className="text-white" />
           </div>
           <span className="text-lg font-semibold text-zinc-100">
@@ -521,12 +522,12 @@ export default function OnboardingPage() {
         <div className="mb-6">
           <ProgressBar current={step + 1} total={STEPS.length} />
           <p className="mt-3 text-center text-xs text-zinc-500">
-            Etape {step + 1} sur {STEPS.length} &mdash; {STEPS[step].label}
+            ?tape {step + 1} sur {STEPS.length} ? {STEPS[step].label}
           </p>
         </div>
 
         {/* Card */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-8">
+        <div className="rounded-xl bg-zinc-950/95 p-8 shadow-[var(--shadow-overlay)] ring-1 ring-white/10">
           {/* Step title */}
           {step < STEPS.length - 1 && (
             <h1 className="mb-6 text-xl font-semibold text-zinc-100">
@@ -569,13 +570,13 @@ export default function OnboardingPage() {
               onClick={handleContinue}
               className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-medium transition ${
                 isLastStep
-                  ? "w-full justify-center bg-gradient-to-r from-blue-500 to-orange-500 text-white hover:from-blue-600 hover:to-orange-600"
-                  : "ml-auto bg-orange-500 text-white hover:bg-orange-600"
+                  ? "w-full justify-center bg-orange-600 text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_10px_24px_rgba(234,88,12,0.22)] hover:bg-orange-500"
+                  : "ml-auto bg-orange-600 text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset] hover:bg-orange-500"
               }`}
             >
               {isLastStep ? (
                 <>
-                  Acceder au dashboard
+                  Acc?der au dashboard
                   <ArrowRight size={16} />
                 </>
               ) : (
@@ -596,7 +597,7 @@ export default function OnboardingPage() {
               onClick={() => router.push("/dashboard")}
               className="text-xs text-zinc-600 underline-offset-4 transition hover:text-zinc-400 hover:underline"
             >
-              Passer cette etape
+              Passer cette ?tape
             </button>
           </p>
         )}

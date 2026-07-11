@@ -71,7 +71,7 @@ export function CaptureForm({
             type={field.type}
             required={field.required}
             placeholder={field.type === "email" ? "vous@exemple.com" : ""}
-            className="w-full px-3.5 py-2.5 bg-zinc-800/50 border border-zinc-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 transition-all text-zinc-100 placeholder:text-zinc-600"
+            className="h-11 w-full rounded-xl bg-zinc-900 px-3.5 text-sm text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] transition-[background-color,box-shadow] placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:shadow-[inset_0_0_0_1px_rgba(249,115,22,0.5)]"
           />
         </div>
       ))}
@@ -85,7 +85,7 @@ export function CaptureForm({
       <button
         type="submit"
         disabled={loading}
-        className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-semibold transition-all hover:shadow-lg hover:shadow-orange-500/20"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_10px_24px_rgba(234,88,12,0.22)] transition-[scale,background-color,opacity] hover:bg-orange-500 active:scale-[0.99] disabled:opacity-50"
       >
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin" />

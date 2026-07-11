@@ -153,7 +153,7 @@ export default function LandingPage() {
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] font-mono">
                 Vos campagnes email
                 <br />
-                <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-amber-500 bg-clip-text text-transparent">
+                <span className="text-orange-400">
                   et WhatsApp
                 </span>
               </h1>
@@ -172,7 +172,7 @@ export default function LandingPage() {
                 <LandingCTATracker location="hero">
                   <Link
                     href="/register"
-                    className="group inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-7 py-3.5 rounded-xl font-medium transition-all hover:shadow-xl hover:shadow-orange-500/25 hover:-translate-y-0.5"
+                    className="group inline-flex min-h-11 items-center gap-2 rounded-xl bg-orange-600 px-7 py-3.5 font-medium text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_10px_24px_rgba(234,88,12,0.2)] transition-[scale,background-color] hover:bg-orange-500 active:scale-[0.985]"
                   >
                     Commencer gratuitement
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -180,7 +180,7 @@ export default function LandingPage() {
                 </LandingCTATracker>
                 <a
                   href="#features"
-                  className="inline-flex items-center gap-2 text-zinc-400 hover:text-zinc-200 px-6 py-3.5 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-all text-sm"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl px-6 py-3.5 text-sm text-zinc-400 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition-[scale,color,box-shadow] hover:text-zinc-200 hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)] active:scale-[0.985]"
                 >
                   Decouvrir les features
                 </a>
@@ -290,10 +290,10 @@ export default function LandingPage() {
             <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {features.map((feature) => (
                 <StaggerItem key={feature.title}>
-                  <div className="group relative p-6 rounded-2xl border border-zinc-800/50 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300 h-full">
+                  <div className="group relative p-6 rounded-xl bg-zinc-900/45 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition-[background-color,box-shadow] hover:bg-zinc-900/70 hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] duration-300 h-full">
                     {/* Gradient accent on hover */}
                     <div
-                      className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
+                      className="absolute inset-0 rounded-xl bg-orange-500/[0.03] opacity-0 transition-opacity duration-500 group-hover:opacity-100"
                     />
                     <div className="relative">
                       <div className="inline-flex p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/10 mb-4">
@@ -415,7 +415,7 @@ export default function LandingPage() {
                   <div
                     className={`relative p-6 rounded-2xl border h-full flex flex-col ${
                       plan.highlighted
-                        ? "border-orange-500/30 bg-orange-500/5 shadow-lg shadow-orange-500/5"
+                        ? "border-orange-500/30 bg-orange-500/5 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.24)]"
                         : "border-zinc-800/50 bg-zinc-900/30"
                     }`}
                   >
@@ -454,9 +454,9 @@ export default function LandingPage() {
                     <LandingCTATracker location="pricing">
                       <Link
                         href={plan.cta === "Nous contacter" ? "/contact" : "/register"}
-                        className={`block text-center py-2.5 rounded-lg text-sm font-medium transition-all ${
+                        className={`block text-center py-2.5 rounded-lg text-sm font-medium transition-[scale,background-color,color,box-shadow] active:scale-[0.985] ${
                           plan.highlighted
-                            ? "bg-orange-600 hover:bg-orange-500 text-white hover:shadow-lg hover:shadow-orange-500/20"
+                            ? "bg-orange-600 hover:bg-orange-500 text-white "
                             : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
                         }`}
                       >
@@ -477,7 +477,7 @@ export default function LandingPage() {
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight font-mono">
                 Pret a envoyer des emails
                 <br />
-                <span className="bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
+                <span className="text-orange-400">
                   qui comptent ?
                 </span>
               </h2>
@@ -488,7 +488,7 @@ export default function LandingPage() {
                 <LandingCTATracker location="footer_cta">
                   <Link
                     href="/register"
-                    className="group inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-xl font-medium text-lg transition-all hover:shadow-xl hover:shadow-orange-500/25 hover:-translate-y-0.5"
+                    className="group inline-flex min-h-12 items-center gap-2 rounded-xl bg-orange-600 px-8 py-4 text-lg font-medium text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_10px_24px_rgba(234,88,12,0.2)] transition-[scale,background-color] hover:bg-orange-500 active:scale-[0.985]"
                   >
                     Creer mon compte
                     <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
@@ -520,7 +520,7 @@ export default function LandingPage() {
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* James */}
             <StaggerItem>
-              <div className="group relative p-6 rounded-2xl border border-zinc-800/50 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300 h-full">
+              <div className="group relative p-6 rounded-xl bg-zinc-900/45 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition-[background-color,box-shadow] hover:bg-zinc-900/70 hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] duration-300 h-full">
                 <div className="flex items-start gap-5">
                   <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-orange-500/10 border border-orange-500/10 text-orange-500 font-mono font-bold text-lg">
                     MD
@@ -568,7 +568,7 @@ export default function LandingPage() {
 
             {/* Ruben */}
             <StaggerItem>
-              <div className="group relative p-6 rounded-2xl border border-zinc-800/50 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-zinc-700/50 transition-all duration-300 h-full">
+              <div className="group relative p-6 rounded-xl bg-zinc-900/45 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition-[background-color,box-shadow] hover:bg-zinc-900/70 hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] duration-300 h-full">
                 <div className="flex items-start gap-5">
                   <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-orange-500/10 border border-orange-500/10 text-orange-500 font-mono font-bold text-lg">
                     YR

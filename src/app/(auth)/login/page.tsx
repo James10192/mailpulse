@@ -36,7 +36,7 @@ function GitHubIcon() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-950" />}>
+    <Suspense fallback={<div className="min-h-screen bg-zinc-950 text-zinc-100" />}>
       <LoginForm />
     </Suspense>
   );
@@ -104,8 +104,10 @@ function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12 text-zinc-100 sm:px-6">
-      <Card className="w-full max-w-sm border-0 bg-transparent text-zinc-100 shadow-none">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-950 px-4 py-12 text-zinc-100 sm:px-6">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,rgba(249,115,22,0.16),transparent)]" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-orange-500/30" />
+      <Card className="relative w-full max-w-md border-0 bg-zinc-950/95 p-6 text-zinc-100 shadow-[var(--shadow-overlay)] ring-1 ring-white/10 sm:p-8">
         <CardHeader className="items-center p-0 pb-8 text-center">
           <BrandMark className="mb-4 text-xl text-zinc-50" />
           <h1 className="text-2xl font-bold tracking-tight">Bon retour</h1>
@@ -113,15 +115,15 @@ function LoginForm() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="space-y-2.5">
-            <Button type="button" variant="outline" className="w-full border-zinc-800 bg-zinc-900/50 text-zinc-100 hover:bg-zinc-900" onClick={handleGoogle}>
+            <Button type="button" variant="outline" className="w-full bg-zinc-900/80 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:bg-zinc-900" onClick={handleGoogle}>
               <GoogleIcon />
               Continuer avec Google
             </Button>
-            <Button type="button" variant="outline" className="w-full border-zinc-800 bg-zinc-900/50 text-zinc-100 hover:bg-zinc-900" onClick={handleGitHub}>
+            <Button type="button" variant="outline" className="w-full bg-zinc-900/80 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:bg-zinc-900" onClick={handleGitHub}>
               <GitHubIcon />
               Continuer avec GitHub
             </Button>
-            <Button type="button" variant="outline" className="w-full border-orange-500/30 bg-orange-500/5 text-orange-400 hover:bg-orange-500/10" onClick={handlePasskey}>
+            <Button type="button" variant="outline" className="w-full bg-orange-500/10 text-orange-300 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.28)] hover:bg-orange-500/15" onClick={handlePasskey}>
               <Fingerprint className="h-5 w-5" />
               Se connecter avec une passkey
             </Button>
@@ -134,7 +136,7 @@ function LoginForm() {
           </div>
 
           {error && (
-            <div className="mb-4 rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-300">
+              <div className="mb-4 rounded-lg bg-red-400/10 px-4 py-3 text-sm text-red-300 shadow-[inset_0_0_0_1px_rgba(248,113,113,0.24)]">
               {error}
             </div>
           )}
@@ -167,7 +169,7 @@ function LoginForm() {
                   variant="ghost"
                   size="icon"
                   onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 text-zinc-500 hover:bg-transparent hover:text-zinc-200"
+                  className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
