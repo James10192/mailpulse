@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Send, Users, AtSign, AlertTriangle, Check, Loader2, ArrowLeft, Clock, CalendarDays, Tag, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { sendCampaign, scheduleCampaign } from "../../actions";
@@ -34,19 +33,16 @@ type AudienceMode = "all" | "segment" | "tag";
 export function SendCampaignClient({
   campaign,
   senders,
-  contactLists,
   subscribedCount,
   availableTags,
   availableSegments,
 }: {
   campaign: CampaignData;
   senders: SenderData[];
-  contactLists: ContactListData[];
   subscribedCount: number;
   availableTags: string[];
   availableSegments: ContactListData[];
 }) {
-  const router = useRouter();
   const [senderId, setSenderId] = useState(senders[0]?.id ?? "");
   const [audienceMode, setAudienceMode] = useState<AudienceMode>("all");
   const [selectedSegment, setSelectedSegment] = useState(availableSegments[0]?.id ?? "");
@@ -105,12 +101,12 @@ export function SendCampaignClient({
           <Check className="h-8 w-8 text-emerald-500" />
         </div>
         <h1 className="text-2xl font-semibold text-zinc-100 mb-2">
-          {sendMode === "schedule" ? "Campagne planifiee !" : "Campagne envoyee !"}
+          {sendMode === "schedule" ? "Campagne planifiée !" : "Campagne envoyée !"}
         </h1>
         <p className="text-zinc-500 mb-8">
           {sendMode === "schedule"
-            ? `« ${campaign.name} » sera envoyee le ${scheduledDate} a ${scheduledTime}.`
-            : `« ${campaign.name} » a ete envoyee. Les resultats apparaitront dans les analytics.`
+            ? `« ${campaign.name} » sera envoyée le ${scheduledDate} à ${scheduledTime}.`
+            : `« ${campaign.name} » a été envoyée. Les résultats apparaîtront dans les analytics.`
           }
         </p>
         <Link
@@ -152,14 +148,14 @@ export function SendCampaignClient({
           <div className="flex items-center gap-2 text-sm text-amber-500">
             <AlertTriangle className="h-4 w-4" />
             Le sujet est requis.
-            <Link href={`/dashboard/campaigns/${campaign.id}/edit`} className="text-orange-500 underline">Editer</Link>
+            <Link href={`/dashboard/campaigns/${campaign.id}/edit`} className="text-orange-500 underline">Éditer</Link>
           </div>
         )}
         {!campaign.htmlContent && (
           <div className="flex items-center gap-2 text-sm text-amber-500">
             <AlertTriangle className="h-4 w-4" />
             Le contenu est requis.
-            <Link href={`/dashboard/campaigns/${campaign.id}/edit`} className="text-orange-500 underline">Editer</Link>
+            <Link href={`/dashboard/campaigns/${campaign.id}/edit`} className="text-orange-500 underline">Éditer</Link>
           </div>
         )}
       </div>
@@ -183,7 +179,7 @@ export function SendCampaignClient({
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-3">
         <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-2">
           <AtSign className="h-4 w-4" />
-          Expediteur
+          Expéditeur
         </h2>
         {senders.length > 0 ? (
           <div className="flex flex-wrap gap-2">
@@ -203,14 +199,14 @@ export function SendCampaignClient({
           </div>
         ) : (
           <div className="p-4 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 text-center">
-            <p className="text-sm text-amber-400 mb-2">Aucun expediteur configure.</p>
+            <p className="text-sm text-amber-400 mb-2">Aucun expéditeur configuré.</p>
             <Link href="/dashboard/senders" className="text-sm text-orange-500 hover:text-orange-400 font-medium">
-              Configurer un expediteur →
+              Configurer un expéditeur →
             </Link>
           </div>
         )}
         {selectedSender?.replyTo && (
-          <p className="text-xs text-zinc-500">Reponses a : {selectedSender.replyTo}</p>
+          <p className="text-xs text-zinc-500">Réponses à : {selectedSender.replyTo}</p>
         )}
       </div>
       )}
@@ -232,7 +228,7 @@ export function SendCampaignClient({
                 : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
             }`}
           >
-            {isWhatsApp ? "Contacts WhatsApp" : "Tous les abonnes"} ({subscribedCount})
+            {isWhatsApp ? "Contacts WhatsApp" : "Tous les abonnés"} ({subscribedCount})
           </button>
           {availableSegments.length > 0 && (
             <button
@@ -298,7 +294,7 @@ export function SendCampaignClient({
                 </button>
               ))
             ) : (
-              <p className="text-xs text-zinc-500 italic">Aucun tag. Ajoutez des tags a vos contacts pour filtrer par tag.</p>
+              <p className="text-xs text-zinc-500 italic">Aucun tag. Ajoutez des tags à vos contacts pour filtrer par tag.</p>
             )}
           </div>
         )}
@@ -306,7 +302,7 @@ export function SendCampaignClient({
         {recipientCount === 0 && (
           <div className="flex items-center gap-2 text-sm text-amber-500">
             <AlertTriangle className="h-4 w-4" />
-            {isWhatsApp ? "Aucun contact WhatsApp dans cette audience." : "Aucun abonne dans cette audience."}
+            {isWhatsApp ? "Aucun contact WhatsApp dans cette audience." : "Aucun abonné dans cette audience."}
           </div>
         )}
       </div>
@@ -377,8 +373,8 @@ export function SendCampaignClient({
       <div className="flex items-center justify-between pt-2">
         <p className="text-xs text-zinc-500">
           {recipientCount > 0 && (isWhatsApp || senders.length > 0)
-            ? `Pret a envoyer a ${recipientCount} contact${recipientCount > 1 ? "s" : ""}`
-            : "Completez les etapes ci-dessus pour envoyer"}
+            ? `Prêt à envoyer à ${recipientCount} contact${recipientCount > 1 ? "s" : ""}`
+            : "Complétez les étapes ci-dessus pour envoyer"}
         </p>
         <button
           onClick={handleSend}

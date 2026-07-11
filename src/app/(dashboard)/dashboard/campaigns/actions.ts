@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { checkCampaignLimit, checkEmailLimit, canAccessFeature, type PlanTier } from "@/lib/plans";
+import { checkCampaignLimit, checkEmailLimit, type PlanTier } from "@/lib/plans";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
@@ -80,7 +80,7 @@ export async function createCampaign(
     revalidatePath("/dashboard/campaigns");
     revalidatePath("/dashboard");
   } catch {
-    return { error: "Erreur lors de la creation de la campagne." };
+    return { error: "Erreur lors de la création de la campagne." };
   }
 
   redirect(`/dashboard/campaigns/${campaignId}/edit`);
@@ -132,16 +132,16 @@ export async function scheduleCampaign(
     where: { id: campaignId, organizationId: org.id },
   });
   if (!campaign) return { error: "Campagne introuvable." };
-  if (campaign.status !== "DRAFT") return { error: "Seules les campagnes en brouillon peuvent etre planifiees." };
+  if (campaign.status !== "DRAFT") return { error: "Seules les campagnes en brouillon peuvent être planifiées." };
 
   const sender = campaign.channel === "EMAIL"
     ? await prisma.emailSender.findUnique({ where: { id: senderId } })
     : null;
-  if (campaign.channel === "EMAIL" && !sender) return { error: "Expediteur introuvable." };
+  if (campaign.channel === "EMAIL" && !sender) return { error: "Expéditeur introuvable." };
 
   const scheduledDate = new Date(scheduledAt);
   if (isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
-    return { error: "La date doit etre dans le futur." };
+    return { error: "La date doit être dans le futur." };
   }
 
   try {
@@ -170,7 +170,7 @@ export async function scheduleCampaign(
       action: "created",
       resourceType: "campaign",
       resourceId: campaignId,
-      resourceName: `${campaign.name} (planifiee)`,
+      resourceName: `${campaign.name} (planifiée)`,
     });
 
     revalidatePath("/dashboard/campaigns");
@@ -207,7 +207,7 @@ export async function updateCampaign(
     }
     return { success: true };
   } catch {
-    return { error: "Erreur lors de la mise a jour." };
+    return { error: "Erreur lors de la mise à jour." };
   }
 }
 
@@ -222,7 +222,7 @@ export async function cancelCampaign(campaignId: string): Promise<ActionState> {
     });
     if (!campaign) return { error: "Campagne introuvable." };
     if (!["SCHEDULED", "SENDING"].includes(campaign.status)) {
-      return { error: "Seules les campagnes planifiees ou en cours peuvent etre annulees." };
+      return { error: "Seules les campagnes planifiées ou en cours peuvent être annulées." };
     }
 
     await prisma.campaign.update({
@@ -272,7 +272,7 @@ async function validateCampaignForSending(campaignId: string, orgId: string) {
     where: { id: campaignId, organizationId: orgId },
   });
   if (!campaign) return { error: "Campagne introuvable." } as const;
-  if (campaign.status !== "DRAFT") return { error: "Seules les campagnes en brouillon peuvent etre envoyees." } as const;
+  if (campaign.status !== "DRAFT") return { error: "Seules les campagnes en brouillon peuvent être envoyées." } as const;
   if (campaign.channel === "EMAIL" && !campaign.subject) return { error: "Le sujet de la campagne est requis." } as const;
   if (!campaign.htmlContent) return { error: "Le contenu de la campagne est requis." } as const;
   return { campaign } as const;
@@ -280,7 +280,7 @@ async function validateCampaignForSending(campaignId: string, orgId: string) {
 
 async function fetchSenderAndContacts(senderId: string, audience: "all" | string, orgId: string, channel: CampaignChannel) {
   const sender = channel === "EMAIL" ? await prisma.emailSender.findUnique({ where: { id: senderId } }) : null;
-  if (channel === "EMAIL" && !sender) return { error: "Expediteur introuvable. Creez un expediteur d'abord." } as const;
+  if (channel === "EMAIL" && !sender) return { error: "Expéditeur introuvable. Créez un expéditeur d'abord." } as const;
 
   let contacts: ContactRow[];
   const channelWhere = channel === "WHATSAPP" ? { phone: { not: null } } : {};
@@ -305,8 +305,8 @@ async function fetchSenderAndContacts(senderId: string, audience: "all" | string
   if (contacts.length === 0) {
     return {
       error: channel === "WHATSAPP"
-        ? "Aucun contact actif avec un numero WhatsApp trouve. Ajoutez un numero avec son indicatif."
-        : "Aucun abonne actif trouve. Ajoutez des contacts d'abord.",
+        ? "Aucun contact actif avec un numéro WhatsApp trouvé. Ajoutez un numéro avec son indicatif."
+        : "Aucun abonné actif trouvé. Ajoutez des contacts d'abord.",
     } as const;
   }
   return { sender, contacts } as const;
@@ -318,7 +318,7 @@ async function checkSendingQuota(orgId: string, plan: PlanTier, recipientCount: 
     return { error: `Limite d'emails atteinte (${emailCheck.sent}/${emailCheck.limit}). Passez au plan Pro.` };
   }
   if (emailCheck.limit !== -1 && emailCheck.sent + recipientCount > emailCheck.limit) {
-    return { error: `Vous ne pouvez envoyer que ${emailCheck.limit - emailCheck.sent} emails supplementaires ce mois-ci (${recipientCount} contacts selectionnes).` };
+    return { error: `Vous ne pouvez envoyer que ${emailCheck.limit - emailCheck.sent} emails supplémentaires ce mois-ci (${recipientCount} contacts sélectionnés).` };
   }
   return null;
 }
@@ -532,7 +532,7 @@ async function completeCampaignSending(
     action: "created",
     resourceType: "campaign",
     resourceId: campaignId,
-    resourceName: `${campaignName} (envoye a ${sentCount} contacts)`,
+    resourceName: `${campaignName} (envoyé à ${sentCount} contacts)`,
   });
 
   revalidatePath("/dashboard/campaigns");
@@ -581,6 +581,6 @@ export async function sendCampaign(
       where: { id: campaignId },
       data: { status: "SENT", completedAt: new Date() },
     });
-    return { error: "Envoi partiellement termine. Verifiez les analytics." };
+    return { error: "Envoi partiellement terminé. Vérifiez les analytics." };
   }
 }

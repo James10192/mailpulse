@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { X, Sparkles, Bug, Zap, ChevronDown, ChevronUp } from "lucide-react";
 import { changelog, APP_VERSION, type ChangelogEntry } from "@/lib/changelog";
 
@@ -9,7 +9,7 @@ const STORAGE_KEY = "mailpulse-last-seen-version";
 const typeConfig = {
   feature: { icon: Sparkles, label: "Nouveau", className: "text-emerald-400 bg-emerald-500/10" },
   fix: { icon: Bug, label: "Correction", className: "text-amber-400 bg-amber-500/10" },
-  improvement: { icon: Zap, label: "Ameliore", className: "text-blue-400 bg-blue-500/10" },
+  improvement: { icon: Zap, label: "Amélioré", className: "text-blue-400 bg-blue-500/10" },
 };
 
 function VersionBlock({ entry, defaultOpen }: { entry: ChangelogEntry; defaultOpen: boolean }) {
@@ -54,78 +54,23 @@ function VersionBlock({ entry, defaultOpen }: { entry: ChangelogEntry; defaultOp
 }
 
 export function WhatsNewModal() {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const lastSeen = localStorage.getItem(STORAGE_KEY);
-    if (lastSeen !== APP_VERSION) {
-      // Show modal for new version (delay slightly so dashboard renders first)
-      const timer = setTimeout(() => setOpen(true), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  function handleClose() {
-    localStorage.setItem(STORAGE_KEY, APP_VERSION);
-    setOpen(false);
-  }
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-orange-500/10 flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-orange-500" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                Quoi de neuf ?
-              </h2>
-              <p className="text-xs text-zinc-500">v{APP_VERSION}</p>
-            </div>
-          </div>
-          <button
-            onClick={handleClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
-          {changelog.map((entry, i) => (
-            <VersionBlock key={entry.version} entry={entry} defaultOpen={i === 0} />
-          ))}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0">
-          <button
-            onClick={handleClose}
-            className="w-full py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer"
-          >
-            C&apos;est note !
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 /** Button to manually open the What's New modal */
 export function WhatsNewButton() {
   const [open, setOpen] = useState(false);
 
+  function handleClose() {
+    localStorage.setItem(STORAGE_KEY, APP_VERSION);
+    setOpen(false);
+  }
+
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        className="p-2 rounded-lg text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors cursor-pointer"
+        className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 transition-[scale,color,background-color] hover:bg-orange-50 hover:text-orange-500 active:scale-[0.96] dark:hover:bg-orange-500/10"
         title="Quoi de neuf ?"
       >
         <Sparkles className="h-4 w-4" />
@@ -140,10 +85,10 @@ export function WhatsNewButton() {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Quoi de neuf ?</h2>
-                  <p className="text-xs text-zinc-500">Historique des mises a jour</p>
+                  <p className="text-xs text-zinc-500">Historique des mises à jour · v{APP_VERSION}</p>
                 </div>
               </div>
-              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+              <button onClick={handleClose} className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 transition-[scale,color,background-color] hover:bg-zinc-100 hover:text-zinc-600 active:scale-[0.96] dark:hover:bg-zinc-800 dark:hover:text-zinc-200">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -153,8 +98,8 @@ export function WhatsNewButton() {
               ))}
             </div>
             <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0">
-              <button onClick={() => setOpen(false)} className="w-full py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer">
-                Fermer
+              <button onClick={handleClose} className="w-full min-h-11 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white transition-[scale,background-color] hover:bg-orange-500 active:scale-[0.99]">
+                C&apos;est noté !
               </button>
             </div>
           </div>

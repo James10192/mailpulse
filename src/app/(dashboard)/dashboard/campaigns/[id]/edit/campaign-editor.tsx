@@ -96,7 +96,7 @@ export function CampaignEditor({
           </Link>
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-              Editer la campagne
+              Éditer la campagne
             </h1>
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -164,7 +164,7 @@ export function CampaignEditor({
         <div>
           <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Details</h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Definissez le canal, le nom et le contenu de votre campagne.
+            Définissez le canal, le nom et le contenu de votre campagne.
           </p>
         </div>
 
@@ -226,7 +226,7 @@ export function CampaignEditor({
             placeholder="Ex: Decouvrez nos nouveautes !"
           />
           <p className="text-xs text-zinc-500 mt-1">
-            Le sujet apparait dans la boite de reception. Variables disponibles : {"{{firstName}}"}, {"{{lastName}}"}, {"{{email}}"}
+            Le sujet apparaît dans la boîte de réception. Variables disponibles : {"{{firstName}}"}, {"{{lastName}}"}, {"{{email}}"}
           </p>
         </div>
         )}
@@ -241,7 +241,7 @@ export function CampaignEditor({
             value={previewText}
             onChange={(e) => handleField("previewText", setPreviewText, e.target.value)}
             className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
-            placeholder="Texte visible apres le sujet dans la boite de reception"
+            placeholder="Texte visible après le sujet dans la boîte de réception"
           />
         </div>
         )}
@@ -258,7 +258,7 @@ export function CampaignEditor({
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
             {channel === "WHATSAPP"
               ? "Rédigez le message WhatsApp. Les variables personnalisent chaque contact."
-              : "Redigez le contenu de votre campagne. Utilisez les variables pour personnaliser chaque email."}
+              : "Rédigez le contenu de votre campagne. Utilisez les variables pour personnaliser chaque email."}
           </p>
         </div>
 

@@ -1,11 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type ElementType } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpDown,
   BarChart3,
+  CalendarClock,
+  CheckCircle2,
+  Clock3,
+  Eye,
   Mail,
   MessageCircle,
   MousePointerClick,
@@ -30,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cancelCampaign, deleteCampaign } from "./actions";
@@ -112,9 +117,11 @@ export function CampaignsClient({
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [isPending, startTransition] = useTransition();
   const summary = useMemo(() => buildSummary(campaigns), [campaigns]);
   const filtered = useMemo(() => filterCampaigns(campaigns, channel, status, search, sortBy), [campaigns, channel, search, sortBy, status]);
+  const hasActiveFilters = channel !== "ALL" || status !== "ALL" || search.trim().length > 0;
 
   const channelData = [
     { channel: "Email", value: summary.email, fill: "#f97316" },
@@ -190,9 +197,18 @@ export function CampaignsClient({
 
       <Card>
         <CampaignFilters search={search} status={status} sortBy={sortBy} channel={channel} onSearch={setSearch} onStatus={setStatus} onSort={(value) => setSortBy(value as CampaignSort)} onChannel={setChannel} />
-        <CampaignTable campaigns={filtered} pending={isPending} onCancel={setCancelId} onDelete={setDeleteId} />
+        <CampaignTable
+          campaigns={filtered}
+          pending={isPending}
+          hasActiveFilters={hasActiveFilters}
+          canCreate={canCreate}
+          onOpenDetail={setSelectedCampaign}
+          onCancel={setCancelId}
+          onDelete={setDeleteId}
+        />
       </Card>
 
+      <CampaignDetailSheet campaign={selectedCampaign} onOpenChange={(open) => !open && setSelectedCampaign(null)} />
       <ConfirmCampaignAction type="delete" open={!!deleteId} pending={isPending} onOpenChange={(open) => !open && setDeleteId(null)} onConfirm={() => runAction("delete")} />
       <ConfirmCampaignAction type="cancel" open={!!cancelId} pending={isPending} onOpenChange={(open) => !open && setCancelId(null)} onConfirm={() => runAction("cancel")} />
     </div>
@@ -246,7 +262,23 @@ function CampaignFilters(props: {
   );
 }
 
-function CampaignTable({ campaigns, pending, onCancel, onDelete }: { campaigns: Campaign[]; pending: boolean; onCancel: (id: string) => void; onDelete: (id: string) => void }) {
+function CampaignTable({
+  campaigns,
+  pending,
+  hasActiveFilters,
+  canCreate,
+  onOpenDetail,
+  onCancel,
+  onDelete,
+}: {
+  campaigns: Campaign[];
+  pending: boolean;
+  hasActiveFilters: boolean;
+  canCreate: boolean;
+  onOpenDetail: (campaign: Campaign) => void;
+  onCancel: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
   return (
     <CardContent>
       <Table>
@@ -263,9 +295,44 @@ function CampaignTable({ campaigns, pending, onCancel, onDelete }: { campaigns: 
         </TableHeader>
         <TableBody>
           {campaigns.length === 0 ? (
-            <TableRow><TableCell colSpan={7} className="h-28 text-center text-zinc-500">Aucune campagne ne correspond aux filtres.</TableCell></TableRow>
+            <TableRow>
+              <TableCell colSpan={7} className="h-48 text-center">
+                <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-8">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600">
+                    <Send className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-zinc-950 dark:text-zinc-50">
+                      {hasActiveFilters ? "Aucune campagne ne correspond aux filtres." : "Aucune campagne créée."}
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      {hasActiveFilters ? "Ajustez les filtres ou lancez une nouvelle campagne." : "Créez votre première campagne email ou WhatsApp pour suivre ses performances ici."}
+                    </p>
+                  </div>
+                  {canCreate ? (
+                    <Button asChild size="sm" className="min-h-10">
+                      <Link href="/dashboard/campaigns/new">
+                        <Plus className="h-4 w-4" />
+                        Nouvelle campagne
+                      </Link>
+                    </Button>
+                  ) : null}
+                </div>
+              </TableCell>
+            </TableRow>
           ) : campaigns.map((campaign) => (
-            <TableRow key={campaign.id}>
+            <TableRow
+              key={campaign.id}
+              className="cursor-pointer focus-within:bg-zinc-50 hover:bg-zinc-50 dark:focus-within:bg-zinc-900/60 dark:hover:bg-zinc-900/60"
+              tabIndex={0}
+              onClick={() => onOpenDetail(campaign)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpenDetail(campaign);
+                }
+              }}
+            >
               <TableCell>
                 <p className="truncate font-medium text-zinc-950 dark:text-zinc-50">{campaign.name}</p>
                 <p className="mt-1 truncate text-xs text-zinc-500">{campaign.channel === "EMAIL" ? campaign.subject || "Sans sujet" : campaign.previewText || "Message WhatsApp"}</p>
@@ -275,13 +342,128 @@ function CampaignTable({ campaigns, pending, onCancel, onDelete }: { campaigns: 
               <TableCell><span className="font-mono">{formatNumber(campaign._count?.recipients ?? 0)}</span><p className="mt-1 text-xs text-zinc-500">{campaign.contactList?.name ?? "Tous les contacts"}</p></TableCell>
               <TableCell className="text-right font-mono">{formatRate(getOpenRate(campaign))}</TableCell>
               <TableCell className="text-right font-mono">{formatRate(getClickOrReplyRate(campaign))}</TableCell>
-              <TableCell><CampaignActions campaign={campaign} pending={pending} onCancel={onCancel} onDelete={onDelete} /></TableCell>
+              <TableCell onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+                <CampaignActions campaign={campaign} pending={pending} onCancel={onCancel} onDelete={onDelete} />
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
     </CardContent>
   );
+}
+
+function CampaignDetailSheet({ campaign, onOpenChange }: { campaign: Campaign | null; onOpenChange: (open: boolean) => void }) {
+  const sentVolume = campaign ? campaignSentCount(campaign) : 0;
+  const opened = campaign?.channel === "WHATSAPP" ? campaign.whatsappAnalytics?.read ?? 0 : campaign?.analytics?.totalOpened ?? 0;
+  const clickedOrReplied = campaign?.channel === "WHATSAPP" ? campaign.whatsappAnalytics?.replied ?? 0 : campaign?.analytics?.totalClicked ?? 0;
+
+  return (
+    <Sheet open={!!campaign} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full overflow-y-auto p-0 sm:max-w-xl lg:max-w-2xl">
+        {campaign ? (
+          <>
+            <SheetHeader className="border-b border-zinc-200 px-5 py-5 pr-12 dark:border-zinc-800">
+              <div className="flex flex-wrap items-center gap-2">
+                <ChannelBadge channel={campaign.channel} />
+                <StatusBadge status={campaign.status} />
+              </div>
+              <SheetTitle className="mt-3 text-xl">{campaign.name}</SheetTitle>
+              <SheetDescription>
+                {campaign.channel === "EMAIL" ? campaign.subject || "Sans sujet" : campaign.previewText || "Message WhatsApp"}
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="space-y-6 px-5 py-5">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <DetailMetric label={campaign.channel === "WHATSAPP" ? "Lectures" : "Ouvertures"} value={formatNumber(opened)} icon={Eye} />
+                <DetailMetric label={campaign.channel === "WHATSAPP" ? "Réponses" : "Clics"} value={formatNumber(clickedOrReplied)} icon={MousePointerClick} />
+                <DetailMetric label="Volume envoyé" value={formatNumber(sentVolume)} icon={Send} />
+              </div>
+
+              <section className="space-y-3">
+                <h3 className="text-sm font-medium text-zinc-950 dark:text-zinc-50">Résumé</h3>
+                <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                  <DetailRow label="Audience" value={`${formatNumber(campaign._count?.recipients ?? 0)} destinataire${(campaign._count?.recipients ?? 0) > 1 ? "s" : ""}`} />
+                  <DetailRow label="Liste" value={campaign.contactList?.name ?? "Tous les contacts"} />
+                  <DetailRow label="Taux ouverture/lecture" value={formatRate(getOpenRate(campaign))} />
+                  <DetailRow label="Taux clic/réponse" value={formatRate(getClickOrReplyRate(campaign))} />
+                </dl>
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="text-sm font-medium text-zinc-950 dark:text-zinc-50">Chronologie</h3>
+                <div className="space-y-2">
+                  <TimelineItem icon={Clock3} label="Créée" value={formatDateTime(campaign.createdAt)} />
+                  {campaign.scheduledAt ? <TimelineItem icon={CalendarClock} label="Planifiée" value={formatDateTime(campaign.scheduledAt)} /> : null}
+                  {campaign.sentAt ? <TimelineItem icon={Send} label="Envoyée" value={formatDateTime(campaign.sentAt)} /> : null}
+                  {campaign.completedAt ? <TimelineItem icon={CheckCircle2} label="Terminée" value={formatDateTime(campaign.completedAt)} /> : null}
+                </div>
+              </section>
+
+              {campaign.channel === "EMAIL" ? (
+                <section className="space-y-3">
+                  <h3 className="text-sm font-medium text-zinc-950 dark:text-zinc-50">Expéditeur</h3>
+                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                    <DetailRow label="Nom" value={campaign.fromName ?? "Non défini"} />
+                    <DetailRow label="Email" value={campaign.fromEmail ?? "Non défini"} />
+                    <DetailRow label="Réponse à" value={campaign.replyTo ?? campaign.fromEmail ?? "Non défini"} />
+                  </dl>
+                </section>
+              ) : null}
+
+              <div className="flex flex-col gap-2 border-t border-zinc-200 pt-5 sm:flex-row dark:border-zinc-800">
+                <Button asChild className="min-h-11">
+                  <Link href={`/dashboard/campaigns/${campaign.id}/edit`}>Éditer</Link>
+                </Button>
+                <Button asChild variant="outline" className="min-h-11">
+                  <Link href={`/dashboard/campaigns/${campaign.id}/send`}>Envoyer</Link>
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function DetailMetric({ label, value, icon: Icon }: { label: string; value: string; icon: ElementType }) {
+  return (
+    <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs text-zinc-500">{label}</span>
+        <Icon className="h-4 w-4 text-zinc-400" />
+      </div>
+      <p className="mt-2 font-mono text-lg font-semibold text-zinc-950 dark:text-zinc-50">{value}</p>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900/70">
+      <dt className="text-xs text-zinc-500">{label}</dt>
+      <dd className="mt-1 break-words text-zinc-900 dark:text-zinc-100">{value}</dd>
+    </div>
+  );
+}
+
+function TimelineItem({ icon: Icon, label, value }: { icon: ElementType; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-900/70">
+      <Icon className="h-4 w-4 text-zinc-400" />
+      <span className="font-medium text-zinc-900 dark:text-zinc-100">{label}</span>
+      <span className="ml-auto text-right text-zinc-500">{value}</span>
+    </div>
+  );
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function ConfirmCampaignAction({ type, open, pending, onOpenChange, onConfirm }: { type: "delete" | "cancel"; open: boolean; pending: boolean; onOpenChange: (open: boolean) => void; onConfirm: () => void }) {

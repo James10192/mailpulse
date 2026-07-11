@@ -39,7 +39,7 @@ export default function NewCampaignPage() {
             Nouvelle campagne
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Donnez un nom a votre campagne, puis editez le contenu
+            Donnez un nom à votre campagne, puis éditez le contenu
           </p>
         </div>
       </div>
@@ -64,7 +64,7 @@ export default function NewCampaignPage() {
               className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
             />
             <p className="mt-1.5 text-xs text-zinc-500">
-              Vous pourrez editer le sujet, le contenu et l&apos;expediteur ensuite.
+              Vous pourrez éditer le sujet, le contenu et l&apos;expéditeur ensuite.
             </p>
           </div>
 
@@ -121,12 +121,12 @@ export default function NewCampaignPage() {
               {pending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Creation...
+                  Création...
                 </>
               ) : (
                 <>
                   <Plus className="h-4 w-4" />
-                  Creer la campagne
+                  Créer la campagne
                 </>
               )}
             </Button>

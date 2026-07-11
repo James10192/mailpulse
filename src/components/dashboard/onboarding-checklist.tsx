@@ -25,31 +25,31 @@ const tasks: ChecklistTask[] = [
   {
     id: "add_contact",
     label: "Ajouter un contact",
-    description: "Importez ou creez votre premier abonne",
+    description: "Importez ou créez votre premier abonné",
     href: "/dashboard/contacts",
     icon: Users,
     completionPaths: ["/dashboard/contacts/import"],
   },
   {
     id: "create_sender",
-    label: "Configurer un expediteur",
-    description: "Definissez l'adresse d'envoi de vos campagnes",
+    label: "Configurer un expéditeur",
+    description: "Définissez l'adresse d'envoi de vos campagnes",
     href: "/dashboard/senders",
     icon: AtSign,
     completionPaths: ["/dashboard/senders"],
   },
   {
     id: "create_snippet",
-    label: "Creer un snippet",
-    description: "Preparez un bloc de contenu reutilisable",
+    label: "Créer un snippet",
+    description: "Préparez un bloc de contenu réutilisable",
     href: "/dashboard/snippets",
     icon: FileEdit,
     completionPaths: ["/dashboard/snippets"],
   },
   {
     id: "create_campaign",
-    label: "Creer une campagne",
-    description: "Redigez votre premier email avec l'editeur riche",
+    label: "Créer une campagne",
+    description: "Rédigez votre premier email avec l'éditeur riche",
     href: "/dashboard/campaigns/new",
     icon: Send,
     completionPaths: ["/dashboard/campaigns/new"],
@@ -57,23 +57,23 @@ const tasks: ChecklistTask[] = [
   {
     id: "send_campaign",
     label: "Envoyer une campagne",
-    description: "Envoyez votre premier email a vos abonnes",
+    description: "Envoyez votre premier email à vos abonnés",
     href: "/dashboard/campaigns",
     icon: Rocket,
     completionPaths: [],
   },
   {
     id: "create_capture",
-    label: "Creer une page de capture",
-    description: "Collectez des emails avec un formulaire partage",
+    label: "Créer une page de capture",
+    description: "Collectez des emails avec un formulaire partagé",
     href: "/dashboard/capture-pages",
     icon: Globe,
     completionPaths: ["/dashboard/capture-pages"],
   },
   {
     id: "create_automation",
-    label: "Creer une automation",
-    description: "Automatisez vos emails de bienvenue ou re-engagement",
+    label: "Créer une automation",
+    description: "Automatisez vos emails de bienvenue ou de réengagement",
     href: "/dashboard/automations",
     icon: Zap,
     completionPaths: ["/dashboard/automations"],
@@ -161,40 +161,38 @@ export function OnboardingChecklist() {
   return (
     <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
       {/* Header */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors cursor-pointer"
-      >
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
+      <div className="flex items-center justify-between gap-2 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/20">
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="flex min-h-11 flex-1 items-center gap-3 rounded-lg text-left transition-[scale,color] active:scale-[0.99]"
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
             <Rocket className="h-4 w-4 text-orange-500" />
           </div>
-          <div className="text-left">
-            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              Premiers pas avec MailPulse
-            </p>
-            <p className="text-xs text-zinc-500">
-              {completedCount}/{totalCount} etapes completees
-            </p>
+          <div>
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Premiers pas avec MailPulse</p>
+            <p className="text-xs text-zinc-500">{completedCount}/{totalCount} étapes complétées</p>
           </div>
-        </div>
+        </button>
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); handleDismiss(); }}
-            className="p-1 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded text-zinc-400 transition-[scale,color,background-color] hover:text-zinc-600 active:scale-[0.96] dark:hover:text-zinc-300"
             title="Masquer"
           >
             <X className="h-3.5 w-3.5" />
           </button>
           {expanded ? <ChevronUp className="h-4 w-4 text-zinc-400" /> : <ChevronDown className="h-4 w-4 text-zinc-400" />}
         </div>
-      </button>
+      </div>
 
       {/* Progress bar */}
       <div className="px-4 pb-2">
         <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
           <div
-            className="h-full rounded-full bg-orange-500 transition-all duration-500"
+            className="h-full rounded-full bg-orange-500 transition-[width] duration-500"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -267,8 +265,8 @@ export function ShowChecklistButton() {
         localStorage.removeItem(DISMISSED_KEY);
         window.location.reload();
       }}
-      className="p-2 rounded-lg text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors cursor-pointer"
-      title="Guide de demarrage"
+      className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 transition-[scale,color,background-color] hover:bg-orange-50 hover:text-orange-500 active:scale-[0.96] dark:hover:bg-orange-500/10"
+      title="Guide de démarrage"
     >
       <Rocket className="h-4 w-4" />
     </button>

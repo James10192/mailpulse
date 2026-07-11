@@ -13,7 +13,7 @@ export default async function SendCampaignPage({
   const { org } = await getCurrentUserAndOrg();
   if (!org) notFound();
 
-  const [campaign, senders, contactLists, subscribedCount, tags, segments] = await Promise.all([
+  const [campaign, senders, subscribedCount, tags, segments] = await Promise.all([
     prisma.campaign.findUnique({
       where: { id, organizationId: org.id },
       select: {
@@ -30,11 +30,6 @@ export default async function SendCampaignPage({
       where: { organizationId: org.id },
       select: { id: true, name: true, email: true, replyTo: true },
       orderBy: { createdAt: "desc" },
-    }),
-    prisma.contactList.findMany({
-      where: { organizationId: org.id },
-      select: { id: true, name: true, contactCount: true },
-      orderBy: { name: "asc" },
     }),
     prisma.contact.count({
       where: { organizationId: org.id, subscribed: true },
@@ -76,7 +71,6 @@ export default async function SendCampaignPage({
           channel: campaign.channel === "WHATSAPP" ? "WHATSAPP" : "EMAIL",
         }}
         senders={senders}
-        contactLists={contactLists}
         subscribedCount={recipientCount}
         availableTags={tags.map((t) => t.name)}
         availableSegments={segments}
