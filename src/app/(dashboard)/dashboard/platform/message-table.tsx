@@ -14,7 +14,7 @@ import type { ApiMessageDetail } from "./message-types";
 import { messageOriginLabel, messageOriginVariant } from "./message-origin";
 
 function messagePreview(message: ApiMessageDetail) {
-  if (message.content.text) return message.content.text;
+  if (message.content.text) return message.content.text.replace(/\s+/g, " ").trim();
   if (message.template?.name) return `Modèle : ${message.template.name}`;
   if (message.content.template_key) return `Modèle : ${message.content.template_key}`;
   return "Contenu non renseigné";
@@ -29,7 +29,17 @@ export function MessageTable({
 }) {
   return (
     <div className="overflow-x-auto border-t border-zinc-200 dark:border-zinc-800">
-      <Table className="min-w-[780px] table-fixed">
+      <Table className="min-w-[980px] table-fixed">
+        <colgroup>
+          <col className="w-[12rem]" />
+          <col className="w-[5.5rem]" />
+          <col className="w-[6.5rem]" />
+          <col className="w-[12rem]" />
+          <col className="w-[6.5rem]" />
+          <col className="w-[9rem]" />
+          <col className="w-[8rem]" />
+          <col className="w-[4.5rem]" />
+        </colgroup>
         <TableHeader className="sticky top-0 z-10 bg-card [&_tr]:border-zinc-200 dark:[&_tr]:border-zinc-800">
           <TableRow>
             <TableHead>Destinataire</TableHead>
@@ -66,8 +76,10 @@ export function MessageTable({
                 <TableCell>
                   <Badge variant={messageOriginVariant(message.origin)}>{messageOriginLabel(message.origin)}</Badge>
                 </TableCell>
-                <TableCell className="w-[15rem]">
-                  <p className="truncate text-sm text-foreground">{messagePreview(message)}</p>
+                <TableCell className="max-w-[12rem]">
+                  <p className="truncate text-sm text-foreground" title={messagePreview(message)}>
+                    {messagePreview(message)}
+                  </p>
                   <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
                     {shortIdentifier(message.provider_message_id, 8, 5)}
                   </p>

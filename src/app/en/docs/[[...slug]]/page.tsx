@@ -21,9 +21,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const page = source.getPage(slug, "en");
   if (!page) return {};
 
+  const path = `/en/docs${slug?.length ? `/${slug.join("/")}` : ""}`;
+
   return {
     title: page.data.title,
     description: page.data.description,
+    alternates: {
+      canonical: path,
+    },
+    openGraph: {
+      type: "article",
+      locale: "en_US",
+      url: path,
+      title: page.data.title,
+      description: page.data.description,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: page.data.title,
+      description: page.data.description,
+    },
   };
 }
 

@@ -3,6 +3,11 @@ import { Space_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
+const siteUrl = new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://mailpulse-two.vercel.app");
+const siteTitle = "MailPulse | Campagnes email et WhatsApp";
+const siteDescription =
+  "Créez, planifiez et analysez vos campagnes email et WhatsApp depuis un espace de travail unique.";
+
 const spaceMono = Space_Mono({
   variable: "--font-display",
   subsets: ["latin"],
@@ -16,11 +21,61 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: siteUrl,
+  applicationName: "MailPulse",
   title: {
-    default: "MailPulse",
+    default: siteTitle,
     template: "%s | MailPulse",
   },
-  description: "Email marketing campaigns, tracking, and automation platform",
+  description: siteDescription,
+  keywords: [
+    "email marketing",
+    "campagnes email",
+    "WhatsApp Business",
+    "automatisation marketing",
+    "CRM",
+    "analyse de campagnes",
+  ],
+  authors: [{ name: "MailPulse" }],
+  creator: "MailPulse",
+  publisher: "MailPulse",
+  category: "Marketing",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "fr_FR",
+    url: "/",
+    siteName: "MailPulse",
+    title: siteTitle,
+    description: siteDescription,
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "MailPulse, campagnes email et WhatsApp",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+    images: ["/opengraph-image"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
 };
 
 export default function RootLayout({
