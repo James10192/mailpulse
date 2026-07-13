@@ -62,7 +62,7 @@ export function PlatformMessagesPanel({
   return (
     <>
       <Card className="overflow-hidden">
-        <CardHeader className="gap-4 border-b pb-4">
+        <CardHeader className="gap-4 border-b border-zinc-200 pb-4 dark:border-zinc-800">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
             <div>
               <CardTitle>Registre des communications</CardTitle>
@@ -97,7 +97,7 @@ export function PlatformMessagesPanel({
         </CardHeader>
         <CardContent className="p-0" aria-busy={isPending}>
           <MessageTable messages={messages} onSelect={setSelectedMessage} />
-          <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-t border-zinc-200 px-4 py-3 dark:border-zinc-800 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">Page <span className="font-mono tabular-nums">{filters.page}</span> sur <span className="font-mono tabular-nums">{pageCount}</span></p>
             <div className="flex items-center gap-2">
               <Button type="button" variant="outline" size="sm" className="h-10" onClick={() => updateFilters({ page: filters.page - 1 })} disabled={isPending || filters.page <= 1}><ChevronLeft className="size-4" />Précédent</Button>

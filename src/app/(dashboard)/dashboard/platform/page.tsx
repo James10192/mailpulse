@@ -186,7 +186,7 @@ export default async function PlatformPage({
         <Button asChild className="min-h-11 shrink-0"><Link href="/dashboard/messaging"><Send className="size-4" />Envoyer un message</Link></Button>
       </header>
 
-      <div className="grid overflow-hidden rounded-lg border bg-card sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid overflow-hidden rounded-lg border border-zinc-200 bg-card shadow-[0_1px_2px_rgba(24,24,27,0.04)] dark:border-zinc-800 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Messages, 24 h" value={lastDayCount.toLocaleString("fr-FR")} icon={MessageSquare} />
         <Metric label="Délivrés, 24 h" value={deliveredCount.toLocaleString("fr-FR")} icon={Activity} />
         <Metric label="À traiter" value={attentionCount.toLocaleString("fr-FR")} icon={Cable} />
@@ -194,7 +194,7 @@ export default async function PlatformPage({
       </div>
 
       <Tabs defaultValue="messages" className="space-y-4">
-        <TabsList className="h-auto w-full justify-start gap-1 rounded-lg border bg-card p-1 sm:w-auto">
+        <TabsList className="h-auto w-full justify-start gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900 sm:w-auto">
           <TabsTrigger value="messages" className="min-h-10 px-4">Messages</TabsTrigger>
           <TabsTrigger value="integrations" className="min-h-10 px-4">Intégrations</TabsTrigger>
         </TabsList>

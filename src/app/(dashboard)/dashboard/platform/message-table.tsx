@@ -28,9 +28,9 @@ export function MessageTable({
   onSelect: (message: ApiMessageDetail) => void;
 }) {
   return (
-    <div className="overflow-x-auto border-t">
-      <Table className="min-w-[780px]">
-        <TableHeader className="sticky top-0 z-10 bg-card">
+    <div className="overflow-x-auto border-t border-zinc-200 dark:border-zinc-800">
+      <Table className="min-w-[780px] table-fixed">
+        <TableHeader className="sticky top-0 z-10 bg-card [&_tr]:border-zinc-200 dark:[&_tr]:border-zinc-800">
           <TableRow>
             <TableHead>Destinataire</TableHead>
             <TableHead>Canal</TableHead>
@@ -66,7 +66,7 @@ export function MessageTable({
                 <TableCell>
                   <Badge variant={messageOriginVariant(message.origin)}>{messageOriginLabel(message.origin)}</Badge>
                 </TableCell>
-                <TableCell className="max-w-56">
+                <TableCell className="w-[15rem]">
                   <p className="truncate text-sm text-foreground">{messagePreview(message)}</p>
                   <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
                     {shortIdentifier(message.provider_message_id, 8, 5)}
