@@ -13,6 +13,9 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
+
+import { HelpButton } from "@/components/dashboard/help-modal";
+import { PhoneNumberInput } from "@/components/dashboard/phone-number-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,8 +30,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { HelpButton } from "@/components/dashboard/help-modal";
-import { PhoneNumberInput } from "@/components/dashboard/phone-number-input";
 import type { WhatsAppMode } from "@/lib/whatsapp";
 import {
   activateBaileys,
@@ -96,6 +97,9 @@ export function MessagingClient({
     (whatsappMode === "BAILEYS" && connectionState === "open") ||
     (whatsappMode === "META" && metaConfigured)
   );
+  const providerLabel = whatsappMode === "BAILEYS" ? "WhatsApp Web" : "Meta Cloud API";
+  const statusLabel = isConnected ? "Connecté" : whatsappEnabled ? "À réparer" : "Non activé";
+  const statusVariant = isConnected ? "success" : whatsappEnabled ? "warning" : "outline";
 
   const pollQrCode = useCallback(async () => {
     if (pollingQr) return;
@@ -176,9 +180,7 @@ export function MessagingClient({
   async function handleSend() {
     setSending(true);
     setResult(null);
-    const res = mode === "single"
-      ? await sendMessage(phone, body)
-      : await sendBulkMessages(body, audience);
+    const res = mode === "single" ? await sendMessage(phone, body) : await sendBulkMessages(body, audience);
     setSending(false);
     setResult(res);
     if (res?.success) {
@@ -210,90 +212,171 @@ export function MessagingClient({
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">WhatsApp</h1>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          Envoyez des messages WhatsApp à vos contacts.
-        </p>
+    <div className="mx-auto w-full max-w-6xl space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-balance text-2xl font-semibold text-zinc-950 dark:text-zinc-50">WhatsApp</h1>
+          <p className="mt-1 max-w-2xl text-pretty text-sm text-zinc-500 dark:text-zinc-400">
+            Supervisez la connexion, réparez le canal, puis envoyez des messages directs ou groupés.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <HelpButton onClick={() => setHelpOpen(true)} />
+          <Button type="button" variant="outline" className="min-h-10" onClick={() => setShowMetaConfig(true)}>
+            <Settings2 className="size-4" />
+            Configurer Meta
+          </Button>
+        </div>
       </div>
 
-      <WhatsAppLimitations mailpulseWhatsAppAvailable={mailpulseWhatsAppAvailable} />
+      <div className="grid gap-3 md:grid-cols-4">
+        <Metric label="État" value={statusLabel} />
+        <Metric label="Mode" value={whatsappEnabled ? providerLabel : "Aucun"} />
+        <Metric label="Contacts joignables" value={contactsWithPhone.toLocaleString("fr-FR")} />
+        <Metric label="Session" value={whatsappMode === "BAILEYS" ? connectionState : metaConfigured ? "configurée" : "à compléter"} />
+      </div>
 
-      {!whatsappEnabled && (
-        <Card className="text-center">
-          <CardContent className="space-y-6 p-8">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
-              <MessageSquare className="h-8 w-8 text-emerald-500" />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  {isConnected ? <Wifi className="size-5 text-emerald-500" /> : <WifiOff className="size-5 text-amber-500" />}
+                  Santé du canal
+                </CardTitle>
+                <CardDescription>
+                  {isConnected
+                    ? "Le canal est prêt pour les messages WhatsApp."
+                    : whatsappEnabled
+                      ? "La connexion existe, mais une action est nécessaire."
+                      : "Aucun canal WhatsApp n'est encore activé."}
+                </CardDescription>
+              </div>
+              <Badge variant={statusVariant}>{statusLabel}</Badge>
             </div>
-            <div>
-              <CardTitle className="text-lg">Activez WhatsApp</CardTitle>
-              <CardDescription className="mx-auto mt-2 max-w-md">
-                Choisissez votre mode de connexion WhatsApp pour commencer à envoyer des messages.
-              </CardDescription>
-            </div>
-
-            <div className="mx-auto grid max-w-lg grid-cols-1 gap-4 sm:grid-cols-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleActivateBaileys}
-                disabled={activating || !baileysAvailable}
-                className="h-auto min-h-28 flex-col items-start justify-start p-4 text-left"
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <QrCode className="h-5 w-5 text-emerald-500" />
-                  <span className="text-sm font-semibold">WhatsApp Web</span>
-                </div>
-                <span className="text-xs text-zinc-500">
-                  Scannez un QR code avec votre téléphone. Inclus dans l&apos;abonnement.
-                </span>
-                {activating && (
-                  <span className="mt-2 flex items-center gap-1.5 text-xs text-emerald-500">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Activation...
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!whatsappEnabled ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleActivateBaileys}
+                  disabled={activating || !baileysAvailable}
+                  className="h-auto min-h-24 flex-col items-start justify-start p-4 text-left transition-[scale,color,background-color,box-shadow] active:scale-[0.99]"
+                >
+                  <span className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                    <QrCode className="size-5 text-emerald-500" />
+                    WhatsApp Web
                   </span>
-                )}
-              </Button>
+                  <span className="text-pretty text-xs text-zinc-500">
+                    Scannez un QR code avec votre téléphone. Inclus dans l&apos;abonnement.
+                  </span>
+                  {activating ? (
+                    <span className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600">
+                      <Loader2 className="size-3 animate-spin" />
+                      Activation...
+                    </span>
+                  ) : null}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowMetaConfig(true)}
+                  className="h-auto min-h-24 flex-col items-start justify-start p-4 text-left transition-[scale,color,background-color,box-shadow] active:scale-[0.99]"
+                >
+                  <span className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                    <Settings2 className="size-5 text-blue-500" />
+                    Meta Cloud API
+                  </span>
+                  <span className="text-pretty text-xs text-zinc-500">
+                    API officielle Meta, recommandée pour la production.
+                  </span>
+                </Button>
+              </div>
+            ) : null}
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowMetaConfig(true)}
-                className="h-auto min-h-28 flex-col items-start justify-start p-4 text-left"
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <Settings2 className="h-5 w-5 text-blue-500" />
-                  <span className="text-sm font-semibold">Meta Cloud API</span>
+            {whatsappEnabled && whatsappMode === "BAILEYS" && connectionState !== "open" && evoInstanceName ? (
+              <div className="grid gap-4 md:grid-cols-[18rem_minmax(0,1fr)]">
+                <div className="flex min-h-72 items-center justify-center rounded-lg border bg-zinc-50 p-4 dark:bg-zinc-900">
+                  {qrCode ? (
+                    qrCode.startsWith("data:") || qrCode.startsWith("http") ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={qrCode} alt="QR Code WhatsApp" className="size-64 rounded-lg" />
+                    ) : (
+                      <QrCode className="size-20 text-zinc-400" />
+                    )
+                  ) : (
+                    <div className="space-y-3 text-center">
+                      <QrCode className="mx-auto size-14 text-zinc-400" />
+                      <Button type="button" onClick={pollQrCode} disabled={pollingQr}>
+                        {pollingQr ? <Loader2 className="size-4 animate-spin" /> : <QrCode className="size-4" />}
+                        Afficher le QR
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <span className="text-xs text-zinc-500">
-                  API officielle Meta, recommandée pour la production.
-                </span>
-              </Button>
-            </div>
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-zinc-950 dark:text-zinc-50">Action requise</p>
+                  <p className="text-pretty text-sm text-zinc-500 dark:text-zinc-400">
+                    Ouvrez WhatsApp, Appareils liés, puis liez un appareil. Si la liaison échoue, réinitialisez la session.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={pollQrCode} disabled={pollingQr} className="min-h-10">
+                      <RefreshCw className={pollingQr ? "size-4 animate-spin" : "size-4"} />
+                      Rafraîchir
+                    </Button>
+                    <Button type="button" variant="outline" onClick={handleResetBaileys} disabled={resettingQr || pollingQr} className="min-h-10">
+                      {resettingQr ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                      Réinitialiser
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
-            {!baileysAvailable && (
-              <Alert variant="warning" className="text-left text-xs">
+            {isConnected ? (
+              <div className="flex flex-col gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-1 text-sm text-emerald-800 dark:text-emerald-300">
+                  <p className="flex flex-wrap items-center gap-2 font-medium">
+                    <span className="size-2 rounded-full bg-emerald-500" />
+                    WhatsApp connecté
+                    <Badge variant="success">{providerLabel}</Badge>
+                  </p>
+                  <p>{contactsWithPhone} contact{contactsWithPhone !== 1 ? "s" : ""} avec un numéro.</p>
+                  {whatsappPhone ? <p className="font-mono text-xs">{whatsappPhone}</p> : null}
+                </div>
+                <Button type="button" variant="outline" onClick={handleDisconnect} className="min-h-10 sm:self-start">
+                  <Unplug className="size-4" />
+                  Déconnecter
+                </Button>
+              </div>
+            ) : null}
+
+            {!baileysAvailable ? (
+              <Alert variant="warning">
                 <AlertDescription>
-                  Le service WhatsApp Web n&apos;est pas encore disponible sur cette instance. Contactez l&apos;administrateur.
+                  Le service WhatsApp Web n&apos;est pas disponible sur cette instance. Connectez Meta Cloud API ou contactez l&apos;administrateur.
                 </AlertDescription>
               </Alert>
-            )}
-
-            {result?.error && (
-              <Alert variant="destructive" className="text-left">
+            ) : null}
+            {result?.error ? (
+              <Alert variant="destructive">
                 <AlertDescription>{result.error}</AlertDescription>
               </Alert>
-            )}
+            ) : null}
           </CardContent>
         </Card>
-      )}
+
+        <WhatsAppLimitations mailpulseWhatsAppAvailable={mailpulseWhatsAppAvailable} />
+      </div>
 
       <Dialog open={showMetaConfig} onOpenChange={setShowMetaConfig}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Settings2 className="h-4 w-4 text-blue-500" />
+              <Settings2 className="size-4 text-blue-500" />
               Configuration Meta Cloud API
             </DialogTitle>
             <DialogDescription>
@@ -307,11 +390,7 @@ export function MessagingClient({
               value={metaForm.phone}
               onChange={(phone) => setMetaForm({ ...metaForm, phone })}
             />
-            <Input
-              value={metaForm.wabaId}
-              onChange={(event) => setMetaForm({ ...metaForm, wabaId: event.target.value })}
-              placeholder="WABA ID"
-            />
+            <Input value={metaForm.wabaId} onChange={(event) => setMetaForm({ ...metaForm, wabaId: event.target.value })} placeholder="WABA ID" />
             <Input
               value={metaForm.phoneNumberId}
               onChange={(event) => setMetaForm({ ...metaForm, phoneNumberId: event.target.value })}
@@ -333,88 +412,23 @@ export function MessagingClient({
               onClick={handleSaveMetaConfig}
               disabled={savingMeta || !metaForm.wabaId || !metaForm.phoneNumberId || !metaForm.accessToken}
             >
-              {savingMeta ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {savingMeta ? <Loader2 className="size-4 animate-spin" /> : null}
               Sauvegarder
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {whatsappEnabled && whatsappMode === "BAILEYS" && connectionState !== "open" && evoInstanceName && (
-        <Card className="text-center">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-center gap-2 text-sm text-amber-500">
-              <WifiOff className="h-5 w-5" />
-              WhatsApp non connecté
-            </CardTitle>
-            <CardDescription>
-              Scannez le QR code avec WhatsApp, Appareils liés, Lier un appareil.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {qrCode ? (
-              qrCode.startsWith("data:") || qrCode.startsWith("http") ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={qrCode} alt="QR Code WhatsApp" className="mx-auto h-64 w-64 rounded-xl" />
-              ) : (
-                <div className="mx-auto flex h-64 w-64 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
-                  <QrCode className="h-16 w-16 text-zinc-400" />
-                </div>
-              )
-            ) : (
-              <Button type="button" onClick={pollQrCode} disabled={pollingQr}>
-                {pollingQr ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-                Afficher le QR code
-              </Button>
-            )}
+      <WhatsAppHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={pollQrCode} disabled={pollingQr}>
-                <RefreshCw className={`h-4 w-4 ${pollingQr ? "animate-spin" : ""}`} />
-                Rafraîchir
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={handleResetBaileys} disabled={resettingQr || pollingQr}>
-                {resettingQr ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Réinitialiser le QR
-              </Button>
-            </div>
-
-            <Alert variant="warning" className="text-left text-xs">
-              <AlertDescription>
-                Si WhatsApp refuse la liaison, réinitialisez le QR. MailPulse supprimera la session Baileys actuelle et créera une nouvelle instance propre.
-              </AlertDescription>
-            </Alert>
-          </CardContent>
-        </Card>
-      )}
-
-      {isConnected && (
-        <>
-          <Card className="border-emerald-500/20 bg-emerald-500/5">
-            <CardContent className="flex items-start justify-between gap-3 p-4">
-              <div className="flex items-start gap-3">
-                <Wifi className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
-                <div className="space-y-1 text-sm text-emerald-700 dark:text-emerald-300">
-                  <p className="flex flex-wrap items-center gap-2">
-                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                    WhatsApp connecté
-                    <Badge variant="success">{whatsappMode === "BAILEYS" ? "WhatsApp Web" : "Meta Cloud API"}</Badge>
-                  </p>
-                  <p>{contactsWithPhone} contact{contactsWithPhone !== 1 ? "s" : ""} avec un numéro.</p>
-                  {whatsappPhone && <p className="font-mono text-xs">{whatsappPhone}</p>}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <HelpButton onClick={() => setHelpOpen(true)} />
-                <Button type="button" variant="ghost" size="icon" onClick={handleDisconnect} title="Déconnecter WhatsApp">
-                  <Unplug className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <WhatsAppHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
-
+      {isConnected ? (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Composer un message</h2>
+            <p className="mt-1 text-pretty text-sm text-zinc-500 dark:text-zinc-400">
+              L&apos;envoi reste disponible, mais il dépend de l&apos;état de connexion affiché plus haut.
+            </p>
+          </div>
           <RecipientPicker
             contactsWithPhone={contactsWithPhone}
             contacts={contactOptions}
@@ -426,19 +440,16 @@ export function MessagingClient({
             onPhoneChange={setPhone}
             onAudienceChange={setAudience}
           />
-
           <Card>
             <CardHeader>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <CardTitle className="text-sm uppercase tracking-wider text-zinc-500">Message</CardTitle>
                   <CardDescription>
-                    {mode === "bulk"
-                      ? "Campagne WhatsApp ponctuelle, séparée des campagnes email."
-                      : "Message direct vers un contact WhatsApp."}
+                    {mode === "bulk" ? "Campagne WhatsApp ponctuelle, séparée des campagnes email." : "Message direct vers un contact WhatsApp."}
                   </CardDescription>
                 </div>
-                {mode === "bulk" && <Badge variant="warning">Campagne WhatsApp</Badge>}
+                {mode === "bulk" ? <Badge variant="warning">Campagne WhatsApp</Badge> : null}
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -450,41 +461,62 @@ export function MessagingClient({
                 placeholder="Bonjour {{firstName}}, ..."
                 className="resize-y"
               />
-              <div className="flex justify-between text-[11px] text-zinc-500">
+              <div className="flex justify-between gap-3 text-[11px] text-zinc-500">
                 <span>Variables : {"{{firstName}}"}, {"{{lastName}}"}</span>
-                <span>{body.length} / 4096</span>
+                <span className="tabular-nums">{body.length} / 4096</span>
               </div>
             </CardContent>
           </Card>
 
-          {result?.success && (
+          {result?.success ? (
             <Alert variant="success" className="flex items-center gap-3">
-              <Check className="h-5 w-5" />
-              <AlertDescription>
-                {mode === "bulk" ? "Campagne WhatsApp lancée." : "Message envoyé."}
-              </AlertDescription>
+              <Check className="size-5" />
+              <AlertDescription>{mode === "bulk" ? "Campagne WhatsApp lancée." : "Message envoyé."}</AlertDescription>
             </Alert>
-          )}
-
-          {result?.error && (
-            <Alert variant="destructive">
-              <AlertDescription>{result.error}</AlertDescription>
-            </Alert>
-          )}
+          ) : null}
 
           <div className="flex justify-end">
-            <Button
-              type="button"
-              size="lg"
-              onClick={handleSend}
-              disabled={sending || !body || (mode === "single" && !phone)}
-            >
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            <Button type="button" size="lg" onClick={handleSend} disabled={sending || !body || (mode === "single" && !phone)}>
+              {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {mode === "bulk" ? "Lancer la campagne WhatsApp" : "Envoyer"}
             </Button>
           </div>
-        </>
+        </section>
+      ) : (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <MessageSquare className="mt-0.5 size-5 text-zinc-400" />
+              <div>
+                <p className="text-sm font-medium text-zinc-950 dark:text-zinc-50">Composer sera disponible après connexion</p>
+                <p className="text-pretty text-sm text-zinc-500 dark:text-zinc-400">
+                  Activez WhatsApp Web ou configurez Meta Cloud API pour envoyer un message.
+                </p>
+              </div>
+            </div>
+            <Button type="button" variant="outline" className="min-h-10" onClick={() => setShowMetaConfig(true)}>
+              Configurer
+            </Button>
+          </CardContent>
+        </Card>
       )}
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <p className="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-50">{value}</p>
+      </div>
     </div>
   );
 }

@@ -25,7 +25,7 @@ export function PaystackUpgradeButton() {
 
     if (!response.ok || !payload?.authorizationUrl) {
       setPending(false);
-      setMessage(payload?.error ?? "Paiement impossible pour le moment.");
+      setMessage(payload?.error ?? "Impossible d'ouvrir le paiement pour le moment.");
       return;
     }
 
@@ -34,9 +34,9 @@ export function PaystackUpgradeButton() {
 
   return (
     <div className="space-y-2">
-      <Button type="button" className="w-full" onClick={handleUpgrade} disabled={pending}>
+      <Button type="button" className="min-h-10 w-full transition-[scale,background-color,box-shadow] active:scale-[0.98]" onClick={handleUpgrade} disabled={pending}>
         {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-        {pending ? "Ouverture Paystack..." : "Payer avec Paystack"}
+        {pending ? "Ouverture Paystack..." : "Passer au plan Pro"}
       </Button>
       {message ? <p className="text-xs text-red-600 dark:text-red-400">{message}</p> : null}
     </div>

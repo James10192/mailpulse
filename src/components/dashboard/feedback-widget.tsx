@@ -102,7 +102,11 @@ function FeedbackDialog({
 
   function preventSelectOutsideClose(event: Event) {
     const target = event.target as HTMLElement | null;
-    if (target?.closest('[data-slot="select-content"], [data-radix-popper-content-wrapper]')) {
+    if (
+      target?.closest(
+        '[data-slot="select-content"], [data-radix-select-content], [data-radix-popper-content-wrapper]',
+      )
+    ) {
       event.preventDefault();
     }
   }
@@ -153,6 +157,8 @@ function FeedbackDialog({
       <DialogContent
         className="grid max-h-[85vh] w-[calc(100%-2rem)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden sm:max-w-lg"
         onInteractOutside={preventSelectOutsideClose}
+        onPointerDownOutside={preventSelectOutsideClose}
+        onFocusOutside={preventSelectOutsideClose}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -202,7 +208,7 @@ function FeedbackDialog({
               id="feedback-message"
               value={message}
               onChange={(event) => setMessage(event.target.value)}
-              placeholder="Décrivez ce qui bloque, ce que vous attendiez ou l’amélioration souhaitée."
+              placeholder="Décrivez ce qui bloque, ce que vous attendiez ou l'amélioration souhaitée."
               rows={5}
               required
             />
@@ -239,7 +245,7 @@ function FeedbackDialog({
           ) : null}
           {status === "error" ? (
             <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-              Impossible d’enregistrer ce retour pour le moment.
+              Impossible d&apos;enregistrer ce retour pour le moment.
             </p>
           ) : null}
 

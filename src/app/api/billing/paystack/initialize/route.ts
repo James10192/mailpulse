@@ -64,9 +64,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ authorizationUrl: transaction.authorization_url, reference });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Initialisation Paystack impossible." },
-      { status: 500 }
-    );
+    console.error("Paystack initialization failed", error);
+    return NextResponse.json({ error: "Paiement indisponible pour le moment." }, { status: 500 });
   }
 }

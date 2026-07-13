@@ -1,55 +1,73 @@
 "use client";
 
 import { useState } from "react";
-import { X, Sparkles, Bug, Zap, ChevronDown, ChevronUp } from "lucide-react";
+import { Bug, ChevronDown, ChevronUp, Sparkles, Zap } from "lucide-react";
+
 import { changelog, APP_VERSION, type ChangelogEntry } from "@/lib/changelog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "mailpulse-last-seen-version";
 
 const typeConfig = {
-  feature: { icon: Sparkles, label: "Nouveau", className: "text-emerald-400 bg-emerald-500/10" },
-  fix: { icon: Bug, label: "Correction", className: "text-amber-400 bg-amber-500/10" },
-  improvement: { icon: Zap, label: "Amélioré", className: "text-blue-400 bg-blue-500/10" },
+  feature: { icon: Sparkles, label: "Nouveau", className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
+  fix: { icon: Bug, label: "Correction", className: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300" },
+  improvement: { icon: Zap, label: "Amélioré", className: "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300" },
 };
 
 function VersionBlock({ entry, defaultOpen }: { entry: ChangelogEntry; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+    <section className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
       <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer"
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left transition-[color,background-color] hover:bg-zinc-50 dark:hover:bg-zinc-900"
       >
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-mono font-bold text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded">
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="rounded-md bg-orange-500/10 px-2 py-1 font-mono text-[11px] font-semibold text-orange-600 dark:text-orange-400">
             v{entry.version}
           </span>
-          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{entry.title}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-zinc-500">{entry.date}</span>
-          {open ? <ChevronUp className="h-3.5 w-3.5 text-zinc-400" /> : <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />}
-        </div>
+          <span className="truncate text-sm font-medium text-zinc-950 dark:text-zinc-50">{entry.title}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2 text-[11px] text-zinc-500">
+          {entry.date}
+          {open ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+        </span>
       </button>
-      {open && (
-        <div className="px-3 pb-3 space-y-1.5">
-          {entry.changes.map((change, i) => {
+      {open ? (
+        <div className="space-y-2 px-3 pb-3">
+          {entry.changes.map((change) => {
             const config = typeConfig[change.type];
             const Icon = config.icon;
+
             return (
-              <div key={i} className="flex items-start gap-2">
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 mt-0.5 ${config.className}`}>
-                  <Icon className="h-2.5 w-2.5" />
+              <div key={`${entry.version}-${change.text}`} className="flex items-start gap-2">
+                <span
+                  className={cn(
+                    "mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
+                    config.className,
+                  )}
+                >
+                  <Icon className="size-3" />
                   {config.label}
                 </span>
-                <span className="text-xs text-zinc-600 dark:text-zinc-400">{change.text}</span>
+                <span className="text-pretty text-xs leading-5 text-zinc-600 dark:text-zinc-400">{change.text}</span>
               </div>
             );
           })}
         </div>
-      )}
-    </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -57,54 +75,48 @@ export function WhatsNewModal() {
   return null;
 }
 
-/** Button to manually open the What's New modal */
 export function WhatsNewButton() {
   const [open, setOpen] = useState(false);
 
-  function handleClose() {
-    localStorage.setItem(STORAGE_KEY, APP_VERSION);
-    setOpen(false);
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) localStorage.setItem(STORAGE_KEY, APP_VERSION);
+    setOpen(nextOpen);
   }
 
   return (
-    <>
-      <button
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
         onClick={() => setOpen(true)}
-        className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 transition-[scale,color,background-color] hover:bg-orange-50 hover:text-orange-500 active:scale-[0.96] dark:hover:bg-orange-500/10"
+        className="size-10 transition-[scale,color,background-color] hover:bg-orange-50 hover:text-orange-600 active:scale-[0.96] dark:hover:bg-orange-500/10 dark:hover:text-orange-400"
+        aria-label="Quoi de neuf ?"
         title="Quoi de neuf ?"
       >
-        <Sparkles className="h-4 w-4" />
-      </button>
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                  <Sparkles className="h-5 w-5 text-orange-500" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Quoi de neuf ?</h2>
-                  <p className="text-xs text-zinc-500">Historique des mises à jour · v{APP_VERSION}</p>
-                </div>
-              </div>
-              <button onClick={handleClose} className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 transition-[scale,color,background-color] hover:bg-zinc-100 hover:text-zinc-600 active:scale-[0.96] dark:hover:bg-zinc-800 dark:hover:text-zinc-200">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5 space-y-3">
-              {changelog.map((entry, i) => (
-                <VersionBlock key={entry.version} entry={entry} defaultOpen={i === 0} />
-              ))}
-            </div>
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0">
-              <button onClick={handleClose} className="w-full min-h-11 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white transition-[scale,background-color] hover:bg-orange-500 active:scale-[0.99]">
-                C&apos;est noté !
-              </button>
-            </div>
-          </div>
+        <Sparkles className="size-4" />
+      </Button>
+      <DialogContent className="grid max-h-[82vh] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-xl">
+        <DialogHeader className="border-b border-zinc-200 p-5 pr-12 dark:border-zinc-800">
+          <DialogTitle className="flex items-center gap-3 text-balance">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400">
+              <Sparkles className="size-5" />
+            </span>
+            Quoi de neuf ?
+          </DialogTitle>
+          <DialogDescription>Historique des mises à jour · v{APP_VERSION}</DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 space-y-3 overflow-y-auto p-5">
+          {changelog.map((entry, index) => (
+            <VersionBlock key={entry.version} entry={entry} defaultOpen={index === 0} />
+          ))}
         </div>
-      )}
-    </>
+        <DialogFooter className="border-t border-zinc-200 p-4 dark:border-zinc-800">
+          <Button type="button" className="w-full sm:w-auto" onClick={() => handleOpenChange(false)}>
+            C&apos;est noté
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

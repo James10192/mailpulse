@@ -10,9 +10,8 @@ import {
   Building2,
   Calendar,
   ChevronDown,
-  ChevronsLeft,
-  ChevronsRight,
   Code,
+  CreditCard,
   Filter,
   FormInput,
   Globe,
@@ -22,6 +21,7 @@ import {
   Mail,
   MessageSquare,
   Network,
+  PlugZap,
   Search,
   Send,
   SendHorizonal,
@@ -45,6 +45,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -255,7 +263,7 @@ function SidebarProBadge({ compact = false }: { compact?: boolean }) {
 
 function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
-  const { state, toggleSidebar } = useSidebar();
+  const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const visibleNavigation = navigation.filter((item) => !item.adminOnly || isAdmin);
 
@@ -279,16 +287,10 @@ function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
         <SidebarSeparator />
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton type="button" tooltip={collapsed ? "Ouvrir" : "Réduire"} onClick={toggleSidebar}>
-              {collapsed ? <ChevronsRight /> : <ChevronsLeft />}
-              <span>Réduire</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
             <SidebarMenuButton
               type="button"
               tooltip="Déconnexion"
-              className="text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+              className="text-muted-foreground transition-[color,background-color] hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
               onClick={() =>
                 signOut({
                   fetchOptions: {
@@ -351,11 +353,11 @@ function SearchTrigger() {
       variant="outline"
       data-tour="search"
       onClick={() => deferDashboardEvent("open-command-palette")}
-      className="hidden h-10 min-w-64 items-center justify-start gap-2 px-3 text-sm text-muted-foreground md:flex xl:min-w-80"
+      className="hidden h-10 w-[min(28vw,21rem)] min-w-64 items-center gap-3 px-3 text-sm text-muted-foreground transition-[scale,color,background-color,box-shadow] md:flex"
     >
-      <Search className="size-3.5" />
-      <span>Rechercher...</span>
-      <Kbd className="ml-4">{shortcutLabel}</Kbd>
+      <Search className="size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 text-left">Rechercher...</span>
+      <Kbd className="ml-auto shrink-0">{shortcutLabel}</Kbd>
     </Button>
   );
 }
@@ -369,14 +371,69 @@ function deferDashboardEvent(name: string) {
 function HeaderAvatar() {
   const { data: session } = useSession();
   const initial = session?.user?.name?.[0]?.toUpperCase() ?? "?";
+  const name = session?.user?.name ?? "Compte MailPulse";
+  const email = session?.user?.email ?? "";
+
+  function handleSignOut() {
+    signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          window.location.href = "/login";
+        },
+      },
+    });
+  }
 
   return (
-    <Link href="/dashboard/settings" title="Paramètres">
-      <Avatar className="size-8">
-        {session?.user?.image ? <AvatarImage src={session.user.image} alt="" /> : null}
-        <AvatarFallback>{initial}</AvatarFallback>
-      </Avatar>
-    </Link>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-10 rounded-full transition-[scale,background-color,box-shadow] active:scale-[0.96]"
+          aria-label="Ouvrir le menu du profil"
+        >
+          <Avatar className="size-8">
+            {session?.user?.image ? <AvatarImage src={session.user.image} alt="" /> : null}
+            <AvatarFallback>{initial}</AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel className="space-y-1">
+          <span className="block truncate text-sm font-medium">{name}</span>
+          {email ? <span className="block truncate text-xs font-normal text-muted-foreground">{email}</span> : null}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="min-h-10 cursor-pointer">
+          <Link href="/dashboard/settings">
+            <Settings className="size-4" />
+            Paramètres
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="min-h-10 cursor-pointer">
+          <Link href="/dashboard/settings/billing">
+            <CreditCard className="size-4" />
+            Facturation
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="min-h-10 cursor-pointer">
+          <Link href="/dashboard/settings/integrations">
+            <PlugZap className="size-4" />
+            Intégrations
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="min-h-10 cursor-pointer text-red-600 focus:bg-red-50 focus:text-red-700 dark:text-red-400 dark:focus:bg-red-500/10 dark:focus:text-red-300"
+          onSelect={handleSignOut}
+        >
+          <LogOut className="size-4" />
+          Déconnexion
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -457,11 +514,11 @@ function DashboardContent({ children, isAdmin }: { children: React.ReactNode; is
           className="flex h-16 shrink-0 items-center justify-between gap-3 bg-white/92 px-3 shadow-[inset_0_-1px_0_rgba(24,24,27,0.1)] backdrop-blur md:px-6 dark:bg-zinc-950/88 dark:shadow-[inset_0_-1px_0_rgba(255,255,255,0.08)]"
         >
           <div className="flex min-w-0 items-center gap-2">
-            <SidebarTrigger className="md:hidden" />
+            <SidebarTrigger className="size-10 shrink-0" />
             <SearchTrigger />
             <DashboardNavbar isAdmin={isAdmin} />
           </div>
-          <div className="flex min-w-0 items-center gap-2 md:gap-3">
+          <div className="flex min-w-0 items-center gap-1.5 md:gap-2">
             <HeaderFeedbackButton />
             <OnlineUsers />
             <div data-tour="theme">

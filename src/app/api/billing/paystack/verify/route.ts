@@ -56,9 +56,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ status: verified.status, plan: success ? payment.plan : org.plan });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Vérification Paystack impossible." },
-      { status: 500 }
-    );
+    console.error("Paystack verification failed", error);
+    return NextResponse.json({ error: "Vérification du paiement indisponible pour le moment." }, { status: 500 });
   }
 }
