@@ -97,10 +97,15 @@ function FeedbackDialog({
   const [message, setMessage] = useState("");
   const [screenshotUrl, setScreenshotUrl] = useState("");
   const [canContactBack, setCanContactBack] = useState(true);
+  const [selectOpen, setSelectOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
 
   function preventSelectOutsideClose(event: Event) {
+    if (selectOpen) {
+      event.preventDefault();
+      return;
+    }
     const target = event.target as HTMLElement | null;
     if (
       target?.closest(
@@ -176,7 +181,7 @@ function FeedbackDialog({
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="feedback-type">Type</Label>
-              <Select value={type} onValueChange={(value) => setType(value as FeedbackType)}>
+              <Select value={type} onValueChange={(value) => setType(value as FeedbackType)} onOpenChange={setSelectOpen}>
                 <SelectTrigger id="feedback-type" aria-label="Type de retour">
                   <SelectValue />
                 </SelectTrigger>
@@ -189,7 +194,7 @@ function FeedbackDialog({
             </div>
             <div className="grid gap-2">
               <Label htmlFor="feedback-priority">Priorité</Label>
-              <Select value={priority} onValueChange={(value) => setPriority(value as FeedbackPriority)}>
+              <Select value={priority} onValueChange={(value) => setPriority(value as FeedbackPriority)} onOpenChange={setSelectOpen}>
                 <SelectTrigger id="feedback-priority" aria-label="Priorité du retour">
                   <SelectValue />
                 </SelectTrigger>

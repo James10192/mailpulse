@@ -37,7 +37,7 @@ export async function generateMailPulseApiKey(formData: FormData) {
     : null;
 
   if (requestedSenderId && !defaultEmailSenderId) {
-    return { error: "Expediteur invalide ou domaine non verifie." };
+    return { error: "Expéditeur invalide ou domaine non vérifié." };
   }
 
   const key = createMailPulseApiKey(environment);
@@ -64,14 +64,14 @@ export async function updateMailPulseApiKeySender(formData: FormData) {
 
   const keyId = String(formData.get("keyId") ?? "");
   const requestedSenderId = String(formData.get("defaultEmailSenderId") ?? "");
-  if (!keyId) return { error: "Cle introuvable." };
+  if (!keyId) return { error: "Clé introuvable." };
 
   const defaultEmailSenderId = requestedSenderId === "inherit"
     ? null
     : await getVerifiedSenderId(org.id, requestedSenderId);
 
   if (requestedSenderId !== "inherit" && !defaultEmailSenderId) {
-    return { error: "Expediteur invalide ou domaine non verifie." };
+    return { error: "Expéditeur invalide ou domaine non vérifié." };
   }
 
   await prisma.integrationApiKey.updateMany({
@@ -85,15 +85,17 @@ export async function updateMailPulseApiKeySender(formData: FormData) {
 
 export async function revokeMailPulseApiKey(formData: FormData) {
   const { org } = await getCurrentUserAndOrg();
-  if (!org) return;
+  if (!org) return { error: "Organisation introuvable." };
 
   const keyId = String(formData.get("keyId") ?? "");
-  if (!keyId) return;
+  if (!keyId) return { error: "Clé introuvable." };
 
-  await prisma.integrationApiKey.updateMany({
-    where: { id: keyId, organizationId: org.id, provider: "MAILPULSE" },
+  const result = await prisma.integrationApiKey.updateMany({
+    where: { id: keyId, organizationId: org.id, provider: "MAILPULSE", revokedAt: null },
     data: { revokedAt: new Date() },
   });
+  if (result.count === 0) return { error: "Cette clé est introuvable ou déjà révoquée." };
 
   revalidatePath("/dashboard/platform");
+  return { success: true };
 }

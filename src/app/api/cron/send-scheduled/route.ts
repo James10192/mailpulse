@@ -156,6 +156,7 @@ export async function GET(request: NextRequest) {
           await prisma.communicationMessage.create({
             data: {
               organizationId: campaign.organizationId,
+              origin: "CAMPAIGN",
               contactId: contact.id,
               channel: "WHATSAPP",
               direction: "OUTBOUND",
@@ -191,6 +192,22 @@ export async function GET(request: NextRequest) {
             campaignId: campaign.id,
             recipientId,
             unsubscribeUrl,
+          });
+          await prisma.communicationMessage.create({
+            data: {
+              organizationId: campaign.organizationId,
+              origin: "CAMPAIGN",
+              contactId: contact.id,
+              channel: "EMAIL",
+              direction: "OUTBOUND",
+              recipientType: "EMAIL",
+              recipientValue: contact.email,
+              contentType: "TEXT",
+              text: htmlToPlainText(html),
+              status: "SENT",
+              sentAt: now,
+              metadata: { campaignId: campaign.id, recipientId },
+            },
           });
         }
 

@@ -363,7 +363,7 @@ async function initializeCampaignSending(
 }
 
 async function sendEmailsToRecipients(
-  campaign: { id: string; subject: string; htmlContent: string },
+  campaign: { id: string; organizationId: string; subject: string; htmlContent: string },
   contacts: ContactRow[],
   sender: { name: string; email: string; replyTo: string | null },
   recipientMap: Map<string, string>,
@@ -399,12 +399,47 @@ async function sendEmailsToRecipients(
           recipientId,
           unsubscribeUrl,
         });
+        await prisma.communicationMessage.create({
+          data: {
+            organizationId: campaign.organizationId,
+            origin: "CAMPAIGN",
+            contactId: contact.id,
+            channel: "EMAIL",
+            direction: "OUTBOUND",
+            recipientType: "EMAIL",
+            recipientValue: contact.email,
+            contentType: "TEXT",
+            text: htmlToPlainText(html),
+            providerMessageId: null,
+            status: "SENT",
+            sentAt: new Date(),
+            metadata: { campaignId: campaign.id, recipientId },
+          },
+        });
         await prisma.campaignRecipient.update({
           where: { id: recipientId },
           data: { sentAt: new Date() },
         });
         sentCount++;
-      } catch {
+      } catch (error) {
+        await prisma.communicationMessage.create({
+          data: {
+            organizationId: campaign.organizationId,
+            origin: "CAMPAIGN",
+            contactId: contact.id,
+            channel: "EMAIL",
+            direction: "OUTBOUND",
+            recipientType: "EMAIL",
+            recipientValue: contact.email,
+            contentType: "TEXT",
+            text: htmlToPlainText(html),
+            status: "FAILED",
+            failedAt: new Date(),
+            errorCode: "campaign_send_failed",
+            errorMessage: error instanceof Error ? error.message : "Échec de l’envoi de campagne.",
+            metadata: { campaignId: campaign.id, recipientId },
+          },
+        });
         await prisma.emailEvent.create({
           data: { type: "BOUNCED_SOFT", contactId: contact.id, recipientId, metadata: { error: "send_failed" } },
         });
@@ -474,6 +509,7 @@ async function sendWhatsAppToRecipients(
       await prisma.communicationMessage.create({
         data: {
           organizationId: orgId,
+          origin: "CAMPAIGN",
           contactId: contact.id,
           channel: "WHATSAPP",
           direction: "OUTBOUND",
@@ -585,7 +621,7 @@ export async function sendCampaign(
           org.id,
         )
       : await sendEmailsToRecipients(
-          { id: campaignId, subject: campaign.subject!, htmlContent: campaign.htmlContent! },
+          { id: campaignId, organizationId: org.id, subject: campaign.subject!, htmlContent: campaign.htmlContent! },
           contacts,
           sender!,
           recipientMap,

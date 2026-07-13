@@ -1,5 +1,6 @@
 export type ApiMessageDetail = {
   id: string;
+  origin: "api" | "platform" | "legacy";
   channel: string;
   direction: string;
   recipient: { type: string; value: string };

@@ -22,6 +22,7 @@ export async function POST(request: Request) {
 
   const message = await createCommunicationMessage({
     organizationId: auth.organizationId,
+    origin: "API",
     organization: auth.organization,
     input: parsed.data,
     idempotencyKey,

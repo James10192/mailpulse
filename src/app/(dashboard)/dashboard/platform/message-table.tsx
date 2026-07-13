@@ -11,6 +11,14 @@ import {
   shortIdentifier,
 } from "./message-formatters";
 import type { ApiMessageDetail } from "./message-types";
+import { messageOriginLabel, messageOriginVariant } from "./message-origin";
+
+function messagePreview(message: ApiMessageDetail) {
+  if (message.content.text) return message.content.text;
+  if (message.template?.name) return `Modèle : ${message.template.name}`;
+  if (message.content.template_key) return `Modèle : ${message.content.template_key}`;
+  return "Contenu non renseigné";
+}
 
 export function MessageTable({
   messages,
@@ -20,47 +28,55 @@ export function MessageTable({
   onSelect: (message: ApiMessageDetail) => void;
 }) {
   return (
-    <div className="overflow-hidden border-t">
-      <Table className="w-full table-fixed">
+    <div className="overflow-x-auto border-t">
+      <Table className="min-w-[780px]">
         <TableHeader className="sticky top-0 z-10 bg-card">
           <TableRow>
-            <TableHead className="w-[28%]">Destinataire</TableHead>
-            <TableHead className="w-[20%]">Statut</TableHead>
-            <TableHead className="w-[30%]">Erreur</TableHead>
-            <TableHead className="w-[16%]">Créé</TableHead>
-            <TableHead className="w-[6%] text-right">Voir</TableHead>
+            <TableHead>Destinataire</TableHead>
+            <TableHead>Canal</TableHead>
+            <TableHead>Origine</TableHead>
+            <TableHead>Contenu</TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead>Incident</TableHead>
+            <TableHead>Créé</TableHead>
+            <TableHead className="text-right">Détail</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {messages.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center text-sm text-muted-foreground">
-                Aucun message API pour le moment.
+              <TableCell colSpan={8} className="h-36 text-center text-sm text-muted-foreground">
+                Aucune communication ne correspond à ces filtres.
               </TableCell>
             </TableRow>
           ) : (
             messages.map((message) => (
-              <TableRow key={message.id} className="align-middle">
+              <TableRow key={message.id} className="align-middle hover:bg-muted/45">
                 <TableCell>
                   <div className="min-w-0 space-y-1">
-                    <p className="truncate font-mono text-xs">{message.recipient.value}</p>
+                    <p className="max-w-48 truncate text-sm font-medium">{message.recipient.value}</p>
                     <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                       <span>{message.recipient.type}</span>
-                      <span aria-hidden="true">·</span>
-                      <span className="truncate uppercase">{message.channel}</span>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="min-w-0 space-y-1">
-                    <Badge variant={messageStatusVariant(message.status)}>{message.status}</Badge>
-                    <p className="truncate font-mono text-xs text-muted-foreground">
-                      {shortIdentifier(message.provider_message_id, 8, 5)}
-                    </p>
-                  </div>
+                  <span className="text-xs font-medium uppercase text-muted-foreground">{message.channel}</span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex min-w-0 items-center gap-2">
+                  <Badge variant={messageOriginVariant(message.origin)}>{messageOriginLabel(message.origin)}</Badge>
+                </TableCell>
+                <TableCell className="max-w-56">
+                  <p className="truncate text-sm text-foreground">{messagePreview(message)}</p>
+                  <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+                    {shortIdentifier(message.provider_message_id, 8, 5)}
+                  </p>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={messageStatusVariant(message.status)}>{message.status}</Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex max-w-44 min-w-0 items-center gap-2">
                     {message.error_code || message.error_message ? (
                       <AlertCircle className="size-4 shrink-0 text-destructive" />
                     ) : (
@@ -73,7 +89,7 @@ export function MessageTable({
                   <span className="block truncate">{formatMessageDate(message.created_at)}</span>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button type="button" variant="ghost" size="icon" onClick={() => onSelect(message)} aria-label="Voir le message">
+                  <Button type="button" variant="ghost" size="icon" className="min-h-10 min-w-10" onClick={() => onSelect(message)} aria-label="Voir le détail de la communication">
                     <Eye className="size-4" />
                   </Button>
                 </TableCell>

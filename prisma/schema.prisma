@@ -651,6 +651,12 @@ enum MessageDirection {
   INBOUND
 }
 
+enum MessageOrigin {
+  API
+  PLATFORM
+  CAMPAIGN
+}
+
 enum MessageStatus {
   QUEUED
   RETRYING
@@ -738,6 +744,7 @@ model CommunicationMessage {
   id                    String               @id @default(cuid())
   channel               CommunicationChannel
   direction             MessageDirection     @default(OUTBOUND)
+  origin                MessageOrigin?
   recipientType         RecipientType
   recipientValue        String
   contentType           MessageContentType
@@ -779,6 +786,7 @@ model CommunicationMessage {
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, status, createdAt])
   @@index([organizationId, channel, createdAt])
+  @@index([organizationId, origin, createdAt])
   @@index([conversationId, createdAt])
   @@index([externalEventId])
   @@map("communication_message")

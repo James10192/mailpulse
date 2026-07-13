@@ -21,6 +21,7 @@ import {
   stringifyJson,
 } from "./message-formatters";
 import type { ApiMessageDetail } from "./message-types";
+import { messageOriginLabel } from "./message-origin";
 
 export function MessageDetailSheet({
   message,
@@ -46,7 +47,7 @@ function MessageDetailContent({ message }: { message: ApiMessageDetail }) {
           <div className="min-w-0">
             <SheetTitle className="flex items-center gap-2">
               <MessageSquare className="size-4 text-primary" />
-              Message API
+              Communication
             </SheetTitle>
             <SheetDescription className="mt-1 truncate font-mono text-xs">
               {message.id}
@@ -57,8 +58,9 @@ function MessageDetailContent({ message }: { message: ApiMessageDetail }) {
       </SheetHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Metric label="Canal" value={message.channel} />
+          <Metric label="Origine" value={messageOriginLabel(message.origin)} />
           <Metric label="Provider" value={shortIdentifier(message.provider_message_id, 10, 6)} mono />
           <Metric label="Tentatives" value={String(message.retry_count)} />
         </div>
@@ -85,7 +87,7 @@ function MessageDetailContent({ message }: { message: ApiMessageDetail }) {
               ]}
             />
             <DetailGroup
-              title="Références API"
+              title="Références techniques"
               rows={[
                 ["Idempotency", message.idempotency_key ?? "Non renseigné"],
                 ["Conversation", message.conversation_id ?? "Non renseigné"],

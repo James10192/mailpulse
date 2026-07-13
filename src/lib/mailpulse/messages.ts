@@ -33,6 +33,7 @@ const WHATSAPP_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export async function createCommunicationMessage(params: {
   organizationId: string;
+  origin: "API" | "PLATFORM" | "CAMPAIGN";
   organization?: MailPulseMessageOrganization;
   input: CreateMessageInput;
   idempotencyKey?: string | null;
@@ -81,6 +82,7 @@ export async function createCommunicationMessage(params: {
   const message = await prisma.communicationMessage.create({
     data: {
       organizationId: params.organizationId,
+      origin: params.origin,
       contactId: contact?.id ?? null,
       conversationId: conversation.id,
       templateId: template?.id ?? null,

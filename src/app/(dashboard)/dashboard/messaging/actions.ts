@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { checkContactLimit, type PlanTier } from "@/lib/plans";
-import { sendWhatsApp, baileys } from "@/lib/whatsapp";
+import { baileys } from "@/lib/whatsapp";
 import type { WhatsAppMode } from "@/lib/whatsapp";
 import type { ActionState } from "@/types/action-state";
 import { normalizeContactPhone } from "@/lib/phone-numbers";
+import { createCommunicationMessage } from "@/lib/mailpulse/messages";
 
 // ─── Helpers ────────────────────────────────────────────
 
@@ -341,8 +342,22 @@ export async function sendMessage(to: string, body: string): Promise<ActionState
   if (!phone) return { error: "Le numero WhatsApp est invalide." };
 
   try {
-    await sendWhatsApp(orgWa, phone, body);
-    return { success: true };
+    const message = await createCommunicationMessage({
+      organizationId: org.id,
+      origin: "PLATFORM",
+      organization: orgWa,
+      input: {
+        channel: "whatsapp",
+        recipient: { type: "phone", value: phone },
+        content: { type: "text", text: body },
+      },
+    });
+
+    revalidatePath("/dashboard/messaging");
+    revalidatePath("/dashboard/platform");
+    return message.status === "failed" || message.status === "template_required"
+      ? { error: message.error_message ?? "Échec de l’envoi WhatsApp." }
+      : { success: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erreur d'envoi";
     return { error: msg };
@@ -384,8 +399,17 @@ export async function sendBulkMessages(
         .replace(/\{\{firstName\}\}/g, contact.firstName || "")
         .replace(/\{\{lastName\}\}/g, contact.lastName || "");
 
-      await sendWhatsApp(orgWa, contact.phone!, personalized);
-      sent++;
+      const message = await createCommunicationMessage({
+        organizationId: org.id,
+        origin: "PLATFORM",
+        organization: orgWa,
+        input: {
+          channel: "whatsapp",
+          recipient: { type: "phone", value: contact.phone! },
+          content: { type: "text", text: personalized },
+        },
+      });
+      if (message.status !== "failed" && message.status !== "template_required") sent++;
 
       // Small delay between messages to avoid rate limiting
       if (sent < withPhone.length) {
@@ -397,9 +421,11 @@ export async function sendBulkMessages(
   }
 
   if (sent === 0) {
-    return { error: "Echec d'envoi a tous les contacts." };
+    return { error: "Échec d’envoi à tous les contacts." };
   }
 
+  revalidatePath("/dashboard/messaging");
+  revalidatePath("/dashboard/platform");
   return { success: true };
 }
 
