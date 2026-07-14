@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { resend } from "@/lib/resend";
 import { syncSendingDomainFromResend } from "@/lib/resend-domains";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import type { PlanTier } from "@/lib/plans";
+import { checkDomainLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
@@ -29,14 +29,9 @@ export async function createDomain(
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifie." };
 
-  // Check domain limit (FREE: 1, PRO: unlimited)
-  const plan = org.plan as PlanTier;
-  const domainLimit = plan === "FREE" ? 1 : -1;
-  if (domainLimit !== -1) {
-    const count = await prisma.sendingDomain.count({ where: { organizationId: org.id } });
-    if (count >= domainLimit) {
-      return { error: `Limite de domaines atteinte (${domainLimit}). Passez au plan Pro pour ajouter plus de domaines.` };
-    }
+  const domainLimit = await checkDomainLimit(org.id, org.plan as PlanTier);
+  if (!domainLimit.allowed) {
+    return { error: `Limite de domaines atteinte (${domainLimit.limit}). Passez au plan Pro pour ajouter plus de domaines.` };
   }
 
   try {

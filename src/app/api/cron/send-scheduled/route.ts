@@ -10,6 +10,7 @@ import {
   wrapLinksForTracking,
   generateUnsubscribeUrl,
 } from "@/lib/tracking";
+import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
 
 type ScheduledContact = {
   id: string;
@@ -67,6 +68,13 @@ export async function GET(request: NextRequest) {
   let totalSent = 0;
 
   for (const campaign of campaigns) {
+    if (campaign.channel === "WHATSAPP" && !canAccessFeature(campaign.organization.plan as PlanTier, "whatsapp")) {
+      await prisma.campaign.update({
+        where: { id: campaign.id },
+        data: { status: "DRAFT", scheduledAt: null },
+      });
+      continue;
+    }
     const incompleteEmail = campaign.channel === "EMAIL" && (!campaign.subject || !campaign.htmlContent || !campaign.fromEmail || !campaign.fromName);
     const incompleteWhatsApp = campaign.channel === "WHATSAPP" && !htmlToPlainText(campaign.htmlContent);
     if (incompleteEmail || incompleteWhatsApp) {

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { checkContactLimit, type PlanTier } from "@/lib/plans";
+import { canAccessFeature, checkContactLimit, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plans";
 import { baileys } from "@/lib/whatsapp";
 import type { WhatsAppMode } from "@/lib/whatsapp";
 import type { ActionState } from "@/types/action-state";
@@ -74,6 +74,7 @@ function getContactDisplayName(contact: {
 
 export async function activateBaileys(): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
+  if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifié." };
 
   if (!baileys.isConfigured()) {
@@ -144,6 +145,7 @@ export async function getQrCode(): Promise<{
 
 export async function resetBaileysConnection(): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
+  if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifié." };
 
   if (!baileys.isConfigured()) {
@@ -290,6 +292,7 @@ export async function saveMetaConfig(
   phone: string,
 ): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
+  if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifie." };
 
   if (!wabaId || !phoneNumberId || !accessToken) {
@@ -316,6 +319,7 @@ export async function saveMetaConfig(
 
 export async function switchWhatsAppMode(mode: WhatsAppMode): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
+  if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifie." };
 
   await prisma.organization.update({
@@ -331,6 +335,7 @@ export async function switchWhatsAppMode(mode: WhatsAppMode): Promise<ActionStat
 
 export async function sendMessage(to: string, body: string): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
+  if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifie." };
 
   const orgWa = await getOrgWhatsApp(org.id);
@@ -371,6 +376,7 @@ export async function sendBulkMessages(
   audience: "all" | string,
 ): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
+  if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifie." };
 
   const orgWa = await getOrgWhatsApp(org.id);
@@ -433,6 +439,7 @@ export async function sendBulkMessages(
 
 export async function disconnectWhatsApp(): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
+  if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifie." };
 
   const orgWa = await getOrgWhatsApp(org.id);

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createMailPulseApiKey, keyHash, keyPreview, type MailPulseApiEnvironment } from "@/lib/mailpulse/api-keys";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { canAccessFeature, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plan-catalog";
 
 async function getVerifiedSenderId(organizationId: string, senderId: string) {
   const sender = await prisma.emailSender.findFirst({
@@ -28,6 +29,7 @@ async function getVerifiedSenderId(organizationId: string, senderId: string) {
 
 export async function generateMailPulseApiKey(formData: FormData) {
   const { org } = await getCurrentUserAndOrg();
+  if (org && !canAccessFeature(org.plan as PlanTier, "api_access")) return { error: getFeatureUpgradeMessage("api_access") };
   if (!org) return { error: "Organisation introuvable." };
 
   const environment = (formData.get("environment") === "TEST" ? "TEST" : "LIVE") as MailPulseApiEnvironment;
@@ -60,6 +62,7 @@ export async function generateMailPulseApiKey(formData: FormData) {
 
 export async function updateMailPulseApiKeySender(formData: FormData) {
   const { org } = await getCurrentUserAndOrg();
+  if (org && !canAccessFeature(org.plan as PlanTier, "api_access")) return { error: getFeatureUpgradeMessage("api_access") };
   if (!org) return { error: "Organisation introuvable." };
 
   const keyId = String(formData.get("keyId") ?? "");

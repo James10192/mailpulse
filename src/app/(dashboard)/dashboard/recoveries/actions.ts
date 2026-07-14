@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { canAccessFeature, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plan-catalog";
 
 export async function cancelFilonRecovery(recoveryId: string) {
   const { org } = await getCurrentUserAndOrg();
+  if (org && !canAccessFeature(org.plan as PlanTier, "recoveries")) return { error: getFeatureUpgradeMessage("recoveries") };
   if (!org) return { error: "Organisation introuvable." };
 
   const recovery = await prisma.filonRecovery.findUnique({

@@ -6,12 +6,17 @@ import { PaystackReturnVerifier, PaystackUpgradeButton } from "@/components/dash
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PLAN_LIMITS, getOrgUsage, type PlanTier } from "@/lib/plans";
+import { PLAN_CATALOG, PLAN_LIMITS, getOrgUsage, type PlanTier } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { SettingsPageFrame } from "../settings-page-frame";
 
 async function getBillingData() {
-  const org = await prisma.organization.findFirst({
+  const { org: currentOrg } = await getCurrentUserAndOrg();
+  if (!currentOrg) return null;
+
+  const org = await prisma.organization.findUnique({
+    where: { id: currentOrg.id },
     select: { id: true, name: true, plan: true, emailsSentThisMonth: true },
   });
   if (!org) return null;
@@ -149,6 +154,7 @@ export default async function BillingPage() {
               <UsageTile label="Emails ce mois" current={org.emailsSentThisMonth} limit={limits.emailsPerMonth} />
               <UsageTile label="Campagnes actives" current={usage.activeCampaigns} limit={limits.activeCampaigns} />
               <UsageTile label="Automations" current={usage.automationCount} limit={limits.automations} />
+              <UsageTile label="Domaines d’envoi" current={usage.domainCount} limit={limits.domains} />
             </div>
           </CardContent>
         </Card>
@@ -209,7 +215,7 @@ export default async function BillingPage() {
                 </CardHeader>
                 <CardContent className="flex h-full flex-col">
                   <ul className="flex-1 space-y-2">
-                    {plan.features.map((feature) => (
+                    {PLAN_CATALOG[plan.tier].features.map((feature) => (
                       <li key={feature} className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                         <Check className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
                         {feature}

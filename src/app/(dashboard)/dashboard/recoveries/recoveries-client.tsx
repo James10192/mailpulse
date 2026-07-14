@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AlertTriangle, Ban, CheckCircle2, Clock, ExternalLink, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PlanReadOnlyNotice } from "@/components/dashboard/plan-read-only-notice";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,10 +80,12 @@ export function RecoveriesClient({
   automation,
   recoveries,
   chartData,
+  canManage,
 }: {
   automation: AutomationState;
   recoveries: Recovery[];
   chartData: Array<{ status: string; count: number }>;
+  canManage: boolean;
 }) {
   const [cancelId, setCancelId] = useState<string | null>(null);
   const selected = recoveries.find((recovery) => recovery.id === cancelId);
@@ -95,6 +98,7 @@ export function RecoveriesClient({
 
   return (
     <div className="page-stack app-shell-safe">
+      {!canManage ? <PlanReadOnlyNotice feature="Les séquences de recouvrement" /> : null}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-300">
@@ -224,7 +228,7 @@ export function RecoveriesClient({
                               Ouvrir contact
                             </Link>
                           </DropdownMenuItem>
-                          {recovery.status !== "CANCELLED" && recovery.status !== "COMPLETED" && (
+                          {canManage && recovery.status !== "CANCELLED" && recovery.status !== "COMPLETED" && (
                             <DropdownMenuItem className="text-red-600" onSelect={() => setCancelId(recovery.id)}>
                               <Ban className="h-4 w-4" />
                               Annuler séquence

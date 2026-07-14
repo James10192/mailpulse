@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { canAccessFeature, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plan-catalog";
 import {
   createFilonApiKey,
   hashIntegrationKey,
@@ -11,6 +12,7 @@ import {
 
 export async function generateFilonIntegrationKey() {
   const { org } = await getCurrentUserAndOrg();
+  if (org && !canAccessFeature(org.plan as PlanTier, "recoveries")) return { error: getFeatureUpgradeMessage("recoveries") };
   if (!org) return { error: "Organisation introuvable." };
 
   const key = createFilonApiKey();

@@ -12,8 +12,8 @@ export async function enforcePlanLimits(orgId: string, plan: PlanTier) {
   await Promise.all([
     enforceAutomationLimits(orgId, limits.automations),
     enforceCampaignLimits(orgId, limits.activeCampaigns),
-    // Contacts, snippets, templates, segments: don't delete, just block new creation
-    // Domains: mark inactive if no custom_domain feature
+    // Contacts, snippets, templates, segments and domains are retained.
+    // Their creation is checked at the mutation boundary.
   ]);
 }
 
@@ -82,6 +82,7 @@ export async function getOverLimitResources(orgId: string, plan: PlanTier) {
     automationCount,
     snippetCount,
     segmentCount,
+    domainCount,
   ] = await Promise.all([
     prisma.contact.count({ where: { organizationId: orgId } }),
     prisma.campaign.count({
@@ -94,6 +95,7 @@ export async function getOverLimitResources(orgId: string, plan: PlanTier) {
       where: { organizationId: orgId, category: "snippet" },
     }),
     prisma.contactList.count({ where: { organizationId: orgId } }),
+    prisma.sendingDomain.count({ where: { organizationId: orgId } }),
   ]);
 
   if (limits.contacts !== -1 && contactCount > limits.contacts) {
@@ -110,6 +112,9 @@ export async function getOverLimitResources(orgId: string, plan: PlanTier) {
   }
   if (limits.segments !== -1 && segmentCount > limits.segments) {
     overLimit.push({ resource: "segments", current: segmentCount, limit: limits.segments, label: "Segments" });
+  }
+  if (limits.domains !== -1 && domainCount > limits.domains) {
+    overLimit.push({ resource: "domains", current: domainCount, limit: limits.domains, label: "Domaines d’envoi" });
   }
 
   return overLimit;

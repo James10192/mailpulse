@@ -3,10 +3,12 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { MessagingClient } from "./messaging-client";
 import { isConfigured } from "@/lib/whatsapp-baileys";
+import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
 
 export default async function MessagingPage() {
   const ctx = await getCurrentUserAndOrg();
   const orgId = ctx.org?.id;
+  const canManage = ctx.org ? canAccessFeature(ctx.org.plan as PlanTier, "whatsapp") : false;
 
   const [contactsWithPhone, contactOptions, tags, org] = orgId
     ? await Promise.all([
@@ -71,6 +73,7 @@ export default async function MessagingPage() {
         metaConfigured={!!(org?.metaPhoneNumberId)}
         baileysAvailable={isConfigured()}
         mailpulseWhatsAppAvailable={process.env.MAILPULSE_MANAGED_WHATSAPP_ENABLED === "true"}
+        canManage={canManage}
       />
     </>
   );

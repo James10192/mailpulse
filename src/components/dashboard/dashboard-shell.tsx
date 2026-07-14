@@ -17,6 +17,7 @@ import {
   Globe,
   HandCoins,
   LayoutDashboard,
+  LockKeyhole,
   LogOut,
   Mail,
   MessageSquare,
@@ -42,7 +43,6 @@ import { OnlineUsers, PresenceHeartbeat } from "@/components/dashboard/presence-
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { WhatsNewButton, WhatsNewModal } from "@/components/dashboard/whats-new-modal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import {
@@ -82,16 +82,17 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { signOut, useSession } from "@/lib/auth-client";
+import { canAccessFeature, type PlanFeature, type PlanTier } from "@/lib/plan-catalog";
 import { cn } from "@/lib/utils";
 
 export type NavItem = {
   name: string;
   href: string;
   icon: LucideIcon;
-  pro?: boolean;
+  premiumFeature?: PlanFeature;
   adminOnly?: boolean;
   tourId?: string;
-  children?: { name: string; href: string; icon: LucideIcon; pro?: boolean }[];
+  children?: { name: string; href: string; icon: LucideIcon }[];
 };
 
 const navigation: NavItem[] = [
@@ -128,12 +129,12 @@ const navigation: NavItem[] = [
       { name: "Désabonnements", href: "/dashboard/unsubscribes", icon: UserMinus },
     ],
   },
-  { name: "WhatsApp", href: "/dashboard/messaging", icon: MessageSquare, pro: true, tourId: "nav-messaging" },
-  { name: "Recouvrements", href: "/dashboard/recoveries", icon: HandCoins, pro: true },
-  { name: "Plateforme", href: "/dashboard/platform", icon: Network, pro: true },
+  { name: "WhatsApp", href: "/dashboard/messaging", icon: MessageSquare, premiumFeature: "whatsapp", tourId: "nav-messaging" },
+  { name: "Recouvrements", href: "/dashboard/recoveries", icon: HandCoins, premiumFeature: "recoveries" },
+  { name: "Plateforme", href: "/dashboard/platform", icon: Network, premiumFeature: "api_access" },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, tourId: "nav-analytics" },
   { name: "Pages de capture", href: "/dashboard/capture-pages", icon: Globe, tourId: "nav-capture" },
-  { name: "Automations", href: "/dashboard/automations", icon: Zap, pro: true, tourId: "nav-automations" },
+  { name: "Automations", href: "/dashboard/automations", icon: Zap, tourId: "nav-automations" },
   { name: "Administration", href: "/dashboard/admin", icon: Building2, adminOnly: true },
   {
     name: "Envoi",
@@ -188,13 +189,15 @@ function isActiveRoute(pathname: string, href: string) {
   return pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 }
 
-function AppSidebarNavItem({ item, pathname }: { item: NavItem; pathname: string }) {
+function AppSidebarNavItem({ item, pathname, plan }: { item: NavItem; pathname: string; plan: PlanTier }) {
   const { setOpenMobile } = useSidebar();
   const hasChildren = Boolean(item.children?.length);
   const childActive = item.children?.some((child) => pathname === child.href) ?? false;
   const active = isActiveRoute(pathname, item.href) || childActive;
   const [expanded, setExpanded] = useState(active);
   const Icon = item.icon;
+  const readOnly = item.premiumFeature ? !canAccessFeature(plan, item.premiumFeature) : false;
+  const tooltip = readOnly ? `${item.name}, consultation uniquement avec votre plan Starter` : item.name;
 
   if (hasChildren) {
     return (
@@ -202,13 +205,13 @@ function AppSidebarNavItem({ item, pathname }: { item: NavItem; pathname: string
         <SidebarMenuButton
           type="button"
           isActive={active}
-          tooltip={item.name}
+          tooltip={tooltip}
           onClick={() => setExpanded((value) => !value)}
           className="h-9"
         >
           <Icon />
           <span>{item.name}</span>
-          {item.pro ? <SidebarProBadge /> : null}
+          {readOnly ? <SidebarReadOnlyBadge /> : null}
           <ChevronDown
             className={cn("ml-auto size-3 transition-transform", expanded ? "rotate-0" : "-rotate-90")}
           />
@@ -225,7 +228,6 @@ function AppSidebarNavItem({ item, pathname }: { item: NavItem; pathname: string
                     <Link href={child.href} prefetch onClick={() => setOpenMobile(false)}>
                       <ChildIcon />
                       <span>{child.name}</span>
-                      {child.pro ? <SidebarProBadge compact /> : null}
                     </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
@@ -239,29 +241,26 @@ function AppSidebarNavItem({ item, pathname }: { item: NavItem; pathname: string
 
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={active} tooltip={item.name} data-tour={item.tourId} className="h-9">
+      <SidebarMenuButton asChild isActive={active} tooltip={tooltip} data-tour={item.tourId} className="h-9">
         <Link href={item.href} prefetch onClick={() => setOpenMobile(false)}>
           <Icon />
           <span>{item.name}</span>
-          {item.pro ? <SidebarProBadge /> : null}
+          {readOnly ? <SidebarReadOnlyBadge /> : null}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
 }
 
-function SidebarProBadge({ compact = false }: { compact?: boolean }) {
+function SidebarReadOnlyBadge() {
   return (
-    <Badge
-      variant="default"
-      className={cn("ml-auto h-5 px-1.5 text-[8px] uppercase tracking-wide group-data-[collapsible=icon]:hidden", compact && "text-[7px]")}
-    >
-      Pro
-    </Badge>
+    <span className="ml-auto flex size-5 items-center justify-center text-muted-foreground group-data-[collapsible=icon]:hidden" aria-label="Consultation uniquement">
+      <LockKeyhole className="size-3.5" aria-hidden="true" />
+    </span>
   );
 }
 
-function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
+function AppSidebar({ isAdmin, plan }: { isAdmin: boolean; plan: PlanTier }) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -277,7 +276,7 @@ function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
           <SidebarGroupContent>
             <SidebarMenu>
               {visibleNavigation.map((item) => (
-                <AppSidebarNavItem key={item.href} item={item} pathname={pathname} />
+                <AppSidebarNavItem key={item.href} item={item} pathname={pathname} plan={plan} />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -502,12 +501,12 @@ function DashboardRoutePrefetcher({ isAdmin }: { isAdmin: boolean }) {
   return null;
 }
 
-function DashboardContent({ children, isAdmin }: { children: React.ReactNode; isAdmin: boolean }) {
+function DashboardContent({ children, isAdmin, plan }: { children: React.ReactNode; isAdmin: boolean; plan: PlanTier }) {
   return (
     <SidebarProvider>
       <DashboardRoutePrefetcher isAdmin={isAdmin} />
       <PresenceHeartbeat />
-      <AppSidebar isAdmin={isAdmin} />
+      <AppSidebar isAdmin={isAdmin} plan={plan} />
       <SidebarInset className="h-svh min-w-0 overflow-hidden bg-zinc-50 dark:bg-zinc-950">
         <header
           style={{ viewTransitionName: "persistent-header" }}
@@ -545,6 +544,6 @@ function DashboardContent({ children, isAdmin }: { children: React.ReactNode; is
   );
 }
 
-export function DashboardShell({ children, isAdmin }: { children: React.ReactNode; isAdmin: boolean }) {
-  return <DashboardContent isAdmin={isAdmin}>{children}</DashboardContent>;
+export function DashboardShell({ children, isAdmin, plan }: { children: React.ReactNode; isAdmin: boolean; plan: PlanTier }) {
+  return <DashboardContent isAdmin={isAdmin} plan={plan}>{children}</DashboardContent>;
 }

@@ -37,7 +37,7 @@ type Feedback = { tone: "success" | "error"; message: string } | null;
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
 
-export function ApiKeysPanel({ apiKeys, emailSenders }: { apiKeys: ApiKeyRow[]; emailSenders: EmailSenderOption[] }) {
+export function ApiKeysPanel({ apiKeys, emailSenders, canManage = true }: { apiKeys: ApiKeyRow[]; emailSenders: EmailSenderOption[]; canManage?: boolean }) {
   const [revealedKey, setRevealedKey] = useState("");
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [selectedSenderId, setSelectedSenderId] = useState(emailSenders.find((sender) => sender.isDefault)?.id ?? emailSenders[0]?.id ?? "inherit");
@@ -92,8 +92,8 @@ export function ApiKeysPanel({ apiKeys, emailSenders }: { apiKeys: ApiKeyRow[]; 
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div><CardTitle>Clés API</CardTitle><CardDescription>Clés par organisation pour l’API publique MailPulse.</CardDescription></div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" className="h-10" onClick={() => generate("TEST")} disabled={isPending}><KeyRound aria-hidden="true" />Créer une clé test</Button>
-            <Button type="button" className="h-10" onClick={() => generate("LIVE")} disabled={isPending}><KeyRound aria-hidden="true" />Créer une clé production</Button>
+            <Button type="button" variant="outline" className="h-10" onClick={() => generate("TEST")} disabled={!canManage || isPending} title={!canManage ? "Disponible avec le plan Pro" : undefined}><KeyRound aria-hidden="true" />Créer une clé test</Button>
+            <Button type="button" className="h-10" onClick={() => generate("LIVE")} disabled={!canManage || isPending} title={!canManage ? "Disponible avec le plan Pro" : undefined}><KeyRound aria-hidden="true" />Créer une clé production</Button>
           </div>
         </div>
         <div className="max-w-md"><Select value={selectedSenderId} onValueChange={setSelectedSenderId} disabled={isPending || emailSenders.length === 0}><SelectTrigger className="h-10"><SelectValue placeholder="Expéditeur API par défaut" /></SelectTrigger><SelectContent>{emailSenders.length === 0 ? <SelectItem value="inherit">Aucun expéditeur vérifié</SelectItem> : emailSenders.map((sender) => <SelectItem key={sender.id} value={sender.id}>{sender.name} · {sender.email}</SelectItem>)}</SelectContent></Select></div>

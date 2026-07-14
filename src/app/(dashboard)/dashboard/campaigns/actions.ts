@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { checkCampaignLimit, checkEmailLimit, type PlanTier } from "@/lib/plans";
+import { canAccessFeature, checkCampaignLimit, checkEmailLimit, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plans";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
@@ -44,6 +44,9 @@ export async function createCampaign(
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) {
       return { error: "Utilisateur non trouve." };
+    }
+    if (result.data.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+      return { error: getFeatureUpgradeMessage("whatsapp") };
     }
 
     const campaignCheck = await checkCampaignLimit(org.id, org.plan as PlanTier);
@@ -133,6 +136,9 @@ export async function scheduleCampaign(
     where: { id: campaignId, organizationId: org.id },
   });
   if (!campaign) return { error: "Campagne introuvable." };
+  if (campaign.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+    return { error: getFeatureUpgradeMessage("whatsapp") };
+  }
   if (campaign.status !== "DRAFT") return { error: "Seules les campagnes en brouillon peuvent être planifiées." };
 
   const sender = campaign.channel === "EMAIL"
@@ -197,6 +203,9 @@ export async function updateCampaign(
   try {
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) return { error: "Non authentifie." };
+    if (data.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+      return { error: getFeatureUpgradeMessage("whatsapp") };
+    }
 
     const updateData: Record<string, string | null> = {};
     if (data.name !== undefined) updateData.name = data.name;
@@ -595,6 +604,9 @@ export async function sendCampaign(
   const validation = await validateCampaignForSending(campaignId, org.id);
   if ("error" in validation) return { error: validation.error };
   const { campaign } = validation;
+  if (campaign.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+    return { error: getFeatureUpgradeMessage("whatsapp") };
+  }
 
   const fetched = await fetchSenderAndContacts(senderId, audience, org.id, campaign.channel as CampaignChannel);
   if ("error" in fetched) return { error: fetched.error };

@@ -97,24 +97,9 @@ function FeedbackDialog({
   const [message, setMessage] = useState("");
   const [screenshotUrl, setScreenshotUrl] = useState("");
   const [canContactBack, setCanContactBack] = useState(true);
-  const [selectOpen, setSelectOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
-
-  function preventSelectOutsideClose(event: Event) {
-    if (selectOpen) {
-      event.preventDefault();
-      return;
-    }
-    const target = event.target as HTMLElement | null;
-    if (
-      target?.closest(
-        '[data-slot="select-content"], [data-radix-select-content], [data-radix-popper-content-wrapper]',
-      )
-    ) {
-      event.preventDefault();
-    }
-  }
+  const [dialogContent, setDialogContent] = useState<HTMLDivElement | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -160,10 +145,8 @@ function FeedbackDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="grid max-h-[85vh] w-[calc(100%-2rem)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden sm:max-w-lg"
-        onInteractOutside={preventSelectOutsideClose}
-        onPointerDownOutside={preventSelectOutsideClose}
-        onFocusOutside={preventSelectOutsideClose}
+        ref={setDialogContent}
+        className="grid max-h-[85vh] w-[calc(100%-2rem)] grid-rows-[auto_minmax(0,1fr)] overflow-visible sm:max-w-lg"
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -181,11 +164,11 @@ function FeedbackDialog({
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="feedback-type">Type</Label>
-              <Select value={type} onValueChange={(value) => setType(value as FeedbackType)} onOpenChange={setSelectOpen}>
+              <Select value={type} onValueChange={(value) => setType(value as FeedbackType)}>
                 <SelectTrigger id="feedback-type" aria-label="Type de retour">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent portalContainer={dialogContent}>
                   <SelectItem value="BUG">Bug</SelectItem>
                   <SelectItem value="IDEA">Idée</SelectItem>
                   <SelectItem value="OTHER">Autre</SelectItem>
@@ -194,11 +177,11 @@ function FeedbackDialog({
             </div>
             <div className="grid gap-2">
               <Label htmlFor="feedback-priority">Priorité</Label>
-              <Select value={priority} onValueChange={(value) => setPriority(value as FeedbackPriority)} onOpenChange={setSelectOpen}>
+              <Select value={priority} onValueChange={(value) => setPriority(value as FeedbackPriority)}>
                 <SelectTrigger id="feedback-priority" aria-label="Priorité du retour">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent portalContainer={dialogContent}>
                   <SelectItem value="LOW">Faible</SelectItem>
                   <SelectItem value="MEDIUM">Normale</SelectItem>
                   <SelectItem value="HIGH">Haute</SelectItem>

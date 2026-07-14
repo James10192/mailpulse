@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  Mail,
   BarChart3,
   Zap,
   Target,
@@ -13,6 +12,7 @@ import {
   Check,
   MessageCircle,
 } from "lucide-react";
+import { PLAN_CATALOG } from "@/lib/plan-catalog";
 
 function GithubIcon({ className }: { className?: string }) {
   return (
@@ -85,48 +85,9 @@ const trackingFeatures = [
 ];
 
 const pricingPlans = [
-  {
-    name: "Starter",
-    price: "0",
-    desc: "Pour demarrer",
-    features: ["1 000 contacts", "5 000 emails/mois", "Templates de base", "Analytics essentiels"],
-    cta: "Commencer gratuitement",
-    highlighted: false,
-  },
-  {
-    name: "Pro",
-    price: "15 000",
-    desc: "Pour les equipes",
-    features: [
-      "25 000 contacts",
-      "Emails illimites",
-      "Campagnes WhatsApp",
-      "A/B testing",
-      "Automations",
-      "Segmentation avancee",
-      "Support prioritaire",
-      "Tracking WhatsApp",
-    ],
-    cta: "Essai gratuit 14 jours",
-    highlighted: true,
-  },
-  {
-    name: "Enterprise",
-    price: "Sur mesure",
-    desc: "Pour les grandes equipes",
-    features: [
-      "Contacts illimites",
-      "Dedicated IP",
-      "SSO / SAML",
-      "SLA garanti",
-      "Account manager",
-      "API avancee",
-      "WhatsApp illimites",
-      "Analytics conversations",
-    ],
-    cta: "Nous contacter",
-    highlighted: false,
-  },
+  { name: "Starter", price: "0", desc: "Pour démarrer", features: PLAN_CATALOG.FREE.features, cta: "Commencer gratuitement", highlighted: false },
+  { name: "Pro", price: "15 000", desc: "Pour les équipes", features: PLAN_CATALOG.PRO.features, cta: "Essai gratuit 14 jours", highlighted: true },
+  { name: "Enterprise", price: "Sur mesure", desc: "Pour les grandes équipes", features: PLAN_CATALOG.ENTERPRISE.features, cta: "Nous contacter", highlighted: false },
 ];
 
 export default function LandingPage() {

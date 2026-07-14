@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
 import { RecoveriesClient } from "./recoveries-client";
 
 export default async function RecoveriesPage() {
   const { org } = await getCurrentUserAndOrg();
+  const canManage = org ? canAccessFeature(org.plan as PlanTier, "recoveries") : false;
   const [recoveries, dueSteps, lastActivity, failedSteps] = org
     ? await Promise.all([
         prisma.filonRecovery.findMany({
@@ -93,6 +95,7 @@ export default async function RecoveriesPage() {
           nextReminderAt: recovery.nextReminderAt?.toISOString() ?? null,
           lastReminderAt: recovery.lastReminderAt?.toISOString() ?? null,
         }))}
+        canManage={canManage}
       />
     </>
   );

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { HelpButton } from "@/components/dashboard/help-modal";
+import { PlanReadOnlyNotice } from "@/components/dashboard/plan-read-only-notice";
 import { PhoneNumberInput } from "@/components/dashboard/phone-number-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +60,7 @@ export function MessagingClient({
   metaConfigured,
   baileysAvailable,
   mailpulseWhatsAppAvailable,
+  canManage,
 }: {
   contactsWithPhone: number;
   contactOptions: MessagingContactOption[];
@@ -71,6 +73,7 @@ export function MessagingClient({
   metaConfigured: boolean;
   baileysAvailable: boolean;
   mailpulseWhatsAppAvailable: boolean;
+  canManage: boolean;
 }) {
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [phone, setPhone] = useState("");
@@ -213,6 +216,7 @@ export function MessagingClient({
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
+      {!canManage ? <PlanReadOnlyNotice feature="La configuration et l’envoi WhatsApp" /> : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-balance text-2xl font-semibold text-zinc-950 dark:text-zinc-50">WhatsApp</h1>
@@ -222,7 +226,7 @@ export function MessagingClient({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <HelpButton onClick={() => setHelpOpen(true)} />
-          <Button type="button" variant="outline" className="min-h-10" onClick={() => setShowMetaConfig(true)}>
+          <Button type="button" variant="outline" className="min-h-10" onClick={() => setShowMetaConfig(true)} disabled={!canManage} title={!canManage ? "Disponible avec le plan Pro" : undefined}>
             <Settings2 className="size-4" />
             Configurer Meta
           </Button>
@@ -476,7 +480,7 @@ export function MessagingClient({
           ) : null}
 
           <div className="flex justify-end">
-            <Button type="button" size="lg" onClick={handleSend} disabled={sending || !body || (mode === "single" && !phone)}>
+            <Button type="button" size="lg" onClick={handleSend} disabled={!canManage || sending || !body || (mode === "single" && !phone)} title={!canManage ? "Disponible avec le plan Pro" : undefined}>
               {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {mode === "bulk" ? "Lancer la campagne WhatsApp" : "Envoyer"}
             </Button>

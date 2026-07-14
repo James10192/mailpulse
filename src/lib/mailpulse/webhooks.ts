@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { randomUUID } from "node:crypto";
 import { hmacSha256, previewSecret, randomSecret, sha256 } from "./crypto";
 import { toPrismaJson } from "./json";
+import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
 
 export type WebhookEventPayload = {
   event_id: string;
@@ -43,6 +44,12 @@ export async function emitWebhookEvent(params: {
   data: Record<string, unknown>;
   messageId?: string | null;
 }) {
+  const organization = await prisma.organization.findUnique({
+    where: { id: params.organizationId },
+    select: { plan: true },
+  });
+  if (!organization || !canAccessFeature(organization.plan as PlanTier, "webhooks")) return;
+
   const endpoints = await prisma.webhookEndpoint.findMany({
     where: {
       organizationId: params.organizationId,

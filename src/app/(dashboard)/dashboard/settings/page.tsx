@@ -11,14 +11,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { canAccessFeature, type PlanTier } from "@/lib/plans";
+import { PLAN_LIMITS, canAccessFeature, type PlanTier } from "@/lib/plans";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { SettingsPageFrame } from "./settings-page-frame";
 
 export default async function SettingsPage() {
   const { org } = await getCurrentUserAndOrg();
   const canUseApi = org ? canAccessFeature(org.plan as PlanTier, "api_access") : false;
-  const canUseDomains = org ? canAccessFeature(org.plan as PlanTier, "custom_domain") : false;
+  const domainLimit = org ? PLAN_LIMITS[org.plan as PlanTier].domains : 0;
 
   return (
     <SettingsPageFrame section="general">
@@ -59,11 +59,10 @@ export default async function SettingsPage() {
                     SPF, DKIM et DMARC pour protéger votre délivrabilité.
                   </CardDescription>
                 </div>
-                {!canUseDomains ? <ProBadge /> : null}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {canUseDomains ? (
+              {domainLimit !== 0 ? (
                 <Alert>
                   <Globe2 className="h-4 w-4" />
                   <AlertTitle>Aucun domaine configuré</AlertTitle>
@@ -74,9 +73,9 @@ export default async function SettingsPage() {
               ) : (
                 <Alert variant="warning">
                   <Globe2 className="h-4 w-4" />
-                  <AlertTitle>Plan Pro requis</AlertTitle>
+                  <AlertTitle>Organisation introuvable</AlertTitle>
                   <AlertDescription>
-                    Passez au plan Pro pour configurer vos propres domaines d&apos;envoi.
+                    Connectez-vous à une organisation pour gérer vos domaines d&apos;envoi.
                   </AlertDescription>
                 </Alert>
               )}

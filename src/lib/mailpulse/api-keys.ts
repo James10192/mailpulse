@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
 import { previewSecret, randomSecret, sha256 } from "./crypto";
 
 export type MailPulseApiEnvironment = "LIVE" | "TEST";
@@ -51,6 +52,7 @@ export async function authenticateApiRequest(request: Request) {
   });
 
   if (!integrationKey) return null;
+  if (!canAccessFeature(integrationKey.organization.plan as PlanTier, "api_access")) return null;
 
   await prisma.integrationApiKey.update({
     where: { id: integrationKey.id },

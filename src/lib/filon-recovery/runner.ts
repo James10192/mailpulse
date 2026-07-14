@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/resend";
 import { sendWhatsApp } from "@/lib/whatsapp";
+import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
 
 const DEFAULT_BATCH_SIZE = 25;
 
@@ -73,6 +74,7 @@ async function loadDueSteps(now: Date, limit: number) {
             select: {
               id: true,
               name: true,
+              plan: true,
               whatsappEnabled: true,
               whatsappMode: true,
               whatsappPhone: true,
@@ -218,6 +220,7 @@ async function markStepFailure(step: RecoveryStep, error: unknown) {
 
 async function processStep(step: RecoveryStep, now: Date) {
   if (!isRunnableStatus(step.status as StepStatus)) return "skipped" as const;
+  if (!canAccessFeature(step.recovery.organization.plan as PlanTier, "recoveries")) return "skipped" as const;
   if (!(await reserveStep(step))) return "skipped" as const;
 
   if (step.channel === "HUMAN_ACTION") {

@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
+import { PlanReadOnlyNotice } from "@/components/dashboard/plan-read-only-notice";
 import { serializeMessage, serializeTemplate } from "@/lib/mailpulse/serializers";
 import { DeliveryByChannelChart, MessageVolumeChart } from "./platform-charts";
 import { ApiKeysPanel } from "./platform-client";
@@ -104,6 +106,7 @@ export default async function PlatformPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { org } = await getCurrentUserAndOrg();
+  const canManage = org ? canAccessFeature(org.plan as PlanTier, "api_access") : false;
   const orgId = org?.id ?? "";
   const filters = normalizeFilters(await searchParams);
   const messageWhere = buildMessageWhere(orgId, filters);
@@ -183,7 +186,11 @@ export default async function PlatformPage({
           <h1 className="text-balance text-2xl font-semibold text-foreground">Plateforme</h1>
           <p className="mt-1 max-w-2xl text-pretty text-sm text-muted-foreground">Consultez les communications directes et API, puis agissez sur les intégrations qui les alimentent.</p>
         </div>
-        <Button asChild className="min-h-11 shrink-0"><Link href="/dashboard/messaging"><Send className="size-4" />Envoyer un message</Link></Button>
+        {canManage ? (
+          <Button asChild className="min-h-11 shrink-0"><Link href="/dashboard/messaging"><Send className="size-4" />Envoyer un message</Link></Button>
+        ) : (
+          <Button className="min-h-11 shrink-0" disabled title="Disponible avec le plan Pro"><Send className="size-4" />Envoyer un message</Button>
+        )}
       </header>
 
       <div className="grid overflow-hidden rounded-lg border border-zinc-200 bg-card shadow-[0_1px_2px_rgba(24,24,27,0.04)] dark:border-zinc-800 sm:grid-cols-2 xl:grid-cols-4">
@@ -214,12 +221,13 @@ export default async function PlatformPage({
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6">
+          {!canManage ? <PlanReadOnlyNotice feature="Les clés API, webhooks et intégrations" /> : null}
           <section className="grid gap-4 lg:grid-cols-3">
             <Metric label="Clés actives" value={activeKeys.toLocaleString("fr-FR")} icon={KeyRound} />
             <Metric label="Webhooks actifs" value={activeWebhooks.toLocaleString("fr-FR")} icon={Webhook} />
             <Metric label="Modèles" value={templates.length.toLocaleString("fr-FR")} icon={MessageSquare} />
           </section>
-          <ApiKeysPanel apiKeys={apiKeys.map((key) => ({ id: key.id, name: key.name, keyPrefix: key.keyPrefix, environment: key.environment, defaultEmailSenderId: key.defaultEmailSenderId, lastUsedAt: key.lastUsedAt?.toISOString() ?? null, createdAt: key.createdAt.toISOString(), revokedAt: key.revokedAt?.toISOString() ?? null }))} emailSenders={emailSenders} />
+          <ApiKeysPanel canManage={canManage} apiKeys={apiKeys.map((key) => ({ id: key.id, name: key.name, keyPrefix: key.keyPrefix, environment: key.environment, defaultEmailSenderId: key.defaultEmailSenderId, lastUsedAt: key.lastUsedAt?.toISOString() ?? null, createdAt: key.createdAt.toISOString(), revokedAt: key.revokedAt?.toISOString() ?? null }))} emailSenders={emailSenders} />
           <div className="grid gap-4 xl:grid-cols-2">
             <Card className="overflow-hidden"><CardHeader><CardTitle>Webhooks</CardTitle><CardDescription>Endpoints sortants et signés par organisation.</CardDescription></CardHeader><CardContent className="px-0 pb-0"><div className="overflow-x-auto"><Table className="min-w-[580px]"><TableHeader><TableRow><TableHead>Nom</TableHead><TableHead>URL</TableHead><TableHead>Événements</TableHead><TableHead>État</TableHead></TableRow></TableHeader><TableBody>{webhooks.length === 0 ? <TableRow><TableCell colSpan={4} className="h-28 text-center text-sm text-muted-foreground">Aucun webhook configuré.</TableCell></TableRow> : webhooks.map((webhook) => <TableRow key={webhook.id}><TableCell className="max-w-36 truncate font-medium">{webhook.name}</TableCell><TableCell className="max-w-56 truncate font-mono text-xs">{webhook.url}</TableCell><TableCell className="font-mono text-xs tabular-nums">{webhook.events.length}</TableCell><TableCell><Badge variant={webhook.active ? "success" : "secondary"}>{webhook.active ? "Actif" : "Inactif"}</Badge></TableCell></TableRow>)}</TableBody></Table></div></CardContent></Card>
             <Card className="overflow-hidden"><CardHeader><CardTitle>Modèles</CardTitle><CardDescription>Références de modèles disponibles pour les intégrations.</CardDescription></CardHeader><CardContent className="px-0 pb-0"><div className="overflow-x-auto"><Table className="min-w-[520px]"><TableHeader><TableRow><TableHead>Clé</TableHead><TableHead>Canal</TableHead><TableHead>Locale</TableHead><TableHead>Statut</TableHead></TableRow></TableHeader><TableBody>{templates.length === 0 ? <TableRow><TableCell colSpan={4} className="h-28 text-center text-sm text-muted-foreground">Aucun modèle d’intégration.</TableCell></TableRow> : templates.map((template) => { const item = serializeTemplate(template); return <TableRow key={item.id}><TableCell className="max-w-44 truncate font-mono text-xs">{item.template_key}</TableCell><TableCell>{item.channel}</TableCell><TableCell className="font-mono text-xs">{item.locale}</TableCell><TableCell><Badge variant={statusVariant(item.status.toUpperCase())}>{item.status}</Badge></TableCell></TableRow>; })}</TableBody></Table></div></CardContent></Card>
