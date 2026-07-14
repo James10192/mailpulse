@@ -7,6 +7,8 @@ import type { NextRequest } from "next/server";
  * All others are prefix-matched.
  */
 const publicPrefixes = [
+  "/opengraph-image",
+  "/icon",
   "/login",
   "/register",
   "/docs",
