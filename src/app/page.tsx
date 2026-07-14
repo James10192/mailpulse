@@ -31,6 +31,7 @@ function LinkedinIcon({ className }: { className?: string }) {
 }
 import { HeroGlow } from "@/components/landing/hero-glow";
 import { Navbar } from "@/components/landing/navbar";
+import { BrandMark } from "@/components/brand-mark";
 import { AnimatedSection, StaggerContainer, StaggerItem } from "@/components/landing/animated-section";
 import { PulseLine } from "@/components/landing/pulse-line";
 import { MetricCard } from "@/components/landing/metric-card";
@@ -621,12 +622,7 @@ export default function LandingPage() {
       <footer className="border-t border-zinc-800/50 py-12">
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-orange-500" />
-              <span className="text-sm font-medium">
-                Mail<span className="text-orange-500">Pulse</span>
-              </span>
-            </div>
+            <BrandMark className="text-sm text-zinc-100" />
 
             <nav className="flex items-center gap-6 text-sm text-zinc-500">
               <a href="https://github.com/James10192/mailpulse" className="hover:text-zinc-300 transition-colors">

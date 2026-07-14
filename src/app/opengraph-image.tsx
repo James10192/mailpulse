@@ -22,22 +22,25 @@ export default function OGImage() {
       >
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "18px", marginBottom: "40px" }}>
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                stroke="#f97316"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path d="M4 6l8 5 8-5" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
             <div
               style={{
                 display: "flex",
-                width: "52px",
-                height: "52px",
-                border: "3px solid #f97316",
-                borderRadius: "10px",
-                color: "#f97316",
+                color: "#fafafa",
                 fontSize: "30px",
-                alignItems: "center",
-                justifyContent: "center",
+                fontWeight: 600,
+                letterSpacing: "-0.6px",
               }}
             >
-              M
-            </div>
-            <div style={{ display: "flex", color: "#fafafa", fontSize: "30px", fontWeight: 700 }}>
               Mail<span style={{ color: "#f97316" }}>Pulse</span>
             </div>
           </div>
