@@ -3,7 +3,7 @@ import { Space_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://mailpulse-two.vercel.app");
+const siteUrl = new URL("https://mailpulse-two.vercel.app");
 const siteTitle = "MailPulse | Campagnes email et WhatsApp";
 const siteDescription =
   "Créez, planifiez et analysez vos campagnes email et WhatsApp depuis un espace de travail unique.";
