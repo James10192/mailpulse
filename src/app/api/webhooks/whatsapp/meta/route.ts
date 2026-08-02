@@ -1,4 +1,4 @@
-import { GET as verifyExternalMetaWebhook, receiveMetaWebhookRequest } from "@/app/api/webhooks/whatsapp/meta/[applicationKey]/route";
+import { receiveMetaWebhookRequest, verifyMetaWebhookRequest } from "@/lib/external-applications/meta-webhook";
 
 export const runtime = "nodejs";
 
@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   const applicationKey = process.env.LEGACY_EXTERNAL_APPLICATION_KEY;
   if (!applicationKey) return new Response("Forbidden", { status: 403 });
-  return verifyExternalMetaWebhook(request, { params: Promise.resolve({ applicationKey }) });
+  return verifyMetaWebhookRequest(request, applicationKey);
 }
 
 export async function POST(request: Request) {

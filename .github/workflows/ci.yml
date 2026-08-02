@@ -54,6 +54,8 @@ jobs:
       TRACKING_SECRET: ci-tracking-secret-min-32-chars
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      EXTERNAL_APPLICATION_KEK: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      CRON_SECRET: ci-cron-secret-not-used-outside-tests
 
     steps:
       - name: Checkout
@@ -61,8 +63,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -84,6 +84,9 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: External application tests
+        run: pnpm test:external-applications
 
       - name: Build
         run: pnpm build

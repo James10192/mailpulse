@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import { processBoundedCallbackBatch } from "@/lib/external-applications/callback-batch";
-import { resolveMetaProviderAccount, type ExternalApplicationContext } from "@/lib/external-applications/application";
+import {
+  resolveExternalApplicationRequestTarget,
+  resolveMetaApplicationBySenderHmac,
+  resolveMetaProviderAccount,
+  type ExternalApplicationContext,
+} from "@/lib/external-applications/application";
 import {
   ExternalCallbackError,
   CALLBACK_TIMEOUT_MS,
@@ -42,6 +47,19 @@ export async function verifyMetaWebhook(application: ExternalApplicationContext,
   return provider?.verifyToken === verifyToken ? challenge : null;
 }
 
+export async function verifyMetaWebhookRequest(request: Request, applicationKey: string) {
+  const application = await resolveExternalApplicationRequestTarget(
+    applicationKey,
+    request.headers.get("x-external-organization-id"),
+  );
+  if (!application) return new Response("Forbidden", { status: 403 });
+
+  const challenge = await verifyMetaWebhook(application, new URL(request.url).searchParams);
+  return challenge
+    ? new Response(challenge, { status: 200, headers: { "content-type": "text/plain" } })
+    : new Response("Forbidden", { status: 403 });
+}
+
 export async function receiveMetaWebhook(application: ExternalApplicationContext, request: Request, rawBody?: string) {
   const body = rawBody ?? await readBoundedRequestText(request);
   const payload = parseJson(body);
@@ -59,6 +77,34 @@ export async function receiveMetaWebhook(application: ExternalApplicationContext
     }
   }
   return { status: 200 as const };
+}
+
+export async function receiveMetaWebhookRequest(request: Request, applicationKey?: string) {
+  try {
+    const rawBody = await readBoundedRequestText(request.clone());
+    const application = applicationKey
+      ? await resolveRequestApplicationByKey(request, applicationKey)
+      : await resolveBySenderHmac(request, rawBody);
+    if (!application) return new Response("Unauthorized", { status: 401 });
+
+    const result = await receiveMetaWebhook(application, request, rawBody);
+    return new Response(result.status === 200 ? null : "Webhook unavailable", { status: result.status });
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return new Response("Payload too large", { status: 413 });
+    return new Response("Service unavailable", { status: 503 });
+  }
+}
+
+async function resolveRequestApplicationByKey(request: Request, applicationKey: string) {
+  return resolveExternalApplicationRequestTarget(applicationKey, request.headers.get("x-external-organization-id"));
+}
+
+async function resolveBySenderHmac(request: Request, rawBody: string) {
+  return resolveMetaApplicationBySenderHmac(
+    rawBody,
+    request.headers.get("x-hub-signature-256"),
+    getMetaWebhookSenderIds(rawBody),
+  );
 }
 
 export async function processDueExternalApplicationCallbacks(

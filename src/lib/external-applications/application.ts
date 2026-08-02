@@ -36,6 +36,11 @@ export async function resolveExternalApplicationByOpaqueId(applicationId: string
   });
 }
 
+export async function resolveExternalApplicationRequestTarget(applicationKey: string, organizationId: string | null) {
+  return (await resolveExternalApplicationByOpaqueId(applicationKey))
+    ?? (organizationId ? resolveExternalApplication(organizationId, applicationKey) : null);
+}
+
 /**
  * Meta does not send tenant headers. Its signed payload gives us the sender
  * phone_number_id, which is sufficient only after exactly one active account
