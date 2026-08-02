@@ -11,13 +11,16 @@ export function DocsBrandTitle({ docsHref }: { docsHref: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2.5">
       <Link
         href="/"
         onClick={leaveDocs}
-        className="inline-flex items-center gap-2 font-semibold text-fd-foreground"
+        className="inline-flex items-center gap-2.5 text-lg font-semibold text-fd-foreground"
       >
-        <MailPulseLogo className="h-6 w-10" sizes="40px" />
+        <MailPulseLogo
+          className="h-8 w-14 sm:h-9 sm:w-16"
+          sizes="(min-width: 640px) 64px, 56px"
+        />
         <span>
           Mail<span className="text-[var(--mailpulse-signal)]">Pulse</span>
         </span>
