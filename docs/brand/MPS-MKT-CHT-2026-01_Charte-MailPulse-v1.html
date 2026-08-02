@@ -8,8 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #111111;
-    --orange: #f4511e;
+    --ink: #171717;
+    --orange: #ff5a1f;
     --paper: #fafafa;
     --white: #ffffff;
     --muted: #71717a;
@@ -35,7 +35,7 @@
   .dark { background: var(--ink); color: var(--white); }
   .dark::after {
     content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 24mm;
-    background: linear-gradient(to top, var(--ink) 0%, var(--ink) 72%, rgba(17,17,17,0) 100%);
+    background: linear-gradient(to top, var(--ink) 0%, var(--ink) 72%, rgba(23,23,23,0) 100%);
     z-index: 10; pointer-events: none;
   }
   .cover { background: var(--ink); color: var(--white); padding: 20mm; }
@@ -51,7 +51,7 @@
   .cover p, .dark-ui p { color: #d4d4d8; }
   .lead { font-size: 14pt; line-height: 1.55; max-width: 155mm; }
   .cover-top { display: flex; align-items: center; justify-content: space-between; }
-  .cover-logo { width: 31mm; height: 31mm; object-fit: contain; }
+  .cover-logo { width: 42mm; height: 25mm; object-fit: contain; }
   .wordmark { font-size: 19pt; font-weight: 700; }
   .wordmark span { color: var(--orange); }
   .cover-main { margin-top: 55mm; }
@@ -63,15 +63,15 @@
   .principle strong { display: block; font: 8pt var(--mono); color: var(--orange); margin-bottom: 2mm; }
   .logo-stage { height: 85mm; display: flex; align-items: center; justify-content: center; background: var(--paper); margin: 7mm 0; }
   .logo-stage.dark-stage { background: var(--ink); }
-  .logo-stage img { width: 78mm; height: 78mm; object-fit: contain; }
+  .logo-stage img { width: 82mm; height: 50mm; object-fit: contain; }
   .caption { font: 7.5pt var(--mono); color: var(--muted); margin-top: 2mm; }
   .ratio-row { display: grid; grid-template-columns: 1.2fr 1fr; gap: 10mm; margin-top: 6mm; }
   .clearspace { position: relative; height: 65mm; background: var(--soft); display: flex; align-items: center; justify-content: center; }
-  .clearspace::before { content: ""; position: absolute; width: 55mm; height: 55mm; border: 1px dashed var(--orange); }
-  .clearspace img { width: 43mm; height: 43mm; object-fit: contain; }
+  .clearspace::before { content: ""; position: absolute; width: 70mm; height: 48mm; border: 1px dashed var(--orange); }
+  .clearspace img { width: 58mm; height: 36mm; object-fit: contain; }
   .sizes { display: flex; align-items: end; justify-content: space-around; height: 65mm; border-bottom: 1px solid var(--line); }
   .size-item { text-align: center; font: 7pt var(--mono); color: var(--muted); }
-  .size-item img { display: block; margin: 0 auto 3mm; object-fit: contain; }
+  .size-item img { display: block; height: auto; margin: 0 auto 3mm; object-fit: contain; }
   .palette { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; margin-top: 8mm; }
   .swatch { min-height: 47mm; padding: 6mm; display: flex; flex-direction: column; justify-content: space-between; }
   .swatch strong { font-size: 12pt; } .swatch code { font: 8pt var(--mono); }
@@ -88,7 +88,7 @@
   .ui-surface { min-height: 61mm; padding: 7mm; border: 1px solid var(--line); }
   .ui-surface.dark-ui { background: var(--ink); color: #fff; border-color: var(--ink); }
   .brand-lockup { display: flex; align-items: center; gap: 3mm; font-size: 14pt; font-weight: 700; }
-  .brand-lockup img { width: 11mm; height: 11mm; object-fit: contain; }
+  .brand-lockup img { width: 18mm; height: 11mm; object-fit: contain; }
   .brand-lockup span span { color: var(--orange); }
   .button { display: inline-flex; margin-top: 8mm; padding: 3mm 5mm; background: var(--orange); color: #fff; font-size: 8pt; font-weight: 700; }
   .donts { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; margin-top: 6mm; }
@@ -105,8 +105,8 @@
 
 <section class="page cover">
   <div class="cover-top">
-    <div class="brand-lockup"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-dark.png"><span>Mail<span>Pulse</span></span></div>
-    <img class="cover-logo" src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-dark.png">
+    <div class="brand-lockup"><img src="../../public/brand/mailpulse-mark-dark.png"><span>Mail<span>Pulse</span></span></div>
+    <img class="cover-logo" src="../../public/brand/mailpulse-mark-dark.png">
   </div>
   <div class="cover-main">
     <div class="eyebrow">Identité visuelle · 2026</div>
@@ -114,21 +114,21 @@
     <div class="orange-rule"></div>
     <p class="lead">Charte graphique officielle de MailPulse, plateforme SaaS de communication multicanale, d’orchestration et d’audit des envois.</p>
   </div>
-  <div class="cover-bottom"><span>RÉF. MPS-MKT-CHT-2026-01</span><span>VERSION 1.0 · AOÛT 2026</span></div>
+  <div class="cover-bottom"><span>RÉF. MPS-MKT-CHT-2026-01</span><span>VERSION 1.1 · AOÛT 2026</span></div>
 </section>
 
 <section class="page">
   <div class="eyebrow">01 · Fondations</div>
-  <h2>Mail et Pulse, réunis dans un signe direct.</h2>
-  <p class="lead">Le monogramme associe les initiales M et P dans une construction compacte. Il rend la marque identifiable sans dépendre d’une enveloppe, d’une application cliente ou d’un canal particulier.</p>
+  <h2>Le message devient un signal vivant.</h2>
+  <p class="lead">Le signe fusionne une enveloppe ouverte et un battement de cœur. Le tracé inférieur s’interrompt au centre, puis l’impulsion orange prend le relais, remplace le coin droit et dépasse légèrement le cadre.</p>
   <div class="split" style="margin-top:12mm">
     <div>
-      <div class="principle"><strong>M · MAIL & MESSAGING</strong><p>Le M couvre l’ensemble des communications: email, SMS, WhatsApp, notifications transactionnelles et futurs canaux.</p></div>
-      <div class="principle"><strong>P · PULSE</strong><p>Le P exprime la donnée vivante: état de livraison, activité, automatisation et réponse en temps réel.</p></div>
+      <div class="principle"><strong>ENVELOPPE · COMMUNICATION</strong><p>Le contour identifie immédiatement la fonction première: transmettre un message, quel que soit le canal utilisé.</p></div>
+      <div class="principle"><strong>IMPULSION · ACTIVITÉ</strong><p>Le battement exprime la livraison, l’ouverture, la réponse et les événements suivis en temps réel.</p></div>
     </div>
     <div>
-      <div class="principle"><strong>HAMPE PARTAGÉE</strong><p>Les deux lettres partagent une structure. Cette jonction représente l’orchestration de plusieurs flux dans une plateforme unique.</p></div>
-      <div class="principle"><strong>ENTAILLE ORANGE</strong><p>Le signal orange dans le P est le point d’activité vérifié. Il attire l’œil sans transformer la marque en pictogramme médical.</p></div>
+      <div class="principle"><strong>TRACÉ INTERROMPU</strong><p>La coupure visible évite une enveloppe générique. Elle montre que le message devient une action mesurable.</p></div>
+      <div class="principle"><strong>DÉPASSEMENT</strong><p>Le signal sort légèrement du cadre pour représenter une plateforme qui prolonge la portée du message au-delà de l’envoi.</p></div>
     </div>
   </div>
   <div class="footer">MAILPULSE · CHARTE GRAPHIQUE</div><div class="number">02</div>
@@ -136,10 +136,10 @@
 
 <section class="page">
   <div class="eyebrow">02 · Système de logo</div>
-  <h2>Deux masters, une seule géométrie.</h2>
+  <h2>Deux masters, une seule continuité.</h2>
   <div class="split">
-    <div><div class="logo-stage"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png"></div><div class="caption">MASTER POSITIF · FONDS CLAIRS</div></div>
-    <div><div class="logo-stage dark-stage"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-dark.png"></div><div class="caption">MASTER NÉGATIF · FONDS SOMBRES</div></div>
+    <div><div class="logo-stage"><img src="../../public/brand/mailpulse-mark-light.png"></div><div class="caption">MASTER POSITIF · FONDS CLAIRS</div></div>
+    <div><div class="logo-stage dark-stage"><img src="../../public/brand/mailpulse-mark-dark.png"></div><div class="caption">MASTER NÉGATIF · FONDS SOMBRES</div></div>
   </div>
   <div class="ratio-row">
     <div><h3>Logotype recommandé</h3><p>Le symbole précède le mot MailPulse. Le nom reste en Plus Jakarta Sans, graisse 700. « Pulse » prend l’orange signal.</p></div>
@@ -151,16 +151,16 @@
 <section class="page">
   <div class="eyebrow">03 · Proportions</div>
   <h2>De l’air autour du signal.</h2>
-  <p>La zone de protection minimale correspond à un quart de la hauteur du monogramme. Aucun texte, bord ou autre logo ne doit entrer dans cette zone.</p>
+  <p>La zone de protection minimale correspond à un quart de la hauteur du symbole. Aucun texte, bord ou autre logo ne doit entrer dans cette zone.</p>
   <div class="ratio-row">
-    <div><div class="clearspace"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png"></div><div class="caption">ZONE MINIMALE · 0,25× SUR CHAQUE CÔTÉ</div></div>
+    <div><div class="clearspace"><img src="../../public/brand/mailpulse-mark-light.png"></div><div class="caption">ZONE MINIMALE · 0,25× SUR CHAQUE CÔTÉ</div></div>
     <div><div class="sizes">
-      <div class="size-item"><img width="24" height="24" src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png">24 px</div>
-      <div class="size-item"><img width="40" height="40" src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png">40 px</div>
-      <div class="size-item"><img width="72" height="72" src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png">72 px</div>
-    </div><div class="caption">TAILLE MINIMALE NUMÉRIQUE · 24 PX</div></div>
+      <div class="size-item"><img width="40" src="../../public/brand/mailpulse-mark-light.png">40 px</div>
+      <div class="size-item"><img width="64" src="../../public/brand/mailpulse-mark-light.png">64 px</div>
+      <div class="size-item"><img width="96" src="../../public/brand/mailpulse-mark-light.png">96 px</div>
+    </div><div class="caption">TAILLE MINIMALE NUMÉRIQUE · 40 PX DE LARGE</div></div>
   </div>
-  <div class="access-note"><h3>Présence dans l’interface</h3><p>Dans la sidebar, le symbole peut atteindre 28 px afin d’être identifiable sans élargir le bloc de navigation. Dans les documents, privilégier 32 à 48 px près du mot-symbole.</p></div>
+  <div class="access-note"><h3>Présence dans l’interface</h3><p>Dans la sidebar, le symbole mesure 48 px de large afin de préserver la coupure et le dépassement. Dans les documents, privilégier 64 à 96 px près du mot-symbole.</p></div>
   <div class="footer">MAILPULSE · CHARTE GRAPHIQUE</div><div class="number">04</div>
 </section>
 
@@ -168,8 +168,8 @@
   <div class="eyebrow">04 · Couleurs</div>
   <h2>Un accent, des neutres disciplinés.</h2>
   <div class="palette">
-    <div class="swatch orange"><strong>Signal Orange</strong><code>#F4511E · RGB 244 81 30</code></div>
-    <div class="swatch ink"><strong>Pulse Ink</strong><code>#111111 · RGB 17 17 17</code></div>
+    <div class="swatch orange"><strong>Signal Orange</strong><code>#FF5A1F · RGB 255 90 31</code></div>
+    <div class="swatch ink"><strong>Pulse Ink</strong><code>#171717 · RGB 23 23 23</code></div>
     <div class="swatch paper"><strong>Interface Paper</strong><code>#FAFAFA · RGB 250 250 250</code></div>
     <div class="swatch gray"><strong>Operational Gray</strong><code>#71717A · RGB 113 113 122</code></div>
   </div>
@@ -191,13 +191,13 @@
   <div class="eyebrow">06 · Produit</div>
   <h2>La même présence en clair et en sombre.</h2>
   <div class="ui-grid">
-    <div class="ui-surface"><div class="brand-lockup"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png"><span>Mail<span>Pulse</span></span></div><p style="margin-top:7mm">Navigation calme, surfaces blanches, bordures neutres et orange réservé à la commande principale.</p><div class="button">Nouvelle campagne</div></div>
-    <div class="ui-surface dark-ui"><div class="brand-lockup"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-dark.png"><span>Mail<span>Pulse</span></span></div><p style="margin-top:7mm">Le master blanc conserve l’accent orange. Aucun filtre CSS ne doit modifier la teinte.</p><div class="button">Nouvelle campagne</div></div>
+    <div class="ui-surface"><div class="brand-lockup"><img src="../../public/brand/mailpulse-mark-light.png"><span>Mail<span>Pulse</span></span></div><p style="margin-top:7mm">Navigation calme, surfaces blanches, bordures neutres et orange réservé à la commande principale.</p><div class="button">Nouvelle campagne</div></div>
+    <div class="ui-surface dark-ui"><div class="brand-lockup"><img src="../../public/brand/mailpulse-mark-dark.png"><span>Mail<span>Pulse</span></span></div><p style="margin-top:7mm">Le master blanc conserve l’accent orange. Aucun filtre CSS ne doit modifier la teinte.</p><div class="button">Nouvelle campagne</div></div>
   </div>
   <h3 style="margin-top:10mm">Usages interdits</h3>
   <div class="donts">
-    <div class="dont"><strong>01</strong><p>Ne pas étirer, incliner ou recomposer les lettres.</p></div>
-    <div class="dont"><strong>02</strong><p>Ne pas recolorer l’entaille orange selon le canal.</p></div>
+    <div class="dont"><strong>01</strong><p>Ne pas refermer les coupures ni raccourcir le dépassement du signal.</p></div>
+    <div class="dont"><strong>02</strong><p>Ne pas recolorer l’impulsion selon le canal.</p></div>
     <div class="dont"><strong>03</strong><p>Ne pas poser le master noir sur un fond sombre.</p></div>
     <div class="dont"><strong>04</strong><p>Ne pas ajouter ombre, contour, dégradé ou conteneur décoratif.</p></div>
   </div>
@@ -214,7 +214,7 @@
     <div class="source"><b>03</b><p><a href="https://wearecollins.com/case-studies/chubb/">COLLINS · Chubb</a><br>Un signe simple soutenu par un système graphique distinctif et cohérent.</p></div>
     <div class="source"><b>04</b><p>Application MailPulse<br>Plus Jakarta Sans, Space Mono, palette noire et orange, interfaces clair et sombre.</p></div>
   </div>
-  <div style="position:absolute;left:20mm;bottom:28mm" class="brand-lockup"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-dark.png"><span>Mail<span>Pulse</span></span></div>
+  <div style="position:absolute;left:20mm;bottom:28mm" class="brand-lockup"><img src="../../public/brand/mailpulse-mark-dark.png"><span>Mail<span>Pulse</span></span></div>
   <div class="footer">MAILPULSE · CHARTE GRAPHIQUE</div><div class="number">08</div>
 </section>
 

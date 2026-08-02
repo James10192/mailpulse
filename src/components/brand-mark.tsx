@@ -15,15 +15,16 @@ export function BrandMark({
   return (
     <Link
       href={href}
+      aria-label="MailPulse"
       className={cn(
         "inline-flex items-center gap-2.5 text-foreground transition-colors hover:text-primary",
         className,
       )}
     >
-      <MailPulseLogo className="h-7 w-7" sizes="28px" />
+      <MailPulseLogo className="h-7 w-12" sizes="48px" />
       {!compact && (
         <span className="font-semibold">
-          Mail<span className="text-primary">Pulse</span>
+          Mail<span className="text-[var(--mailpulse-signal)]">Pulse</span>
         </span>
       )}
     </Link>

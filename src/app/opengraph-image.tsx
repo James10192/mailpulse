@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
-export const alt = "MailPulse, campagnes email et WhatsApp";
+export const alt = "MailPulse, le signal vivant de vos communications";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -28,17 +28,17 @@ export default async function OGImage() {
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "18px", marginBottom: "40px" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img alt="" height="68" src={logoSrc} width="68" />
+            <img alt="" height={92} src={logoSrc} width={154} />
             <div
               style={{
                 display: "flex",
-                color: "#18181b",
+                color: "#171717",
                 fontSize: "30px",
                 fontWeight: 600,
                 letterSpacing: "-0.6px",
               }}
             >
-              Mail<span style={{ color: "#f97316" }}>Pulse</span>
+              Mail<span style={{ color: "#ff5a1f" }}>Pulse</span>
             </div>
           </div>
           <div
@@ -48,7 +48,7 @@ export default async function OGImage() {
               fontSize: "68px",
               lineHeight: 1.05,
               fontWeight: 700,
-              color: "#18181b",
+              color: "#171717",
             }}
           >
             Pilotez vos campagnes email et WhatsApp.
@@ -73,7 +73,7 @@ export default async function OGImage() {
               {capability}
             </div>
           ))}
-          <div style={{ display: "flex", marginLeft: "auto", color: "#f97316", fontSize: "20px", fontWeight: 700 }}>
+          <div style={{ display: "flex", marginLeft: "auto", color: "#ff5a1f", fontSize: "20px", fontWeight: 700 }}>
             MailPulse
           </div>
         </div>

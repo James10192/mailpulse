@@ -17,9 +17,9 @@ export function DocsBrandTitle({ docsHref }: { docsHref: string }) {
         onClick={leaveDocs}
         className="inline-flex items-center gap-2 font-semibold text-fd-foreground"
       >
-        <MailPulseLogo className="h-6 w-6" sizes="24px" />
+        <MailPulseLogo className="h-6 w-10" sizes="40px" />
         <span>
-          Mail<span className="text-primary">Pulse</span>
+          Mail<span className="text-[var(--mailpulse-signal)]">Pulse</span>
         </span>
       </Link>
       <span className="text-fd-muted-foreground">/</span>

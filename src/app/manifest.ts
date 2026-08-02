@@ -8,8 +8,11 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",
-    theme_color: "#f97316",
+    theme_color: "#ff5a1f",
     lang: "fr",
-    icons: [{ src: "/icon", sizes: "any", type: "image/png" }],
+    icons: [
+      { src: "/icon", sizes: "64x64", type: "image/png" },
+      { src: "/brand/mailpulse-icon-light.png", sizes: "512x512", type: "image/png" },
+    ],
   };
 }

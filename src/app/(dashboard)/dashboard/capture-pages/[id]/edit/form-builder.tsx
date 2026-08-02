@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, GripVertical, Save, Eye, Check, Loader2, Mail } from "lucide-react";
+import { Plus, Trash2, GripVertical, Save, Eye, Check, Loader2 } from "lucide-react";
+import { MailPulseLogo } from "@/components/mailpulse-logo";
 import { updateCapturePageFields } from "../../actions";
 
 interface Field {
@@ -218,9 +219,9 @@ export function FormBuilder({
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
             <div className="text-center mb-6">
               <div className="inline-flex items-center gap-2 mb-3">
-                <Mail className="h-5 w-5 text-orange-500" />
+                <MailPulseLogo className="h-6 w-10" sizes="40px" />
                 <span className="text-lg font-semibold text-zinc-100">
-                  Mail<span className="text-orange-500">Pulse</span>
+                  Mail<span className="text-[var(--mailpulse-signal)]">Pulse</span>
                 </span>
               </div>
             </div>

@@ -26,6 +26,7 @@ import {
   Reply,
 } from "lucide-react";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
+import { MailPulseLogo } from "@/components/mailpulse-logo";
 import { usePostHog } from "posthog-js/react";
 import { EVENTS } from "@/lib/analytics-events";
 
@@ -509,12 +510,10 @@ export default function OnboardingPage() {
       <div className="w-full max-w-lg">
         <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Onboarding" }]} />
         {/* Logo / Brand */}
-        <div className="mb-8 flex items-center justify-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-600 shadow-[0_16px_40px_rgba(234,88,12,0.28)]">
-            <Mail size={16} className="text-white" />
-          </div>
+        <div className="mb-8 flex items-center justify-center gap-2.5">
+          <MailPulseLogo className="h-10 w-[4.2rem]" sizes="68px" />
           <span className="text-lg font-semibold text-zinc-100">
-            MailPulse
+            Mail<span className="text-[var(--mailpulse-signal)]">Pulse</span>
           </span>
         </div>
 

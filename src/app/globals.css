@@ -38,8 +38,9 @@
 }
 
 :root {
-  --brand: #f97316;
-  --brand-strong: #ea580c;
+  --mailpulse-signal: #ff5a1f;
+  --brand: var(--mailpulse-signal);
+  --brand-strong: var(--mailpulse-signal);
   --brand-soft: #fff7ed;
   --brand-border: #fed7aa;
   --bg: #ffffff;
@@ -93,7 +94,7 @@
   --secondary-fg: #fafafa;
   --muted: #27272a;
   --muted-fg: #a1a1aa;
-  --accent: #fb923c;
+  --accent: var(--mailpulse-signal);
   --accent-fg: #ffffff;
   --destructive: #ef4444;
   --border: #27272a;
