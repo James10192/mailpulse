@@ -7,10 +7,14 @@ export function BrandMark({
   href = "/",
   compact = false,
   className,
+  logoClassName,
+  logoSizes = "56px",
 }: {
   href?: string;
   compact?: boolean;
   className?: string;
+  logoClassName?: string;
+  logoSizes?: string;
 }) {
   return (
     <Link
@@ -21,7 +25,7 @@ export function BrandMark({
         className,
       )}
     >
-      <MailPulseLogo className="h-7 w-12" sizes="48px" />
+      <MailPulseLogo className={cn("h-8 w-14", logoClassName)} sizes={logoSizes} />
       {!compact && (
         <span className="font-semibold">
           Mail<span className="text-[var(--mailpulse-signal)]">Pulse</span>

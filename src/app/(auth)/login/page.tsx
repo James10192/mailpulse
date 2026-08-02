@@ -108,7 +108,7 @@ function LoginForm() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-orange-500" />
       <Card className="relative w-full max-w-md border border-zinc-200 bg-white p-6 shadow-[var(--shadow-overlay)] dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
         <CardHeader className="items-center p-0 pb-8 text-center">
-          <BrandMark className="mb-4 text-xl" />
+          <BrandMark className="mb-5 gap-3 text-2xl" logoClassName="h-14 w-24" logoSizes="96px" />
           <h1 className="text-2xl font-bold tracking-tight">Bon retour</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">Connectez-vous à votre compte.</p>
         </CardHeader>

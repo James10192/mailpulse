@@ -132,7 +132,7 @@ export default function RegisterPage() {
       <section className="relative hidden overflow-hidden border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 lg:flex">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-orange-500" />
         <div className="relative z-10 flex w-full flex-col justify-between p-12">
-          <BrandMark className="text-lg" />
+          <BrandMark className="text-xl" logoClassName="h-12 w-20" logoSizes="80px" />
 
           <div className="max-w-md space-y-8">
             <div>
@@ -167,7 +167,7 @@ export default function RegisterPage() {
         <Card className="relative w-full max-w-md border border-zinc-200 bg-white p-6 shadow-[var(--shadow-overlay)] dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
           <CardHeader className="p-0 pb-8">
             <div className="mb-4 lg:hidden">
-              <BrandMark className="text-xl" />
+              <BrandMark className="text-xl" logoClassName="h-12 w-20" logoSizes="80px" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Créer un compte</h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">Commencez gratuitement, sans carte bancaire.</p>
