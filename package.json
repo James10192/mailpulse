@@ -8,7 +8,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
-    "test:delivery": "node --experimental-strip-types --test src/lib/mailpulse/delivery-core.test.ts",
+    "test:delivery": "node --experimental-strip-types --test src/lib/mailpulse/delivery-core.test.ts src/lib/mailpulse/direct-provider.test.ts src/lib/mailpulse/resend-message-status.test.ts",
     "test:external-applications": "node --experimental-strip-types --test src/lib/external-applications/*.test.ts",
     "validate:orange-sms": "node scripts/validate-orange-sms-config.mjs",
     "preflight:config": "node scripts/validate-production-config.mjs",

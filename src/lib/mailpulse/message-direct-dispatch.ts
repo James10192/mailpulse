@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/resend";
 import { meta, sendWhatsApp } from "@/lib/whatsapp";
 import { canReceiveChannel } from "./consent";
+import { directProvider } from "./direct-provider";
 import { compileMetaTemplateDispatch } from "./template-parameters";
 
 type CommunicationMessageWithTemplate = Prisma.CommunicationMessageGetPayload<{ include: { template: true } }>;
@@ -62,7 +63,10 @@ export async function dispatchQueuedMessage(
     );
   }
 
-  const preparedMessage = await markSubmissionPending(claimedMessage);
+  const preparedMessage = await markSubmissionPending(
+    claimedMessage,
+    directProvider("WHATSAPP", options.organization.whatsappMode),
+  );
   if (!preparedMessage) return readMessage(claimedMessage.id);
 
   try {
@@ -105,11 +109,12 @@ async function claimDirectDispatch(messageId: string, now: Date): Promise<Commun
   });
 }
 
-async function markSubmissionPending(message: CommunicationMessageWithTemplate) {
+async function markSubmissionPending(message: CommunicationMessageWithTemplate, provider: string) {
   const prepared = await prisma.communicationMessage.updateMany({
     where: { id: message.id, status: "PROCESSING", processingToken: message.processingToken },
     data: {
       status: "SUBMISSION_UNKNOWN",
+      provider,
       errorCode: "submission_pending",
       errorMessage: "Soumission fournisseur en cours de confirmation.",
     },
@@ -141,7 +146,7 @@ async function dispatchEmailMessage(message: CommunicationMessageWithTemplate, d
     );
   }
 
-  const preparedMessage = await markSubmissionPending(message);
+  const preparedMessage = await markSubmissionPending(message, directProvider("EMAIL"));
   if (!preparedMessage) return readMessage(message.id);
 
   try {
