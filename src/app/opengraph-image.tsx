@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
 export const alt = "MailPulse, campagnes email et WhatsApp";
@@ -6,14 +8,17 @@ export const contentType = "image/png";
 
 const capabilities = ["Email", "WhatsApp", "Automatisation", "Analyse"];
 
-export default function OGImage() {
+export default async function OGImage() {
+  const logo = await readFile(join(process.cwd(), "public/brand/mailpulse-mark-light.png"));
+  const logoSrc = `data:image/png;base64,${logo.toString("base64")}`;
+
   return new ImageResponse(
     (
       <div
         style={{
           width: "100%",
           height: "100%",
-          background: "#18181b",
+          background: "#fafafa",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
@@ -22,20 +27,12 @@ export default function OGImage() {
       >
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "18px", marginBottom: "40px" }}>
-            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                stroke="#f97316"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path d="M4 6l8 5 8-5" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img alt="" height="68" src={logoSrc} width="68" />
             <div
               style={{
                 display: "flex",
-                color: "#fafafa",
+                color: "#18181b",
                 fontSize: "30px",
                 fontWeight: 600,
                 letterSpacing: "-0.6px",
@@ -51,12 +48,12 @@ export default function OGImage() {
               fontSize: "68px",
               lineHeight: 1.05,
               fontWeight: 700,
-              color: "#fafafa",
+              color: "#18181b",
             }}
           >
             Pilotez vos campagnes email et WhatsApp.
           </div>
-          <div style={{ display: "flex", marginTop: "26px", fontSize: "28px", color: "#a1a1aa" }}>
+          <div style={{ display: "flex", marginTop: "26px", fontSize: "28px", color: "#71717a" }}>
             Création, envoi, suivi et automatisation depuis un seul espace.
           </div>
         </div>
@@ -67,9 +64,9 @@ export default function OGImage() {
               style={{
                 display: "flex",
                 padding: "10px 16px",
-                border: "1px solid #3f3f46",
+                border: "1px solid #e4e4e7",
                 borderRadius: "999px",
-                color: "#d4d4d8",
+                color: "#52525b",
                 fontSize: "18px",
               }}
             >

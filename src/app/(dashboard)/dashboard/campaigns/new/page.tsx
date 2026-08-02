@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Mail, MessageCircle, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, MessageCircle, Plus, Smartphone } from "lucide-react";
 import { createCampaign } from "../actions";
 import type { ActionState } from "@/types/action-state";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
@@ -72,7 +72,7 @@ export default function NewCampaignPage() {
             <p className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
               Canal de la campagne
             </p>
-            <RadioGroup name="channel" defaultValue="EMAIL" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <RadioGroup name="channel" defaultValue="EMAIL" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Label htmlFor="campaign-channel-email" className="flex cursor-pointer items-start gap-3 rounded-xl border border-orange-500/40 bg-orange-500/5 p-3 text-sm">
                 <RadioGroupItem id="campaign-channel-email" value="EMAIL" className="mt-1" />
                 <span>
@@ -94,6 +94,18 @@ export default function NewCampaignPage() {
                   </span>
                   <span className="mt-1 block text-xs text-zinc-500">
                     Message envoyé aux contacts avec numéro WhatsApp.
+                  </span>
+                </span>
+              </Label>
+              <Label htmlFor="campaign-channel-sms" className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 p-3 text-sm">
+                <RadioGroupItem id="campaign-channel-sms" value="SMS" className="mt-1" />
+                <span>
+                  <span className="flex items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100">
+                    <Smartphone className="h-4 w-4 text-orange-500" />
+                    SMS
+                  </span>
+                  <span className="mt-1 block text-xs text-zinc-500">
+                    Texte uniquement, envoyé aux contacts avec un numéro mobile.
                   </span>
                 </span>
               </Label>

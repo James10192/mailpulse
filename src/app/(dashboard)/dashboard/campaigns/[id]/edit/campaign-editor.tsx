@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Cloud, CloudOff, Loader2, Mail, MessageCircle, Save, Send } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Cloud, CloudOff, Loader2, Mail, MessageCircle, Save, Send, Smartphone } from "lucide-react";
 import { updateCampaign } from "../../actions";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { WhatsAppComposer } from "@/components/editor/whatsapp-composer";
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { htmlToPlainText } from "@/lib/message-content";
 
 interface CampaignData {
@@ -23,7 +24,7 @@ interface CampaignData {
   subject: string;
   previewText: string;
   htmlContent: string;
-  channel: "EMAIL" | "WHATSAPP";
+  channel: "EMAIL" | "WHATSAPP" | "SMS";
   status: string;
   whatsappImageUrl: string | null;
   whatsappImageName: string | null;
@@ -33,17 +34,19 @@ interface SnippetOption {
   id: string;
   name: string;
   htmlContent: string;
-  channel: "EMAIL" | "WHATSAPP";
+  channel: "EMAIL" | "WHATSAPP" | "SMS";
   whatsappImageUrl: string | null;
   whatsappImageName: string | null;
 }
+
+type ComposerSnippetOption = Omit<SnippetOption, "channel"> & { channel: "EMAIL" | "WHATSAPP" };
 
 type AutosaveValues = {
   name: string;
   subject: string;
   previewText: string;
   htmlContent: string;
-  channel: "EMAIL" | "WHATSAPP";
+  channel: "EMAIL" | "WHATSAPP" | "SMS";
   whatsappImageUrl: string | null;
   whatsappImageName: string | null;
 };
@@ -54,17 +57,23 @@ export function CampaignEditor({ campaign, snippets = [] }: { campaign: Campaign
   const [subject, setSubject] = useState(campaign.subject);
   const [previewText, setPreviewText] = useState(campaign.previewText);
   const [htmlContent, setHtmlContent] = useState(
-    campaign.channel === "WHATSAPP" ? htmlToPlainText(campaign.htmlContent) : campaign.htmlContent,
+    campaign.channel !== "EMAIL" ? htmlToPlainText(campaign.htmlContent) : campaign.htmlContent,
   );
-  const [channel, setChannel] = useState<"EMAIL" | "WHATSAPP">(campaign.channel);
+  const [channel, setChannel] = useState<"EMAIL" | "WHATSAPP" | "SMS">(campaign.channel);
   const [whatsappImageUrl, setWhatsappImageUrl] = useState<string | null>(campaign.whatsappImageUrl);
   const [whatsappImageName, setWhatsappImageName] = useState<string | null>(campaign.whatsappImageName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const channelSnippets = snippets.filter((snippet) => snippet.channel === channel);
+  const channelSnippets: ComposerSnippetOption[] = channel === "SMS"
+    ? []
+    : snippets
+      .filter((snippet) => snippet.channel === channel)
+      .map((snippet) => ({ ...snippet, channel: snippet.channel as "EMAIL" | "WHATSAPP" }));
   const plainText = htmlToPlainText(htmlContent);
   const isEmail = channel === "EMAIL";
+  const isSms = channel === "SMS";
+  const smsSegments = smsSegmentCount(plainText);
   const canSend = isEmail ? Boolean(subject.trim() && htmlContent.trim()) : Boolean(plainText.trim());
 
   const { autoStatus, setValue } = useAutosave<AutosaveValues>({
@@ -72,7 +81,7 @@ export function CampaignEditor({ campaign, snippets = [] }: { campaign: Campaign
       name: campaign.name,
       subject: campaign.subject,
       previewText: campaign.previewText,
-      htmlContent: campaign.channel === "WHATSAPP" ? htmlToPlainText(campaign.htmlContent) : campaign.htmlContent,
+      htmlContent: campaign.channel !== "EMAIL" ? htmlToPlainText(campaign.htmlContent) : campaign.htmlContent,
       channel: campaign.channel,
       whatsappImageUrl: campaign.whatsappImageUrl,
       whatsappImageName: campaign.whatsappImageName,
@@ -88,16 +97,20 @@ export function CampaignEditor({ campaign, snippets = [] }: { campaign: Campaign
     if (key === "subject") setSubject(value as string);
     if (key === "previewText") setPreviewText(value as string);
     if (key === "htmlContent") setHtmlContent(value as string);
-    if (key === "channel") setChannel(value as "EMAIL" | "WHATSAPP");
+    if (key === "channel") setChannel(value as "EMAIL" | "WHATSAPP" | "SMS");
     if (key === "whatsappImageUrl") setWhatsappImageUrl(value as string | null);
     if (key === "whatsappImageName") setWhatsappImageName(value as string | null);
     setValue(key, value);
   }
 
-  function handleChannel(nextChannel: "EMAIL" | "WHATSAPP") {
-    const nextContent = nextChannel === "WHATSAPP" ? htmlToPlainText(htmlContent) : htmlContent;
+  function handleChannel(nextChannel: "EMAIL" | "WHATSAPP" | "SMS") {
+    const nextContent = nextChannel !== "EMAIL" ? htmlToPlainText(htmlContent) : htmlContent;
     handleField("channel", nextChannel);
     handleField("htmlContent", nextContent);
+    if (nextChannel !== "WHATSAPP") {
+      handleField("whatsappImageUrl", null);
+      handleField("whatsappImageName", null);
+    }
   }
 
   async function handleSave() {
@@ -176,9 +189,10 @@ export function CampaignEditor({ campaign, snippets = [] }: { campaign: Campaign
 
               <div className="space-y-2">
                 <Label>Canal</Label>
-                <RadioGroup value={channel} onValueChange={(value) => handleChannel(value as "EMAIL" | "WHATSAPP")} className="grid gap-3 sm:grid-cols-2">
+                <RadioGroup value={channel} onValueChange={(value) => handleChannel(value as "EMAIL" | "WHATSAPP" | "SMS")} className="grid gap-3 sm:grid-cols-3">
                   <ChannelOption id="campaign-edit-email" value="EMAIL" active={channel === "EMAIL"} icon={<Mail className="h-4 w-4" />} title="Email" description="Sujet, préheader, contenu riche et tracking." />
                   <ChannelOption id="campaign-edit-whatsapp" value="WHATSAPP" active={channel === "WHATSAPP"} icon={<MessageCircle className="h-4 w-4" />} title="WhatsApp" description="Texte court, variables et image envoyée à côté." />
+                  <ChannelOption id="campaign-edit-sms" value="SMS" active={channel === "SMS"} icon={<Smartphone className="h-4 w-4" />} title="SMS" description="Texte uniquement, jusqu’à 918 caractères." />
                 </RadioGroup>
               </div>
 
@@ -209,12 +223,14 @@ export function CampaignEditor({ campaign, snippets = [] }: { campaign: Campaign
             <CardContent className="space-y-4 p-5">
               <div>
                 <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  {isEmail ? "Composer email" : "Composer WhatsApp"}
+                  {isEmail ? "Composer email" : isSms ? "Composer SMS" : "Composer WhatsApp"}
                 </h2>
                 <p className="mt-1 text-sm text-zinc-500 text-pretty dark:text-zinc-400">
                   {isEmail
                     ? "Écrivez le contenu riche. Les variables restent disponibles pour personnaliser chaque contact."
-                    : "Écrivez le message, ajoutez une image séparée si nécessaire, puis vérifiez l’aperçu."}
+                    : isSms
+                      ? "Écrivez un texte simple. Les SMS sont découpés en segments de 160 puis 153 caractères."
+                      : "Écrivez le message, ajoutez une image séparée si nécessaire, puis vérifiez l’aperçu."}
                 </p>
               </div>
 
@@ -225,6 +241,20 @@ export function CampaignEditor({ campaign, snippets = [] }: { campaign: Campaign
                   placeholder="Écrivez le contenu de votre email..."
                   snippets={channelSnippets}
                 />
+              ) : isSms ? (
+                <div className="space-y-3">
+                  <Textarea
+                    value={htmlContent}
+                    onChange={(event) => handleField("htmlContent", event.target.value.slice(0, 918))}
+                    maxLength={918}
+                    placeholder="Votre message SMS..."
+                    className="min-h-52 resize-y"
+                  />
+                  <div className="flex flex-wrap justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span>{plainText.length}/918 caractères</span>
+                    <span>{smsSegments} segment{smsSegments > 1 ? "s" : ""}</span>
+                  </div>
+                </div>
               ) : (
                 <WhatsAppComposer
                   value={htmlContent}
@@ -257,11 +287,11 @@ export function CampaignEditor({ campaign, snippets = [] }: { campaign: Campaign
                 <ChecklistItem done={Boolean(name.trim())} label="Nom renseigné" />
                 <ChecklistItem done={isEmail ? Boolean(subject.trim()) : Boolean(plainText.trim())} label={isEmail ? "Sujet renseigné" : "Message renseigné"} />
                 <ChecklistItem done={Boolean(htmlContent.trim())} label="Contenu enregistré" />
-                {!isEmail && <ChecklistItem done={Boolean(whatsappImageUrl)} label="Image optionnelle" optional />}
+                {channel === "WHATSAPP" && <ChecklistItem done={Boolean(whatsappImageUrl)} label="Image optionnelle" optional />}
               </div>
 
               <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{isEmail ? "Email" : "WhatsApp"}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{isEmail ? "Email" : isSms ? "SMS" : "WhatsApp"}</p>
                 <p className="mt-2 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{name || "Campagne sans nom"}</p>
                 {isEmail ? (
                   <>
@@ -282,6 +312,11 @@ export function CampaignEditor({ campaign, snippets = [] }: { campaign: Campaign
   );
 }
 
+function smsSegmentCount(text: string) {
+  if (text.length <= 160) return 1;
+  return Math.ceil(text.length / 153);
+}
+
 function AutosaveBadge({ status }: { status: "idle" | "saving" | "saved" | "error" }) {
   if (status === "saving") return <span className="inline-flex items-center gap-1 text-xs text-zinc-500"><Loader2 className="h-3 w-3 animate-spin" /> Sauvegarde auto</span>;
   if (status === "saved") return <span className="inline-flex items-center gap-1 text-xs text-emerald-600"><Cloud className="h-3 w-3" /> Sauvegardé</span>;
@@ -289,7 +324,7 @@ function AutosaveBadge({ status }: { status: "idle" | "saving" | "saved" | "erro
   return null;
 }
 
-function ChannelOption({ id, value, active, icon, title, description }: { id: string; value: "EMAIL" | "WHATSAPP"; active: boolean; icon: ReactNode; title: string; description: string }) {
+function ChannelOption({ id, value, active, icon, title, description }: { id: string; value: "EMAIL" | "WHATSAPP" | "SMS"; active: boolean; icon: ReactNode; title: string; description: string }) {
   return (
     <Label
       htmlFor={id}

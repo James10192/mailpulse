@@ -47,10 +47,10 @@ Exemple :
   },
   "metadata": {
     "external_user_id": "parent_123",
-    "external_event_id": "absence_987",
-    "source_app": "klassci"
+    "external_event_id": "event_987",
+    "source_app": "application_client"
   },
-  "idempotency_key": "klassci_absence_987_parent_123"
+  "idempotency_key": "application_client_event_987_recipient_123"
 }
 ```
 
@@ -111,13 +111,45 @@ mailpulse-signature: v1=<signature>
 La signature se calcule sur `timestamp + "." + rawBody` avec le secret affiché
 une seule fois lors de la création du webhook.
 
-## Compatibilité Filon et Klassci
+## Applications externes
 
-Filon et Klassci restent des applications clientes. Elles doivent générer leurs
-propres clés d’idempotence, construire le contenu métier et transmettre les
+```txt
+POST /api/v1/external-applications/{application_key}/commands
+POST /api/webhooks/whatsapp/meta/{application_key}
+```
+
+Chaque requête de commande contient les en-têtes `x-external-organization-id`,
+`x-external-timestamp` et `x-external-signature`. La signature HMAC est calculée
+sur `timestamp + "." + corps_brut` et porte un identifiant de clé :
+
+```txt
+x-external-signature: v1:key_id=<signature>
+```
+
+Le corps d'une commande utilise `operation_key` et une clé d'idempotence fournie
+par l'application cliente :
+
+```json
+{
+  "operation_key": "notification",
+  "channel": "whatsapp",
+  "recipient": { "type": "phone", "value": "+2250700000000" },
+  "content": { "type": "text", "text": "Votre notification est prête." },
+  "metadata": { "idempotency_key": "client_event_987_recipient_123" }
+}
+```
+
+Les applications clientes génèrent leurs propres clés d'idempotence, construisent
+le contenu métier et transmettent les
 identifiants externes dans `metadata`. MailPulse gère uniquement les contraintes
-techniques : canaux, templates, statuts, webhooks, retries, isolation tenant et
-fenêtre WhatsApp.
+techniques : canaux, modèles, statuts, webhooks, tentatives et isolation par organisation.
+
+Pour une commande WhatsApp de type `text`, MailPulse autorise l'envoi seulement
+pendant une fenêtre de conversation externe active de 24 heures. Un message texte
+entrant Meta signé ouvre ou prolonge cette fenêtre. Hors fenêtre, la commande est
+rejetée durablement avec HTTP `422` et
+`rejection_code: "whatsapp_service_window_closed"`; utilisez une commande de
+template approuvée. Les templates restent autorisés hors fenêtre.
 
 ## Endpoints système existants
 

@@ -15,7 +15,7 @@
   --color-secondary-foreground: var(--secondary-fg);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-fg);
-  --color-accent: #f97316;
+  --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-fg);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
@@ -38,31 +38,36 @@
 }
 
 :root {
+  --brand: #f97316;
+  --brand-strong: #ea580c;
+  --brand-soft: #fff7ed;
+  --brand-border: #fed7aa;
   --bg: #ffffff;
   --fg: #09090b;
   --card: #ffffff;
   --card-fg: #09090b;
   --popover: #ffffff;
   --popover-fg: #09090b;
-  --primary: #f97316;
+  --primary: var(--brand-strong);
   --primary-fg: #ffffff;
   --secondary: #f4f4f5;
   --secondary-fg: #18181b;
   --muted: #f4f4f5;
   --muted-fg: #71717a;
+  --accent: var(--brand);
   --accent-fg: #ffffff;
   --destructive: #dc2626;
   --border: #e4e4e7;
   --input: #e4e4e7;
-  --ring: #f97316;
+  --ring: var(--brand);
   --sidebar: #ffffff;
   --sidebar-fg: #18181b;
-  --sidebar-primary: #f97316;
+  --sidebar-primary: var(--brand-strong);
   --sidebar-primary-fg: #ffffff;
-  --sidebar-accent: #fff7ed;
+  --sidebar-accent: var(--brand-soft);
   --sidebar-accent-fg: #c2410c;
   --sidebar-border: #e4e4e7;
-  --sidebar-ring: #f97316;
+  --sidebar-ring: var(--brand);
   --radius: 0.625rem;
   --app-mobile-padding: 1rem;
   --duration-exit: 150ms;
@@ -82,29 +87,67 @@
   --card-fg: #fafafa;
   --popover: #18181b;
   --popover-fg: #fafafa;
-  --primary: #f97316;
+  --primary: var(--brand);
   --primary-fg: #ffffff;
   --secondary: #27272a;
   --secondary-fg: #fafafa;
   --muted: #27272a;
   --muted-fg: #a1a1aa;
+  --accent: #fb923c;
   --accent-fg: #ffffff;
   --destructive: #ef4444;
   --border: #27272a;
   --input: #3f3f46;
-  --ring: #fb923c;
+  --ring: var(--accent);
   --sidebar: #09090b;
   --sidebar-fg: #fafafa;
-  --sidebar-primary: #f97316;
+  --sidebar-primary: var(--brand);
   --sidebar-primary-fg: #ffffff;
   --sidebar-accent: #18181b;
   --sidebar-accent-fg: #fed7aa;
   --sidebar-border: #27272a;
-  --sidebar-ring: #fb923c;
+  --sidebar-ring: var(--accent);
   --focus-ring: 0 0 0 3px rgba(249, 115, 22, 0.22);
   --shadow-border: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.18);
   --shadow-border-hover: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 12px 32px rgba(0, 0, 0, 0.28);
   --shadow-overlay: 0 24px 80px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Public marketing surfaces share the same neutral treatment in both modes. */
+.dark .mailpulse-landing .bg-white,
+.dark .mailpulse-landing .bg-zinc-50 {
+  background-color: #18181b;
+}
+
+.dark .mailpulse-landing .border-zinc-200 {
+  border-color: #27272a;
+}
+
+.dark .mailpulse-landing .text-zinc-950 {
+  color: #fafafa;
+}
+
+.dark .mailpulse-landing .text-zinc-700,
+.dark .mailpulse-landing .text-zinc-600,
+.dark .mailpulse-landing .text-zinc-500 {
+  color: #a1a1aa;
+}
+
+.dark .mailpulse-landing .text-orange-700,
+.dark .mailpulse-landing .text-orange-600 {
+  color: #fb923c;
+}
+
+.dark .mailpulse-landing .bg-orange-50 {
+  background-color: rgba(249, 115, 22, 0.1);
+}
+
+.dark .mailpulse-landing .border-orange-200 {
+  border-color: rgba(249, 115, 22, 0.28);
+}
+
+.dark .mailpulse-landing .ring-orange-200 {
+  --tw-ring-color: rgba(249, 115, 22, 0.28);
 }
 
 html {
@@ -118,6 +161,16 @@ body {
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+}
+
+::selection {
+  background: var(--brand-soft);
+  color: var(--fg);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 h1, h2, h3 {

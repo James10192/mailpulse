@@ -11,8 +11,49 @@ jobs:
     steps:
       - name: Trigger scheduled campaign send
         run: |
-          curl -s -X GET "${{ secrets.APP_URL }}/api/cron/send-scheduled" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          set -euo pipefail
+          APP_URL="$(printf '%s' "$APP_URL" | xargs)"
+          CRON_SECRET="$(printf '%s' "$CRON_SECRET" | xargs)"
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --silent --show-error -X GET "$APP_URL/api/cron/send-scheduled" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json"
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+  process-sms:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process Orange SMS queue
+        run: |
+          set -euo pipefail
+          APP_URL="$(printf '%s' "$APP_URL" | xargs)"
+          CRON_SECRET="$(printf '%s' "$CRON_SECRET" | xargs)"
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          for attempt in 1 2 3 4 5; do
+            curl --fail-with-body --silent --show-error -X POST "$APP_URL/api/cron/process-sms" \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -H "Content-Type: application/json"
+          done
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+  process-external-callbacks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Retry external application callbacks
+        run: |
+          set -euo pipefail
+          APP_URL="$(printf '%s' "$APP_URL" | xargs)"
+          CRON_SECRET="$(printf '%s' "$CRON_SECRET" | xargs)"
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --silent --show-error -X POST "$APP_URL/api/cron/process-external-callbacks" \
+            -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json"
         env:
           APP_URL: ${{ secrets.APP_URL }}

@@ -36,7 +36,7 @@ function GitHubIcon() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-950 text-zinc-100" />}>
+    <Suspense fallback={<div className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50" />}>
       <LoginForm />
     </Suspense>
   );
@@ -104,35 +104,34 @@ function LoginForm() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-950 px-4 py-12 text-zinc-100 sm:px-6">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,rgba(249,115,22,0.16),transparent)]" />
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-orange-500/30" />
-      <Card className="relative w-full max-w-md border-0 bg-zinc-950/95 p-6 text-zinc-100 shadow-[var(--shadow-overlay)] ring-1 ring-white/10 sm:p-8">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-50 px-4 py-12 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-orange-500" />
+      <Card className="relative w-full max-w-md border border-zinc-200 bg-white p-6 shadow-[var(--shadow-overlay)] dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
         <CardHeader className="items-center p-0 pb-8 text-center">
-          <BrandMark className="mb-4 text-xl text-zinc-50" />
+          <BrandMark className="mb-4 text-xl" />
           <h1 className="text-2xl font-bold tracking-tight">Bon retour</h1>
-          <p className="text-sm text-zinc-400">Connectez-vous à votre compte.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Connectez-vous à votre compte.</p>
         </CardHeader>
         <CardContent className="p-0">
           <div className="space-y-2.5">
-            <Button type="button" variant="outline" className="w-full bg-zinc-900/80 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:bg-zinc-900" onClick={handleGoogle}>
+            <Button type="button" variant="outline" className="w-full" onClick={handleGoogle}>
               <GoogleIcon />
               Continuer avec Google
             </Button>
-            <Button type="button" variant="outline" className="w-full bg-zinc-900/80 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:bg-zinc-900" onClick={handleGitHub}>
+            <Button type="button" variant="outline" className="w-full" onClick={handleGitHub}>
               <GitHubIcon />
               Continuer avec GitHub
             </Button>
-            <Button type="button" variant="outline" className="w-full bg-orange-500/10 text-orange-300 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.28)] hover:bg-orange-500/15" onClick={handlePasskey}>
+            <Button type="button" variant="outline" className="w-full border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-300 dark:hover:bg-orange-500/15" onClick={handlePasskey}>
               <Fingerprint className="h-5 w-5" />
               Se connecter avec une passkey
             </Button>
           </div>
 
           <div className="my-6 flex items-center gap-3 text-xs text-zinc-500">
-            <Separator className="flex-1 bg-zinc-800" />
+            <Separator className="flex-1 bg-zinc-200 dark:bg-zinc-800" />
             ou par email
-            <Separator className="flex-1 bg-zinc-800" />
+            <Separator className="flex-1 bg-zinc-200 dark:bg-zinc-800" />
           </div>
 
           {error && (
@@ -150,7 +149,7 @@ function LoginForm() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Mot de passe</Label>
-                <a href="#" className="text-xs font-medium text-orange-500 hover:text-orange-400">
+                <a href="#" className="text-xs font-medium text-orange-600 hover:text-orange-700">
                   Mot de passe oublié ?
                 </a>
               </div>
@@ -169,7 +168,7 @@ function LoginForm() {
                   variant="ghost"
                   size="icon"
                   onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
+                  className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
@@ -182,9 +181,9 @@ function LoginForm() {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-zinc-400">
+          <p className="mt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
             Pas encore de compte ?{" "}
-            <Link href="/register" className="font-medium text-orange-500 hover:text-orange-400">
+            <Link href="/register" className="font-medium text-orange-600 hover:text-orange-700">
               Créer un compte
             </Link>
           </p>

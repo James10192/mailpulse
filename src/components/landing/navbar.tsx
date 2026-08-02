@@ -25,38 +25,38 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-zinc-950/90 text-zinc-100 backdrop-blur-xl">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-zinc-200 bg-white/95 text-zinc-950 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/92 dark:text-zinc-50">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <BrandMark className="text-lg text-zinc-50" />
+        <BrandMark className="text-lg" />
 
-        <nav className="hidden items-center gap-8 text-sm text-zinc-400 md:flex">
+        <nav className="hidden items-center gap-8 text-sm text-zinc-600 dark:text-zinc-400 md:flex">
           {navLinks.map((link) => (
-            <a key={link.href} href={link.href} className="transition-colors hover:text-zinc-100">
+            <a key={link.href} href={link.href} className="transition-colors hover:text-zinc-950 dark:hover:text-zinc-50">
               {link.label}
             </a>
           ))}
         </nav>
 
         <div className="flex items-center gap-1.5">
-          <Button asChild variant="ghost" size="icon" className="text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-100" title="Documentation">
+          <Button asChild variant="ghost" size="icon" className="text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 dark:hover:bg-zinc-800 dark:hover:text-zinc-50" title="Documentation">
             <Link href="/docs">
               <BookOpen className="h-[18px] w-[18px]" />
             </Link>
           </Button>
-          <Button asChild variant="ghost" size="icon" className="text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-100" title="GitHub">
+          <Button asChild variant="ghost" size="icon" className="text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 dark:hover:bg-zinc-800 dark:hover:text-zinc-50" title="GitHub">
             <a href="https://github.com/James10192/mailpulse" target="_blank" rel="noopener noreferrer">
               <GitHubIcon className="h-[18px] w-[18px]" />
             </a>
           </Button>
 
-          <div className="mx-1 hidden h-5 w-px bg-zinc-800 md:block" />
+          <div className="mx-1 hidden h-5 w-px bg-zinc-200 dark:bg-zinc-800 md:block" />
 
-          <Button asChild variant="ghost" size="icon" className="text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-100 md:hidden" title="Connexion">
+          <Button asChild variant="ghost" size="icon" className="text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 md:hidden" title="Connexion">
             <Link href="/login">
               <User className="h-[18px] w-[18px]" />
             </Link>
           </Button>
-          <Button asChild variant="ghost" className="hidden text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100 md:inline-flex">
+          <Button asChild variant="ghost" className="hidden text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 md:inline-flex">
             <Link href="/login">Connexion</Link>
           </Button>
           <Button asChild className="hidden md:inline-flex">
@@ -68,7 +68,7 @@ export function Navbar() {
             variant="ghost"
             size="icon"
             onClick={() => setOpen((value) => !value)}
-            className="ml-1 text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100 md:hidden"
+            className="ml-1 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 md:hidden"
             aria-expanded={open}
             aria-label="Ouvrir le menu"
           >
@@ -78,21 +78,21 @@ export function Navbar() {
       </div>
 
       {open && (
-        <div className="border-t border-zinc-800/80 bg-zinc-950/95 px-4 py-4 backdrop-blur-xl md:hidden">
+        <div className="border-t border-zinc-200 bg-white/95 px-4 py-4 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 md:hidden">
           <nav className="space-y-1">
             {navLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="block rounded-lg px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-zinc-50"
+                className="block rounded-lg px-3 py-2.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
               >
                 {link.label}
               </a>
             ))}
           </nav>
-          <div className="mt-3 grid gap-2 border-t border-zinc-800 pt-3">
-            <Button asChild variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900">
+          <div className="mt-3 grid gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+            <Button asChild variant="outline" className="w-full">
               <Link href="/login" onClick={() => setOpen(false)}>
                 Connexion
               </Link>

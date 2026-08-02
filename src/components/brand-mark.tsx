@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Mail } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { MailPulseLogo } from "@/components/mailpulse-logo";
 
 export function BrandMark({
   href = "/",
@@ -16,17 +16,14 @@ export function BrandMark({
     <Link
       href={href}
       className={cn(
-        "inline-flex items-center gap-2 text-zinc-950 transition-colors hover:text-orange-600 dark:text-zinc-50 dark:hover:text-orange-400",
+        "inline-flex items-center gap-2.5 text-foreground transition-colors hover:text-primary",
         className,
       )}
     >
-      <span className="relative inline-flex h-5 w-5 items-center justify-center">
-        <Mail className="h-5 w-5 text-orange-500" />
-        <span className="absolute inset-0 rounded-full bg-orange-500/20 blur-md" />
-      </span>
+      <MailPulseLogo className="h-7 w-7" sizes="28px" />
       {!compact && (
-        <span className="font-semibold tracking-tight">
-          Mail<span className="text-orange-500">Pulse</span>
+        <span className="font-semibold">
+          Mail<span className="text-primary">Pulse</span>
         </span>
       )}
     </Link>

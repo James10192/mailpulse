@@ -3,6 +3,7 @@ import { findIdempotentResponse, idempotentJson, storeIdempotentResponse } from 
 import { serializeContact } from "@/lib/mailpulse/serializers";
 import { updateContactPreferencesSchema, validationError } from "@/lib/mailpulse/schemas";
 import { prisma } from "@/lib/prisma";
+import { mergeChannelOptIns } from "@/lib/mailpulse/consent";
 
 export async function PATCH(request: Request, context: { params: Promise<{ contactId: string }> }) {
   const auth = await authenticateApiRequest(request);
@@ -36,9 +37,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ conta
     data: {
       subscribed: parsed.data.subscribed ?? existing.subscribed,
       metadata: {
-        ...previousMetadata,
+        ...mergeChannelOptIns(previousMetadata, parsed.data.channel_opt_in ?? {}),
         ...(parsed.data.metadata ?? {}),
-        ...(parsed.data.channel_opt_in ? { channel_opt_in: parsed.data.channel_opt_in } : {}),
         ...(parsed.data.preferred_channel ? { preferred_channel: parsed.data.preferred_channel } : {}),
         ...(parsed.data.language ? { language: parsed.data.language } : {}),
       },

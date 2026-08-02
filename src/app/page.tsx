@@ -42,37 +42,31 @@ const features = [
     icon: MessageCircle,
     title: "Campagnes email et WhatsApp",
     desc: "Choisissez le canal par campagne, reutilisez vos snippets et ciblez les contacts avec email et numero WhatsApp.",
-    gradient: "from-orange-500/10 to-transparent",
   },
   {
     icon: BarChart3,
     title: "Analytics temps reel",
     desc: "Ouvertures, clics, messages WhatsApp lus, réponses, bounces et attribution. Dashboard live powered by Convex.",
-    gradient: "from-amber-500/10 to-transparent",
   },
   {
     icon: Zap,
     title: "Automations avancees",
     desc: "Drip campaigns, triggers evenementiels, workflows conditionnels, send time optimization par IA.",
-    gradient: "from-orange-600/10 to-transparent",
   },
   {
     icon: Target,
     title: "Segmentation precise",
     desc: "Tags, scoring d'engagement, RFM, segments dynamiques, prediction de churn et lifecycle management.",
-    gradient: "from-yellow-500/10 to-transparent",
   },
   {
     icon: MousePointerClick,
     title: "Click tracking avance",
     desc: "Chaque lien tracke individuellement. Redirect 302, heat maps de clics, attribution par campagne.",
-    gradient: "from-orange-500/10 to-transparent",
   },
   {
     icon: Shield,
     title: "Compliance integree",
     desc: "GDPR, CAN-SPAM, List-Unsubscribe one-click, double opt-in, gestion du consentement automatisee.",
-    gradient: "from-amber-500/10 to-transparent",
   },
 ];
 
@@ -92,7 +86,7 @@ const pricingPlans = [
 
 export default function LandingPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-950 text-zinc-100 overflow-x-hidden">
+    <div className="mailpulse-landing flex min-h-screen flex-col overflow-x-hidden bg-white text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
       <Navbar />
 
       <main className="flex-1">
@@ -102,7 +96,7 @@ export default function LandingPage() {
 
           <div className="relative max-w-4xl mx-auto px-6 text-center">
             <AnimatedSection>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-orange-500/20 bg-orange-500/5 text-orange-400 text-xs font-medium mb-8 tracking-wide">
+              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium tracking-wide text-orange-700">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-500" />
@@ -115,14 +109,14 @@ export default function LandingPage() {
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] font-mono">
                 Vos campagnes email
                 <br />
-                <span className="text-orange-400">
+                <span className="text-orange-600">
                   et WhatsApp
                 </span>
               </h1>
             </AnimatedSection>
 
             <AnimatedSection delay={0.2}>
-              <p className="mt-6 text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed">
+              <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-600 md:text-xl">
                 Campagnes email et WhatsApp, analytics en temps reel,
                 automations intelligentes. Tout ce qu&apos;il faut pour envoyer,
                 suivre les lus et mesurer les réponses.
@@ -142,7 +136,7 @@ export default function LandingPage() {
                 </LandingCTATracker>
                 <a
                   href="#features"
-                  className="inline-flex min-h-11 items-center gap-2 rounded-xl px-6 py-3.5 text-sm text-zinc-400 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition-[scale,color,box-shadow] hover:text-zinc-200 hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)] active:scale-[0.985]"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-zinc-200 bg-white px-6 py-3.5 text-sm text-zinc-700 shadow-[var(--shadow-border)] transition-[scale,color,box-shadow] hover:text-zinc-950 hover:shadow-[var(--shadow-border-hover)] active:scale-[0.985]"
                 >
                   Decouvrir les features
                 </a>
@@ -156,7 +150,7 @@ export default function LandingPage() {
                   (tech) => (
                     <span
                       key={tech}
-                      className="px-3 py-1 rounded-md bg-zinc-900/80 border border-zinc-800/50 text-xs text-zinc-500 font-mono"
+                      className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1 font-mono text-xs text-zinc-600"
                     >
                       {tech}
                     </span>
@@ -168,7 +162,7 @@ export default function LandingPage() {
         </section>
 
         {/* ─── Metrics ─── */}
-        <section className="py-16 border-y border-zinc-800/50">
+        <section className="border-y border-zinc-200 py-16">
           <div className="max-w-4xl mx-auto px-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               <MetricCard value={99.2} suffix="%" label="Delivrabilite" delay={0} />
@@ -190,9 +184,9 @@ export default function LandingPage() {
                 <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
                   Construit pour
                   <br />
-                  <span className="text-zinc-500">les entreprises africaines.</span>
+                  <span className="text-zinc-600">les entreprises africaines.</span>
                 </h2>
-                <p className="mt-4 text-zinc-400 max-w-xl mx-auto">
+                <p className="mx-auto mt-4 max-w-xl text-zinc-600">
                   Pas un outil americain adapte. Une plateforme pensee des le depart
                   pour le marche ouest-africain.
                 </p>
@@ -218,12 +212,12 @@ export default function LandingPage() {
                 },
               ].map((item) => (
                 <StaggerItem key={item.title}>
-                  <div className="p-6 rounded-2xl border border-zinc-800/50 bg-zinc-900/20 h-full">
-                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-orange-500/10 text-orange-400 border border-orange-500/10 mb-4">
+                  <div className="h-full rounded-lg border border-zinc-200 bg-white p-6 shadow-[var(--shadow-border)]">
+                    <span className="mb-4 inline-block rounded bg-orange-50 px-2 py-0.5 font-mono text-[10px] font-bold text-orange-700 ring-1 ring-orange-200">
                       {item.badge}
                     </span>
                     <h3 className="font-semibold text-lg mb-2">{item.title}</h3>
-                    <p className="text-sm text-zinc-400 leading-relaxed">{item.desc}</p>
+                    <p className="text-sm leading-relaxed text-zinc-600">{item.desc}</p>
                   </div>
                 </StaggerItem>
               ))}
@@ -244,7 +238,7 @@ export default function LandingPage() {
                 <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
                   Tout pour vos campagnes.
                   <br />
-                  <span className="text-zinc-500">Rien de superflu.</span>
+                  <span className="text-zinc-600">Rien de superflu.</span>
                 </h2>
               </div>
             </AnimatedSection>
@@ -252,17 +246,13 @@ export default function LandingPage() {
             <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {features.map((feature) => (
                 <StaggerItem key={feature.title}>
-                  <div className="group relative p-6 rounded-xl bg-zinc-900/45 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition-[background-color,box-shadow] hover:bg-zinc-900/70 hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] duration-300 h-full">
-                    {/* Gradient accent on hover */}
-                    <div
-                      className="absolute inset-0 rounded-xl bg-orange-500/[0.03] opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-                    />
-                    <div className="relative">
-                      <div className="inline-flex p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/10 mb-4">
-                        <feature.icon className="h-5 w-5 text-orange-500" />
+                  <div className="h-full rounded-lg border border-zinc-200 bg-white p-6 shadow-[var(--shadow-border)] transition-[box-shadow,border-color] duration-300 hover:border-orange-200 hover:shadow-[var(--shadow-border-hover)]">
+                    <div>
+                      <div className="mb-4 inline-flex rounded-lg bg-orange-50 p-2.5 ring-1 ring-orange-200">
+                        <feature.icon className="h-5 w-5 text-orange-600" />
                       </div>
                       <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
-                      <p className="text-sm text-zinc-400 leading-relaxed">
+                      <p className="text-sm leading-relaxed text-zinc-600">
                         {feature.desc}
                       </p>
                     </div>
@@ -274,7 +264,7 @@ export default function LandingPage() {
         </section>
 
         {/* ─── Tracking Section ─── */}
-        <section id="tracking" className="py-20 md:py-32 border-y border-zinc-800/50">
+        <section id="tracking" className="border-y border-zinc-200 py-20 md:py-32">
           <div className="max-w-6xl mx-auto px-6">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <AnimatedSection>
@@ -284,9 +274,9 @@ export default function LandingPage() {
                 <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
                   Chaque interaction
                   <br />
-                  <span className="text-zinc-500">est mesuree.</span>
+                  <span className="text-zinc-600">est mesurée.</span>
                 </h2>
-                <p className="mt-4 text-zinc-400 leading-relaxed">
+                <p className="mt-4 leading-relaxed text-zinc-600">
                   Pixel d&apos;ouverture invisible, redirect signe HMAC pour les clics,
                   webhooks Resend pour les bounces et complaints. Tout est trace,
                   rien n&apos;echappe a votre dashboard.
@@ -296,7 +286,7 @@ export default function LandingPage() {
                   {trackingFeatures.map((tf) => (
                     <div
                       key={tf.label}
-                      className="flex items-start gap-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-800/30"
+                      className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-white p-3"
                     >
                       <tf.icon className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
                       <div>
@@ -310,41 +300,39 @@ export default function LandingPage() {
 
               {/* Tracking visualization */}
               <AnimatedSection delay={0.2}>
-                <div className="relative p-6 rounded-2xl border border-zinc-800/50 bg-zinc-900/30 overflow-hidden">
+                <div className="relative overflow-hidden rounded-lg border border-zinc-200 bg-white p-6 shadow-[var(--shadow-border)]">
                   {/* Fake terminal */}
                   <div className="flex items-center gap-1.5 mb-4">
-                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-                    <span className="ml-3 text-xs text-zinc-600 font-mono">
+                    <div className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+                    <span className="ml-3 font-mono text-xs text-zinc-500">
                       webhook events
                     </span>
                   </div>
 
-                  <div className="font-mono text-xs space-y-2 text-zinc-500">
+                  <div className="space-y-2 font-mono text-xs text-zinc-600">
                     {[
                       { time: "23:04:12", event: "email.delivered", color: "text-emerald-400", email: "marie@startup.io" },
-                      { time: "23:04:15", event: "email.opened", color: "text-blue-400", email: "jean@corp.fr" },
+                      { time: "23:04:15", event: "email.opened", color: "text-orange-600", email: "jean@corp.fr" },
                       { time: "23:04:18", event: "whatsapp.read", color: "text-emerald-400", email: "+2250700000000" },
-                      { time: "23:04:22", event: "email.clicked", color: "text-orange-400", email: "marie@startup.io" },
-                      { time: "23:04:25", event: "whatsapp.replied", color: "text-orange-400", email: "+2250500000000" },
-                      { time: "23:04:31", event: "email.opened", color: "text-blue-400", email: "alex@dev.co" },
+                      { time: "23:04:22", event: "email.clicked", color: "text-orange-600", email: "marie@startup.io" },
+                      { time: "23:04:25", event: "whatsapp.replied", color: "text-orange-600", email: "+2250500000000" },
+                      { time: "23:04:31", event: "email.opened", color: "text-orange-600", email: "alex@dev.co" },
                       { time: "23:04:33", event: "whatsapp.delivered", color: "text-emerald-400", email: "+2250100000000" },
                     ].map((log, i) => (
                       <div key={i} className="flex gap-3">
-                        <span className="text-zinc-700">{log.time}</span>
+                        <span className="text-zinc-400">{log.time}</span>
                         <span className={log.color}>{log.event}</span>
-                        <span className="text-zinc-600">{log.email}</span>
+                        <span className="text-zinc-500">{log.email}</span>
                       </div>
                     ))}
                     <div className="flex gap-3">
-                      <span className="text-zinc-700">23:04:35</span>
-                      <span className="text-zinc-600 animate-pulse">|</span>
+                      <span className="text-zinc-400">23:04:35</span>
+                      <span className="animate-pulse text-zinc-500">|</span>
                     </div>
                   </div>
 
-                  {/* Subtle gradient overlay at bottom */}
-                  <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-zinc-900/80 to-transparent" />
                 </div>
               </AnimatedSection>
             </div>
@@ -365,7 +353,7 @@ export default function LandingPage() {
                 <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
                   Simple et transparent.
                 </h2>
-                <p className="mt-3 text-zinc-500">
+                <p className="mt-3 text-zinc-600">
                   Commencez gratuitement. Evoluez quand vous etes pret.
                 </p>
               </div>
@@ -378,7 +366,7 @@ export default function LandingPage() {
                     className={`relative p-6 rounded-2xl border h-full flex flex-col ${
                       plan.highlighted
                         ? "border-orange-500/30 bg-orange-500/5 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.24)]"
-                        : "border-zinc-800/50 bg-zinc-900/30"
+                        : "border-zinc-200 bg-white shadow-[var(--shadow-border)]"
                     }`}
                   >
                     {plan.highlighted && (
@@ -389,14 +377,14 @@ export default function LandingPage() {
 
                     <div className="mb-6">
                       <h3 className="font-semibold text-lg">{plan.name}</h3>
-                      <p className="text-xs text-zinc-500 mt-1">{plan.desc}</p>
+                      <p className="mt-1 text-xs text-zinc-600">{plan.desc}</p>
                       <div className="mt-4 flex items-baseline gap-1">
                         {plan.price !== "Sur mesure" ? (
                           <>
                             <span className="text-4xl font-bold font-mono">
                               {plan.price}
                             </span>
-                            <span className="text-zinc-500 text-sm">FCFA/mois</span>
+                            <span className="text-sm text-zinc-600">FCFA/mois</span>
                           </>
                         ) : (
                           <span className="text-2xl font-bold">{plan.price}</span>
@@ -406,7 +394,7 @@ export default function LandingPage() {
 
                     <ul className="space-y-2.5 mb-8 flex-1">
                       {plan.features.map((f) => (
-                        <li key={f} className="flex items-center gap-2.5 text-sm text-zinc-300">
+                        <li key={f} className="flex items-center gap-2.5 text-sm text-zinc-700">
                           <Check className="h-3.5 w-3.5 text-orange-500 shrink-0" />
                           {f}
                         </li>
@@ -419,7 +407,7 @@ export default function LandingPage() {
                         className={`block text-center py-2.5 rounded-lg text-sm font-medium transition-[scale,background-color,color,box-shadow] active:scale-[0.985] ${
                           plan.highlighted
                             ? "bg-orange-600 hover:bg-orange-500 text-white "
-                            : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+                            : "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
                         }`}
                       >
                         {plan.cta}
@@ -439,11 +427,11 @@ export default function LandingPage() {
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight font-mono">
                 Pret a envoyer des emails
                 <br />
-                <span className="text-orange-400">
+                <span className="text-orange-600">
                   qui comptent ?
                 </span>
               </h2>
-              <p className="mt-4 text-zinc-400 text-lg">
+              <p className="mt-4 text-lg text-zinc-600">
                 Rejoignez MailPulse et transformez vos campagnes.
               </p>
               <div className="mt-8">
@@ -463,7 +451,7 @@ export default function LandingPage() {
       </main>
 
       {/* ─── Equipe ─── */}
-      <section id="team" className="py-20 md:py-32 border-t border-zinc-800/50">
+      <section id="team" className="border-t border-zinc-200 py-20 md:py-32">
         <div className="max-w-4xl mx-auto px-6">
           <AnimatedSection>
             <div className="text-center mb-16">
@@ -473,7 +461,7 @@ export default function LandingPage() {
               <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
                 Les createurs.
               </h2>
-              <p className="mt-3 text-zinc-500">
+              <p className="mt-3 text-zinc-600">
                 Les personnes derriere MailPulse.
               </p>
             </div>
@@ -482,22 +470,22 @@ export default function LandingPage() {
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* James */}
             <StaggerItem>
-              <div className="group relative p-6 rounded-xl bg-zinc-900/45 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition-[background-color,box-shadow] hover:bg-zinc-900/70 hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] duration-300 h-full">
+              <div className="h-full rounded-lg border border-zinc-200 bg-white p-6 shadow-[var(--shadow-border)] transition-[box-shadow,border-color] duration-300 hover:border-orange-200 hover:shadow-[var(--shadow-border-hover)]">
                 <div className="flex items-start gap-5">
                   <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-orange-500/10 border border-orange-500/10 text-orange-500 font-mono font-bold text-lg">
                     MD
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-lg">Marcel DJEDJE-LI</h3>
-                    <p className="text-sm text-orange-400 font-mono mt-0.5">Fondateur & Full-Stack Developer</p>
-                    <p className="text-sm text-zinc-400 mt-3 leading-relaxed">
+                    <p className="mt-0.5 font-mono text-sm text-orange-600">Fondateur & Full-Stack Developer</p>
+                    <p className="mt-3 text-sm leading-relaxed text-zinc-600">
                       Fondateur et architecte de MailPulse. Full-stack developer base a Abidjan, passione par les solutions tech pour l&apos;Afrique francophone.
                     </p>
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       {["Next.js", "Prisma", "Convex", "Python", "TypeScript"].map((tech) => (
                         <span
                           key={tech}
-                          className="px-2 py-0.5 rounded-md bg-zinc-800/80 border border-zinc-700/50 text-[10px] text-zinc-400 font-mono"
+                          className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-mono text-[10px] text-zinc-600"
                         >
                           {tech}
                         </span>
@@ -508,7 +496,7 @@ export default function LandingPage() {
                         href="https://github.com/James10192"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                        className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-950"
                       >
                         <GithubIcon className="h-3.5 w-3.5" />
                         GitHub
@@ -517,7 +505,7 @@ export default function LandingPage() {
                         href="https://www.linkedin.com/in/marcel-djedje-li-099490235"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                        className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-950"
                       >
                         <LinkedinIcon className="h-3.5 w-3.5" />
                         LinkedIn
@@ -530,22 +518,22 @@ export default function LandingPage() {
 
             {/* Ruben */}
             <StaggerItem>
-              <div className="group relative p-6 rounded-xl bg-zinc-900/45 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition-[background-color,box-shadow] hover:bg-zinc-900/70 hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] duration-300 h-full">
+              <div className="h-full rounded-lg border border-zinc-200 bg-white p-6 shadow-[var(--shadow-border)] transition-[box-shadow,border-color] duration-300 hover:border-orange-200 hover:shadow-[var(--shadow-border-hover)]">
                 <div className="flex items-start gap-5">
                   <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-orange-500/10 border border-orange-500/10 text-orange-500 font-mono font-bold text-lg">
                     YR
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-lg">Yablai Yablai Ruben Virgil</h3>
-                    <p className="text-sm text-orange-400 font-mono mt-0.5">Co-Fondateur & Frontend / Mobile Developer</p>
-                    <p className="text-sm text-zinc-400 mt-3 leading-relaxed">
+                    <p className="mt-0.5 font-mono text-sm text-orange-600">Co-Fondateur & Frontend / Mobile Developer</p>
+                    <p className="mt-3 text-sm leading-relaxed text-zinc-600">
                       Developpeur frontend et mobile. Specialise dans les interfaces utilisateur modernes et les applications cross-platform.
                     </p>
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       {["Flutter", "Next.js", "React", "TypeScript", "Dart"].map((tech) => (
                         <span
                           key={tech}
-                          className="px-2 py-0.5 rounded-md bg-zinc-800/80 border border-zinc-700/50 text-[10px] text-zinc-400 font-mono"
+                          className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-mono text-[10px] text-zinc-600"
                         >
                           {tech}
                         </span>
@@ -556,7 +544,7 @@ export default function LandingPage() {
                         href="https://github.com/yab21"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                        className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-950"
                       >
                         <GithubIcon className="h-3.5 w-3.5" />
                         GitHub
@@ -565,7 +553,7 @@ export default function LandingPage() {
                         href="https://linkedin.com/in/ruben-yablai"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                        className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-950"
                       >
                         <LinkedinIcon className="h-3.5 w-3.5" />
                         LinkedIn
@@ -580,22 +568,22 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="border-t border-zinc-800/50 py-12">
+      <footer className="border-t border-zinc-200 bg-zinc-50 py-12">
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <BrandMark className="text-sm text-zinc-100" />
+            <BrandMark className="text-sm" />
 
             <nav className="flex items-center gap-6 text-sm text-zinc-500">
-              <a href="https://github.com/James10192/mailpulse" className="hover:text-zinc-300 transition-colors">
+              <a href="https://github.com/James10192/mailpulse" className="transition-colors hover:text-zinc-950">
                 GitHub
               </a>
-              <a href="#features" className="hover:text-zinc-300 transition-colors">
+              <a href="#features" className="transition-colors hover:text-zinc-950">
                 Features
               </a>
-              <a href="#pricing" className="hover:text-zinc-300 transition-colors">
+              <a href="#pricing" className="transition-colors hover:text-zinc-950">
                 Pricing
               </a>
-              <a href="/contact" className="hover:text-zinc-300 transition-colors">
+              <a href="/contact" className="transition-colors hover:text-zinc-950">
                 Contact
               </a>
             </nav>

@@ -50,7 +50,7 @@ export function CaptureForm({
         <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
           <Check className="h-6 w-6 text-emerald-500" />
         </div>
-        <p className="text-zinc-100 font-medium">{successMessage}</p>
+        <p className="font-medium text-zinc-950 dark:text-zinc-50">{successMessage}</p>
       </div>
     );
   }
@@ -61,7 +61,7 @@ export function CaptureForm({
         <div key={field.name}>
           <label
             htmlFor={`field-${field.name}`}
-            className="block text-sm font-medium text-zinc-300 mb-1.5"
+            className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
           >
             {field.label} {field.required && "*"}
           </label>
@@ -71,7 +71,7 @@ export function CaptureForm({
             type={field.type}
             required={field.required}
             placeholder={field.type === "email" ? "vous@exemple.com" : ""}
-            className="h-11 w-full rounded-xl bg-zinc-900 px-3.5 text-sm text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] transition-[background-color,box-shadow] placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:shadow-[inset_0_0_0_1px_rgba(249,115,22,0.5)]"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3.5 text-sm text-zinc-950 transition-[border-color,box-shadow] placeholder:text-zinc-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:placeholder:text-zinc-500"
           />
         </div>
       ))}
@@ -85,7 +85,7 @@ export function CaptureForm({
       <button
         type="submit"
         disabled={loading}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_10px_24px_rgba(234,88,12,0.22)] transition-[scale,background-color,opacity] hover:bg-orange-500 active:scale-[0.99] disabled:opacity-50"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_10px_24px_rgba(234,88,12,0.18)] transition-[scale,background-color,opacity] hover:bg-orange-500 active:scale-[0.99] disabled:opacity-50"
       >
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin" />

@@ -16,6 +16,7 @@ import {
   MousePointerClick,
   Plus,
   Send,
+  Smartphone,
   Sparkles,
 } from "lucide-react";
 
@@ -293,6 +294,7 @@ function CampaignFilters(props: {
           <TabsTrigger value="ALL">Tous les canaux</TabsTrigger>
           <TabsTrigger value="EMAIL" className="gap-2"><Mail className="h-4 w-4" />Email</TabsTrigger>
           <TabsTrigger value="WHATSAPP" className="gap-2"><MessageCircle className="h-4 w-4" />WhatsApp</TabsTrigger>
+          <TabsTrigger value="SMS" className="gap-2"><Smartphone className="h-4 w-4" />SMS</TabsTrigger>
         </TabsList>
       </Tabs>
     </CardHeader>

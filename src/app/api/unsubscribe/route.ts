@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyTrackingToken } from "@/lib/tracking";
+import { applyStopPreference } from "@/lib/mailpulse/consent";
 
 async function processUnsubscribe(token: string, method: string): Promise<boolean> {
   const data = verifyTrackingToken(token);
@@ -10,9 +11,12 @@ async function processUnsubscribe(token: string, method: string): Promise<boolea
   // via generateUnsubscribeUrl, this is actually the contactId
   const contactId = data.recipientId;
 
+  const contact = await prisma.contact.findUnique({ where: { id: contactId }, select: { metadata: true } });
+  if (!contact) return false;
+
   await prisma.contact.update({
     where: { id: contactId },
-    data: { subscribed: false },
+    data: { metadata: applyStopPreference(contact.metadata, "EMAIL") },
   });
 
   await prisma.emailEvent.create({

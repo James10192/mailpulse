@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Mail } from "lucide-react";
+
+import { MailPulseLogo } from "@/components/mailpulse-logo";
 
 export function DocsBrandTitle({ docsHref }: { docsHref: string }) {
   function leaveDocs(event: React.MouseEvent<HTMLAnchorElement>) {
@@ -16,9 +17,9 @@ export function DocsBrandTitle({ docsHref }: { docsHref: string }) {
         onClick={leaveDocs}
         className="inline-flex items-center gap-2 font-semibold text-fd-foreground"
       >
-        <Mail className="h-4 w-4 text-orange-500" />
+        <MailPulseLogo className="h-6 w-6" sizes="24px" />
         <span>
-          Mail<span className="text-orange-500">Pulse</span>
+          Mail<span className="text-primary">Pulse</span>
         </span>
       </Link>
       <span className="text-fd-muted-foreground">/</span>

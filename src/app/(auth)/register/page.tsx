@@ -128,21 +128,20 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="grid min-h-screen overflow-hidden bg-zinc-950 text-zinc-100 lg:grid-cols-[0.9fr_1.1fr]">
-      <section className="relative hidden overflow-hidden bg-zinc-950 shadow-[inset_-1px_0_0_rgba(255,255,255,0.08)] lg:flex">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[linear-gradient(180deg,rgba(249,115,22,0.16),transparent)]" />
-        <div className="pointer-events-none absolute inset-y-12 right-0 w-px bg-orange-500/30" />
+    <main className="grid min-h-screen overflow-hidden bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 lg:grid-cols-[0.9fr_1.1fr]">
+      <section className="relative hidden overflow-hidden border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 lg:flex">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-orange-500" />
         <div className="relative z-10 flex w-full flex-col justify-between p-12">
-          <BrandMark className="text-lg text-zinc-50" />
+          <BrandMark className="text-lg" />
 
           <div className="max-w-md space-y-8">
             <div>
               <h2 className="text-3xl font-bold leading-tight tracking-tight">
                 Envoyez des emails
                 <br />
-                <span className="text-orange-500">qui convertissent.</span>
+                <span className="text-orange-600">qui convertissent.</span>
               </h2>
-              <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+              <p className="mt-3 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
                 Lancez vos campagnes, suivez les réponses et automatisez vos relances depuis un cockpit clair.
               </p>
             </div>
@@ -150,45 +149,45 @@ export default function RegisterPage() {
             <div className="space-y-3">
               {features.map((feature) => (
                 <div key={feature.text} className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/10 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.24)]">
-                    <feature.icon className="h-4 w-4 text-orange-500" />
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50 ring-1 ring-orange-200 dark:bg-orange-500/10 dark:ring-orange-500/30">
+                    <feature.icon className="h-4 w-4 text-orange-600" />
                   </span>
-                  <span className="text-sm text-zinc-300">{feature.text}</span>
+                  <span className="text-sm text-zinc-700 dark:text-zinc-300">{feature.text}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <p className="text-xs text-zinc-600">&copy; {new Date().getFullYear()} MailPulse</p>
+          <p className="text-xs text-zinc-500">&copy; {new Date().getFullYear()} MailPulse</p>
         </div>
       </section>
 
       <section className="relative flex items-center justify-center px-4 py-12 sm:px-6">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,rgba(249,115,22,0.1),transparent)] lg:hidden" />
-        <Card className="relative w-full max-w-md border-0 bg-zinc-950/95 p-6 text-zinc-100 shadow-[var(--shadow-overlay)] ring-1 ring-white/10 sm:p-8">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-orange-500 lg:hidden" />
+        <Card className="relative w-full max-w-md border border-zinc-200 bg-white p-6 shadow-[var(--shadow-overlay)] dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
           <CardHeader className="p-0 pb-8">
             <div className="mb-4 lg:hidden">
-              <BrandMark className="text-xl text-zinc-50" />
+              <BrandMark className="text-xl" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Créer un compte</h1>
-            <p className="text-sm text-zinc-400">Commencez gratuitement, sans carte bancaire.</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Commencez gratuitement, sans carte bancaire.</p>
           </CardHeader>
           <CardContent className="p-0">
             <div className="space-y-2.5">
-              <Button type="button" variant="outline" disabled={googleLoading} className="w-full bg-zinc-900/80 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:bg-zinc-900" onClick={handleGoogle}>
+              <Button type="button" variant="outline" disabled={googleLoading} className="w-full" onClick={handleGoogle}>
                 <GoogleIcon />
                 {googleLoading ? "Connexion..." : "Continuer avec Google"}
               </Button>
-              <Button type="button" variant="outline" className="w-full bg-zinc-900/80 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:bg-zinc-900" onClick={handleGitHub}>
+              <Button type="button" variant="outline" className="w-full" onClick={handleGitHub}>
                 <GitHubIcon />
                 Continuer avec GitHub
               </Button>
             </div>
 
             <div className="my-6 flex items-center gap-3 text-xs text-zinc-500">
-              <Separator className="flex-1 bg-zinc-800" />
+              <Separator className="flex-1 bg-zinc-200 dark:bg-zinc-800" />
               ou par email
-              <Separator className="flex-1 bg-zinc-800" />
+              <Separator className="flex-1 bg-zinc-200 dark:bg-zinc-800" />
             </div>
 
             {error && (
@@ -226,7 +225,7 @@ export default function RegisterPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowPassword((value) => !value)}
-                    className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
+                    className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
@@ -240,20 +239,20 @@ export default function RegisterPage() {
               </Button>
             </form>
 
-            <p className="mt-6 text-center text-sm text-zinc-400">
+            <p className="mt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
               Déjà un compte ?{" "}
-              <Link href="/login" className="font-medium text-orange-500 hover:text-orange-400">
+              <Link href="/login" className="font-medium text-orange-600 hover:text-orange-700">
                 Se connecter
               </Link>
             </p>
 
-            <p className="mt-8 text-center text-[11px] leading-relaxed text-zinc-600">
+            <p className="mt-8 text-center text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-500">
               En créant un compte, vous acceptez nos{" "}
-              <a href="#" className="underline hover:text-zinc-400">
+              <a href="#" className="underline hover:text-zinc-700">
                 Conditions d&apos;utilisation
               </a>{" "}
               et notre{" "}
-              <a href="#" className="underline hover:text-zinc-400">
+              <a href="#" className="underline hover:text-zinc-700">
                 Politique de confidentialité
               </a>
               .

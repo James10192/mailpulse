@@ -5,6 +5,16 @@ import type { IWhatsAppProvider, WhatsAppSendResult } from "@/lib/whatsapp/types
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 
+class MetaApiError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+  ) {
+    super(message);
+    this.name = "MetaApiError";
+  }
+}
+
 interface MetaOrgConfig {
   metaPhoneNumberId: string | null;
   metaAccessToken: string | null;
@@ -27,7 +37,7 @@ async function metaFetch<T = unknown>(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const error = (body as { error?: { message?: string } })?.error?.message || `HTTP ${res.status}`;
-    throw new Error(`Meta API: ${error}`);
+    throw new MetaApiError(`Meta API: ${error}`, res.status);
   }
 
   return res.json() as Promise<T>;
@@ -190,6 +200,35 @@ export class MetaProvider implements IWhatsAppProvider {
       return {
         success: false,
         error: err instanceof Error ? err.message : "Unknown Meta API error",
+        statusCode: err instanceof MetaApiError ? err.statusCode : undefined,
+      };
+    }
+  }
+
+  async sendTemplate(
+    to: string,
+    templateName: string,
+    languageCode: string,
+    parameters: string[] = [],
+  ): Promise<WhatsAppSendResult> {
+    try {
+      const result = await sendTemplate(
+        { metaPhoneNumberId: this.phoneNumberId, metaAccessToken: this.accessToken },
+        to,
+        templateName,
+        languageCode,
+        parameters,
+      );
+      const messageId = result.messages?.[0]?.id;
+      return {
+        success: true,
+        messageId,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Unknown Meta API error",
+        statusCode: err instanceof MetaApiError ? err.statusCode : undefined,
       };
     }
   }
@@ -211,6 +250,7 @@ export class MetaProvider implements IWhatsAppProvider {
       return {
         success: false,
         error: err instanceof Error ? err.message : "Unknown Meta API error",
+        statusCode: err instanceof MetaApiError ? err.statusCode : undefined,
       };
     }
   }

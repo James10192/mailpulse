@@ -11,6 +11,7 @@ import {
   generateUnsubscribeUrl,
 } from "@/lib/tracking";
 import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
+import { canReceiveChannel } from "@/lib/mailpulse/consent";
 
 type ScheduledContact = {
   id: string;
@@ -18,6 +19,8 @@ type ScheduledContact = {
   phone: string | null;
   firstName: string | null;
   lastName: string | null;
+  subscribed: boolean;
+  metadata: unknown;
 };
 
 function personalizeText(text: string, contact: ScheduledContact) {
@@ -29,9 +32,10 @@ function personalizeText(text: string, contact: ScheduledContact) {
 }
 
 export async function GET(request: NextRequest) {
-  // Verify CRON_SECRET
+  // Scheduled dispatch must never be callable without a configured secret.
+  const secret = process.env.CRON_SECRET?.trim();
   const authHeader = request.headers.get("authorization");
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!secret || authHeader !== `Bearer ${secret}`) {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -94,7 +98,7 @@ export async function GET(request: NextRequest) {
 
     // Get contacts
     let contacts: ScheduledContact[];
-    const contactSelect = { id: true, email: true, phone: true, firstName: true, lastName: true, subscribed: true };
+    const contactSelect = { id: true, email: true, phone: true, firstName: true, lastName: true, subscribed: true, metadata: true };
     if (campaign.contactListId) {
       const members = await prisma.contactListMember.findMany({
         where: { contactListId: campaign.contactListId },
@@ -112,9 +116,10 @@ export async function GET(request: NextRequest) {
           subscribed: true,
           ...(campaign.channel === "WHATSAPP" ? { phone: { not: null } } : {}),
         },
-        select: { id: true, email: true, phone: true, firstName: true, lastName: true },
+        select: contactSelect,
       });
     }
+    contacts = contacts.filter((contact) => canReceiveChannel(contact, campaign.channel));
 
     if (contacts.length === 0) {
       await prisma.campaign.update({

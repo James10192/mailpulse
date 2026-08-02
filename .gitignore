@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/.codex-run/
+/.playwright-cli/
 
 # next.js
 /.next/

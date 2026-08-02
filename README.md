@@ -111,10 +111,20 @@ cp .env.example .env.local
 
 ```bash
 docker compose up -d
-npx prisma migrate dev
+pnpm exec prisma migrate dev
 npx convex dev
 pnpm dev
 ```
+
+### Déploiement production
+
+Avant un déploiement qui contient une migration, configurez les variables de production puis exécutez :
+
+```bash
+pnpm db:migrate:deploy
+```
+
+Cette commande vérifie la configuration sans afficher de secrets, recherche les doublons non nuls de `communication_message.providerMessageId`, puis lance `prisma migrate deploy`. Elle ne corrige ni ne supprime aucune donnée.
 
 ## Conventions utiles
 

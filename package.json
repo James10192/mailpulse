@@ -4,10 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build --webpack",
+    "build": "prisma generate && pnpm run preflight:production && next build --webpack",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
+    "test:delivery": "node --experimental-strip-types --test src/lib/mailpulse/delivery-core.test.ts",
+    "validate:orange-sms": "node scripts/validate-orange-sms-config.mjs",
+    "preflight:config": "node scripts/validate-production-config.mjs",
+    "preflight:communication-message-index": "node scripts/preflight-communication-message-provider-message-id.mjs",
+    "preflight:production": "pnpm run validate:orange-sms && pnpm run preflight:config && pnpm run preflight:communication-message-index",
+    "db:migrate:deploy": "pnpm run preflight:production && prisma migrate deploy",
     "typecheck": "fumadocs-mdx && tsc --noEmit"
   },
   "dependencies": {
@@ -79,5 +85,6 @@
     "prisma": "^7.6.0",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "packageManager": "pnpm@10.15.1"
 }

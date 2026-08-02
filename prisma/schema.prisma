@@ -126,6 +126,12 @@ model Organization {
   metaPhoneNumberId     String?        // Phone Number ID for sending
   metaAccessToken       String?        // Long-lived access token
 
+  // SMS (provider credentials remain server-side environment secrets)
+  smsEnabled            Boolean        @default(false)
+  smsProvider           SmsProvider?
+  smsSenderAddress      String?
+  smsSenderName         String?
+
   members     Member[]
   invitations Invitation[]
   campaigns   Campaign[]
@@ -142,12 +148,19 @@ model Organization {
   communicationTemplates CommunicationTemplate[]
   conversations Conversation[]
   messages CommunicationMessage[]
+  smsDeliveryReceiptInboxEntries SmsDeliveryReceiptInbox[]
   webhooks WebhookEndpoint[]
   webhookDeliveries WebhookDelivery[]
   idempotencyRecords IdempotencyRecord[]
   auditLogs AuditLog[]
   feedback Feedback[]
   billingPayments BillingPayment[]
+  externalApplications ExternalApplication[]
+  providerAccounts ProviderAccount[]
+  applicationForwardEndpoints ApplicationForwardEndpoint[]
+  applicationTemplateConfigs ApplicationTemplateConfig[]
+  externalTransportOperations ExternalTransportOperation[]
+  externalConversationWindows ExternalConversationWindow[]
 
   @@map("organization")
 }
@@ -161,6 +174,10 @@ enum PlanTier {
 enum WhatsAppMode {
   BAILEYS
   META
+}
+
+enum SmsProvider {
+  ORANGE_CI
 }
 
 model Member {
@@ -359,6 +376,7 @@ model CampaignAnalytics {
   id                String   @id @default(cuid())
   campaignId        String   @unique
   campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  totalQueued       Int      @default(0)
   totalSent         Int      @default(0)
   totalDelivered    Int      @default(0)
   totalOpened       Int      @default(0)
@@ -659,12 +677,16 @@ enum MessageOrigin {
 
 enum MessageStatus {
   QUEUED
+  PROCESSING
   RETRYING
+  SUBMISSION_UNKNOWN
   SENT
   DELIVERED
   READ
   FAILED
   CANCELLED
+  RECONCILED
+  DUPLICATE_CONFIRMED
   TEMPLATE_REQUIRED
 }
 
@@ -758,6 +780,7 @@ model CommunicationMessage {
   externalTenantId      String?
   idempotencyKey        String?
   providerMessageId     String?
+  provider              String               @default("UNSPECIFIED")
   status                MessageStatus        @default(QUEUED)
   errorCode             String?
   errorMessage          String?
@@ -769,6 +792,13 @@ model CommunicationMessage {
   cancelledAt           DateTime?
   retryCount            Int                  @default(0)
   nextRetryAt           DateTime?
+  processingStartedAt   DateTime?
+  processingToken       String?
+  reconciliationDecision String?
+  reconciliationFollowUpAt DateTime?
+  reconciliationFollowUpById String?
+  reconciledAt          DateTime?
+  reconciledById        String?
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 
@@ -782,6 +812,7 @@ model CommunicationMessage {
   template              CommunicationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   webhookDeliveries     WebhookDelivery[]
+  smsDeliveryReceiptInboxEntries SmsDeliveryReceiptInbox[] @relation("SmsDeliveryReceiptMessage")
 
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, status, createdAt])
@@ -789,7 +820,290 @@ model CommunicationMessage {
   @@index([organizationId, origin, createdAt])
   @@index([conversationId, createdAt])
   @@index([externalEventId])
+  @@unique([organizationId, channel, provider, providerMessageId])
+  @@unique([organizationId, id])
+  @@index([channel, status, nextRetryAt, queuedAt])
   @@map("communication_message")
+}
+
+model SmsDispatchLease {
+  id          String   @id
+  lockedUntil DateTime?
+  ownerToken  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([lockedUntil])
+  @@map("sms_dispatch_lease")
+}
+
+// Orange may deliver an acknowledgement before the dispatch worker has stored
+// the provider resource ID. This inbox retains the acknowledgement until the
+// outbound message can be correlated within the same tenant/provider scope.
+model SmsDeliveryReceiptInbox {
+  id                String   @id @default(cuid())
+  provider          String
+  providerMessageId String
+  deliveryStatus    String
+  callbackCount     Int      @default(1)
+  firstReceivedAt   DateTime @default(now())
+  lastReceivedAt    DateTime @default(now())
+  matchedAt         DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messageId      String?
+  // PostgreSQL applies SET NULL to messageId only; Prisma cannot express a
+  // column-subset referential action on a composite key, so SQL owns deletion.
+  message        CommunicationMessage? @relation("SmsDeliveryReceiptMessage", fields: [organizationId, messageId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, provider, providerMessageId])
+  @@index([organizationId, provider, matchedAt])
+  @@index([organizationId, messageId])
+  @@map("sms_delivery_receipt_inbox")
+}
+
+// ============================================
+// External applications and transport
+// ============================================
+
+enum ExternalApplicationCredentialPurpose {
+  COMMAND_INGRESS
+  INBOUND_FORWARD
+}
+
+enum ExternalTransportDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum ExternalCallbackDeliveryStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
+}
+
+model ExternalApplication {
+  id             String       @id @default(cuid())
+  key            String
+  name           String
+  active         Boolean      @default(true)
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  credentials         ExternalApplicationCredential[]
+  providerAccounts    ProviderAccount[]
+  forwardEndpoints    ApplicationForwardEndpoint[]
+  templateConfigs     ApplicationTemplateConfig[]
+  transportOperations ExternalTransportOperation[]
+  conversationWindows ExternalConversationWindow[]
+
+  @@unique([organizationId, key])
+  @@unique([organizationId, id])
+  @@index([organizationId, active])
+  @@map("external_application")
+}
+
+model ExternalApplicationCredential {
+  id            String                               @id @default(cuid())
+  purpose       ExternalApplicationCredentialPurpose
+  keyId         String
+  secretCiphertext String
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  version       Int                                  @default(1)
+  rotationId    String?
+  rotatedAt     DateTime?
+  createdAt     DateTime                             @default(now())
+  updatedAt     DateTime                             @updatedAt
+
+  applicationId String
+  application   ExternalApplication                  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, purpose, version])
+  @@index([applicationId, purpose, revokedAt, expiresAt])
+  @@index([rotationId])
+  @@map("external_application_credential")
+}
+
+model ProviderAccount {
+  id                    String       @id @default(cuid())
+  channel               CommunicationChannel
+  provider              String
+  externalAccountId     String
+  senderId              String?
+  credentialsCiphertext String?
+  active                Boolean      @default(true)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId  String?
+  application    ExternalApplication? @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Restrict)
+
+  forwardEndpoints    ApplicationForwardEndpoint[]
+  templateConfigs     ApplicationTemplateConfig[]
+  transportOperations ExternalTransportOperation[]
+  conversationWindows ExternalConversationWindow[]
+
+  @@unique([organizationId, channel, provider, externalAccountId])
+  @@unique([organizationId, id])
+  @@index([organizationId, applicationId, active])
+  @@map("provider_account")
+}
+
+model ApplicationForwardEndpoint {
+  id               String       @id @default(cuid())
+  url              String
+  keyId            String
+  secretCiphertext String
+  events           String[]
+  active           Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId    String
+  application      ExternalApplication @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Cascade)
+  providerAccountId String?
+  providerAccount  ProviderAccount? @relation(fields: [organizationId, providerAccountId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([applicationId, url])
+  @@index([organizationId, active])
+  @@index([providerAccountId, active])
+  @@map("application_forward_endpoint")
+}
+
+model ApplicationTemplateConfig {
+  id                 String       @id @default(cuid())
+  operationKey       String
+  templateId         String?
+  locale             String
+  providerTemplateId String
+  active             Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId     String
+  application       ExternalApplication @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Cascade)
+  providerAccountId String?
+  providerAccount   ProviderAccount? @relation(fields: [organizationId, providerAccountId], references: [organizationId, id], onDelete: Restrict)
+
+  // The two partial unique indexes in the transport-core migration are the
+  // intentional uniqueness invariant for nullable providerAccountId values.
+  @@index([organizationId, active])
+  @@index([providerAccountId, active])
+  @@map("application_template_config")
+}
+
+model ExternalTransportOperation {
+  id                       String                     @id @default(cuid())
+  direction                ExternalTransportDirection
+  operationKey             String
+  idempotencyKey           String
+  payloadHash              String?
+  payloadCiphertext        String?
+  status                   String                     @default("PENDING")
+  leaseToken               String?
+  leaseExpiresAt           DateTime?
+  leaseAcquiredAt          DateTime?
+  providerMessageId        String?
+  reconciliationDecision   String?
+  reconciliationFollowUpAt DateTime?
+  reconciliationFollowUpById String?
+  reconciledAt             DateTime?
+  reconciledById           String?
+  acceptedAt               DateTime?
+  completedAt              DateTime?
+  failedAt                 DateTime?
+  callbackAttempts         Int                        @default(0)
+  nextCallbackAttemptAt    DateTime?
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId       String
+  application         ExternalApplication @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Restrict)
+  providerAccountId   String
+  providerAccount     ProviderAccount @relation(fields: [organizationId, providerAccountId], references: [organizationId, id], onDelete: Restrict)
+  callbackDeliveries  ExternalCallbackDelivery[]
+
+  @@unique([organizationId, applicationId, idempotencyKey])
+  @@unique([organizationId, providerAccountId, providerMessageId])
+  @@index([organizationId, status, createdAt])
+  @@index([applicationId, status, leaseExpiresAt])
+  @@index([applicationId, status, nextCallbackAttemptAt])
+  @@index([providerAccountId, createdAt])
+  @@map("external_transport_operation")
+}
+
+// Each record is an immutable callback outbox snapshot. sourceEndpointId is
+// deliberately not a foreign key: disabling, editing, or deleting an endpoint
+// must not alter deliveries already accepted from a provider.
+model ExternalCallbackDelivery {
+  id               String                         @id @default(cuid())
+  sourceEndpointId String
+  event            String
+  payloadCiphertext String
+  destinationUrl   String
+  keyId            String
+  secretCiphertext String
+  status           ExternalCallbackDeliveryStatus @default(PENDING)
+  attempts         Int                            @default(0)
+  lastError        String?
+  nextAttemptAt    DateTime?
+  leaseToken       String?
+  leaseAcquiredAt  DateTime?
+  leaseExpiresAt   DateTime?
+  deliveredAt      DateTime?
+  failedAt         DateTime?
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+
+  operationId String
+  operation   ExternalTransportOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  @@unique([operationId, sourceEndpointId])
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
+  @@index([operationId, status])
+  @@map("external_callback_delivery")
+}
+
+// External provider conversation windows deliberately store only a keyed hash
+// of the recipient. The encrypted inbound operation payload is the sole place
+// that retains the sender value when a callback needs it.
+model ExternalConversationWindow {
+  id            String               @id @default(cuid())
+  channel       CommunicationChannel
+  recipientHash String
+  lastInboundAt DateTime
+  expiresAt     DateTime
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  organizationId String
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId  String
+  application    ExternalApplication  @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Cascade)
+  providerAccountId String
+  providerAccount   ProviderAccount    @relation(fields: [organizationId, providerAccountId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, applicationId, providerAccountId, channel, recipientHash])
+  @@index([organizationId, applicationId, providerAccountId, channel, expiresAt])
+  @@map("external_conversation_window")
 }
 
 model WebhookEndpoint {

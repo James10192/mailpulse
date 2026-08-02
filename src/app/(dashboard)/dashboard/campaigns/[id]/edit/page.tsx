@@ -53,14 +53,14 @@ export default async function CampaignEditPage({
           subject: campaign.subject ?? "",
           previewText: campaign.previewText ?? "",
           htmlContent: campaign.htmlContent ?? "",
-          channel: campaign.channel === "WHATSAPP" ? "WHATSAPP" : "EMAIL",
+          channel: campaign.channel,
           status: campaign.status,
           whatsappImageUrl: campaign.whatsappImageUrl,
           whatsappImageName: campaign.whatsappImageName,
         }}
         snippets={snippets.map((snippet) => ({
           ...snippet,
-          channel: snippet.channel === "WHATSAPP" ? "WHATSAPP" : "EMAIL",
+          channel: snippet.channel,
         }))}
       />
     </>

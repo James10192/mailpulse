@@ -288,6 +288,13 @@ export class BaileysProvider implements IWhatsAppProvider {
     }
   }
 
+  async sendTemplate(): Promise<WhatsAppSendResult> {
+    return {
+      success: false,
+      error: "Les templates WhatsApp approuvés sont disponibles uniquement via Meta Cloud API.",
+    };
+  }
+
   async sendImage(to: string, imageUrl: string, caption?: string): Promise<WhatsAppSendResult> {
     try {
       const result = await sendMedia(this.instanceName, to, imageUrl, caption ?? "", "image");

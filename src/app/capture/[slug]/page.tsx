@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { Mail } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 import { CaptureForm } from "./capture-form";
 import { ViewTracker } from "./view-tracker";
 
@@ -34,28 +34,20 @@ export default async function CapturePublicPage({
   }>;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50 px-4 py-12 dark:bg-zinc-950">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="relative">
-              <Mail className="h-6 w-6 text-orange-500" />
-              <div className="absolute inset-0 bg-orange-500/20 blur-lg rounded-full" />
-            </div>
-            <span className="text-xl font-semibold text-zinc-100">
-              Mail<span className="text-orange-500">Pulse</span>
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">
+          <BrandMark className="mb-4 text-xl" />
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
             {page.name}
           </h1>
-          <p className="mt-2 text-sm text-zinc-500">
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
             par {page.organization.name}
           </p>
         </div>
 
         <ViewTracker pageId={page.id} />
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+        <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-[var(--shadow-border)] dark:border-zinc-800 dark:bg-zinc-900">
           <CaptureForm
             pageId={page.id}
             fields={fields}
@@ -64,8 +56,8 @@ export default async function CapturePublicPage({
           />
         </div>
 
-        <p className="mt-6 text-center text-xs text-zinc-600">
-          Propulse par MailPulse
+        <p className="mt-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
+          Propulsé par MailPulse
         </p>
       </div>
     </div>

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>MailPulse · Charte graphique 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #111111;
+    --orange: #f4511e;
+    --paper: #fafafa;
+    --white: #ffffff;
+    --muted: #71717a;
+    --line: #e4e4e7;
+    --soft: #f4f4f5;
+    --body: "Plus Jakarta Sans", Arial, sans-serif;
+    --mono: "Space Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page { size: A4; margin: 0; }
+  html, body { font-family: var(--body); color: var(--ink); background: #ddd; }
+  .page {
+    width: 210mm; height: 297mm; padding: 18mm 20mm 34mm;
+    background: var(--white); position: relative; overflow: hidden;
+    page-break-after: always; break-after: page;
+  }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .page:not(.cover):not(.dark)::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 24mm;
+    background: linear-gradient(to top, #fff 0%, #fff 72%, rgba(255,255,255,0) 100%);
+    z-index: 10; pointer-events: none;
+  }
+  .dark { background: var(--ink); color: var(--white); }
+  .dark::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 24mm;
+    background: linear-gradient(to top, var(--ink) 0%, var(--ink) 72%, rgba(17,17,17,0) 100%);
+    z-index: 10; pointer-events: none;
+  }
+  .cover { background: var(--ink); color: var(--white); padding: 20mm; }
+  .footer, .number { position: absolute; bottom: 10mm; z-index: 20; font: 7pt var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .footer { left: 20mm; } .number { right: 20mm; }
+  .dark .footer, .dark .number { color: #a1a1aa; }
+  .eyebrow { font: 8pt var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--orange); margin-bottom: 8mm; }
+  h1 { font-size: 42pt; line-height: 1.02; letter-spacing: 0; max-width: 150mm; }
+  h2 { font-size: 27pt; line-height: 1.08; letter-spacing: 0; max-width: 155mm; margin-bottom: 8mm; }
+  h3 { font-size: 13pt; line-height: 1.25; margin-bottom: 3mm; }
+  p { font-size: 10pt; line-height: 1.6; color: #3f3f46; max-width: 145mm; }
+  .dark p { color: #d4d4d8; }
+  .cover p, .dark-ui p { color: #d4d4d8; }
+  .lead { font-size: 14pt; line-height: 1.55; max-width: 155mm; }
+  .cover-top { display: flex; align-items: center; justify-content: space-between; }
+  .cover-logo { width: 31mm; height: 31mm; object-fit: contain; }
+  .wordmark { font-size: 19pt; font-weight: 700; }
+  .wordmark span { color: var(--orange); }
+  .cover-main { margin-top: 55mm; }
+  .cover-main p { margin-top: 9mm; max-width: 115mm; }
+  .cover-bottom { position: absolute; left: 20mm; right: 20mm; bottom: 19mm; display: flex; justify-content: space-between; align-items: end; font: 8pt var(--mono); color: #a1a1aa; }
+  .orange-rule { width: 21mm; height: 2px; background: var(--orange); margin: 8mm 0; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; align-items: start; }
+  .principle { border-top: 2px solid var(--ink); padding-top: 4mm; margin-bottom: 8mm; }
+  .principle strong { display: block; font: 8pt var(--mono); color: var(--orange); margin-bottom: 2mm; }
+  .logo-stage { height: 85mm; display: flex; align-items: center; justify-content: center; background: var(--paper); margin: 7mm 0; }
+  .logo-stage.dark-stage { background: var(--ink); }
+  .logo-stage img { width: 78mm; height: 78mm; object-fit: contain; }
+  .caption { font: 7.5pt var(--mono); color: var(--muted); margin-top: 2mm; }
+  .ratio-row { display: grid; grid-template-columns: 1.2fr 1fr; gap: 10mm; margin-top: 6mm; }
+  .clearspace { position: relative; height: 65mm; background: var(--soft); display: flex; align-items: center; justify-content: center; }
+  .clearspace::before { content: ""; position: absolute; width: 55mm; height: 55mm; border: 1px dashed var(--orange); }
+  .clearspace img { width: 43mm; height: 43mm; object-fit: contain; }
+  .sizes { display: flex; align-items: end; justify-content: space-around; height: 65mm; border-bottom: 1px solid var(--line); }
+  .size-item { text-align: center; font: 7pt var(--mono); color: var(--muted); }
+  .size-item img { display: block; margin: 0 auto 3mm; object-fit: contain; }
+  .palette { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; margin-top: 8mm; }
+  .swatch { min-height: 47mm; padding: 6mm; display: flex; flex-direction: column; justify-content: space-between; }
+  .swatch strong { font-size: 12pt; } .swatch code { font: 8pt var(--mono); }
+  .swatch.orange { background: var(--orange); color: #fff; }
+  .swatch.ink { background: var(--ink); color: #fff; }
+  .swatch.paper { background: var(--paper); border: 1px solid var(--line); }
+  .swatch.gray { background: #71717a; color: #fff; }
+  .access-note { margin-top: 7mm; padding-left: 5mm; border-left: 3px solid var(--orange); }
+  .type-sample { margin-top: 8mm; padding: 8mm 0; border-top: 1px solid var(--line); }
+  .type-display { font: 700 29pt var(--body); line-height: 1.1; }
+  .type-body { margin-top: 5mm; font-size: 12pt; line-height: 1.55; }
+  .type-mono { margin-top: 5mm; font: 10pt var(--mono); color: var(--orange); }
+  .ui-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7mm; margin-top: 8mm; }
+  .ui-surface { min-height: 61mm; padding: 7mm; border: 1px solid var(--line); }
+  .ui-surface.dark-ui { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .brand-lockup { display: flex; align-items: center; gap: 3mm; font-size: 14pt; font-weight: 700; }
+  .brand-lockup img { width: 11mm; height: 11mm; object-fit: contain; }
+  .brand-lockup span span { color: var(--orange); }
+  .button { display: inline-flex; margin-top: 8mm; padding: 3mm 5mm; background: var(--orange); color: #fff; font-size: 8pt; font-weight: 700; }
+  .donts { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; margin-top: 6mm; }
+  .dont { border-top: 1px solid var(--line); padding-top: 4mm; min-height: 35mm; }
+  .dont strong { color: var(--orange); font: 8pt var(--mono); }
+  .sources { margin-top: 10mm; }
+  .source { display: grid; grid-template-columns: 9mm 1fr; gap: 4mm; padding: 4mm 0; border-top: 1px solid #3f3f46; }
+  .source b { font: 8pt var(--mono); color: var(--orange); }
+  .source p { font-size: 8pt; color: #d4d4d8; }
+  .source a { color: #fff; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <div class="cover-top">
+    <div class="brand-lockup"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-dark.png"><span>Mail<span>Pulse</span></span></div>
+    <img class="cover-logo" src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-dark.png">
+  </div>
+  <div class="cover-main">
+    <div class="eyebrow">Identité visuelle · 2026</div>
+    <h1>Une marque qui reste <span style="color:var(--orange)">en mouvement</span>.</h1>
+    <div class="orange-rule"></div>
+    <p class="lead">Charte graphique officielle de MailPulse, plateforme SaaS de communication multicanale, d’orchestration et d’audit des envois.</p>
+  </div>
+  <div class="cover-bottom"><span>RÉF. MPS-MKT-CHT-2026-01</span><span>VERSION 1.0 · AOÛT 2026</span></div>
+</section>
+
+<section class="page">
+  <div class="eyebrow">01 · Fondations</div>
+  <h2>Mail et Pulse, réunis dans un signe direct.</h2>
+  <p class="lead">Le monogramme associe les initiales M et P dans une construction compacte. Il rend la marque identifiable sans dépendre d’une enveloppe, d’une application cliente ou d’un canal particulier.</p>
+  <div class="split" style="margin-top:12mm">
+    <div>
+      <div class="principle"><strong>M · MAIL & MESSAGING</strong><p>Le M couvre l’ensemble des communications: email, SMS, WhatsApp, notifications transactionnelles et futurs canaux.</p></div>
+      <div class="principle"><strong>P · PULSE</strong><p>Le P exprime la donnée vivante: état de livraison, activité, automatisation et réponse en temps réel.</p></div>
+    </div>
+    <div>
+      <div class="principle"><strong>HAMPE PARTAGÉE</strong><p>Les deux lettres partagent une structure. Cette jonction représente l’orchestration de plusieurs flux dans une plateforme unique.</p></div>
+      <div class="principle"><strong>ENTAILLE ORANGE</strong><p>Le signal orange dans le P est le point d’activité vérifié. Il attire l’œil sans transformer la marque en pictogramme médical.</p></div>
+    </div>
+  </div>
+  <div class="footer">MAILPULSE · CHARTE GRAPHIQUE</div><div class="number">02</div>
+</section>
+
+<section class="page">
+  <div class="eyebrow">02 · Système de logo</div>
+  <h2>Deux masters, une seule géométrie.</h2>
+  <div class="split">
+    <div><div class="logo-stage"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png"></div><div class="caption">MASTER POSITIF · FONDS CLAIRS</div></div>
+    <div><div class="logo-stage dark-stage"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-dark.png"></div><div class="caption">MASTER NÉGATIF · FONDS SOMBRES</div></div>
+  </div>
+  <div class="ratio-row">
+    <div><h3>Logotype recommandé</h3><p>Le symbole précède le mot MailPulse. Le nom reste en Plus Jakarta Sans, graisse 700. « Pulse » prend l’orange signal.</p></div>
+    <div><h3>Symbole seul</h3><p>Réservé au favicon, à l’icône d’application, aux avatars et aux espaces déjà identifiés comme MailPulse.</p></div>
+  </div>
+  <div class="footer">MAILPULSE · CHARTE GRAPHIQUE</div><div class="number">03</div>
+</section>
+
+<section class="page">
+  <div class="eyebrow">03 · Proportions</div>
+  <h2>De l’air autour du signal.</h2>
+  <p>La zone de protection minimale correspond à un quart de la hauteur du monogramme. Aucun texte, bord ou autre logo ne doit entrer dans cette zone.</p>
+  <div class="ratio-row">
+    <div><div class="clearspace"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png"></div><div class="caption">ZONE MINIMALE · 0,25× SUR CHAQUE CÔTÉ</div></div>
+    <div><div class="sizes">
+      <div class="size-item"><img width="24" height="24" src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png">24 px</div>
+      <div class="size-item"><img width="40" height="40" src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png">40 px</div>
+      <div class="size-item"><img width="72" height="72" src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png">72 px</div>
+    </div><div class="caption">TAILLE MINIMALE NUMÉRIQUE · 24 PX</div></div>
+  </div>
+  <div class="access-note"><h3>Présence dans l’interface</h3><p>Dans la sidebar, le symbole peut atteindre 28 px afin d’être identifiable sans élargir le bloc de navigation. Dans les documents, privilégier 32 à 48 px près du mot-symbole.</p></div>
+  <div class="footer">MAILPULSE · CHARTE GRAPHIQUE</div><div class="number">04</div>
+</section>
+
+<section class="page">
+  <div class="eyebrow">04 · Couleurs</div>
+  <h2>Un accent, des neutres disciplinés.</h2>
+  <div class="palette">
+    <div class="swatch orange"><strong>Signal Orange</strong><code>#F4511E · RGB 244 81 30</code></div>
+    <div class="swatch ink"><strong>Pulse Ink</strong><code>#111111 · RGB 17 17 17</code></div>
+    <div class="swatch paper"><strong>Interface Paper</strong><code>#FAFAFA · RGB 250 250 250</code></div>
+    <div class="swatch gray"><strong>Operational Gray</strong><code>#71717A · RGB 113 113 122</code></div>
+  </div>
+  <div class="access-note"><h3>Règle d’accessibilité</h3><p>L’orange sert aux actions, états actifs et accents. Pour du petit texte sur fond clair, utiliser Pulse Ink. L’orange peut porter du texte blanc sur les boutons principaux avec une graisse forte et une taille suffisante.</p></div>
+  <div class="footer">MAILPULSE · CHARTE GRAPHIQUE</div><div class="number">05</div>
+</section>
+
+<section class="page">
+  <div class="eyebrow">05 · Typographie</div>
+  <h2>Claire dans l’action, précise dans la donnée.</h2>
+  <div class="type-sample"><div class="caption">PLUS JAKARTA SANS · 700</div><div class="type-display">Un signal clair pour chaque envoi.</div></div>
+  <div class="type-sample"><div class="caption">PLUS JAKARTA SANS · 400</div><div class="type-body">MailPulse centralise la création, l’envoi, le suivi et l’audit des communications multicanales, sans imposer le métier d’une application cliente.</div></div>
+  <div class="type-sample"><div class="caption">SPACE MONO · 400 / 700</div><div class="type-mono">DELIVERED · 14:32:08 · REQUEST 8FA2C1</div></div>
+  <div class="split" style="margin-top:8mm"><div><h3>Plus Jakarta Sans</h3><p>Interface, titres et rédaction. Son dessin géométrique reste chaleureux et lisible dans les écrans denses.</p></div><div><h3>Space Mono</h3><p>Identifiants, dates, métriques, journaux d’audit et micro-libellés techniques.</p></div></div>
+  <div class="footer">MAILPULSE · CHARTE GRAPHIQUE</div><div class="number">06</div>
+</section>
+
+<section class="page">
+  <div class="eyebrow">06 · Produit</div>
+  <h2>La même présence en clair et en sombre.</h2>
+  <div class="ui-grid">
+    <div class="ui-surface"><div class="brand-lockup"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-light.png"><span>Mail<span>Pulse</span></span></div><p style="margin-top:7mm">Navigation calme, surfaces blanches, bordures neutres et orange réservé à la commande principale.</p><div class="button">Nouvelle campagne</div></div>
+    <div class="ui-surface dark-ui"><div class="brand-lockup"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-dark.png"><span>Mail<span>Pulse</span></span></div><p style="margin-top:7mm">Le master blanc conserve l’accent orange. Aucun filtre CSS ne doit modifier la teinte.</p><div class="button">Nouvelle campagne</div></div>
+  </div>
+  <h3 style="margin-top:10mm">Usages interdits</h3>
+  <div class="donts">
+    <div class="dont"><strong>01</strong><p>Ne pas étirer, incliner ou recomposer les lettres.</p></div>
+    <div class="dont"><strong>02</strong><p>Ne pas recolorer l’entaille orange selon le canal.</p></div>
+    <div class="dont"><strong>03</strong><p>Ne pas poser le master noir sur un fond sombre.</p></div>
+    <div class="dont"><strong>04</strong><p>Ne pas ajouter ombre, contour, dégradé ou conteneur décoratif.</p></div>
+  </div>
+  <div class="footer">MAILPULSE · CHARTE GRAPHIQUE</div><div class="number">07</div>
+</section>
+
+<section class="page dark">
+  <div class="eyebrow">07 · Références</div>
+  <h2>Une identité issue du produit, pas d’une tendance.</h2>
+  <p class="lead">La recherche a retenu la simplicité utile, la métaphore propre à la technologie et la cohérence du système, sans reproduire le travail d’un studio existant.</p>
+  <div class="sources">
+    <div class="source"><b>01</b><p><a href="https://www.pentagram.com/work/digital-turbine/story">Pentagram · Digital Turbine</a><br>Réduction de l’identité à son essence et continuité avec les actifs de marque existants.</p></div>
+    <div class="source"><b>02</b><p><a href="https://www.designweek.co.uk/issues/18-24-january-2021/midi-identity-pentagram/">Pentagram · MIDI</a><br>Un système visuel dérivé directement des fréquences et du fonctionnement de la technologie.</p></div>
+    <div class="source"><b>03</b><p><a href="https://wearecollins.com/case-studies/chubb/">COLLINS · Chubb</a><br>Un signe simple soutenu par un système graphique distinctif et cohérent.</p></div>
+    <div class="source"><b>04</b><p>Application MailPulse<br>Plus Jakarta Sans, Space Mono, palette noire et orange, interfaces clair et sombre.</p></div>
+  </div>
+  <div style="position:absolute;left:20mm;bottom:28mm" class="brand-lockup"><img src="file:///C:/Users/yabla/Downloads/DEV/mailpulse/public/brand/mailpulse-mark-dark.png"><span>Mail<span>Pulse</span></span></div>
+  <div class="footer">MAILPULSE · CHARTE GRAPHIQUE</div><div class="number">08</div>
+</section>
+
+</body>
+</html>

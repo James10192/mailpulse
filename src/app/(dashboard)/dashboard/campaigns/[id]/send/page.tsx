@@ -49,7 +49,7 @@ export default async function SendCampaignPage({
 
   if (!campaign) notFound();
 
-  const recipientCount = campaign.channel === "WHATSAPP"
+  const recipientCount = campaign.channel === "WHATSAPP" || campaign.channel === "SMS"
     ? await prisma.contact.count({
         where: { organizationId: org.id, subscribed: true, phone: { not: null } },
       })
@@ -68,7 +68,7 @@ export default async function SendCampaignPage({
       <SendCampaignClient
         campaign={{
           ...campaign,
-          channel: campaign.channel === "WHATSAPP" ? "WHATSAPP" : "EMAIL",
+          channel: campaign.channel,
         }}
         senders={senders}
         subscribedCount={recipientCount}

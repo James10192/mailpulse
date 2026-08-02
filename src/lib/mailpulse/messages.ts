@@ -12,24 +12,17 @@ import {
 import { serializeMessage } from "./serializers";
 import { emitWebhookEvent } from "./webhooks";
 import { toPrismaJson } from "./json";
-import { sendWhatsApp, meta } from "@/lib/whatsapp";
 import { normalizeContactPhone } from "@/lib/phone-numbers";
-import { sendEmail } from "@/lib/resend";
+import { requestHash } from "./idempotency";
+import { dispatchQueuedMessage, type MailPulseMessageOrganization } from "./message-direct-dispatch";
+import { responseForMessage, type ApiMessageResponse } from "./message-response";
+import { canReceiveChannel } from "./consent";
+export { responseForMessage, responseForSerializedMessage, type MessageDispatchState } from "./message-response";
 
 type CreateMessageInput = z.infer<typeof createMessageSchema>;
-type CommunicationMessageWithTemplate = Prisma.CommunicationMessageGetPayload<{ include: { template: true } }>;
-type MailPulseMessageOrganization = {
-  whatsappEnabled: boolean;
-  whatsappMode: "BAILEYS" | "META";
-  whatsappPhone: string | null;
-  evoInstanceName: string | null;
-  evoInstanceStatus: string | null;
-  metaWabaId: string | null;
-  metaPhoneNumberId: string | null;
-  metaAccessToken: string | null;
-};
 
 const WHATSAPP_WINDOW_MS = 24 * 60 * 60 * 1000;
+const IDEMPOTENCY_TRANSACTION_MAX_RETRIES = 3;
 
 export async function createCommunicationMessage(params: {
   organizationId: string;
@@ -39,6 +32,137 @@ export async function createCommunicationMessage(params: {
   idempotencyKey?: string | null;
   defaultEmailSenderId?: string | null;
 }) {
+  const message = await createMessageRecord(prisma, params);
+  return dispatchAndPublishMessage(message.id, params.organization, params.defaultEmailSenderId ?? null);
+}
+
+type CreateCommunicationMessageParams = {
+  organizationId: string;
+  origin: "API" | "PLATFORM" | "CAMPAIGN";
+  organization?: MailPulseMessageOrganization;
+  input: CreateMessageInput;
+  idempotencyKey?: string | null;
+  defaultEmailSenderId?: string | null;
+};
+
+type MessageDatabase = Pick<Prisma.TransactionClient,
+  "contact" | "conversation" | "communicationTemplate" | "communicationMessage" | "idempotencyRecord">;
+
+export type IdempotentMessageResult =
+  | { type: "created"; response: ApiMessageResponse; statusCode: number; messageId: string }
+  | { type: "replay"; response: unknown; statusCode: number; messageId: string | null }
+  | { type: "conflict"; response: IdempotencyConflictResponse; statusCode: 409; messageId: null };
+
+export type IdempotencyConflictResponse = {
+  error: "Idempotency key was already used with a different request body.";
+  code: "idempotency_key_reused";
+};
+
+const idempotencyConflictResponse: IdempotencyConflictResponse = {
+  error: "Idempotency key was already used with a different request body.",
+  code: "idempotency_key_reused",
+};
+
+/**
+ * Persists the idempotency claim, message and replay response together. Provider
+ * calls intentionally happen after this transaction: an interrupted request can
+ * be replayed without ever creating or sending a second message.
+ */
+export async function createIdempotentCommunicationMessage(params: CreateCommunicationMessageParams & {
+  idempotencyKey: string;
+  method: string;
+  path: string;
+  requestBody: unknown;
+}): Promise<IdempotentMessageResult> {
+  const expectedRequestHash = requestHash(params.requestBody);
+  const replay = await findStoredMessageResponse(params, expectedRequestHash);
+  if (replay) return replay;
+
+  for (let attempt = 0; attempt < IDEMPOTENCY_TRANSACTION_MAX_RETRIES; attempt += 1) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const existing = await tx.idempotencyRecord.findUnique({
+          where: {
+            organizationId_key_method_path: {
+              organizationId: params.organizationId,
+              key: params.idempotencyKey,
+              method: params.method,
+              path: params.path,
+            },
+          },
+        });
+        if (existing) {
+          return storedIdempotentMessageResult(tx, existing, params.organizationId, params.idempotencyKey, expectedRequestHash);
+        }
+
+        const message = await createMessageRecord(tx, params);
+        const response = responseForMessage(message);
+        await tx.idempotencyRecord.create({
+          data: {
+            organizationId: params.organizationId,
+            key: params.idempotencyKey,
+            method: params.method,
+            path: params.path,
+            requestHash: expectedRequestHash,
+            statusCode: response.statusCode,
+            responseBody: toPrismaJson(response.response),
+          },
+        });
+
+        return { type: "created", ...response, messageId: message.id };
+      }, { isolationLevel: "Serializable" });
+    } catch (error) {
+      if (isSerializationConflict(error) && attempt < IDEMPOTENCY_TRANSACTION_MAX_RETRIES - 1) continue;
+      if (!isUniqueConstraintError(error)) throw error;
+
+      // A competing request may have committed the claim while this transaction
+      // was rolling back. If an older interrupted request left only a message,
+      // rebuild its missing replay record from that durable message instead.
+      const resolved = await recoverIdempotentMessageResponse(params, expectedRequestHash);
+      if (resolved) return resolved;
+      throw error;
+    }
+  }
+
+  throw new Error("Idempotency transaction retries exhausted.");
+}
+
+export async function dispatchIdempotentCommunicationMessage(params: {
+  messageId: string;
+  organizationId: string;
+  organization?: MailPulseMessageOrganization;
+  defaultEmailSenderId?: string | null;
+}) {
+  return dispatchAndPublishMessage(params.messageId, params.organization, params.defaultEmailSenderId ?? null);
+}
+
+export async function storeIdempotentCommunicationMessageResponse(params: {
+  organizationId: string;
+  idempotencyKey: string;
+  method: string;
+  path: string;
+  messageId: string;
+}) {
+  const message = await prisma.communicationMessage.findUniqueOrThrow({ where: { id: params.messageId } });
+  const response = responseForMessage(message);
+  await prisma.idempotencyRecord.update({
+    where: {
+      organizationId_key_method_path: {
+        organizationId: params.organizationId,
+        key: params.idempotencyKey,
+        method: params.method,
+        path: params.path,
+      },
+    },
+    data: {
+      statusCode: response.statusCode,
+      responseBody: toPrismaJson(response.response),
+    },
+  });
+  return response;
+}
+
+async function createMessageRecord(db: MessageDatabase, params: CreateCommunicationMessageParams) {
   const channel = toChannel(params.input.channel);
   const recipientType = toRecipientType(params.input.recipient.type);
   const rawRecipientValue = params.input.recipient.value.trim();
@@ -49,8 +173,9 @@ export async function createCommunicationMessage(params: {
   const externalEventId = typeof metadata.external_event_id === "string" ? metadata.external_event_id : null;
   const externalTenantId = typeof metadata.external_tenant_id === "string" ? metadata.external_tenant_id : null;
 
-  const contact = await findContact(params.organizationId, recipientType, recipientValue);
+  const contact = await findContact(db, params.organizationId, recipientType, recipientValue);
   const conversation = await findOrCreateConversation({
+    db,
     organizationId: params.organizationId,
     channel,
     recipientType,
@@ -61,7 +186,7 @@ export async function createCommunicationMessage(params: {
 
   const template =
     params.input.content.type === "template"
-      ? await prisma.communicationTemplate.findFirst({
+      ? await db.communicationTemplate.findFirst({
           where: {
             organizationId: params.organizationId,
             templateKey: params.input.content.template_key,
@@ -78,8 +203,9 @@ export async function createCommunicationMessage(params: {
     serviceWindowExpiresAt: conversation.serviceWindowExpiresAt,
     templateStatus: template?.status ?? null,
   });
+  const consentAllowed = canReceiveChannel(contact, channel);
 
-  const message = await prisma.communicationMessage.create({
+  return db.communicationMessage.create({
     data: {
       organizationId: params.organizationId,
       origin: params.origin,
@@ -99,20 +225,26 @@ export async function createCommunicationMessage(params: {
       externalEventId,
       externalTenantId,
       idempotencyKey: params.idempotencyKey ?? params.input.idempotency_key ?? null,
-      status: compliance.status,
-      errorCode: compliance.errorCode,
-      errorMessage: compliance.errorMessage,
+      status: consentAllowed ? compliance.status : "FAILED",
+      errorCode: consentAllowed ? compliance.errorCode : "consent_denied",
+      errorMessage: consentAllowed ? compliance.errorMessage : "Le destinataire a refuse les messages sur ce canal.",
     },
   });
+}
 
-  const dispatchedMessage = await dispatchQueuedMessage(message.id, {
-    organization: params.organization,
-    defaultEmailSenderId: params.defaultEmailSenderId ?? null,
+async function dispatchAndPublishMessage(
+  messageId: string,
+  organization: MailPulseMessageOrganization | undefined,
+  defaultEmailSenderId: string | null,
+) {
+  const dispatchedMessage = await dispatchQueuedMessage(messageId, {
+    organization,
+    defaultEmailSenderId,
   });
   const response = serializeMessage(dispatchedMessage);
-  await syncLiveMessage(params.organizationId, response);
+  await syncLiveMessage(dispatchedMessage.organizationId, response);
   await emitWebhookEvent({
-    organizationId: params.organizationId,
+    organizationId: dispatchedMessage.organizationId,
     type: webhookEventForStatus(dispatchedMessage.status),
     messageId: dispatchedMessage.id,
     data: { message: response },
@@ -121,19 +253,104 @@ export async function createCommunicationMessage(params: {
   return response;
 }
 
-async function findContact(organizationId: string, recipientType: "EMAIL" | "PHONE", recipientValue: string) {
+async function findStoredMessageResponse(params: {
+  organizationId: string;
+  idempotencyKey: string;
+  method: string;
+  path: string;
+}, expectedRequestHash: string) {
+  const record = await prisma.idempotencyRecord.findUnique({
+    where: {
+      organizationId_key_method_path: {
+        organizationId: params.organizationId,
+        key: params.idempotencyKey,
+        method: params.method,
+        path: params.path,
+      },
+    },
+  });
+  if (!record) return null;
+  return storedIdempotentMessageResult(prisma, record, params.organizationId, params.idempotencyKey, expectedRequestHash);
+}
+
+async function storedIdempotentMessageResult(
+  db: Pick<Prisma.TransactionClient, "communicationMessage">,
+  record: { responseBody: Prisma.JsonValue; statusCode: number; requestHash: string },
+  organizationId: string,
+  idempotencyKey: string,
+  expectedRequestHash: string,
+) {
+  if (record.requestHash !== expectedRequestHash) {
+    return { type: "conflict" as const, response: idempotencyConflictResponse, statusCode: 409 as const, messageId: null };
+  }
+  const message = await db.communicationMessage.findUnique({
+    where: { organizationId_idempotencyKey: { organizationId, idempotencyKey } },
+    select: { id: true },
+  });
+  return {
+    type: "replay" as const,
+    response: record.responseBody,
+    statusCode: record.statusCode,
+    messageId: message?.id ?? null,
+  };
+}
+
+async function recoverIdempotentMessageResponse(params: CreateCommunicationMessageParams & {
+  idempotencyKey: string;
+  method: string;
+  path: string;
+  requestBody: unknown;
+}, expectedRequestHash: string) {
+  const stored = await findStoredMessageResponse(params, expectedRequestHash);
+  if (stored) return stored;
+
+  const message = await prisma.communicationMessage.findUnique({
+    where: { organizationId_idempotencyKey: { organizationId: params.organizationId, idempotencyKey: params.idempotencyKey } },
+  });
+  if (!message) return null;
+
+  const response = responseForMessage(message);
+  try {
+    await prisma.idempotencyRecord.create({
+      data: {
+        organizationId: params.organizationId,
+        key: params.idempotencyKey,
+        method: params.method,
+        path: params.path,
+        requestHash: expectedRequestHash,
+        statusCode: response.statusCode,
+        responseBody: toPrismaJson(response.response),
+      },
+    });
+    return { type: "replay" as const, ...response, messageId: message.id };
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+    return findStoredMessageResponse(params, expectedRequestHash);
+  }
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
+function isSerializationConflict(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2034";
+}
+
+async function findContact(db: MessageDatabase, organizationId: string, recipientType: "EMAIL" | "PHONE", recipientValue: string) {
   if (recipientType === "EMAIL") {
-    return prisma.contact.findFirst({
+    return db.contact.findFirst({
       where: { organizationId, email: recipientValue.toLowerCase() },
     });
   }
 
-  return prisma.contact.findFirst({
+  return db.contact.findFirst({
     where: { organizationId, phone: recipientValue },
   });
 }
 
 async function findOrCreateConversation(params: {
+  db: MessageDatabase;
   organizationId: string;
   channel: "EMAIL" | "WHATSAPP" | "SMS";
   recipientType: "EMAIL" | "PHONE";
@@ -141,7 +358,7 @@ async function findOrCreateConversation(params: {
   contactId: string | null;
   metadata: Record<string, unknown>;
 }) {
-  const existing = await prisma.conversation.findFirst({
+  const existing = await params.db.conversation.findFirst({
     where: {
       organizationId: params.organizationId,
       channel: params.channel,
@@ -153,7 +370,7 @@ async function findOrCreateConversation(params: {
 
   if (existing) return existing;
 
-  return prisma.conversation.create({
+  return params.db.conversation.create({
     data: {
       organizationId: params.organizationId,
       contactId: params.contactId,
@@ -200,254 +417,14 @@ function evaluateCompliance(params: {
   return { status: "QUEUED" };
 }
 
-async function dispatchQueuedMessage(
-  messageId: string,
-  options: {
-    organization?: MailPulseMessageOrganization;
-    defaultEmailSenderId?: string | null;
-  } = {},
-) {
-  const message = await prisma.communicationMessage.findUnique({
-    where: { id: messageId },
-    include: { template: true },
-  });
-  if (!message) throw new Error("Message introuvable apres creation.");
-  if (message.status !== "QUEUED") return message;
-
-  if (message.channel === "EMAIL") {
-    return dispatchEmailMessage(message, options.defaultEmailSenderId ?? null);
-  }
-
-  if (message.channel !== "WHATSAPP") return message;
-
-  if (!options.organization?.whatsappEnabled) {
-    return markMessageFailed(message.id, "channel_not_configured", "WhatsApp non configure pour cette organisation.");
-  }
-
-  try {
-    const result = message.contentType === "TEMPLATE"
-      ? await sendWhatsAppTemplate(options.organization, message)
-      : await sendWhatsApp(options.organization, message.recipientValue, message.text ?? "");
-
-    return prisma.communicationMessage.update({
-      where: { id: message.id },
-      data: {
-        status: "SENT",
-        sentAt: new Date(),
-        providerMessageId: result.messageId ?? null,
-        errorCode: null,
-        errorMessage: null,
-      },
-    });
-  } catch (error) {
-    return markMessageFailed(
-      message.id,
-      "provider_error",
-      error instanceof Error ? error.message : "Echec de l'envoi WhatsApp.",
-    );
-  }
-}
-
-async function dispatchEmailMessage(message: CommunicationMessageWithTemplate, defaultEmailSenderId: string | null) {
-  try {
-    const from = await resolveEmailFromAddress(message, defaultEmailSenderId);
-    const result = await sendEmail({
-      to: message.recipientValue,
-      from,
-      subject: emailSubject(message),
-      html: emailHtml(message),
-      text: message.text ?? "",
-      tags: [
-        { name: "message_id", value: message.id },
-        { name: "channel", value: "email" },
-      ],
-    });
-
-    return prisma.communicationMessage.update({
-      where: { id: message.id },
-      data: {
-        status: "SENT",
-        sentAt: new Date(),
-        providerMessageId: result.id,
-        errorCode: null,
-        errorMessage: null,
-      },
-    });
-  } catch (error) {
-    return markMessageFailed(
-      message.id,
-      "provider_error",
-      error instanceof Error ? error.message : "Echec de l'envoi email.",
-    );
-  }
-}
-
-async function resolveEmailFromAddress(message: CommunicationMessageWithTemplate, defaultEmailSenderId: string | null) {
-  const requestedEmail = emailMetadataValue(message.metadata, "sender_email");
-  const requestedName = emailMetadataValue(message.metadata, "sender_name") || "MailPulse";
-
-  if (requestedEmail && await isVerifiedSenderEmail(message.organizationId, requestedEmail)) {
-    return formatFromAddress(requestedName, requestedEmail);
-  }
-
-  const apiKeySender = defaultEmailSenderId
-    ? await findVerifiedSenderById(message.organizationId, defaultEmailSenderId)
-    : null;
-  if (apiKeySender) return formatFromAddress(apiKeySender.name, apiKeySender.email);
-
-  const sender = await findVerifiedSender(message.organizationId);
-  if (sender) return formatFromAddress(sender.name, sender.email);
-
-  const verifiedDomain = await prisma.sendingDomain.findFirst({
-    where: {
-      organizationId: message.organizationId,
-      verified: true,
-      status: "verified",
-    },
-    orderBy: { createdAt: "desc" },
-    select: { domain: true },
-  });
-
-  if (verifiedDomain) return formatFromAddress(requestedName, `noreply@${verifiedDomain.domain}`);
-
-  throw new Error("Aucun domaine expediteur verifie n'est configure pour cette organisation.");
-}
-
-async function isVerifiedSenderEmail(organizationId: string, email: string) {
-  const domain = emailDomain(email);
-  if (!domain) return false;
-
-  const verifiedDomain = await prisma.sendingDomain.findFirst({
-    where: {
-      organizationId,
-      domain,
-      verified: true,
-      status: "verified",
-    },
-    select: { id: true },
-  });
-
-  return Boolean(verifiedDomain);
-}
-
-async function findVerifiedSender(organizationId: string) {
-  const senders = await prisma.emailSender.findMany({
-    where: { organizationId },
-    orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-    select: { name: true, email: true },
-  });
-
-  for (const sender of senders) {
-    if (await isVerifiedSenderEmail(organizationId, sender.email)) return sender;
-  }
-
-  return null;
-}
-
-async function findVerifiedSenderById(organizationId: string, senderId: string) {
-  const sender = await prisma.emailSender.findFirst({
-    where: { id: senderId, organizationId },
-    select: { name: true, email: true },
-  });
-
-  if (!sender || !await isVerifiedSenderEmail(organizationId, sender.email)) return null;
-  return sender;
-}
-
-function emailDomain(email: string) {
-  const [, domain] = email.toLowerCase().split("@");
-  return domain || "";
-}
-
-function formatFromAddress(name: string, email: string) {
-  return `${sanitizeFromName(name)} <${email.toLowerCase()}>`;
-}
-
-function sanitizeFromName(name: string) {
-  return name.replace(/[<>\r\n"]/g, "").trim() || "MailPulse";
-}
-
-async function sendWhatsAppTemplate(
-  organization: MailPulseMessageOrganization,
-  message: CommunicationMessageWithTemplate,
-) {
-  if (organization.whatsappMode === "META") {
-    const parameters = jsonObjectValues(message.variables);
-    const result = await meta.sendTemplate(
-      organization,
-      message.recipientValue,
-      message.templateKey ?? "",
-      message.locale ?? "fr",
-      parameters,
-    );
-    return { success: true, messageId: result.messages?.[0]?.id };
-  }
-
-  const body = renderTemplateBody(message.template?.body ?? "", message.variables);
-  return sendWhatsApp(organization, message.recipientValue, body);
-}
-
-function jsonObjectValues(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-  return Object.values(value).map((item) => String(item ?? ""));
-}
-
-function renderTemplateBody(body: string, variables: unknown) {
-  if (!variables || typeof variables !== "object" || Array.isArray(variables)) return body;
-  return Object.entries(variables).reduce(
-    (content, [key, value]) => content.replaceAll(`{{${key}}}`, String(value ?? "")),
-    body,
-  );
-}
-
-function emailHtml(message: CommunicationMessageWithTemplate) {
-  const metadataHtml = emailMetadataValue(message.metadata, "email_html");
-
-  return metadataHtml || textToHtml(message.text ?? "");
-}
-
-function emailSubject(message: CommunicationMessageWithTemplate) {
-  const metadataSubject = emailMetadataValue(message.metadata, "subject");
-  if (metadataSubject) return metadataSubject;
-
-  const firstLine = (message.text ?? "").split(/\r?\n/).find((line) => line.trim() !== "");
-  return firstLine?.trim().slice(0, 140) || "Message MailPulse";
-}
-
-function emailMetadataValue(metadata: unknown, key: string) {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return "";
-  const value = (metadata as Record<string, unknown>)[key];
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function textToHtml(text: string) {
-  return `<div style="font-family:Arial,sans-serif;line-height:1.55;color:#111827;white-space:pre-wrap;">${escapeHtml(text)}</div>`;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function markMessageFailed(messageId: string, errorCode: string, errorMessage: string) {
-  return prisma.communicationMessage.update({
-    where: { id: messageId },
-    data: {
-      status: "FAILED",
-      failedAt: new Date(),
-      errorCode,
-      errorMessage,
-    },
-  });
-}
+export { applyOrangeSmsDeliveryReceipt, processSmsQueue } from "@/lib/sms/queue";
 
 function webhookEventForStatus(status: MessageStatus) {
   if (status === "TEMPLATE_REQUIRED") return "message.template_required";
   if (status === "FAILED") return "message.failed";
+  if (status === "SUBMISSION_UNKNOWN") return "message.submission_unknown";
+  if (status === "SENT") return "message.sent";
+  if (status === "DELIVERED") return "message.delivered";
   return "message.queued";
 }
 

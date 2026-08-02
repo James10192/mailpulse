@@ -35,6 +35,40 @@ GET /api/v1/messages/{message_id}
 Statuses: `queued`, `retrying`, `sent`, `delivered`, `read`, `failed`,
 `cancelled`, `template_required`.
 
+## External applications
+
+```txt
+POST /api/v1/external-applications/{application_key}/commands
+POST /api/webhooks/whatsapp/meta/{application_key}
+```
+
+Command requests include `x-external-organization-id`, `x-external-timestamp`,
+and `x-external-signature`. The HMAC signature covers `timestamp + "." + rawBody`
+and carries a key identifier:
+
+```txt
+x-external-signature: v1:key_id=<signature>
+```
+
+Applications send an `operation_key` and their own idempotency key:
+
+```json
+{
+  "operation_key": "notification",
+  "channel": "whatsapp",
+  "recipient": { "type": "phone", "value": "+2250700000000" },
+  "content": { "type": "text", "text": "Your notification is ready." },
+  "metadata": { "idempotency_key": "client_event_987_recipient_123" }
+}
+```
+
+For WhatsApp `text` commands, MailPulse permits delivery only while the recipient
+has an active 24-hour external conversation window. A signed inbound Meta text
+message opens or extends that window. Outside it, the command is durably rejected
+with HTTP `422` and `rejection_code: "whatsapp_service_window_closed"`; use an
+approved template command instead. Template commands remain permitted outside the
+window.
+
 ## Templates
 
 ```txt
@@ -77,9 +111,9 @@ mailpulse-signature: v1=<signature>
 The signature is computed over `timestamp + "." + rawBody` with the webhook
 secret shown once at creation time.
 
-## Filon and Klassci compatibility
+## Client examples
 
-Filon and Klassci remain client applications. They generate idempotency keys,
-build business content, and pass external identifiers through `metadata`.
+Client applications generate idempotency keys, build business content, and pass
+external identifiers through `metadata`.
 MailPulse owns only technical communication concerns: channels, templates,
 statuses, webhooks, retries, tenant isolation, and the WhatsApp window.

@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       firstName: input.first_name,
       lastName: input.last_name,
       phone: phone || null,
-      subscribed: input.subscribed ?? true,
+      ...(input.subscribed !== undefined ? { subscribed: input.subscribed } : {}),
       metadata,
     },
     create: {
