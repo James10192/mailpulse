@@ -1,30 +1,36 @@
 import {
   Send,
   BarChart3,
-  CheckCircle,
   ShieldCheck,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { DateRangeButton } from "@/components/dashboard/date-range-button";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
-async function getTransactionalStats() {
+async function getTransactionalStats(organizationId: string) {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const dateFilter = { createdAt: { gte: thirtyDaysAgo } };
+  // EmailEvent carries no organizationId of its own: the owning contact is the
+  // only tenant boundary, so every count must traverse it.
+  const scopedFilter = {
+    createdAt: { gte: thirtyDaysAgo },
+    contact: { is: { organizationId } },
+  };
 
   const [sent, delivered, opened, clicked, bounced] = await Promise.all([
-    prisma.emailEvent.count({ where: { type: "SENT", ...dateFilter } }),
-    prisma.emailEvent.count({ where: { type: "DELIVERED", ...dateFilter } }),
-    prisma.emailEvent.count({ where: { type: "OPENED", ...dateFilter } }),
-    prisma.emailEvent.count({ where: { type: "CLICKED", ...dateFilter } }),
+    prisma.emailEvent.count({ where: { type: "SENT", ...scopedFilter } }),
+    prisma.emailEvent.count({ where: { type: "DELIVERED", ...scopedFilter } }),
+    prisma.emailEvent.count({ where: { type: "OPENED", ...scopedFilter } }),
+    prisma.emailEvent.count({ where: { type: "CLICKED", ...scopedFilter } }),
     prisma.emailEvent.count({
       where: {
         type: { in: ["BOUNCED_HARD", "BOUNCED_SOFT"] },
-        ...dateFilter,
+        ...scopedFilter,
       },
     }),
   ]);
@@ -60,7 +66,11 @@ function StatCard({
 }
 
 export default async function TransactionalPage() {
-  const stats = await getTransactionalStats();
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user) redirect("/login");
+  if (!org) redirect("/dashboard");
+
+  const stats = await getTransactionalStats(org.id);
 
   return (
     <div className="space-y-6">
