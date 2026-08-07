@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import type { Prisma } from "@/generated/prisma";
+
 import { processBoundedCallbackBatch } from "@/lib/external-applications/callback-batch";
 import {
   resolveExternalApplicationRequestTarget,
@@ -15,6 +17,14 @@ import {
 } from "@/lib/external-applications/callback";
 import { encryptExternalApplicationValue, hashExternalApplicationPayload } from "@/lib/external-applications/crypto";
 import { extendExternalWhatsAppConversationWindow } from "@/lib/external-applications/conversation-window";
+import {
+  MESSAGE_STATUS_EVENT,
+  metaCommunicationMessageTransition,
+  metaOperationStatusTransition,
+  metaStatusEventId,
+  parseMetaStatusUpdates,
+  type MetaStatusEvent,
+} from "@/lib/external-applications/message-status";
 import { parseMetaMessageTimestamp } from "@/lib/external-applications/meta-timestamp";
 import { applyInboundStopToPhoneContacts } from "@/lib/mailpulse/inbound-consent";
 import { prisma } from "@/lib/prisma";
@@ -22,6 +32,7 @@ import { hasValidMetaHmac } from "@/lib/external-applications/signatures";
 
 const INBOUND_EVENT = "whatsapp.inbound_message";
 const MAX_WEBHOOK_BODY_BYTES = 256 * 1024;
+const MAX_STATUS_UPDATES_PER_REQUEST = 100;
 const MAX_CALLBACK_ATTEMPTS = 8;
 const CALLBACK_RETRY_BASE_MS = 30_000;
 const CALLBACK_RETRY_MAX_MS = 6 * 60 * 60 * 1000;
@@ -76,6 +87,13 @@ export async function receiveMetaWebhook(application: ExternalApplicationContext
       await applyInboundStopToPhoneContacts({ organizationId: application.organizationId, phone: message.sender, channel: "WHATSAPP" });
     }
   }
+  // Each status opens its own serializable transaction, so a single oversized
+  // Meta batch must not run past the function timeout and be redelivered whole.
+  for (const update of parseMetaStatusUpdates(payload, provider.senderId).slice(0, MAX_STATUS_UPDATES_PER_REQUEST)) {
+    const occurredAt = parseMetaMessageTimestamp(update.timestamp);
+    if (!occurredAt) continue;
+    await applyMetaStatusUpdate(application, provider.id, { ...update, occurredAt });
+  }
   return { status: 200 as const };
 }
 
@@ -114,7 +132,9 @@ export async function processDueExternalApplicationCallbacks(
 ) {
   const deliveries = await prisma.externalCallbackDelivery.findMany({
     where: {
-      operation: { is: { direction: "INBOUND", operationKey: "whatsapp.inbound_message", status: "PENDING" } },
+      // The delivery row's own status is the source of truth. Filtering on a
+      // literal operationKey here would silently strand every new event type.
+      operation: { is: { direction: "INBOUND", status: "PENDING" } },
       OR: [
         { status: "PENDING", nextAttemptAt: { lte: now } },
         { status: "PENDING", nextAttemptAt: null },
@@ -277,6 +297,174 @@ async function findOrCreateInboundOperation(application: ExternalApplicationCont
     }
   }
   throw new Error("Inbound operation transaction retries exhausted.");
+}
+
+/**
+ * Records a provider status as its own inbound operation so it reuses the
+ * callback outbox, its retries, and its idempotency. The status never lands on
+ * the original operation's `providerMessageId`, which the sent path owns.
+ */
+async function applyMetaStatusUpdate(application: ExternalApplicationContext, providerAccountId: string, update: MetaStatusEvent) {
+  const eventId = metaStatusEventId(update);
+  const recordedAt = new Date();
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await prisma.$transaction(async (tx) => {
+        const alreadyProcessed = await tx.externalTransportOperation.findFirst({
+          where: { organizationId: application.organizationId, applicationId: application.id, idempotencyKey: eventId },
+          select: { id: true },
+        });
+        if (alreadyProcessed) return;
+
+        const target = await resolveStatusTargetOperation(tx, application, providerAccountId, update);
+        // A shared Meta number also carries platform traffic. Forwarding a
+        // status for a message the application never sent would disclose the
+        // recipient of somebody else's message, so it is dropped here.
+        if (!target) return;
+
+        const payload = JSON.stringify({
+          event_id: eventId,
+          operation_id: target.id,
+          idempotency_key: target.idempotencyKey,
+          message: { provider_message_id: update.providerMessageId, status: update.status },
+          recipient: { phone: update.recipient },
+          error: update.errorCode || update.errorMessage ? { code: update.errorCode, message: update.errorMessage } : null,
+          timestamp: update.timestamp,
+        });
+
+        await applyOperationStatusTransition(tx, target, update);
+
+        const callbackDeliveries = await snapshotExternalApplicationCallbackDeliveries(tx, {
+          applicationId: application.id,
+          providerAccountId,
+          event: MESSAGE_STATUS_EVENT,
+          payload,
+          now: recordedAt,
+        });
+        await tx.externalTransportOperation.create({
+          data: {
+            direction: "INBOUND",
+            operationKey: MESSAGE_STATUS_EVENT,
+            idempotencyKey: eventId,
+            payloadHash: hashExternalApplicationPayload(payload),
+            payloadCiphertext: encryptExternalApplicationValue(payload),
+            status: callbackDeliveries.length === 0 ? "COMPLETED" : "PENDING",
+            completedAt: callbackDeliveries.length === 0 ? recordedAt : null,
+            organizationId: application.organizationId,
+            applicationId: application.id,
+            providerAccountId,
+            callbackDeliveries: { create: callbackDeliveries },
+          },
+        });
+      }, { isolationLevel: "Serializable" });
+
+      await applyPlatformMessageStatus(application.organizationId, update);
+      return;
+    } catch (error) {
+      if (!isRetryableInboundTransactionError(error) || attempt === 2) throw error;
+    }
+  }
+  throw new Error("Status operation transaction retries exhausted.");
+}
+
+type StatusTargetOperation = { id: string; idempotencyKey: string; status: string; providerMessageId: string | null };
+
+/**
+ * A submission whose provider response was lost has no `providerMessageId`, so
+ * the echoed `biz_opaque_callback_data` is the only way back to it.
+ */
+async function resolveStatusTargetOperation(
+  tx: Prisma.TransactionClient,
+  application: ExternalApplicationContext,
+  providerAccountId: string,
+  update: MetaStatusEvent,
+): Promise<StatusTargetOperation | null> {
+  const select = { id: true, idempotencyKey: true, status: true, providerMessageId: true };
+  const byProviderMessageId = await tx.externalTransportOperation.findFirst({
+    where: {
+      organizationId: application.organizationId,
+      applicationId: application.id,
+      providerAccountId,
+      providerMessageId: update.providerMessageId,
+      direction: "OUTBOUND",
+    },
+    select,
+  });
+  if (byProviderMessageId) return byProviderMessageId;
+  if (!update.operationHint) return null;
+
+  const hinted = await tx.externalTransportOperation.findFirst({
+    where: {
+      id: update.operationHint,
+      organizationId: application.organizationId,
+      applicationId: application.id,
+      providerAccountId,
+      direction: "OUTBOUND",
+      providerMessageId: null,
+    },
+    select,
+  });
+  if (!hinted) return null;
+
+  // Checking for an existing owner rather than catching the unique violation:
+  // a constraint error would abort this transaction, and Serializable already
+  // turns a concurrent claim into a retryable serialization failure.
+  const owner = await tx.externalTransportOperation.findFirst({
+    where: {
+      organizationId: application.organizationId,
+      providerAccountId,
+      providerMessageId: update.providerMessageId,
+    },
+    select: { id: true },
+  });
+  if (owner) return null;
+
+  const reconciled = await tx.externalTransportOperation.updateMany({
+    where: { id: hinted.id, providerMessageId: null },
+    data: { providerMessageId: update.providerMessageId, reconciliationDecision: "provider_status_confirmed", reconciledAt: new Date() },
+  });
+  return reconciled.count === 1 ? { ...hinted, providerMessageId: update.providerMessageId } : null;
+}
+
+/**
+ * The dispatcher owns `leaseToken`; a status webhook that cleared it would make
+ * an in-flight submission report itself as needing reconciliation.
+ */
+async function applyOperationStatusTransition(tx: Prisma.TransactionClient, target: StatusTargetOperation, update: MetaStatusEvent) {
+  const transition = metaOperationStatusTransition(target.status, update);
+  if (!transition) return;
+  await tx.externalTransportOperation.updateMany({
+    where: { id: target.id, status: target.status },
+    data: transition,
+  });
+}
+
+/**
+ * A Meta number can also carry platform traffic, whose lifecycle lives on
+ * CommunicationMessage. This is best effort: the external rail already holds
+ * the durable record.
+ */
+async function applyPlatformMessageStatus(organizationId: string, update: MetaStatusEvent) {
+  try {
+    const message = await prisma.communicationMessage.findUnique({
+      where: {
+        organizationId_channel_provider_providerMessageId: {
+          organizationId,
+          channel: "WHATSAPP",
+          provider: "META_CLOUD",
+          providerMessageId: update.providerMessageId,
+        },
+      },
+      select: { id: true, status: true },
+    });
+    if (!message) return;
+    const transition = metaCommunicationMessageTransition(message.status, update);
+    if (!transition) return;
+    await prisma.communicationMessage.updateMany({ where: { id: message.id, status: message.status }, data: transition });
+  } catch {
+    // Platform mirroring must never fail the provider webhook.
+  }
 }
 
 async function processExternalCallbackDelivery(

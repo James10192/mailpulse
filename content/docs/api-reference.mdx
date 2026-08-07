@@ -151,6 +151,50 @@ rejetée durablement avec HTTP `422` et
 `rejection_code: "whatsapp_service_window_closed"`; utilisez une commande de
 template approuvée. Les templates restent autorisés hors fenêtre.
 
+### Callbacks vers l'application
+
+MailPulse pousse les événements du fournisseur vers les points de terminaison
+enregistrés pour l'application. Chaque appel porte les en-têtes
+`x-external-event`, `x-external-timestamp` et `x-external-signature`, signés
+avec le secret du point de terminaison dans le même format `v1:key_id=...`.
+
+Deux événements existent, et un point de terminaison ne reçoit que ceux auxquels
+il est abonné :
+
+```json
+{
+  "event_id": "wamid.ABC",
+  "sender": { "phone": "+2250700000000" },
+  "message": { "text": "NOTES" },
+  "timestamp": "1750030073"
+}
+```
+
+```json
+{
+  "event_id": "wamid.ABC:delivered",
+  "operation_id": "cmd_123",
+  "idempotency_key": "votre_cle_d_idempotence",
+  "message": { "provider_message_id": "wamid.ABC", "status": "delivered" },
+  "recipient": { "phone": "+2250700000000" },
+  "error": null,
+  "timestamp": "1750030073"
+}
+```
+
+Le premier corps correspond à `whatsapp.inbound_message`, le second à
+`whatsapp.message_status`; l'en-tête `x-external-event` porte le nom de
+l'événement. `message.status` reprend le vocabulaire du fournisseur : `sent`,
+`delivered`, `read` ou `failed`. Sur `failed`, `error` porte le code et le
+libellé transmis par Meta.
+
+`idempotency_key` et `operation_id` reprennent la commande d'origine : c'est le
+moyen de rapprocher un statut de son envoi sans stocker d'identifiant MailPulse.
+Un statut qui ne correspond à aucune commande de l'application n'est jamais
+transmis. Les statuts progressent uniquement vers l'avant, et un statut peut
+réconcilier automatiquement une soumission dont la réponse du fournisseur avait
+été perdue.
+
 ## Endpoints système existants
 
 ```txt

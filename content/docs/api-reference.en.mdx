@@ -69,6 +69,45 @@ with HTTP `422` and `rejection_code: "whatsapp_service_window_closed"`; use an
 approved template command instead. Template commands remain permitted outside the
 window.
 
+### Callbacks to the application
+
+MailPulse pushes provider events to the endpoints registered for the
+application. Every call carries `x-external-event`, `x-external-timestamp` and
+`x-external-signature`, signed with the endpoint secret in the same
+`v1:key_id=...` format. An endpoint only receives the events it subscribes to.
+
+```json
+{
+  "event_id": "wamid.ABC",
+  "sender": { "phone": "+2250700000000" },
+  "message": { "text": "NOTES" },
+  "timestamp": "1750030073"
+}
+```
+
+```json
+{
+  "event_id": "wamid.ABC:delivered",
+  "operation_id": "cmd_123",
+  "idempotency_key": "your_idempotency_key",
+  "message": { "provider_message_id": "wamid.ABC", "status": "delivered" },
+  "recipient": { "phone": "+2250700000000" },
+  "error": null,
+  "timestamp": "1750030073"
+}
+```
+
+The first body is `whatsapp.inbound_message`, the second is
+`whatsapp.message_status`. `message.status` carries the provider vocabulary:
+`sent`, `delivered`, `read` or `failed`. On `failed`, `error` holds the code and
+title reported by Meta.
+
+`idempotency_key` and `operation_id` echo the original command, so a status can
+be matched to its send without storing a MailPulse identifier. A status that
+matches no command of the application is never forwarded. Statuses only move
+forward, and a status can automatically reconcile a submission whose provider
+response was lost.
+
 ## Templates
 
 ```txt

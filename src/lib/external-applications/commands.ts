@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { decryptExternalApplicationValue, encryptExternalApplicationValue, hashExternalApplicationPayload } from "@/lib/external-applications/crypto";
 import { resolveMetaProviderAccount, type ExternalApplicationContext, type MetaProviderConfiguration } from "@/lib/external-applications/application";
 import { hasActiveExternalWhatsAppConversationWindow } from "@/lib/external-applications/conversation-window";
+import { isProviderConfirmedOperationStatus, isProviderRejectedOperationStatus } from "@/lib/external-applications/message-status";
 import { prisma } from "@/lib/prisma";
 
 const LEASE_DURATION_MS = 10 * 60_000;
@@ -23,8 +24,10 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
   const payloadHash = hashExternalApplicationPayload(serializedPayload);
   const operation = await findOrCreateOperation(application, provider.id, command.operationKey, command.idempotencyKey, serializedPayload, payloadHash);
   if (operation.payloadHash !== payloadHash) return { status: "conflict" as const, operationId: operation.id };
-  if (operation.status === "ACCEPTED") return { status: "accepted" as const, operationId: operation.id };
-  if (operation.status === "REJECTED") return { status: "rejected" as const, operationId: operation.id };
+  // Checked before the window gate: a delivered message must never be answered
+  // with a rejection because its 24h window has since closed.
+  if (isProviderConfirmedOperationStatus(operation.status)) return { status: "accepted" as const, operationId: operation.id };
+  if (isProviderRejectedOperationStatus(operation.status)) return { status: "rejected" as const, operationId: operation.id };
   if (operation.status === "SUBMISSION_UNKNOWN") return { status: "submission_unknown" as const, operationId: operation.id };
 
   if (command.content.type === "text") {
@@ -54,7 +57,7 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
 
   try {
     const payload = parseCommandPayload(decryptExternalApplicationValue(operation.payloadCiphertext ?? ""));
-    const result = await submitMetaCommand(application, provider, payload);
+    const result = await submitMetaCommand(application, provider, payload, operation.id);
     if (!result.ok) {
       if (isDeterministicRejection(result.statusCode)) {
         await finalizeOperation(operation.id, leaseToken, "REJECTED");
@@ -66,7 +69,15 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
       where: { id: operation.id, status: "SUBMISSION_UNKNOWN", leaseToken },
       data: { status: "ACCEPTED", acceptedAt: new Date(), providerMessageId: result.messageId, leaseToken: null, leaseExpiresAt: null },
     });
-    return accepted.count === 1
+    if (accepted.count === 1) return { status: "accepted" as const, operationId: operation.id };
+
+    // A status webhook can confirm the submission while the provider response
+    // is still in flight. That confirmation is stronger than our own write.
+    const current = await prisma.externalTransportOperation.findUnique({
+      where: { id: operation.id },
+      select: { status: true },
+    });
+    return current && isProviderConfirmedOperationStatus(current.status)
       ? { status: "accepted" as const, operationId: operation.id }
       : { status: "submission_unknown" as const, operationId: operation.id };
   } catch {
@@ -100,8 +111,8 @@ async function findOrCreateOperation(application: ExternalApplicationContext, pr
   }
 }
 
-async function submitMetaCommand(application: ExternalApplicationContext, provider: MetaProviderConfiguration, command: ExternalCommand) {
-  const body = await metaRequestBody(application, provider.id, command);
+async function submitMetaCommand(application: ExternalApplicationContext, provider: MetaProviderConfiguration, command: ExternalCommand, operationId: string) {
+  const body = await metaRequestBody(application, provider.id, command, operationId);
   const response = await fetch(`${META_GRAPH_API}/${provider.senderId}/messages`, {
     method: "POST",
     cache: "no-store",
@@ -117,10 +128,15 @@ async function submitMetaCommand(application: ExternalApplicationContext, provid
   return { ok: true as const, messageId };
 }
 
-async function metaRequestBody(application: ExternalApplicationContext, providerAccountId: string, command: ExternalCommand) {
+/**
+ * `biz_opaque_callback_data` is echoed back on every status webhook. Carrying
+ * the operation id there is what lets a status reconcile a submission whose
+ * response we never saw.
+ */
+async function metaRequestBody(application: ExternalApplicationContext, providerAccountId: string, command: ExternalCommand, operationId: string) {
   const to = command.recipient.replace(/^\+/, "");
   if (command.content.type === "text") {
-    return { messaging_product: "whatsapp", to, type: "text", text: { body: command.content.text } };
+    return { messaging_product: "whatsapp", to, type: "text", biz_opaque_callback_data: operationId, text: { body: command.content.text } };
   }
   let template = await prisma.applicationTemplateConfig.findFirst({
     where: {
@@ -150,6 +166,7 @@ async function metaRequestBody(application: ExternalApplicationContext, provider
     messaging_product: "whatsapp",
     to,
     type: "template",
+    biz_opaque_callback_data: operationId,
     template: {
       name: template.providerTemplateId,
       language: { code: command.content.locale },

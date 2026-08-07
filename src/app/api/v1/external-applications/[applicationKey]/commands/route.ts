@@ -10,7 +10,9 @@ const commandSchema = z.object({
   channel: z.literal("whatsapp"),
   recipient: z.object({ type: z.literal("phone"), value: z.string().regex(/^\+[1-9]\d{6,14}$/) }).strict(),
   content: z.discriminatedUnion("type", [
-    z.object({ type: z.literal("text"), text: z.string().trim().min(1).max(500) }).strict(),
+    // 4096 is the WhatsApp text body limit. A tighter bound here would reject
+    // legitimate long replies with an opaque 400.
+    z.object({ type: z.literal("text"), text: z.string().trim().min(1).max(4096) }).strict(),
     z.object({ type: z.literal("template"), locale: z.string().trim().min(2).max(20), parameters: z.array(z.string().trim().min(1).max(512)).max(10).default([]) }).strict(),
   ]),
   metadata: z.object({ idempotency_key: z.string().trim().min(1).max(128) }).strict(),
