@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, PlugZap, Settings } from "lucide-react";
+import { CreditCard, Plug, PlugZap, Settings } from "lucide-react";
 
 import {
   NavigationMenu,
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 const settingsLinks = [
   { label: "Général", href: "/dashboard/settings", icon: Settings },
   { label: "Intégrations", href: "/dashboard/settings/integrations", icon: PlugZap },
+  { label: "Applications externes", href: "/dashboard/settings/external-applications", icon: Plug },
   { label: "Facturation", href: "/dashboard/settings/billing", icon: CreditCard },
 ] as const;
 

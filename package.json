@@ -10,11 +10,13 @@
     "lint": "eslint",
     "test:delivery": "node --experimental-strip-types --test src/lib/mailpulse/delivery-core.test.ts src/lib/mailpulse/direct-provider.test.ts src/lib/mailpulse/resend-message-status.test.ts",
     "test:external-applications": "node --experimental-strip-types --test src/lib/external-applications/*.test.ts",
+    "provision:external-application": "node --experimental-strip-types scripts/provision-external-application.ts",
     "validate:orange-sms": "node scripts/validate-orange-sms-config.mjs",
     "preflight:config": "node scripts/validate-production-config.mjs",
     "preflight:communication-message-index": "node scripts/preflight-communication-message-provider-message-id.mjs",
+    "preflight:migration-history": "node scripts/preflight-migration-history.mjs",
     "preflight:production": "pnpm run validate:orange-sms && pnpm run preflight:config && pnpm run preflight:communication-message-index",
-    "db:migrate:deploy": "pnpm run preflight:production && prisma migrate deploy",
+    "db:migrate:deploy": "pnpm run preflight:production && pnpm run preflight:migration-history && prisma migrate deploy",
     "typecheck": "fumadocs-mdx && tsc --noEmit"
   },
   "dependencies": {

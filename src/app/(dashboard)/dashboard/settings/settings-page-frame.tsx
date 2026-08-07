@@ -12,6 +12,12 @@ const titles = {
     title: "Intégrations",
     description: "Connectez Filon à MailPulse pour préparer les relances de recouvrement.",
   },
+  externalApplications: {
+    breadcrumb: "Applications externes",
+    title: "Applications externes",
+    description:
+      "Provisionnez les applications partenaires : credentials de commande, compte Meta WhatsApp, endpoints de rappel et templates.",
+  },
   billing: {
     breadcrumb: "Facturation",
     title: "Abonnement et facturation",

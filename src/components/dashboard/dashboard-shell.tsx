@@ -22,6 +22,7 @@ import {
   Mail,
   MessageSquare,
   Network,
+  Plug,
   PlugZap,
   Search,
   Send,
@@ -148,7 +149,17 @@ const navigation: NavItem[] = [
       { name: "Domaines", href: "/dashboard/domains", icon: Globe },
     ],
   },
-  { name: "Paramètres", href: "/dashboard/settings", icon: Settings, tourId: "nav-settings" },
+  {
+    name: "Paramètres",
+    href: "/dashboard/settings",
+    icon: Settings,
+    tourId: "nav-settings",
+    children: [
+      { name: "Général", href: "/dashboard/settings", icon: Settings },
+      { name: "Intégrations", href: "/dashboard/settings/integrations", icon: PlugZap },
+      { name: "Applications externes", href: "/dashboard/settings/external-applications", icon: Plug },
+    ],
+  },
 ];
 
 const navbarGroups = [
