@@ -96,15 +96,48 @@ lire le QR code pour détourner une session. Ne la colle jamais dans un fichier
 versionné, ni dans un message, ni dans une URL. Si elle fuit, fais-la tourner sur
 le serveur puis mets à jour `.env.local` et Vercel.
 
+## Ce qui est déjà provisionné (pilote KLASSCI)
+
+| | |
+|---|---|
+| Organisation | `mon-org` / `cmn9rqwxh000004ky0azejp5x` |
+| Application externe | clé `klassci`, id `cmskwhilx0000f0lc1jmq8og2` |
+| Instance Evolution | `mp-cmn9rqwxh000004ky0azejp5x`, statut `open` |
+| Numéro WhatsApp | `22541540178` |
+| Template | `parent_chatbot.invitation` (fr) |
+| Webhook Evolution | posé, jeton en en-tête `Authorization`, évènement `MESSAGES_UPSERT` |
+
+Les secrets (clé de commande, jeton entrant) ne sont affichés qu'une fois par le
+script. Perdus, ils se regénèrent avec `--rotate-command-credential` et
+`--rotate-inbound-token`.
+
+**La KEK lie la base au déploiement.** Les secrets sont chiffrés en base avec
+`EXTERNAL_APPLICATION_KEK`. Si Vercel n'a pas exactement la même valeur que celle
+ayant servi au provisioning, rien n'est déchiffrable et le webhook répond 503.
+Changer la KEK impose de reprovisionner.
+
 ## Le webhook entrant
 
 MailPulse expose `/api/webhooks/whatsapp/baileys/<applicationId>`. Evolution ne
-signe rien : l'authentification est un jeton porteur. Le provisioning imprime
-aujourd'hui l'URL avec `?token=...`, ce qui fait atterrir le secret dans les
-journaux d'accès. Evolution 2.3.7 accepte des en-têtes de webhook
-(`setWebhook(instance, url, headers)` est déjà câblé côté MailPulse) : dès que
-c'est vérifié sur cette instance, bascule le jeton dans l'en-tête `Authorization`
-et retire le paramètre d'URL.
+signe rien : l'authentification est un jeton porteur.
+
+**Vérifié sur cette instance : Evolution 2.3.7 accepte et conserve les en-têtes de
+webhook.** Le jeton n'a donc rien à faire dans l'URL, où il atterrirait dans tous
+les journaux d'accès. Configure le webhook ainsi :
+
+```bash
+curl -X POST -H "apikey: <cle>" -H "Content-Type: application/json" \
+  -d '{"webhook":{"enabled":true,"url":"<url-sans-token>",
+       "headers":{"Authorization":"Bearer <jeton>"},
+       "byEvents":false,"base64":false,"events":["MESSAGES_UPSERT"]}}' \
+  https://college.klassci.com/evolution/webhook/set/<instance>
+```
+
+Le corps attendu est la forme v2 imbriquée sous `webhook`. Relire la config avec
+`GET /webhook/find/<instance>`, qui renvoie `null` tant que rien n'est posé.
+
+Le script de provisioning imprime encore l'URL avec `?token=`. C'est un repli
+hérité : préfère toujours l'en-tête.
 
 ## Rappels
 
