@@ -121,6 +121,30 @@ webhook, pas une redirection ni du JSON de protection.
 | Numéro WhatsApp | `22541540178` |
 | Template | `parent_chatbot.invitation` (fr) |
 | Webhook Evolution | posé, jeton en en-tête `Authorization`, évènement `MESSAGES_UPSERT` |
+| Callback KLASSCI | `https://esbtp-abidjan.klassci.com/api/v1/integrations/mailpulse/parent-chatbot/inbound` |
+
+Validé en production le 2026-08-08 : commande signée acceptée, message WhatsApp
+remis. `KLASSCIv2/.env.production` porte encore `esbtp.nnagroup.net`, qui n'a pas
+de TLS : les tenants sont en `<tenant>.klassci.com`.
+
+⚠️ **Memurai (Redis) doit tourner.** Evolution y garde l'état de session Baileys.
+Service arrêté, l'instance reste bloquée en `connecting`, les envois partent en
+`pending_reconciliation` sans jamais aboutir, et le journal se remplit de
+`redis disconnected`. C'est la panne rencontrée au premier test. Le worker Celery
+de KLASSCI College dépend du même Redis.
+
+```bash
+ssh -F deploy/ssh_config klassci "Get-Service Memurai, mailpulse-evolution"
+ssh -F deploy/ssh_config klassci "Start-Service Memurai; nssm restart mailpulse-evolution"
+```
+
+Diagnostic dans l'ordre : état du service, puis
+`GET /instance/connectionState/<instance>` qui doit dire `open` et pas
+`connecting`, puis les journaux `C:\evolution-api\logs\service.out.log`.
+
+⚠️ **Un message envoyé depuis le numéro de l'instance ne remonte pas** : il arrive
+en `fromMe: true` et est ignoré volontairement, sinon le chatbot se répondrait à
+lui-même. Tester la réception exige un second téléphone.
 
 Les secrets (clé de commande, jeton entrant) ne sont affichés qu'une fois par le
 script. Perdus, ils se regénèrent avec `--rotate-command-credential` et
