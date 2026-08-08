@@ -3,12 +3,25 @@
 Où tourne Evolution, comment l'atteindre, et les pièges qui font perdre des heures.
 Aucun secret dans ce fichier : il est versionné.
 
+## L'URL à utiliser
+
+```
+EVOLUTION_API_URL=https://college.klassci.com/evolution
+```
+
+Publique, en HTTPS, déjà servie par le Caddy du serveur. **Ne crée pas de
+sous-domaine `evolution.klassci.com`** : il n'apporte rien, il faudrait un
+enregistrement DNS, et modifier le Caddyfile ferait courir un risque inutile à la
+production de KLASSCI College.
+
 ## Le piège numéro un
 
-`EVOLUTION_API_URL=http://3.144.161.136:8080` dans `.env.local` **pointe vers une
-machine morte**. C'est une ancienne instance AWS dont l'IP publique a changé au
-premier arrêt (pas d'IP élastique). Tout paraît « Evolution est éteint » alors que
-le service tourne parfaitement ailleurs.
+Une ancienne configuration traîne, avec **deux valeurs périmées à la fois** :
+`http://3.144.161.136:8080` (instance AWS dont l'IP publique a changé à l'arrêt,
+faute d'IP élastique) et une clé `mailpulse-evo-secret-2026` que le serveur
+refuse en 401. Résultat : tout paraît « Evolution est éteint » alors que le
+service tourne parfaitement. Avant de conclure à une panne, vérifie l'URL et la
+clé.
 
 **Evolution vit sur le VPS Windows Contabo, celui de KLASSCI College.**
 
@@ -21,9 +34,10 @@ le service tourne parfaitement ailleurs.
 | OS | Windows Server 2022 Datacenter |
 | Service | `mailpulse-evolution` (géré par NSSM) |
 | Dossier | `C:\evolution-api` |
-| Écoute | `127.0.0.1:8080` **et rien d'autre** |
+| Écoute | `127.0.0.1:8080`, jamais exposé en direct |
+| Accès public | `https://college.klassci.com/evolution` (Caddy strip le préfixe) |
 | Version | Evolution API 2.3.7, `clientName: mailpulse_evolution` |
-| Reverse proxy | Caddy (`klassci-caddy`), auto-TLS Let's Encrypt déjà actif |
+| Reverse proxy | Caddy (`klassci-caddy`), config `C:\klassci\deploy\Caddyfile` |
 
 Le même serveur héberge KLASSCI College. Ne casse rien en intervenant.
 
@@ -50,36 +64,37 @@ ssh -F deploy/ssh_config klassci "nssm restart mailpulse-evolution"
 ```
 
 Un `curl` depuis ton poste vers `http://94.72.96.119:8080` **timeout, et c'est
-normal** : aucune règle de pare-feu n'ouvre 8080. Ne conclus pas que le service
-est mort, teste toujours en local sur le serveur d'abord.
+normal** : aucune règle de pare-feu n'ouvre 8080 et il ne faut pas l'ouvrir, ce
+serait exposer l'API en clair. L'accès public passe uniquement par le chemin
+HTTPS ci-dessus. Ne conclus pas que le service est mort : teste
+`https://college.klassci.com/evolution/`, puis en local sur le serveur.
 
-## Ce qui bloque encore la production
+Depuis ton poste :
 
-MailPulse tourne sur Vercel et doit joindre Evolution depuis l'extérieur. Deux
-contraintes se combinent :
+```bash
+curl -s https://college.klassci.com/evolution/
+curl -s -H "apikey: <cle>" https://college.klassci.com/evolution/instance/fetchInstances
+```
 
-1. Le port 8080 n'est pas exposé.
-2. `evoFetch` (`src/lib/whatsapp-baileys.ts`) **refuse volontairement une URL non
-   HTTPS en production**. La clé d'API, les numéros des parents et le contenu des
-   messages transitent dans ces requêtes ; en clair sur une IP publique, c'est
-   inacceptable.
-
-La bonne réponse est donc un sous-domaine derrière le Caddy déjà en place, par
-exemple `evolution.klassci.com` en `reverse_proxy 127.0.0.1:8080`, avec le
-certificat automatique. Puis `EVOLUTION_API_URL=https://evolution.klassci.com`.
-N'ouvre pas 8080 en direct : ça exposerait l'API en clair.
+`evoFetch` (`src/lib/whatsapp-baileys.ts`) **refuse volontairement une URL non
+HTTPS en production** : la clé d'API, les numéros des parents et le contenu des
+messages transitent dans ces requêtes. L'URL ci-dessus satisfait cette contrainte.
 
 ## La clé d'API
 
-`EVOLUTION_API_KEY` est **globale à tout Evolution** : elle ne connaît aucune
-notion de locataire. Qui la détient peut lister toutes les instances, envoyer un
-WhatsApp depuis le numéro de n'importe quelle école, rediriger les webhooks
-entrants, et lire le QR code pour détourner une session.
+Elle vit dans `C:\evolution-api\.env` sur le serveur, sous
+`AUTHENTICATION_API_KEY`, et c'est la source de vérité. 48 caractères aléatoires.
 
-La valeur historique est une chaîne lisible sans entropie, présente en clair dans
-des `.env` locaux. **Considère-la compromise** : à faire tourner vers 32 octets
-aléatoires en même temps que la mise en HTTPS. Ne la colle jamais dans un fichier
-versionné, ni dans un message, ni dans une URL.
+```bash
+ssh -F deploy/ssh_config klassci "Select-String -Path C:\evolution-api\.env -Pattern '^AUTHENTICATION_API_KEY='"
+```
+
+Elle est **globale à tout Evolution** : elle ne connaît aucune notion de
+locataire. Qui la détient peut lister toutes les instances, envoyer un WhatsApp
+depuis le numéro de n'importe quelle école, rediriger les webhooks entrants, et
+lire le QR code pour détourner une session. Ne la colle jamais dans un fichier
+versionné, ni dans un message, ni dans une URL. Si elle fuit, fais-la tourner sur
+le serveur puis mets à jour `.env.local` et Vercel.
 
 ## Le webhook entrant
 
