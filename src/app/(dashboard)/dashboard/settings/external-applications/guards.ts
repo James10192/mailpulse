@@ -6,6 +6,10 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 /** Error whose message is safe to surface to the user as-is (French, no internals). */
 export class ActionGuardError extends Error {}
 
+export const META_PROVIDER = "META_WHATSAPP";
+export const BAILEYS_PROVIDER = "BAILEYS_WHATSAPP";
+export const WHATSAPP_PROVIDERS = [META_PROVIDER, BAILEYS_PROVIDER];
+
 /** Only owners and admins may provision or mutate external applications. */
 export async function requireOrganizationManager() {
   const { user, org, isAdmin, memberRole } = await getCurrentUserAndOrg();
@@ -27,7 +31,7 @@ export function ensureEncryptionConfigured() {
 }
 
 /** Same key material shape as scripts/provision-external-application.ts. */
-export function generateCredentialMaterial(prefix: "ck" | "fk") {
+export function generateCredentialMaterial(prefix: "ck" | "fk" | "ik") {
   return {
     keyId: `${prefix}_${randomBytes(8).toString("hex")}`,
     secret: randomBytes(32).toString("base64url"),
@@ -52,7 +56,7 @@ export async function assertSenderIdUnambiguous(senderId: string, excludeAccount
   const conflicting = await prisma.providerAccount.findFirst({
     where: {
       channel: "WHATSAPP",
-      provider: "META_WHATSAPP",
+      provider: META_PROVIDER,
       senderId,
       active: true,
       ...(excludeAccountId ? { id: { not: excludeAccountId } } : {}),
@@ -64,6 +68,59 @@ export async function assertSenderIdUnambiguous(senderId: string, excludeAccount
     // the message must not reveal whether another organization holds the number.
     throw new ActionGuardError(
       "Ce phone_number_id ne peut pas être utilisé ici. Vérifiez le numéro, ou contactez le support s'il vous appartient.",
+    );
+  }
+}
+
+const TRANSPORT_LABEL: Record<string, string> = {
+  [META_PROVIDER]: "Meta Cloud API",
+  [BAILEYS_PROVIDER]: "Baileys (Evolution API)",
+};
+
+/**
+ * resolveWhatsAppProvider() binds an application to exactly one active WhatsApp
+ * account and fails closed when a second one exists, so the conflict is refused
+ * here rather than persisted as a silently broken configuration.
+ */
+export async function assertSingleActiveWhatsAppAccount(applicationId: string, excludeAccountId?: string) {
+  const conflicting = await prisma.providerAccount.findFirst({
+    where: {
+      applicationId,
+      channel: "WHATSAPP",
+      provider: { in: WHATSAPP_PROVIDERS },
+      active: true,
+      ...(excludeAccountId ? { id: { not: excludeAccountId } } : {}),
+    },
+    select: { provider: true },
+  });
+  if (conflicting) {
+    throw new ActionGuardError(
+      `Cette application utilise déjà le transport ${TRANSPORT_LABEL[conflicting.provider] ?? conflicting.provider}. Désactivez ce compte avant d'en relier un autre : une application ne peut avoir qu'un seul compte WhatsApp actif.`,
+    );
+  }
+}
+
+/**
+ * Evolution posts webhooks without a signature, so the instance name is the only
+ * routing hint. Two active accounts sharing it would make inbound resolution
+ * ambiguous and fail closed for both applications.
+ */
+export async function assertInstanceNameUnambiguous(instanceName: string, excludeAccountId?: string) {
+  const conflicting = await prisma.providerAccount.findFirst({
+    where: {
+      channel: "WHATSAPP",
+      provider: BAILEYS_PROVIDER,
+      externalAccountId: instanceName,
+      active: true,
+      ...(excludeAccountId ? { id: { not: excludeAccountId } } : {}),
+    },
+    select: { id: true },
+  });
+  if (conflicting) {
+    // Global on purpose, like the inbound resolution, but the message must not
+    // reveal whether another organization holds the instance.
+    throw new ActionGuardError(
+      "Ce nom d'instance Evolution ne peut pas être utilisé ici. Choisissez un nom unique, ou contactez le support s'il vous appartient.",
     );
   }
 }

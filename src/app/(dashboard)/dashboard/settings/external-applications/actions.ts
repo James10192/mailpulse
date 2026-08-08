@@ -7,8 +7,10 @@ import { prisma } from "@/lib/prisma";
 import { encryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import {
   assertSenderIdUnambiguous,
+  assertSingleActiveWhatsAppAccount,
   ensureEncryptionConfigured,
   generateCredentialMaterial,
+  META_PROVIDER,
   requireApplication,
   requireOrganizationManager,
   toActionError,
@@ -154,7 +156,7 @@ export async function setMetaProviderAccount(
         organizationId_channel_provider_externalAccountId: {
           organizationId: org.id,
           channel: "WHATSAPP",
-          provider: "META_WHATSAPP",
+          provider: META_PROVIDER,
           externalAccountId: waba,
         },
       },
@@ -170,6 +172,9 @@ export async function setMetaProviderAccount(
     }
 
     await assertSenderIdUnambiguous(phoneNumberId, existing?.id);
+    // Writing this account would otherwise leave two active WhatsApp accounts on
+    // the application, which makes the outbound transport resolution fail closed.
+    await assertSingleActiveWhatsAppAccount(applicationId, existing?.id);
 
     if (existing) {
       const credentialsCiphertext =
@@ -191,7 +196,7 @@ export async function setMetaProviderAccount(
           organizationId: org.id,
           applicationId,
           channel: "WHATSAPP",
-          provider: "META_WHATSAPP",
+          provider: META_PROVIDER,
           externalAccountId: waba,
           senderId: phoneNumberId,
           credentialsCiphertext: encryptExternalApplicationValue(

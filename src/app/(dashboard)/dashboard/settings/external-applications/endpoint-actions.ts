@@ -7,11 +7,13 @@ import { prisma } from "@/lib/prisma";
 import { encryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import { assertSafeCallbackUrl } from "@/lib/external-applications/network";
 import {
+  BAILEYS_PROVIDER,
   ensureEncryptionConfigured,
   generateCredentialMaterial,
   requireApplication,
   requireOrganizationManager,
   toActionError,
+  WHATSAPP_PROVIDERS,
 } from "./guards";
 
 const PAGE_PATH = "/dashboard/settings/external-applications";
@@ -119,11 +121,45 @@ export async function toggleForwardEndpoint(endpointId: string, active: boolean)
   }
 }
 
-const templateConfigSchema = z.object({
+const templateConfigBase = {
   operationKey: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9._-]{1,99}$/),
   locale: z.string().trim().regex(/^[a-z]{2}(?:_[A-Z]{2})?$/),
+};
+
+/** Meta resolves an approved template by identifier. */
+const metaTemplateSchema = z.object({
+  ...templateConfigBase,
   providerTemplateId: z.string().trim().regex(/^[A-Za-z0-9._-]{1,200}$/),
 });
+
+/**
+ * Baileys has no template registry, so the field carries the message body with
+ * {{1}}, {{2}}... markers substituted at send time. Control characters other
+ * than newlines are rejected so a body cannot smuggle framing into the payload.
+ */
+const baileysTemplateSchema = z.object({
+  ...templateConfigBase,
+  providerTemplateId: z
+    .string()
+    .trim()
+    .min(1)
+    .max(1000)
+    .refine((value) => !/[\u0000-\u0008\u000B-\u001F\u007F]/.test(value)),
+});
+
+/** The transport is a property of the application's single active WhatsApp account. */
+async function resolveActiveTransport(applicationId: string) {
+  const account = await prisma.providerAccount.findFirst({
+    where: {
+      applicationId,
+      channel: "WHATSAPP",
+      provider: { in: WHATSAPP_PROVIDERS },
+      active: true,
+    },
+    select: { provider: true },
+  });
+  return account?.provider === BAILEYS_PROVIDER ? "BAILEYS" : "META";
+}
 
 export async function upsertTemplateConfig(
   applicationId: string,
@@ -133,9 +169,15 @@ export async function upsertTemplateConfig(
     const { org } = await requireOrganizationManager();
     await requireApplication(org.id, applicationId);
 
-    const parsed = templateConfigSchema.safeParse(input);
+    const transport = await resolveActiveTransport(applicationId);
+    const parsed = (transport === "BAILEYS" ? baileysTemplateSchema : metaTemplateSchema).safeParse(input);
     if (!parsed.success) {
-      return { error: "Vérifiez la clé d'opération, la locale (ex. fr ou fr_FR) et l'identifiant du template Meta." };
+      return {
+        error:
+          transport === "BAILEYS"
+            ? "Vérifiez la clé d'opération, la locale (ex. fr ou fr_FR) et le corps du message (1 à 1000 caractères)."
+            : "Vérifiez la clé d'opération, la locale (ex. fr ou fr_FR) et l'identifiant du template Meta.",
+      };
     }
     const { operationKey, locale, providerTemplateId } = parsed.data;
 

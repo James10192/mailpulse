@@ -9,21 +9,31 @@ import { PrismaClient } from "../src/generated/prisma/client.js";
 import { encryptExternalApplicationValue } from "../src/lib/external-applications/crypto.ts";
 // @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
 import { assertSafeCallbackUrl } from "../src/lib/external-applications/network.ts";
+// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
+import { assertSingleActiveWhatsAppAccount, ensureInboundToken, inboundWebhookUrl, META_PROVIDER, upsertBaileysProviderAccount } from "./provision-whatsapp.ts";
 
 const USAGE = `Provisionne une application externe MailPulse (idempotent).
 
 Usage:
   node --experimental-strip-types scripts/provision-external-application.ts \\
     --org <slug-ou-id> --key <application-key> --name "<nom>" \\
-    [--waba <waba-id> --phone-number-id <phone-number-id>] \\
+    [--transport meta|baileys] \\
+    [--waba <waba-id> --phone-number-id <phone-number-id>]        (transport meta) \\
+    [--instance <nom-instance-evolution> [--sender <numero>]]      (transport baileys) \\
     [--forward-url <https-url>] [--forward-events ev1,ev2] \\
     [--template "operationKey=providerTemplateId@locale"]... \\
-    [--rotate-command-credential] [--rotate-forward-secret]
+    [--rotate-command-credential] [--rotate-forward-secret] [--rotate-inbound-token]
+
+Transport meta : canal officiel, templates approuvés obligatoires, fenêtre de service 24 h.
+Transport baileys : WhatsApp Web via Evolution API, aucun template ni fenêtre 24 h, mais
+  canal non officiel avec risque de blocage du numéro. L'URL et la clé Evolution sont
+  globales (EVOLUTION_API_URL / EVOLUTION_API_KEY) : rien n'est stocké par compte. Le
+  jeton du webhook entrant est généré ici et affiché une seule fois.
 
 Secrets Meta (requis à la création du ProviderAccount ou avec --update-meta-credentials) :
   PROVISION_META_ACCESS_TOKEN, PROVISION_META_APP_SECRET, PROVISION_META_VERIFY_TOKEN
 
-Les secrets générés (commande + callback) ne sont affichés qu'une seule fois.`;
+Les secrets générés (commande, callback, jeton entrant) ne sont affichés qu'une seule fois.`;
 
 // Status callbacks carry a different payload shape than inbound messages, so a
 // partner opts into them explicitly rather than receiving them by default.
@@ -34,13 +44,17 @@ const { values } = parseArgs({
     org: { type: "string" },
     key: { type: "string" },
     name: { type: "string" },
+    transport: { type: "string", default: "meta" },
     waba: { type: "string" },
     "phone-number-id": { type: "string" },
+    instance: { type: "string" },
+    sender: { type: "string" },
     "forward-url": { type: "string" },
     "forward-events": { type: "string" },
     template: { type: "string", multiple: true },
     "rotate-command-credential": { type: "boolean", default: false },
     "rotate-forward-secret": { type: "boolean", default: false },
+    "rotate-inbound-token": { type: "boolean", default: false },
     "update-meta-credentials": { type: "boolean", default: false },
     "reassign-provider-account": { type: "boolean", default: false },
     help: { type: "boolean", default: false },
@@ -50,6 +64,12 @@ const { values } = parseArgs({
 if (values.help || !values.org || !values.key) {
   console.log(USAGE);
   process.exit(values.help ? 0 : 1);
+}
+
+const transport = values.transport?.toLowerCase() ?? "meta";
+if (transport !== "meta" && transport !== "baileys") {
+  console.error(`--transport doit valoir "meta" ou "baileys" (reçu : ${values.transport}).`);
+  process.exit(1);
 }
 
 loadEnvironment({ path: ".env.local", quiet: true });
@@ -71,7 +91,24 @@ try {
 
   await ensureCommandCredential(application.id, values["rotate-command-credential"] ?? false);
 
-  const providerAccount = await upsertMetaProviderAccount(organization.id, application.id);
+  let providerAccount: { id: string; senderId: string | null } | null = null;
+  if (transport === "baileys") {
+    const baileys = await upsertBaileysProviderAccount(prisma, {
+      organizationId: organization.id,
+      applicationId: application.id,
+      instanceName: values.instance,
+      sender: values.sender,
+      allowReassign: values["reassign-provider-account"] ?? false,
+    });
+    providerAccount = baileys.account;
+    console.log(baileys.log);
+
+    const inbound = await ensureInboundToken(prisma, application.id, values["rotate-inbound-token"] ?? false);
+    for (const line of inbound.logs) console.log(line);
+    revealedSecrets.push(...inbound.revealed);
+  } else {
+    providerAccount = await upsertMetaProviderAccount(organization.id, application.id);
+  }
 
   if (values["forward-url"]) {
     // Lowercased to match the stored event names: a casing mismatch would make
@@ -164,7 +201,7 @@ async function upsertMetaProviderAccount(organizationId: string, applicationId: 
       organizationId_channel_provider_externalAccountId: {
         organizationId,
         channel: "WHATSAPP",
-        provider: "META_WHATSAPP",
+        provider: META_PROVIDER,
         externalAccountId: waba,
       },
     },
@@ -179,6 +216,8 @@ async function upsertMetaProviderAccount(organizationId: string, applicationId: 
     );
   }
 
+  await assertSingleActiveWhatsAppAccount(prisma, applicationId, existing?.id);
+
   const wantsCredentialUpdate = !existing || (values["update-meta-credentials"] ?? false);
   const credentialsCiphertext = wantsCredentialUpdate ? encryptExternalApplicationValue(JSON.stringify(readMetaCredentials())) : undefined;
 
@@ -187,7 +226,7 @@ async function upsertMetaProviderAccount(organizationId: string, applicationId: 
   const conflicting = await prisma.providerAccount.findFirst({
     where: {
       channel: "WHATSAPP",
-      provider: "META_WHATSAPP",
+      provider: META_PROVIDER,
       senderId,
       active: true,
       ...(existing ? { id: { not: existing.id } } : {}),
@@ -216,7 +255,7 @@ async function upsertMetaProviderAccount(organizationId: string, applicationId: 
         organizationId,
         applicationId,
         channel: "WHATSAPP",
-        provider: "META_WHATSAPP",
+        provider: META_PROVIDER,
         externalAccountId: waba,
         senderId,
         credentialsCiphertext,
@@ -308,10 +347,17 @@ async function upsertTemplateConfig(organizationId: string, applicationId: strin
 
 function printSummary(organizationId: string, application: { id: string; key: string }, senderId: string | null) {
   console.log("\n===== Récapitulatif =====");
+  console.log(`Transport : ${transport === "baileys" ? "Baileys (Evolution API, non officiel)" : "Meta Cloud API (officiel)"}`);
   console.log(`x-external-organization-id : ${organizationId}`);
   console.log(`Commands : POST /api/v1/external-applications/${application.key}/commands`);
-  console.log(`Webhook Meta (URL à déclarer chez Meta) : /api/webhooks/whatsapp/meta/${application.id}`);
-  if (senderId) console.log(`phone_number_id : ${senderId}`);
+  if (transport === "baileys") {
+    console.log(`Webhook Baileys (URL à coller dans Evolution) : ${inboundWebhookUrl(application.id)}?token=<jeton>`);
+    console.log("Rappel : pas de template à faire approuver ni de fenêtre 24 h, mais canal non officiel — le numéro peut être bloqué par WhatsApp.");
+    if (senderId) console.log(`Numéro connecté : ${senderId}`);
+  } else {
+    console.log(`Webhook Meta (URL à déclarer chez Meta) : /api/webhooks/whatsapp/meta/${application.id}`);
+    if (senderId) console.log(`phone_number_id : ${senderId}`);
+  }
 }
 
 function printRevealedSecrets() {

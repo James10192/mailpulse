@@ -7,9 +7,14 @@ export type CredentialView = {
   expiresAt: string | null;
 };
 
+/** Which WhatsApp transport a provider account runs on. */
+export type WhatsAppTransport = "META" | "BAILEYS";
+
 export type ProviderAccountView = {
   id: string;
-  wabaId: string;
+  transport: WhatsAppTransport;
+  /** Meta: the WABA id. Baileys: the Evolution instance name. */
+  externalAccountId: string;
   maskedSenderId: string | null;
   active: boolean;
   updatedAt: string;
@@ -41,7 +46,12 @@ export type ApplicationView = {
   createdAt: string;
   activeCredentialCount: number;
   credentials: CredentialView[];
-  providerAccount: ProviderAccountView | null;
+  /** INBOUND_FORWARD tokens authenticating the Baileys webhook URL. */
+  inboundTokens: CredentialView[];
+  /** Every WhatsApp account of the application, both transports, active or not. */
+  providerAccounts: ProviderAccountView[];
+  /** The single active WhatsApp transport, or null when none is configured. */
+  activeTransport: WhatsAppTransport | null;
   forwardEndpoints: ForwardEndpointView[];
   templateConfigs: TemplateConfigView[];
 };

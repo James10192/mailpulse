@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { deactivateApplication, reactivateApplication } from "./actions";
 import { CredentialsSection } from "./credentials-section";
 import { ForwardEndpointsSection } from "./forward-endpoints-section";
+import { InboundTokenSection } from "./inbound-token-section";
 import { ProviderAccountSection } from "./provider-account-section";
 import { TemplateConfigsSection } from "./template-configs-section";
 import type { ApplicationView } from "./types";
@@ -28,6 +29,9 @@ import type { ApplicationView } from "./types";
 export function ApplicationCard({ application, canManage }: { application: ApplicationView; canManage: boolean }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  // The inbound token only authenticates the Evolution webhook, so it stays
+  // hidden until a Baileys account exists on the application.
+  const hasBaileysAccount = application.providerAccounts.some((account) => account.transport === "BAILEYS");
 
   async function setActive(active: boolean) {
     setError("");
@@ -101,9 +105,20 @@ export function ApplicationCard({ application, canManage }: { application: Appli
         <Separator />
         <ProviderAccountSection
           applicationId={application.id}
-          account={application.providerAccount}
+          accounts={application.providerAccounts}
+          activeTransport={application.activeTransport}
           canManage={canManage}
         />
+        {hasBaileysAccount ? (
+          <>
+            <Separator />
+            <InboundTokenSection
+              applicationId={application.id}
+              tokens={application.inboundTokens}
+              canManage={canManage}
+            />
+          </>
+        ) : null}
         <Separator />
         <ForwardEndpointsSection
           applicationId={application.id}
@@ -114,6 +129,7 @@ export function ApplicationCard({ application, canManage }: { application: Appli
         <TemplateConfigsSection
           applicationId={application.id}
           configs={application.templateConfigs}
+          transport={application.activeTransport}
           canManage={canManage}
         />
       </CardContent>

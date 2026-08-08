@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { SettingsPageFrame } from "../settings-page-frame";
 import { ExternalApplicationsClient } from "./external-applications-client";
-import type { ApplicationView } from "./types";
+import { BAILEYS_PROVIDER, META_PROVIDER } from "./guards";
+import type { ApplicationView, CredentialView, ProviderAccountView } from "./types";
 
 export default async function ExternalApplicationsPage() {
   const { user, org, isAdmin, memberRole } = await getCurrentUserAndOrg();
@@ -24,14 +25,28 @@ export default async function ExternalApplicationsPage() {
       active: true,
       createdAt: true,
       credentials: {
-        where: { purpose: "COMMAND_INGRESS" },
         orderBy: { version: "desc" },
-        select: { id: true, keyId: true, version: true, createdAt: true, revokedAt: true, expiresAt: true },
+        select: {
+          id: true,
+          purpose: true,
+          keyId: true,
+          version: true,
+          createdAt: true,
+          revokedAt: true,
+          expiresAt: true,
+        },
       },
       providerAccounts: {
-        where: { provider: "META_WHATSAPP", channel: "WHATSAPP" },
+        where: { channel: "WHATSAPP", provider: { in: [META_PROVIDER, BAILEYS_PROVIDER] } },
         orderBy: { createdAt: "asc" },
-        select: { id: true, externalAccountId: true, senderId: true, active: true, updatedAt: true },
+        select: {
+          id: true,
+          provider: true,
+          externalAccountId: true,
+          senderId: true,
+          active: true,
+          updatedAt: true,
+        },
       },
       forwardEndpoints: {
         orderBy: { createdAt: "asc" },
@@ -52,7 +67,18 @@ export default async function ExternalApplicationsPage() {
   });
 
   const views: ApplicationView[] = applications.map((application) => {
-    const primaryAccount = application.providerAccounts[0] ?? null;
+    const commandCredentials = application.credentials.filter((credential) => credential.purpose === "COMMAND_INGRESS");
+    const providerAccounts: ProviderAccountView[] = application.providerAccounts.map((account) => ({
+      id: account.id,
+      transport: account.provider === BAILEYS_PROVIDER ? "BAILEYS" : "META",
+      externalAccountId: account.externalAccountId,
+      maskedSenderId: maskIdentifier(account.senderId),
+      active: account.active,
+      updatedAt: account.updatedAt.toISOString(),
+    }));
+    // A second active account is refused on write, so the first one is the
+    // transport actually in use.
+    const activeAccount = providerAccounts.find((account) => account.active) ?? null;
 
     return {
       id: application.id,
@@ -60,26 +86,15 @@ export default async function ExternalApplicationsPage() {
       name: application.name,
       active: application.active,
       createdAt: application.createdAt.toISOString(),
-      activeCredentialCount: application.credentials.filter(
+      activeCredentialCount: commandCredentials.filter(
         (credential) => !credential.revokedAt && (!credential.expiresAt || credential.expiresAt > now),
       ).length,
-      credentials: application.credentials.map((credential) => ({
-        id: credential.id,
-        keyId: credential.keyId,
-        version: credential.version,
-        createdAt: credential.createdAt.toISOString(),
-        revokedAt: credential.revokedAt?.toISOString() ?? null,
-        expiresAt: credential.expiresAt?.toISOString() ?? null,
-      })),
-      providerAccount: primaryAccount
-        ? {
-            id: primaryAccount.id,
-            wabaId: primaryAccount.externalAccountId,
-            maskedSenderId: maskIdentifier(primaryAccount.senderId),
-            active: primaryAccount.active,
-            updatedAt: primaryAccount.updatedAt.toISOString(),
-          }
-        : null,
+      credentials: commandCredentials.map(toCredentialView),
+      inboundTokens: application.credentials
+        .filter((credential) => credential.purpose === "INBOUND_FORWARD")
+        .map(toCredentialView),
+      providerAccounts,
+      activeTransport: activeAccount?.transport ?? null,
       forwardEndpoints: application.forwardEndpoints.map((endpoint) => ({
         id: endpoint.id,
         url: endpoint.url,
@@ -104,6 +119,24 @@ export default async function ExternalApplicationsPage() {
       <ExternalApplicationsClient applications={views} canManage={canManage} />
     </SettingsPageFrame>
   );
+}
+
+function toCredentialView(credential: {
+  id: string;
+  keyId: string;
+  version: number;
+  createdAt: Date;
+  revokedAt: Date | null;
+  expiresAt: Date | null;
+}): CredentialView {
+  return {
+    id: credential.id,
+    keyId: credential.keyId,
+    version: credential.version,
+    createdAt: credential.createdAt.toISOString(),
+    revokedAt: credential.revokedAt?.toISOString() ?? null,
+    expiresAt: credential.expiresAt?.toISOString() ?? null,
+  };
 }
 
 /** Keeps only the last 4 characters visible, e.g. a Meta phone_number_id. */
