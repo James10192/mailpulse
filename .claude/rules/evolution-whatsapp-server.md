@@ -96,6 +96,21 @@ lire le QR code pour détourner une session. Ne la colle jamais dans un fichier
 versionné, ni dans un message, ni dans une URL. Si elle fuit, fais-la tourner sur
 le serveur puis mets à jour `.env.local` et Vercel.
 
+## L'URL de production de MailPulse
+
+**`https://mailpulse-two.vercel.app`**
+
+Le projet Vercel n'a pas de domaine personnalisé, et ses alias par défaut
+(`mailpulse-james10192s-projects.vercel.app`, l'URL de chaque déploiement) sont
+protégés par le SSO Vercel : ils redirigent au lieu de servir, donc aucun webhook
+ne peut les joindre.
+
+⚠️ **`mailpulse.vercel.app` n'est pas ce projet.** Le nom est pris par un tiers et
+répond 200, ce qui le rend très facile à confondre. Ne jamais déduire le domaine
+en testant des noms : le vérifier avec `vercel ls mailpulse` ou en appelant une
+route connue, un vrai déploiement renvoie `Unauthorized` en texte brut sur le
+webhook, pas une redirection ni du JSON de protection.
+
 ## Ce qui est déjà provisionné (pilote KLASSCI)
 
 | | |
