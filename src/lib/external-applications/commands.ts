@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
 
 import { decryptExternalApplicationValue, encryptExternalApplicationValue, hashExternalApplicationPayload } from "@/lib/external-applications/crypto";
-import { resolveMetaProviderAccount, type ExternalApplicationContext, type MetaProviderConfiguration } from "@/lib/external-applications/application";
+import {
+  resolveWhatsAppProvider,
+  type BaileysProviderConfiguration,
+  type ExternalApplicationContext,
+  type MetaProviderConfiguration,
+} from "@/lib/external-applications/application";
 import { hasActiveExternalWhatsAppConversationWindow } from "@/lib/external-applications/conversation-window";
 import { isProviderConfirmedOperationStatus, isProviderRejectedOperationStatus } from "@/lib/external-applications/message-status";
+import { renderWhatsAppTextTemplate, requiresWhatsAppServiceWindow } from "@/lib/external-applications/whatsapp-transport-policy";
 import { prisma } from "@/lib/prisma";
+import { EvolutionApiError, isConfigured as isEvolutionConfigured, sendText } from "@/lib/whatsapp-baileys";
 
 const LEASE_DURATION_MS = 10 * 60_000;
 const META_GRAPH_API = "https://graph.facebook.com/v21.0";
@@ -16,9 +23,22 @@ export type ExternalCommand = {
   content: { type: "text"; text: string } | { type: "template"; locale: string; parameters: string[] };
 };
 
+/**
+ * `unknown` is not a soft failure: it means we cannot prove WhatsApp refused the
+ * submission, so the operation must stay reconcilable instead of being rejected.
+ */
+type CommandSubmission =
+  | { outcome: "accepted"; messageId: string | null }
+  | { outcome: "rejected"; rejectionCode: string }
+  | { outcome: "unknown" };
+
 export async function dispatchExternalApplicationCommand(application: ExternalApplicationContext, command: ExternalCommand) {
-  const provider = await resolveMetaProviderAccount(application);
+  const provider = await resolveWhatsAppProvider(application);
   if (!provider) return { status: "unavailable" as const };
+  // Checked before any operation row exists: a missing Evolution endpoint would
+  // otherwise strand the command in SUBMISSION_UNKNOWN, where an idempotent
+  // retry can never resubmit it once the configuration is repaired.
+  if (provider.kind === "baileys" && !isEvolutionConfigured()) return { status: "unavailable" as const };
 
   const serializedPayload = JSON.stringify(command);
   const payloadHash = hashExternalApplicationPayload(serializedPayload);
@@ -30,7 +50,7 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
   if (isProviderRejectedOperationStatus(operation.status)) return { status: "rejected" as const, operationId: operation.id };
   if (operation.status === "SUBMISSION_UNKNOWN") return { status: "submission_unknown" as const, operationId: operation.id };
 
-  if (command.content.type === "text") {
+  if (requiresWhatsAppServiceWindow(provider.kind, command.content.type)) {
     const windowOpen = await hasOpenConversationWindow(application, provider.id, command.recipient);
     if (!windowOpen) {
       await rejectPendingOperation(operation.id);
@@ -57,17 +77,18 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
 
   try {
     const payload = parseCommandPayload(decryptExternalApplicationValue(operation.payloadCiphertext ?? ""));
-    const result = await submitMetaCommand(application, provider, payload, operation.id);
-    if (!result.ok) {
-      if (isDeterministicRejection(result.statusCode)) {
-        await finalizeOperation(operation.id, leaseToken, "REJECTED");
-        return { status: "rejected" as const, operationId: operation.id };
-      }
-      return { status: "submission_unknown" as const, operationId: operation.id };
+    const submission = provider.kind === "meta"
+      ? await submitMetaCommand(application, provider, payload, operation.id)
+      : await submitBaileysCommand(application, provider, payload);
+    if (submission.outcome === "rejected") {
+      await finalizeOperation(operation.id, leaseToken, "REJECTED");
+      return { status: "rejected" as const, operationId: operation.id, rejectionCode: submission.rejectionCode };
     }
+    if (submission.outcome === "unknown") return { status: "submission_unknown" as const, operationId: operation.id };
+
     const accepted = await prisma.externalTransportOperation.updateMany({
       where: { id: operation.id, status: "SUBMISSION_UNKNOWN", leaseToken },
-      data: { status: "ACCEPTED", acceptedAt: new Date(), providerMessageId: result.messageId, leaseToken: null, leaseExpiresAt: null },
+      data: { status: "ACCEPTED", acceptedAt: new Date(), providerMessageId: submission.messageId, leaseToken: null, leaseExpiresAt: null },
     });
     if (accepted.count === 1) return { status: "accepted" as const, operationId: operation.id };
 
@@ -80,7 +101,11 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
     return current && isProviderConfirmedOperationStatus(current.status)
       ? { status: "accepted" as const, operationId: operation.id }
       : { status: "submission_unknown" as const, operationId: operation.id };
-  } catch {
+  } catch (error) {
+    if (error instanceof MissingTemplateConfigurationError) {
+      await finalizeOperation(operation.id, leaseToken, "REJECTED");
+      return { status: "rejected" as const, operationId: operation.id, rejectionCode: "template_not_configured" };
+    }
     return { status: "submission_unknown" as const, operationId: operation.id };
   }
 }
@@ -111,7 +136,12 @@ async function findOrCreateOperation(application: ExternalApplicationContext, pr
   }
 }
 
-async function submitMetaCommand(application: ExternalApplicationContext, provider: MetaProviderConfiguration, command: ExternalCommand, operationId: string) {
+async function submitMetaCommand(
+  application: ExternalApplicationContext,
+  provider: MetaProviderConfiguration,
+  command: ExternalCommand,
+  operationId: string,
+): Promise<CommandSubmission> {
   const body = await metaRequestBody(application, provider.id, command, operationId);
   const response = await fetch(`${META_GRAPH_API}/${provider.senderId}/messages`, {
     method: "POST",
@@ -120,12 +150,56 @@ async function submitMetaCommand(application: ExternalApplicationContext, provid
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(10_000),
   });
-  if (!response.ok) return { ok: false as const, statusCode: response.status };
+  if (!response.ok) {
+    return isDeterministicRejection(response.status)
+      ? { outcome: "rejected", rejectionCode: "provider_rejected" }
+      : { outcome: "unknown" };
+  }
   const parsed: unknown = await response.json();
   const messageId = isRecord(parsed) && Array.isArray(parsed.messages) && isRecord(parsed.messages[0]) && typeof parsed.messages[0].id === "string"
     ? parsed.messages[0].id
     : null;
-  return { ok: true as const, messageId };
+  return { outcome: "accepted", messageId };
+}
+
+async function submitBaileysCommand(
+  application: ExternalApplicationContext,
+  provider: BaileysProviderConfiguration,
+  command: ExternalCommand,
+): Promise<CommandSubmission> {
+  const body = await baileysMessageText(application, provider.id, command);
+  if (!body.ok) return { outcome: "rejected", rejectionCode: body.rejectionCode };
+
+  try {
+    const result = await sendText(provider.instanceName, command.recipient, body.text);
+    // Evolution echoes the Baileys message key, whose id is the only handle a
+    // later delivery webhook can be reconciled against.
+    const messageId = typeof result.key?.id === "string" && result.key.id ? result.key.id : null;
+    return { outcome: "accepted", messageId };
+  } catch (error) {
+    // A refusal Evolution will repeat identically is settled now: leaving an
+    // unreachable number reconcilable would strand one operation per wrong
+    // number for good.
+    if (error instanceof EvolutionApiError && error.deterministic) {
+      return {
+        outcome: "rejected",
+        rejectionCode: error.recipientUnreachable ? "whatsapp_recipient_unreachable" : "provider_rejected",
+      };
+    }
+    return { outcome: "unknown" };
+  }
+}
+
+/**
+ * WhatsApp Web knows no approved template, so a template command is flattened
+ * into the text the recipient will read before it ever leaves the process.
+ */
+async function baileysMessageText(application: ExternalApplicationContext, providerAccountId: string, command: ExternalCommand) {
+  if (command.content.type === "text") return { ok: true as const, text: command.content.text };
+
+  const body = await resolveProviderTemplateId(application, providerAccountId, command.operationKey, command.content.locale);
+  const rendered = renderWhatsAppTextTemplate(body, command.content.parameters);
+  return rendered.ok ? { ok: true as const, text: rendered.text } : { ok: false as const, rejectionCode: rendered.rejectionCode };
 }
 
 /**
@@ -138,11 +212,38 @@ async function metaRequestBody(application: ExternalApplicationContext, provider
   if (command.content.type === "text") {
     return { messaging_product: "whatsapp", to, type: "text", biz_opaque_callback_data: operationId, text: { body: command.content.text } };
   }
+  const providerTemplateId = await resolveProviderTemplateId(application, providerAccountId, command.operationKey, command.content.locale);
+  const parameters = command.content.parameters.map((text) => ({ type: "text", text }));
+  return {
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    biz_opaque_callback_data: operationId,
+    template: {
+      name: providerTemplateId,
+      language: { code: command.content.locale },
+      ...(parameters.length > 0 ? { components: [{ type: "body", parameters }] } : {}),
+    },
+  };
+}
+
+/**
+ * Nothing left the process, so this is settled, not uncertain. Classifying it
+ * as an unknown submission would park a purely local misconfiguration in the
+ * manual reconciliation queue, where retrying can never resolve it.
+ */
+class MissingTemplateConfigurationError extends Error {}
+
+/**
+ * A provider-scoped row wins over the application default so a rail can stage
+ * its own wording without disturbing the account still serving traffic.
+ */
+async function resolveProviderTemplateId(application: ExternalApplicationContext, providerAccountId: string, operationKey: string, locale: string) {
   let template = await prisma.applicationTemplateConfig.findFirst({
     where: {
       applicationId: application.id,
-      operationKey: command.operationKey,
-      locale: command.content.locale,
+      operationKey,
+      locale,
       active: true,
       providerAccountId,
     },
@@ -152,27 +253,16 @@ async function metaRequestBody(application: ExternalApplicationContext, provider
     template = await prisma.applicationTemplateConfig.findFirst({
       where: {
         applicationId: application.id,
-        operationKey: command.operationKey,
-        locale: command.content.locale,
+        operationKey,
+        locale,
         active: true,
         providerAccountId: null,
       },
       select: { providerTemplateId: true },
     });
   }
-  if (!template) throw new Error("No active external application template configuration.");
-  const parameters = command.content.parameters.map((text) => ({ type: "text", text }));
-  return {
-    messaging_product: "whatsapp",
-    to,
-    type: "template",
-    biz_opaque_callback_data: operationId,
-    template: {
-      name: template.providerTemplateId,
-      language: { code: command.content.locale },
-      ...(parameters.length > 0 ? { components: [{ type: "body", parameters }] } : {}),
-    },
-  };
+  if (!template) throw new MissingTemplateConfigurationError();
+  return template.providerTemplateId;
 }
 
 function parseCommandPayload(value: string) {

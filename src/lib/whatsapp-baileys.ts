@@ -19,6 +19,48 @@ type EvolutionErrorBody = {
   };
 };
 
+/**
+ * Carries the HTTP status so callers can tell a definitive refusal from an
+ * ambiguous failure. Without it a wrong phone number and a network timeout look
+ * identical, and every unreachable parent lands in manual reconciliation.
+ */
+export class EvolutionApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly recipientUnreachable: boolean,
+  ) {
+    super(message);
+    this.name = "EvolutionApiError";
+  }
+
+  /**
+   * Allow-list, never a status range. Evolution answers 400 both for "this
+   * number has no WhatsApp account" and for "the session is currently
+   * disconnected", and treating the second as final would permanently drop
+   * every notification sent while the school's phone was offline.
+   */
+  get deterministic() {
+    return this.recipientUnreachable;
+  }
+}
+
+function isRecipientUnreachable(body: string) {
+  try {
+    const parsed = JSON.parse(body) as EvolutionErrorBody;
+    const messages = parsed.response?.message ?? parsed.message;
+    const firstMessage = Array.isArray(messages) ? messages[0] : messages;
+    return (
+      !!firstMessage
+      && typeof firstMessage === "object"
+      && "exists" in firstMessage
+      && (firstMessage as EvolutionMessageError).exists === false
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getEvolutionErrorMessage(status: number, body: string) {
   try {
     const parsed = JSON.parse(body) as EvolutionErrorBody;
@@ -57,8 +99,18 @@ async function evoFetch<T = unknown>(
     throw new Error("Evolution API non configurée.");
   }
 
+  // The api key and every parent phone number and message body travel in this
+  // request. Plain HTTP would put them, and the key that controls every school
+  // session, on the wire in clear.
+  if (process.env.NODE_ENV === "production" && !EVO_URL.startsWith("https://")) {
+    throw new Error("EVOLUTION_API_URL doit etre en HTTPS en production.");
+  }
+
   const res = await fetch(`${EVO_URL}${path}`, {
     ...options,
+    // Evolution proxies a WhatsApp Web session that can hang through a
+    // reconnection, and the caller holds a lease while it waits.
+    signal: AbortSignal.timeout(10_000),
     headers: {
       "Content-Type": "application/json",
       apikey: EVO_KEY,
@@ -68,7 +120,11 @@ async function evoFetch<T = unknown>(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(getEvolutionErrorMessage(res.status, body));
+    throw new EvolutionApiError(
+      getEvolutionErrorMessage(res.status, body),
+      res.status,
+      isRecipientUnreachable(body),
+    );
   }
 
   const text = await res.text();
@@ -247,11 +303,15 @@ export async function sendMedia(
 export async function setWebhook(
   instanceName: string,
   webhookUrl: string,
+  headers?: Record<string, string>,
 ) {
   return evoFetch(`/webhook/set/${instanceName}`, {
     method: "POST",
     body: JSON.stringify({
       url: webhookUrl,
+      // Carrying the inbound secret here keeps it out of the URL, where it would
+      // otherwise land in every access log along the way.
+      ...(headers ? { headers } : {}),
       events: [
         "SEND_MESSAGE",
         "CONNECTION_UPDATE",

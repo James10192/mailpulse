@@ -40,7 +40,7 @@ const CALLBACK_LEASE_MS = 45_000;
 export const CALLBACK_CRON_CONCURRENCY = 4;
 export const CALLBACK_CRON_DEADLINE_MS = 52_000;
 
-type InboundMessage = {
+export type InboundMessage = {
   sender: string;
   text: string;
   providerMessageId: string;
@@ -81,12 +81,7 @@ export async function receiveMetaWebhook(application: ExternalApplicationContext
   if (!provider) return { status: 503 as const };
   if (!hasValidMetaHmac(request.headers.get("x-hub-signature-256"), provider.appSecret, body)) return { status: 401 as const };
 
-  for (const message of getInboundTextMessages(payload, provider.senderId)) {
-    await findOrCreateInboundOperation(application, provider.id, message);
-    if (isStopCommand(message.text)) {
-      await applyInboundStopToPhoneContacts({ organizationId: application.organizationId, phone: message.sender, channel: "WHATSAPP" });
-    }
-  }
+  await recordInboundTextMessages(application, provider.id, getInboundTextMessages(payload, provider.senderId));
   // Each status opens its own serializable transaction, so a single oversized
   // Meta batch must not run past the function timeout and be redelivered whole.
   for (const update of parseMetaStatusUpdates(payload, provider.senderId).slice(0, MAX_STATUS_UPDATES_PER_REQUEST)) {
@@ -250,6 +245,34 @@ function getInboundTextMessages(payload: unknown, senderId: string, now = new Da
   return messages;
 }
 
+/**
+ * Shared by every WhatsApp transport: Meta signs its webhooks while Evolution
+ * authenticates by token, but once a text message is extracted both record it
+ * the same way, extend the same conversation window and honour the same STOP.
+ */
+/**
+ * Inbound and outbound operations share one uniqueness constraint, and on a
+ * WhatsApp Web session the provider message id is chosen by the sender's own
+ * device. Without this namespace a parent could send a message whose id equals
+ * a school's outbound idempotency key and permanently block that notification.
+ */
+function inboundIdempotencyKey(providerMessageId: string) {
+  return `in:${providerMessageId}`;
+}
+
+export async function recordInboundTextMessages(
+  application: ExternalApplicationContext,
+  providerAccountId: string,
+  messages: readonly InboundMessage[],
+) {
+  for (const message of messages) {
+    await findOrCreateInboundOperation(application, providerAccountId, message);
+    if (isStopCommand(message.text)) {
+      await applyInboundStopToPhoneContacts({ organizationId: application.organizationId, phone: message.sender, channel: "WHATSAPP" });
+    }
+  }
+}
+
 async function findOrCreateInboundOperation(application: ExternalApplicationContext, providerAccountId: string, message: InboundMessage) {
   const payload = JSON.stringify({ event_id: message.providerMessageId, sender: { phone: message.sender }, message: { text: message.text }, timestamp: message.timestamp });
   const recordedAt = new Date();
@@ -272,7 +295,7 @@ async function findOrCreateInboundOperation(application: ExternalApplicationCont
           data: {
             direction: "INBOUND",
             operationKey: "whatsapp.inbound_message",
-            idempotencyKey: message.providerMessageId,
+            idempotencyKey: inboundIdempotencyKey(message.providerMessageId),
             payloadHash: hashExternalApplicationPayload(payload),
             payloadCiphertext: encryptExternalApplicationValue(payload),
             providerMessageId: message.providerMessageId,

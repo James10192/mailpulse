@@ -46,3 +46,60 @@ test("every Meta submission carries the operation id as opaque callback data", (
   // provider response was lost.
   assert.equal(commands.match(/biz_opaque_callback_data: operationId/g)?.length, 2);
 });
+
+// The dispatcher reaches Prisma and the Evolution client through the "@/" alias,
+// which Node's type-strip runner cannot resolve, so its wiring is asserted on the
+// source. The rules it delegates to are covered behaviourally in
+// whatsapp-transport-policy.test.ts.
+
+test("the transport branch is chosen from the resolved provider kind", () => {
+  assert.match(commands, /const provider = await resolveWhatsAppProvider\(application\);/);
+  assert.match(commands, /provider\.kind === "meta"\n\s+\? await submitMetaCommand\(application, provider, payload, operation\.id\)\n\s+: await submitBaileysCommand\(application, provider, payload\);/);
+  // Meta-only resolution would silently ignore an application running on Baileys.
+  assert.doesNotMatch(commands, /resolveMetaProviderAccount/);
+});
+
+test("the 24h service window gate stays specific to the Meta rail", () => {
+  const gate = commands.indexOf("requiresWhatsAppServiceWindow(provider.kind, command.content.type)");
+  const rejected = commands.indexOf('rejectionCode: "whatsapp_service_window_closed"');
+
+  assert.ok(gate >= 0, "the window gate is delegated to the transport policy");
+  assert.ok(rejected > gate, "a closed window still rejects before any submission");
+  // A raw content check here would re-apply the Meta window to WhatsApp Web.
+  assert.doesNotMatch(commands, /if \(command\.content\.type === "text"\) \{\n\s+const windowOpen/);
+});
+
+test("a Baileys template that cannot be rendered is rejected with its own code", () => {
+  assert.match(commands, /const rendered = renderWhatsAppTextTemplate\(body, command\.content\.parameters\);/);
+  assert.match(commands, /rendered\.ok \? \{ ok: true as const, text: rendered\.text \} : \{ ok: false as const, rejectionCode: rendered\.rejectionCode \}/);
+  assert.match(commands, /if \(!body\.ok\) return \{ outcome: "rejected", rejectionCode: body\.rejectionCode \};/);
+  // The durable rejection has to reach the caller instead of the generic code.
+  assert.match(commands, /return \{ status: "rejected" as const, operationId: operation\.id, rejectionCode: submission\.rejectionCode \};/);
+});
+
+test("a Baileys submission we cannot prove failed stays reconcilable", () => {
+  const send = commands.indexOf("await sendText(provider.instanceName, command.recipient, body.text)");
+  const unknown = commands.indexOf('return { outcome: "unknown" };\n  }\n}');
+
+  assert.ok(send >= 0, "text is sent through the Evolution client");
+  assert.ok(unknown > send, "a throw from the Evolution client resolves to unknown, never to a rejection");
+  assert.match(commands, /const messageId = typeof result\.key\?\.id === "string" && result\.key\.id \? result\.key\.id : null;/);
+});
+
+test("an unconfigured Evolution endpoint is refused before an operation exists", () => {
+  const guard = commands.indexOf('if (provider.kind === "baileys" && !isEvolutionConfigured()) return { status: "unavailable" as const };');
+  const operation = commands.indexOf("const operation = await findOrCreateOperation(");
+
+  assert.ok(guard >= 0, "a Baileys dispatch requires a configured Evolution endpoint");
+  // Past this point the command would be stranded in SUBMISSION_UNKNOWN, which
+  // an idempotent retry can never resubmit.
+  assert.ok(operation > guard, "the guard runs before any operation row is created");
+});
+
+test("a durable Baileys rejection is persisted before the caller is answered", () => {
+  const rejected = commands.indexOf('if (submission.outcome === "rejected")');
+  const finalize = commands.indexOf('await finalizeOperation(operation.id, leaseToken, "REJECTED")');
+
+  assert.ok(rejected >= 0, "the submission outcome drives the rejection branch");
+  assert.ok(finalize > rejected, "the operation is finalized before returning the rejection");
+});
