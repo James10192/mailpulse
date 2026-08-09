@@ -133,6 +133,24 @@ Service arrêté, l'instance reste bloquée en `connecting`, les envois partent 
 `redis disconnected`. C'est la panne rencontrée au premier test. Le worker Celery
 de KLASSCI College dépend du même Redis.
 
+**Memurai est en édition Developer, qui s'arrête d'elle-même.** Le journal
+applicatif Windows le dit mot pour mot : « Memurai Developer Edition automatic
+shutdown ». Ce n'est ni la charge ni un bug, c'est la licence, et ça reviendra.
+Le 2026-08-07 cet arrêt a coupé Redis pendant 37 heures, parce qu'aucune action de
+reprise n'était configurée : « démarrage automatique » signifie seulement
+« démarre au boot », jamais « redémarre après un arrêt ».
+
+Les sept services du serveur ont désormais une reprise à 5 s, 15 s puis 60 s :
+
+```bash
+ssh -F deploy/ssh_config klassci "sc.exe failure <service> reset= 86400 actions= restart/5000/restart/15000/restart/60000"
+ssh -F deploy/ssh_config klassci "sc.exe qfailure <service>"
+```
+
+Le gestionnaire de services voit bien cet arrêt comme un échec (évènement 7034,
+« terminated unexpectedly »), donc la reprise se déclenche. Passer en édition
+Enterprise reste la vraie correction si une école en production dépend de Redis.
+
 ```bash
 ssh -F deploy/ssh_config klassci "Get-Service Memurai, mailpulse-evolution"
 ssh -F deploy/ssh_config klassci "Start-Service Memurai; nssm restart mailpulse-evolution"
