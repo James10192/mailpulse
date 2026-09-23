@@ -161,6 +161,7 @@ model Organization {
   applicationTemplateConfigs ApplicationTemplateConfig[]
   externalTransportOperations ExternalTransportOperation[]
   externalConversationWindows ExternalConversationWindow[]
+  phoneVerifications PhoneVerification[]
 
   @@map("organization")
 }
@@ -634,9 +635,57 @@ model IntegrationApiKey {
   organizationId String
   organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   messages       CommunicationMessage[]
+  phoneVerifications PhoneVerification[]
 
   @@index([organizationId, provider, revokedAt])
   @@map("integration_api_key")
+}
+
+enum PhoneVerificationChannel {
+  WHATSAPP
+}
+
+enum PhoneVerificationStatus {
+  PENDING
+  APPROVED
+  EXPIRED
+  MAX_ATTEMPTS
+  CANCELED
+  FAILED
+}
+
+// A one-time code sent to a phone number on behalf of an API client. The code
+// itself is never stored, only a salted HMAC of it: reading the table is not
+// enough to approve a verification.
+model PhoneVerification {
+  id                String                   @id @default(cuid())
+  channel           PhoneVerificationChannel @default(WHATSAPP)
+  phoneNumber       String
+  locale            String                   @default("fr")
+  reference         String?
+  codeHash          String
+  status            PhoneVerificationStatus  @default(PENDING)
+  attempts          Int                      @default(0)
+  expiresAt         DateTime
+  approvedAt        DateTime?
+  canceledAt        DateTime?
+  failedAt          DateTime?
+  provider          String?
+  providerMessageId String?
+  errorMessage      String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  organizationId    String
+  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // Keys are revoked, never deleted: SET NULL only covers a manual purge.
+  apiKeyId          String?
+  apiKey            IntegrationApiKey?       @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, phoneNumber, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([apiKeyId, createdAt])
+  @@map("phone_verification")
 }
 
 enum IntegrationProvider {
