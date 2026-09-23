@@ -117,3 +117,39 @@ test("a provider timeout keeps the verification pending and answers 201", async 
   assert.equal(response.status, 201);
   assert.equal((await response.json()).status, "pending");
 });
+
+test("a provider 429 fails the verification as rate limited and answers 503 with its Retry-After", async () => {
+  stubEvolution(() => new Response("Too Many Requests", { status: 429, headers: { "retry-after": "30" } }));
+
+  const transport = whatsAppVerificationTransport(ORG);
+  const error = await transport.send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "rate_limited");
+  assert.equal(error.retryAfterSeconds, 30);
+
+  const { store, rows } = createMemoryStore();
+  const now = new Date("2026-09-23T10:00:00.000Z");
+  const result = await startVerification(
+    { store, now: () => now, secret: "t".repeat(32) },
+    { organizationId: "org_a", apiKeyId: "key_a", phoneNumber: EXACT, locale: "fr", reference: null, transport },
+  );
+  assert.equal(result.type, "failed");
+  assert.equal(rows[0].status, "FAILED");
+  assert.equal(rows[0].errorCode, "PROVIDER_RATE_LIMITED");
+
+  const response = startVerificationResponse(result, now);
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("retry-after"), "30");
+  const body = await response.json();
+  assert.equal(body.error, "whatsapp_sature");
+  assert.equal(body.retry_after, 30);
+  assert.equal(body.status, "failed");
+});
+
+test("a provider 408 is a timeout, not a rejection", async () => {
+  stubEvolution(() => new Response("Request Timeout", { status: 408 }));
+
+  const error = await whatsAppVerificationTransport(ORG).send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "timeout");
+});

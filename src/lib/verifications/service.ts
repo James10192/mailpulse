@@ -39,7 +39,7 @@ export type StartVerificationResult =
   | { type: "rate_limited"; retryAfterSeconds: number }
   | { type: "busy"; retryAfterSeconds: number }
   | { type: "sent"; verification: PhoneVerification }
-  | { type: "failed"; verification: PhoneVerification };
+  | { type: "failed"; verification: PhoneVerification; retryAfterSeconds: number | null };
 
 async function recordSend(deps: VerificationServiceDeps, verification: PhoneVerification, provider: string, messageId: string | null): Promise<StartVerificationResult> {
   try {
@@ -105,14 +105,14 @@ export async function startVerification(deps: VerificationServiceDeps, input: St
  * that arrives late must work. Neither ever undoes a code approved meanwhile.
  */
 async function recordSendFailure(deps: VerificationServiceDeps, verification: PhoneVerification, provider: string, error: unknown): Promise<StartVerificationResult> {
-  const { errorCode, definite } = classifySendError(error);
+  const { errorCode, definite, retryAfterSeconds } = classifySendError(error);
   if (!definite) {
     const current = await deps.store.markUnconfirmed(verification.id, { provider, errorCode });
     return { type: "sent", verification: current ?? verification };
   }
   const current = await deps.store.markFailed(verification.id, { provider, errorCode, failedAt: deps.now() });
   if (current?.status === "APPROVED") return { type: "sent", verification: current };
-  return { type: "failed", verification: current ?? verification };
+  return { type: "failed", verification: current ?? verification, retryAfterSeconds };
 }
 
 // ─── Check ──────────────────────────────────────────────

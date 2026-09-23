@@ -98,10 +98,15 @@ test("the message follows the requested language", () => {
 
 test("send failures are classified from their structured reason, not their text", () => {
   const failure = (reason: unknown) => Object.assign(new Error("any provider text"), { reason });
-  const ambiguous = (errorCode: string) => ({ errorCode, definite: false });
-  const definite = (errorCode: string) => ({ errorCode, definite: true });
+  const ambiguous = (errorCode: string) => ({ errorCode, definite: false, retryAfterSeconds: null });
+  const definite = (errorCode: string) => ({ errorCode, definite: true, retryAfterSeconds: null });
   assert.deepEqual(classifySendError(failure("recipient_unreachable")), definite("RECIPIENT_UNREACHABLE"));
   assert.deepEqual(classifySendError(failure("rejected")), definite("REJECTED"));
+  assert.deepEqual(classifySendError(failure("rate_limited")), definite("PROVIDER_RATE_LIMITED"));
+  assert.deepEqual(
+    classifySendError(Object.assign(new Error("slow down"), { reason: "rate_limited", retryAfterSeconds: 12 })),
+    { errorCode: "PROVIDER_RATE_LIMITED", definite: true, retryAfterSeconds: 12 },
+  );
   assert.deepEqual(classifySendError(failure("timeout")), ambiguous("TIMEOUT"));
   assert.deepEqual(classifySendError(failure("transport")), ambiguous("TRANSPORT"));
   assert.deepEqual(classifySendError(failure("something else")), ambiguous("TRANSPORT"));

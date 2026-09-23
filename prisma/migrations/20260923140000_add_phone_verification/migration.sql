@@ -3,7 +3,7 @@
 -- salted HMAC of it in "codeHash".
 CREATE TYPE "PhoneVerificationChannel" AS ENUM ('WHATSAPP');
 
-CREATE TYPE "PhoneVerificationError" AS ENUM ('RECIPIENT_UNREACHABLE', 'REJECTED', 'TIMEOUT', 'TRANSPORT');
+CREATE TYPE "PhoneVerificationError" AS ENUM ('RECIPIENT_UNREACHABLE', 'REJECTED', 'PROVIDER_RATE_LIMITED', 'TIMEOUT', 'TRANSPORT');
 
 CREATE TYPE "PhoneVerificationLocale" AS ENUM ('fr', 'en');
 

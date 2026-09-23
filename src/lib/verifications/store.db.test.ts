@@ -105,3 +105,13 @@ test("a right fourth code racing a wrong fifth one always approves", { skip }, a
     assert.equal((await store.find(ORG, id))?.status, "APPROVED");
   }
 });
+
+test("an unconfirmed send never touches a verification that is no longer pending", { skip }, async () => {
+  const started = await start("+2250700000200");
+  const id = started.type === "sent" ? started.verification.id : "";
+  assert.deepEqual(await service.checkVerification(deps(), { organizationId: ORG, id, code: lastCode }), { type: "approved", id });
+
+  const current = await store.markUnconfirmed(id, { provider: "EVOLUTION_API", errorCode: "TIMEOUT" });
+  assert.equal(current?.status, "APPROVED");
+  assert.equal(current?.errorCode, null);
+});

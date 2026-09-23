@@ -44,8 +44,9 @@ export function refusedCheckBody(id: string, status: PhoneVerificationStatus) {
 
 /**
  * 201 whenever a code may have reached the phone, including after a timeout:
- * the verification stays pending and a late code still works. 502 only when the
- * provider definitely refused the send.
+ * the verification stays pending and a late code still works. When nothing was
+ * sent: 503 if the provider was rate limiting (retry later, with its own
+ * Retry-After when it gave one), 502 for a refusal.
  */
 export function startVerificationResponse(result: StartVerificationResult, now: Date) {
   if (result.type === "rate_limited" || result.type === "busy") {
@@ -53,6 +54,12 @@ export function startVerificationResponse(result: StartVerificationResult, now: 
     return errorResponse("trop_de_demandes", 429, { retry_after: retryAfter }, { "Retry-After": String(retryAfter) });
   }
   const verification = serializeVerification(result.verification, now);
+  if (result.type === "failed" && result.verification.errorCode === "PROVIDER_RATE_LIMITED") {
+    const retryAfter = result.retryAfterSeconds;
+    return retryAfter
+      ? Response.json({ ...verification, error: "whatsapp_sature", retry_after: retryAfter }, { status: 503, headers: { "Retry-After": String(retryAfter) } })
+      : Response.json({ ...verification, error: "whatsapp_sature" }, { status: 503 });
+  }
   if (result.type === "failed") return Response.json({ ...verification, error: "envoi_echoue" }, { status: 502 });
   return Response.json(verification, { status: 201 });
 }

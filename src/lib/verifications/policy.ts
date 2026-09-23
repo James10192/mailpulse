@@ -130,6 +130,7 @@ export function buildVerificationMessage(locale: VerificationLocale, code: strin
 const ERROR_BY_REASON = {
   recipient_unreachable: "RECIPIENT_UNREACHABLE",
   rejected: "REJECTED",
+  rate_limited: "PROVIDER_RATE_LIMITED",
   timeout: "TIMEOUT",
   transport: "TRANSPORT",
 } as const satisfies Record<WhatsAppFailureReason, PhoneVerificationError>;
@@ -148,7 +149,21 @@ function failureReason(error: unknown): WhatsAppFailureReason {
   return reason ?? "transport";
 }
 
-export type SendFailure = { errorCode: PhoneVerificationError; definite: boolean };
+export type SendFailure = {
+  errorCode: PhoneVerificationError;
+  /** Nothing was sent: the verification fails. Otherwise the code may still arrive. */
+  definite: boolean;
+  /** The provider's own delay before a new attempt, when it gave one. */
+  retryAfterSeconds: number | null;
+};
+
+const NOTHING_SENT: ReadonlySet<WhatsAppFailureReason> = new Set(["recipient_unreachable", "rejected", "rate_limited"]);
+
+function providerRetryAfter(error: unknown) {
+  if (typeof error !== "object" || error === null || !("retryAfterSeconds" in error)) return null;
+  const value = error.retryAfterSeconds;
+  return typeof value === "number" && value > 0 ? value : null;
+}
 
 /**
  * Reduces a send failure to a stored code. Only a definite refusal fails the
@@ -158,5 +173,5 @@ export type SendFailure = { errorCode: PhoneVerificationError; definite: boolean
  */
 export function classifySendError(error: unknown): SendFailure {
   const reason = failureReason(error);
-  return { errorCode: ERROR_BY_REASON[reason], definite: reason === "recipient_unreachable" || reason === "rejected" };
+  return { errorCode: ERROR_BY_REASON[reason], definite: NOTHING_SENT.has(reason), retryAfterSeconds: providerRetryAfter(error) };
 }

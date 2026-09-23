@@ -649,12 +649,13 @@ enum PhoneVerificationChannel {
 }
 
 // Why a send did not go through cleanly, from the provider's structured signals.
-// RECIPIENT_UNREACHABLE and REJECTED are definite refusals (the verification
-// fails); TIMEOUT and TRANSPORT are ambiguous (it stays pending, the code may
-// still arrive).
+// RECIPIENT_UNREACHABLE, REJECTED and PROVIDER_RATE_LIMITED mean nothing was
+// sent (the verification fails); TIMEOUT and TRANSPORT are ambiguous (it stays
+// pending, the code may still arrive).
 enum PhoneVerificationError {
   RECIPIENT_UNREACHABLE
   REJECTED
+  PROVIDER_RATE_LIMITED
   TIMEOUT
   TRANSPORT
 }
