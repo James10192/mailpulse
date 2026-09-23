@@ -78,7 +78,7 @@ export function BaileysAccountDialog({
               id={`instance-${applicationId}`}
               value={instanceName}
               onChange={(event) => setInstanceName(event.target.value)}
-              placeholder="klassci-parents"
+              placeholder="mon-application-whatsapp"
               required
               pattern="[a-zA-Z0-9][a-zA-Z0-9._\-]{1,63}"
               className="h-11 font-mono"

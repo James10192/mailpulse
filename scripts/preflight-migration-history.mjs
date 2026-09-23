@@ -16,6 +16,10 @@ const connectionString = databaseUrl.includes("sslmode=require") && !databaseUrl
   : databaseUrl;
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
+// Tables left behind by retired migrations, named exactly. LIKE patterns were
+// looser than they looked ("_" matches any character).
+const LEGACY_TABLES = ["klassci_parent_chatbot_command"];
+
 const migrationsDirectory = resolve(process.cwd(), "prisma/migrations");
 const localMigrations = new Set(
   readdirSync(migrationsDirectory).filter((entry) => statSync(resolve(migrationsDirectory, entry)).isDirectory()),
@@ -35,7 +39,7 @@ try {
     SELECT "tablename"
     FROM "pg_tables"
     WHERE "schemaname" = 'public'
-      AND ("tablename" LIKE 'parent_chatbot%' OR "tablename" LIKE 'klassci%')
+      AND "tablename" = ANY(${LEGACY_TABLES})
     ORDER BY "tablename"
   `;
 
