@@ -9,8 +9,7 @@ import {
   metaOperationStatusTransition,
   metaStatusEventId,
   parseMetaStatusUpdates,
-  // @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-} from "./message-status.ts";
+} from "./message-status";
 
 const SENDER_ID = "106540352242922";
 const NOW = new Date("2026-08-07T12:00:00.000Z");

@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { applyStopPreference, canReceiveChannel, isStopCommand } from "./consent.ts";
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { compileMetaTemplateDispatch } from "./template-parameters.ts";
+import { applyStopPreference, canReceiveChannel, isStopCommand } from "./consent";
+import { compileMetaTemplateDispatch } from "./template-parameters";
 
 test("STOP only disables its channel and remains idempotent", () => {
   const metadata = applyStopPreference(applyStopPreference({}, "SMS"), "SMS");

@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { MESSAGE_STATUSES, OUTCOME_ORDER, messageStatusLabel, messageStatusTone, statusesForOutcome } from "./message-outcomes.ts";
+import { MESSAGE_STATUSES, OUTCOME_ORDER, messageStatusLabel, messageStatusTone, statusesForOutcome } from "./message-outcomes";
 
 test("every MessageStatus of the Prisma schema has a French label and an outcome", () => {
   const schema = readFileSync(new URL("../../../prisma/schema.prisma", import.meta.url), "utf8");

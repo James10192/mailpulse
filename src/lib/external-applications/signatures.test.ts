@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { createVersionedSignature, hasValidVersionedSignature, isFreshExternalApplicationTimestamp, parseVersionedSignature } from "./signatures.ts";
+import { createVersionedSignature, hasValidVersionedSignature, isFreshExternalApplicationTimestamp, parseVersionedSignature } from "./signatures";
 
 test("accepts only a versioned signature for the matching key id", () => {
   const signature = createVersionedSignature("rotation-2", "a secret", "1700000000", "payload");

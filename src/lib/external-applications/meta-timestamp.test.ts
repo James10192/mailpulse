@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { parseMetaMessageTimestamp } from "./meta-timestamp.ts";
+import { parseMetaMessageTimestamp } from "./meta-timestamp";
 
 test("accepts Meta timestamps in seconds and milliseconds", () => {
   const now = new Date("2026-08-01T12:00:00.000Z");

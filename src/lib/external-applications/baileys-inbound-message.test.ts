@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { getInboundTextMessages } from "./baileys-inbound-message.ts";
+import { getInboundTextMessages } from "./baileys-inbound-message";
 
 const NOW = new Date("2026-08-08T10:00:00.000Z");
 
