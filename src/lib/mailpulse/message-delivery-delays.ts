@@ -1,80 +1,48 @@
-import type { Prisma } from "@/generated/prisma";
+import type { Prisma, PrismaClient } from "@/generated/prisma";
 
 /**
  * Delivery delays are provider notices, not status changes: the message stays
- * SENT while the provider keeps retrying. They are kept in the audit log, tied
- * to the message, so an integrator can see why a message is slow to deliver.
+ * SENT while the provider keeps retrying. Each one is stored once, keyed by the
+ * provider's own event identifier, so a redelivered webhook is a no-op.
  */
-const DELIVERY_DELAYED_ACTION = "message.delivery_delayed";
-const MESSAGE_RESOURCE_TYPE = "communication_message";
-const MAX_LISTED_DELAYS = 20;
-
-type DelayNotice = {
+export type DelayNotice = {
   organizationId: string;
   messageId: string;
-  provider: string;
-  providerMessageId: string;
+  provider: "RESEND";
+  providerEventId: string;
   occurredAt: Date;
   reason: string | null;
 };
 
-type AuditLogReader = Pick<Prisma.TransactionClient, "auditLog">;
+const MAX_LISTED_DELAYS = 20;
 
-/** Records a delay once per provider event: a redelivered webhook is a no-op. */
-export async function recordDeliveryDelay(tx: Prisma.TransactionClient, notice: DelayNotice) {
-  const occurredAt = notice.occurredAt.toISOString();
-  const existing = await tx.auditLog.findFirst({
-    where: {
-      organizationId: notice.organizationId,
-      action: DELIVERY_DELAYED_ACTION,
-      resourceType: MESSAGE_RESOURCE_TYPE,
-      resourceId: notice.messageId,
-      metadata: { path: ["occurred_at"], equals: occurredAt },
-    },
-    select: { id: true },
-  });
-  if (existing) return false;
-
-  await tx.auditLog.create({
-    data: {
-      organizationId: notice.organizationId,
-      actorType: "provider",
-      actorId: notice.provider.toLowerCase(),
-      action: DELIVERY_DELAYED_ACTION,
-      resourceType: MESSAGE_RESOURCE_TYPE,
-      resourceId: notice.messageId,
-      metadata: {
-        occurred_at: occurredAt,
-        reason: notice.reason,
-        provider: notice.provider.toLowerCase(),
-        provider_message_id: notice.providerMessageId,
-      },
-    },
-  });
-  return true;
-}
-
-export async function listDeliveryDelays(db: AuditLogReader, organizationId: string, messageId: string) {
-  const entries = await db.auditLog.findMany({
-    where: {
-      organizationId,
-      action: DELIVERY_DELAYED_ACTION,
-      resourceType: MESSAGE_RESOURCE_TYPE,
-      resourceId: messageId,
-    },
-    orderBy: { createdAt: "desc" },
-    take: MAX_LISTED_DELAYS,
-    select: { metadata: true, createdAt: true },
-  });
-  return entries.map((entry) => serializeDelay(entry.metadata, entry.createdAt));
-}
-
-function serializeDelay(metadata: unknown, recordedAt: Date) {
-  const record = metadata && typeof metadata === "object" && !Array.isArray(metadata)
-    ? (metadata as Record<string, unknown>)
-    : {};
+export function deliveryDelayRow(notice: DelayNotice): Prisma.CommunicationMessageEventCreateManyInput {
   return {
-    occurred_at: typeof record.occurred_at === "string" ? record.occurred_at : recordedAt.toISOString(),
-    reason: typeof record.reason === "string" ? record.reason : null,
+    type: "DELIVERY_DELAYED",
+    organizationId: notice.organizationId,
+    messageId: notice.messageId,
+    provider: notice.provider,
+    providerEventId: notice.providerEventId,
+    occurredAt: notice.occurredAt,
+    reason: notice.reason,
   };
 }
+
+export async function recordDeliveryDelay(tx: Prisma.TransactionClient, notice: DelayNotice) {
+  const result = await tx.communicationMessageEvent.createMany({
+    data: [deliveryDelayRow(notice)],
+    skipDuplicates: true,
+  });
+  return result.count === 1;
+}
+
+export function listDeliveryDelays(db: Pick<PrismaClient, "communicationMessageEvent">, messageId: string) {
+  return db.communicationMessageEvent.findMany({
+    where: { messageId, type: "DELIVERY_DELAYED" },
+    orderBy: { occurredAt: "desc" },
+    take: MAX_LISTED_DELAYS,
+    select: { occurredAt: true, reason: true },
+  });
+}
+
+export type DeliveryDelay = Awaited<ReturnType<typeof listDeliveryDelays>>[number];

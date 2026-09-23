@@ -1,61 +1,18 @@
 import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
 
-import type { Prisma } from "@/generated/prisma";
 import { recalculateCampaignAnalytics } from "@/lib/campaign-analytics";
 import { convexServer } from "@/lib/convex-server";
-import { recordDeliveryDelay } from "@/lib/mailpulse/message-delivery-delays";
-import {
-  resendEventReason,
-  resendMessageTransition,
-  shouldRecordDeliveryDelay,
-} from "@/lib/mailpulse/resend-message-status";
+import { parseResendWebhookPayload, type ResendEventType } from "@/lib/mailpulse/resend-webhook-payload";
+import { processResendDelivery, type ResendDelivery } from "@/lib/mailpulse/resend-webhook-processing";
 import { prisma } from "@/lib/prisma";
 import { resend } from "@/lib/resend";
 import { api } from "../../../../../convex/_generated/api";
 
-interface ResendWebhookEvent {
-  type: string;
-  created_at: string;
-  data: {
-    email_id: string;
-    from: string;
-    to: string[];
-    subject: string;
-    headers?: { name: string; value: string }[];
-    tags?: Record<string, string> | { name: string; value: string }[];
-    bounce?: { message?: string };
-    failed?: { reason?: string };
-    suppressed?: { message?: string; type?: string };
-  };
-}
-
-type EventTagSet = {
-  recipientId: string | null;
-  campaignId: string | null;
-  messageId: string | null;
-};
-
-const convexEventMap: Record<string, "delivered" | "bounced" | "complained"> = {
+const convexEventMap: Partial<Record<ResendEventType, "delivered" | "bounced" | "complained">> = {
   "email.delivered": "delivered",
   "email.bounced": "bounced",
   "email.complained": "complained",
-};
-
-const eventTypeMap: Partial<Record<string, "DELIVERED" | "OPENED" | "CLICKED" | "BOUNCED_HARD" | "COMPLAINED">> = {
-  "email.delivered": "DELIVERED",
-  "email.opened": "OPENED",
-  "email.clicked": "CLICKED",
-  "email.bounced": "BOUNCED_HARD",
-  "email.complained": "COMPLAINED",
-};
-
-const campaignRecipientTimestamp: Partial<Record<string, "deliveredAt" | "openedAt" | "clickedAt" | "bouncedAt" | "complainedAt">> = {
-  "email.delivered": "deliveredAt",
-  "email.opened": "openedAt",
-  "email.clicked": "clickedAt",
-  "email.bounced": "bouncedAt",
-  "email.complained": "complainedAt",
 };
 
 export async function POST(request: NextRequest) {
@@ -66,8 +23,8 @@ export async function POST(request: NextRequest) {
   if (verification instanceof Response) return verification;
 
   try {
-    console.log("Webhook event:", verification.type, verification.data.email_id);
-    await processEvent(verification);
+    console.log("Webhook event:", verification.event.type, verification.event.data.email_id);
+    await processDelivery(verification);
     return new Response("OK", { status: 200 });
   } catch (error) {
     console.error("Webhook processEvent error:", String(error));
@@ -75,158 +32,40 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function verifyWebhook(request: NextRequest, webhookSecret: string) {
+async function verifyWebhook(request: NextRequest, webhookSecret: string): Promise<ResendDelivery | Response> {
   const payload = await request.text();
   const id = request.headers.get("svix-id");
   const timestamp = request.headers.get("svix-timestamp");
   const signature = request.headers.get("svix-signature");
   if (!id || !timestamp || !signature) return new Response("Missing headers", { status: 400 });
 
+  let verified: unknown;
   try {
-    return resend.webhooks.verify({
-      payload,
-      headers: { id, timestamp, signature },
-      webhookSecret,
-    }) as unknown as ResendWebhookEvent;
+    verified = resend.webhooks.verify({ payload, headers: { id, timestamp, signature }, webhookSecret });
   } catch (error) {
     console.error("Webhook verify error:", String(error));
     return new Response("Invalid signature", { status: 400 });
   }
+
+  const parsed = parseResendWebhookPayload(verified);
+  if (parsed.kind === "unsupported") return new Response("Event ignored", { status: 200 });
+  if (parsed.kind === "invalid") {
+    console.error("Webhook payload invalid:", parsed.issues);
+    return new Response("Invalid payload", { status: 400 });
+  }
+  return { event: parsed.event, deliveryId: id, receivedAt: new Date() };
 }
 
-async function processEvent(event: ResendWebhookEvent) {
-  const tags = eventTags(event.data.tags);
+async function processDelivery(delivery: ResendDelivery) {
   const result = await prisma.$transaction(
-    (tx) => processDatabaseEvent(tx, event, tags),
+    (tx) => processResendDelivery(tx, delivery),
     { isolationLevel: "Serializable" },
   );
-  if (result.changed) await syncExternalEffects(event.type, result.organizationId, tags.campaignId);
-}
-
-async function processDatabaseEvent(
-  tx: Prisma.TransactionClient,
-  event: ResendWebhookEvent,
-  tags: EventTagSet,
-) {
-  const communication = await reconcileCommunicationMessage(tx, event, tags.messageId);
-  const recipient = tags.recipientId
-    ? await tx.campaignRecipient.findFirst({
-        where: { id: tags.recipientId, ...(tags.campaignId ? { campaignId: tags.campaignId } : {}) },
-        select: { contactId: true },
-      })
-    : null;
-  const contactId = communication.contactId ?? recipient?.contactId ?? null;
-  const contact = contactId ? await tx.contact.findUnique({ where: { id: contactId } }) : null;
-  if (!contact) return { changed: communication.changed, organizationId: communication.organizationId };
-
-  const campaignChanged = tags.recipientId
-    ? await applyCampaignEvent(tx, event, contact.id, tags.recipientId)
-    : false;
-  await applyContactPreferenceEvent(tx, event.type, contact.id);
-  return { changed: communication.changed || campaignChanged, organizationId: contact.organizationId };
-}
-
-async function reconcileCommunicationMessage(
-  tx: Prisma.TransactionClient,
-  event: ResendWebhookEvent,
-  messageId: string | null,
-) {
-  const message = await tx.communicationMessage.findFirst({
-    where: messageId
-      ? {
-          id: messageId,
-          channel: "EMAIL",
-          provider: { in: ["RESEND", "UNSPECIFIED"] },
-          OR: [{ providerMessageId: null }, { providerMessageId: event.data.email_id }],
-        }
-      : { channel: "EMAIL", provider: "RESEND", providerMessageId: event.data.email_id },
-    select: {
-      id: true,
-      status: true,
-      contactId: true,
-      organizationId: true,
-      providerMessageId: true,
-      deliveredAt: true,
-      readAt: true,
-    },
-  });
-  if (!message) return { changed: false, contactId: null, organizationId: null };
-
-  const occurredAt = eventTime(event);
-  const reason = resendEventReason(event.type, event.data);
-  if (shouldRecordDeliveryDelay(event.type, message.status)) {
-    await recordDeliveryDelay(tx, {
-      organizationId: message.organizationId,
-      messageId: message.id,
-      provider: "RESEND",
-      providerMessageId: event.data.email_id,
-      occurredAt,
-      reason,
-    });
-  }
-  const transition = resendMessageTransition(event.type, occurredAt, message, { reason });
-  const update = await tx.communicationMessage.updateMany({
-    where: { id: message.id, status: message.status },
-    data: { provider: "RESEND", providerMessageId: event.data.email_id, ...(transition ?? {}) },
-  });
-  return {
-    changed: update.count === 1 && (Boolean(transition) || message.providerMessageId !== event.data.email_id),
-    contactId: message.contactId,
-    organizationId: message.organizationId,
-  };
-}
-
-async function applyCampaignEvent(
-  tx: Prisma.TransactionClient,
-  event: ResendWebhookEvent,
-  contactId: string,
-  recipientId: string,
-) {
-  const mappedType = eventTypeMap[event.type];
-  if (!mappedType) return false;
-  const existing = await tx.emailEvent.findFirst({
-    where: { type: mappedType, recipientId, contactId },
-    select: { id: true },
-  });
-  if (!existing) {
-    await tx.emailEvent.create({
-      data: { type: mappedType, contactId, recipientId, metadata: { emailId: event.data.email_id } },
-    });
-  }
-
-  const timestampField = campaignRecipientTimestamp[event.type];
-  if (timestampField) {
-    await tx.campaignRecipient.updateMany({
-      where: { id: recipientId },
-      data: { [timestampField]: eventTime(event) },
-    });
-  }
-  return !existing;
-}
-
-async function applyContactPreferenceEvent(
-  tx: Prisma.TransactionClient,
-  eventType: string,
-  contactId: string,
-) {
-  if (eventType === "email.bounced") {
-    await tx.contact.update({
-      where: { id: contactId },
-      data: { subscribed: false, bounceType: "hard" },
-    });
-  } else if (eventType === "email.suppressed") {
-    // Resend only suppresses an address after a hard bounce or a complaint.
-    await tx.contact.update({
-      where: { id: contactId },
-      data: { subscribed: false, bounceType: "suppressed" },
-    });
-  } else if (eventType === "email.complained") {
-    await tx.contact.update({ where: { id: contactId }, data: { subscribed: false } });
-  }
+  if (result.changed) await syncExternalEffects(delivery.event.type, result.organizationId, result.campaignId);
 }
 
 async function syncExternalEffects(
-  eventType: string,
+  eventType: ResendEventType,
   organizationId: string | null,
   campaignId: string | null,
 ) {
@@ -251,23 +90,4 @@ async function updateCampaignAnalytics(campaignId: string) {
     );
   }
   revalidatePath("/dashboard/campaigns");
-}
-
-function eventTime(event: ResendWebhookEvent) {
-  const occurredAt = new Date(event.created_at);
-  return Number.isNaN(occurredAt.getTime()) ? new Date() : occurredAt;
-}
-
-function eventTags(tags: ResendWebhookEvent["data"]["tags"]): EventTagSet {
-  return {
-    recipientId: getTagValue(tags, "recipient_id"),
-    campaignId: getTagValue(tags, "campaign_id"),
-    messageId: getTagValue(tags, "message_id"),
-  };
-}
-
-function getTagValue(tags: ResendWebhookEvent["data"]["tags"], name: string) {
-  if (!tags) return null;
-  if (Array.isArray(tags)) return tags.find((tag) => tag.name === name)?.value ?? null;
-  return tags[name] ?? null;
 }

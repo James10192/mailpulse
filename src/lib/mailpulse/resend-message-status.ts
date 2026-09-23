@@ -1,127 +1,131 @@
-export type ReconciledEmailStatus = "DELIVERED" | "READ" | "FAILED";
+import type { MessageStatus } from "@/generated/prisma";
+
+import type { ResendEventType } from "./resend-webhook-payload";
 
 type CurrentEmailMessage = {
-  status: string;
+  status: MessageStatus;
   deliveredAt: Date | null;
   readAt: Date | null;
 };
 
-/** Provider detail carried by a Resend event, already extracted from its payload. */
-export type ResendEventDetail = {
-  reason?: string | null;
-};
+/**
+ * Statuses whose outcome is still open: the provider may still report delivery,
+ * failure or delay. Every other status is settled — reached the recipient
+ * (DELIVERED, READ), failed, cancelled, or closed by an operator (RECONCILED,
+ * DUPLICATE_CONFIRMED) or never sent (TEMPLATE_REQUIRED) — and a late provider
+ * event must not reopen it.
+ */
+const OPEN_STATUSES: ReadonlySet<MessageStatus> = new Set<MessageStatus>([
+  "QUEUED",
+  "PROCESSING",
+  "RETRYING",
+  "SUBMISSION_UNKNOWN",
+  "SENT",
+]);
 
-type FailureEvent = "email.bounced" | "email.complained" | "email.suppressed" | "email.failed";
-
+const OPEN_OR_DELIVERED: ReadonlySet<MessageStatus> = new Set<MessageStatus>([...OPEN_STATUSES, "DELIVERED"]);
+const NONE: ReadonlySet<MessageStatus> = new Set<MessageStatus>();
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 
-const FAILURES: Record<FailureEvent, { errorCode: string; message: string }> = {
+export function isOutcomeOpen(status: MessageStatus) {
+  return OPEN_STATUSES.has(status);
+}
+
+type Rule =
+  | { kind: "delivered" | "read"; from: ReadonlySet<MessageStatus> }
+  | { kind: "failed"; from: ReadonlySet<MessageStatus>; errorCode: string; format: (reason: string | null) => string }
+  | { kind: "delay"; from: ReadonlySet<MessageStatus> }
+  | { kind: "ignored"; from: ReadonlySet<MessageStatus> };
+
+const RULES: Record<ResendEventType, Rule> = {
+  "email.sent": { kind: "ignored", from: NONE },
+  "email.delivered": { kind: "delivered", from: OPEN_STATUSES },
+  "email.opened": { kind: "read", from: OPEN_OR_DELIVERED },
+  "email.clicked": { kind: "read", from: OPEN_OR_DELIVERED },
+  "email.delivery_delayed": { kind: "delay", from: OPEN_STATUSES },
   "email.bounced": {
+    kind: "failed",
+    from: OPEN_STATUSES,
     errorCode: "email_bounced",
-    message: "Resend signale que l'email a rebondi.",
+    format: (reason) => withReason("Resend signale que l'email a rebondi.", reason),
   },
   "email.complained": {
+    kind: "failed",
+    from: OPEN_STATUSES,
     errorCode: "email_complained",
-    message: "Resend signale une plainte du destinataire.",
+    format: () => "Resend signale une plainte du destinataire.",
   },
   "email.suppressed": {
+    kind: "failed",
+    from: OPEN_STATUSES,
     errorCode: "email_suppressed",
-    message: "Resend n'a pas envoyé l'email : l'adresse figure sur sa liste de suppression.",
+    format: (reason) => withReason("Resend n'a pas envoyé l'email : l'adresse figure sur sa liste de suppression.", reason),
   },
   "email.failed": {
+    kind: "failed",
+    from: OPEN_STATUSES,
     errorCode: "email_failed",
-    message: "Resend n'a pas pu envoyer l'email.",
+    format: (reason) => withReason("Resend n'a pas pu envoyer l'email.", reason),
   },
 };
 
-/** Statuses after which no provider event may change the message any more. */
-const FINAL_STATUSES = new Set(["FAILED", "CANCELLED"]);
-/** Statuses that prove the email reached the recipient. */
-const REACHED_STATUSES = new Set(["DELIVERED", "READ"]);
+export type ResendClassification =
+  | { kind: "status"; data: StatusChange }
+  | { kind: "delay" }
+  | null;
 
-export function resendMessageTransition(
-  eventType: string,
-  occurredAt: Date,
-  message: CurrentEmailMessage,
-  detail: ResendEventDetail = {},
-) {
-  if (!canApplyTransition(message.status, eventType)) return null;
-
-  if (eventType === "email.delivered") {
-    return {
-      status: "DELIVERED" as const,
-      deliveredAt: message.deliveredAt ?? occurredAt,
-      errorCode: null,
-      errorMessage: null,
-    };
-  }
-
-  if (eventType === "email.opened" || eventType === "email.clicked") {
-    return {
-      status: "READ" as const,
-      deliveredAt: message.deliveredAt ?? occurredAt,
-      readAt: message.readAt ?? occurredAt,
-      errorCode: null,
-      errorMessage: null,
-    };
-  }
-
-  if (isFailureEvent(eventType)) {
-    const failure = FAILURES[eventType];
-    return {
-      status: "FAILED" as const,
-      failedAt: occurredAt,
-      errorCode: failure.errorCode,
-      errorMessage: failureMessage(eventType, failure.message, detail.reason),
-    };
-  }
-
-  return null;
-}
+type StatusChange =
+  | { status: "DELIVERED"; deliveredAt: Date; errorCode: null; errorMessage: null }
+  | { status: "READ"; deliveredAt: Date; readAt: Date; errorCode: null; errorMessage: null }
+  | { status: "FAILED"; failedAt: Date; errorCode: string; errorMessage: string };
 
 /**
- * A delivery delay never changes the status: the provider is still retrying.
- * It is only worth recording while the outcome is open. Once the email is
- * delivered, read or definitively failed, a late delay notice is stale.
+ * What a Resend event means for a message in its current state: a status
+ * change, a delay worth recording, or nothing (stale, duplicate or irrelevant).
  */
-export function shouldRecordDeliveryDelay(eventType: string, currentStatus: string) {
-  if (eventType !== "email.delivery_delayed") return false;
-  return !FINAL_STATUSES.has(currentStatus) && !REACHED_STATUSES.has(currentStatus);
+export function classifyResendEvent(
+  eventType: ResendEventType,
+  message: CurrentEmailMessage,
+  occurredAt: Date,
+  reason: string | null,
+): ResendClassification {
+  const rule = RULES[eventType];
+  if (!rule.from.has(message.status)) return null;
+
+  switch (rule.kind) {
+    case "ignored":
+      return null;
+    case "delay":
+      return { kind: "delay" };
+    case "delivered":
+      return {
+        kind: "status",
+        data: { status: "DELIVERED", deliveredAt: message.deliveredAt ?? occurredAt, errorCode: null, errorMessage: null },
+      };
+    case "read":
+      return {
+        kind: "status",
+        data: {
+          status: "READ",
+          deliveredAt: message.deliveredAt ?? occurredAt,
+          readAt: message.readAt ?? occurredAt,
+          errorCode: null,
+          errorMessage: null,
+        },
+      };
+    case "failed":
+      return {
+        kind: "status",
+        data: {
+          status: "FAILED",
+          failedAt: occurredAt,
+          errorCode: rule.errorCode,
+          errorMessage: rule.format(reason).slice(0, MAX_ERROR_MESSAGE_LENGTH),
+        },
+      };
+  }
 }
 
-/** Resend puts the human-readable reason in a different object per event type. */
-export function resendEventReason(eventType: string, data: unknown): string | null {
-  const payload = asRecord(data);
-  const candidates: Record<string, unknown> = {
-    "email.suppressed": asRecord(payload.suppressed).message,
-    "email.failed": asRecord(payload.failed).reason,
-    "email.bounced": asRecord(payload.bounce).message,
-    "email.delivery_delayed": asRecord(payload.delivery_delayed).message ?? asRecord(payload.delay).message,
-  };
-  const value = candidates[eventType];
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function canApplyTransition(currentStatus: string, eventType: string) {
-  if (FINAL_STATUSES.has(currentStatus)) return false;
-  if (eventType === "email.delivered") return !REACHED_STATUSES.has(currentStatus);
-  if (eventType === "email.opened" || eventType === "email.clicked") return currentStatus !== "READ";
-  if (REACHED_STATUSES.has(currentStatus)) return false;
-  return isFailureEvent(eventType);
-}
-
-function isFailureEvent(eventType: string): eventType is FailureEvent {
-  return Object.hasOwn(FAILURES, eventType);
-}
-
-function failureMessage(eventType: FailureEvent, fallback: string, reason: string | null | undefined) {
-  if (!reason || eventType === "email.bounced" || eventType === "email.complained") return fallback;
-  const message = eventType === "email.failed"
-    ? `Resend n'a pas pu envoyer l'email (motif : ${reason}).`
-    : `${fallback} Motif : ${reason}`;
-  return message.slice(0, MAX_ERROR_MESSAGE_LENGTH);
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+function withReason(message: string, reason: string | null) {
+  return reason ? `${message} Motif : ${reason}` : message;
 }
