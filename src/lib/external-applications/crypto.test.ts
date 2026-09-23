@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { decryptExternalApplicationValue, encryptExternalApplicationValue, hashExternalApplicationPayload } from "./crypto.ts";
+import { decryptExternalApplicationValue, encryptExternalApplicationValue, hashExternalApplicationPayload } from "./crypto";
 
 process.env.EXTERNAL_APPLICATION_KEK = Buffer.alloc(32, 7).toString("base64");
 

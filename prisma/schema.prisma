@@ -149,6 +149,7 @@ model Organization {
   conversations Conversation[]
   messages CommunicationMessage[]
   smsDeliveryReceiptInboxEntries SmsDeliveryReceiptInbox[]
+  communicationMessageEvents CommunicationMessageEvent[]
   webhooks WebhookEndpoint[]
   webhookDeliveries WebhookDelivery[]
   idempotencyRecords IdempotencyRecord[]
@@ -423,6 +424,8 @@ enum EmailEventType {
   BOUNCED_SOFT
   BOUNCED_HARD
   COMPLAINED
+  FAILED
+  SUPPRESSED
   UNSUBSCRIBED
 }
 
@@ -868,6 +871,7 @@ model CommunicationMessage {
 
   webhookDeliveries     WebhookDelivery[]
   smsDeliveryReceiptInboxEntries SmsDeliveryReceiptInbox[] @relation("SmsDeliveryReceiptMessage")
+  events                CommunicationMessageEvent[]
 
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, status, createdAt])
@@ -880,6 +884,31 @@ model CommunicationMessage {
   @@unique([organizationId, id])
   @@index([channel, status, nextRetryAt, queuedAt])
   @@map("communication_message")
+}
+
+// Provider notices about a message that do not change its status, such as a
+// delivery delay while the provider keeps retrying. One row per provider event.
+model CommunicationMessageEvent {
+  id              String                        @id @default(cuid())
+  type            CommunicationMessageEventType
+  occurredAt      DateTime
+  provider        String
+  providerEventId String
+  createdAt       DateTime                      @default(now())
+
+  messageId       String
+  message         CommunicationMessage          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  organizationId  String
+  organization    Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerEventId])
+  @@index([messageId, occurredAt])
+  @@index([organizationId])
+  @@map("communication_message_event")
+}
+
+enum CommunicationMessageEventType {
+  DELIVERY_DELAYED
 }
 
 model SmsDispatchLease {
