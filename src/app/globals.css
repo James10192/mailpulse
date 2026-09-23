@@ -174,12 +174,26 @@ body {
   box-shadow: var(--focus-ring);
 }
 
-h1, h2, h3 {
-  text-wrap: balance;
-}
+/* In the base layer on purpose: `text-wrap` also resets the wrap mode, and as
+   unlayered CSS it beat Tailwind's `truncate` on every <p> and heading. */
+@layer base {
+  /* shadcn/Tailwind v4 default: a bare `border` uses the theme border color,
+     not currentColor (which drew black borders on cards, sheets and dialogs). */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border);
+  }
 
-p, li, figcaption, blockquote {
-  text-wrap: pretty;
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+
+  p, li, figcaption, blockquote {
+    text-wrap: pretty;
+  }
 }
 
 a,
