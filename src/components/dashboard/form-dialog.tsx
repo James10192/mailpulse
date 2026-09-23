@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,36 +43,73 @@ export function FormDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      {/* No description: the title and field labels say it all, so Radix must not look for one. */}
+      <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <form action={action} className="space-y-4">
+        <FormDialogForm
+          action={action}
+          error={error}
+          pending={pending}
+          submit={submit}
+        >
           {children}
-          {error ? (
-            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-              {error}
-            </p>
-          ) : null}
-          <DialogFooter className="pt-2">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Annuler
-              </Button>
-            </DialogClose>
-            <Button type="submit" disabled={pending || submit.disabled}>
-              {pending ? (
-                <>
-                  <Loader2 className="animate-spin" aria-hidden="true" />
-                  {submit.pendingLabel}
-                </>
-              ) : (
-                submit.label
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
+        </FormDialogForm>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Mounted only while the dialog is open (Radix unmounts the content on close), so
+ * `submitted` starts false on every opening: a server error from a previous
+ * attempt is not shown again until the user submits in this session.
+ */
+function FormDialogForm({
+  action,
+  error,
+  pending,
+  submit,
+  children,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  error?: string | null;
+  pending: boolean;
+  submit: FormDialogSubmit;
+  children: React.ReactNode;
+}) {
+  const [submitted, setSubmitted] = useState(false);
+
+  return (
+    <form
+      action={action}
+      onSubmit={() => setSubmitted(true)}
+      className="space-y-4"
+    >
+      {children}
+      {submitted && error ? (
+        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      ) : null}
+      <DialogFooter className="pt-2">
+        <DialogClose asChild>
+          <Button type="button" variant="outline">
+            Annuler
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={pending || submit.disabled}>
+          {pending ? (
+            <>
+              <Loader2 className="animate-spin" aria-hidden="true" />
+              {submit.pendingLabel}
+            </>
+          ) : (
+            submit.label
+          )}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

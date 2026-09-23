@@ -12,8 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -29,8 +27,13 @@ import type { ActionState } from "@/types/action-state";
 
 type TagData = { name: string; count: number };
 
-const SORT_KEYS = ["name-asc", "name-desc", "count-desc", "count-asc"] as const;
-type SortKey = (typeof SORT_KEYS)[number];
+const SORT_OPTIONS = {
+  "name-asc": "Nom A-Z",
+  "name-desc": "Nom Z-A",
+  "count-desc": "Plus de contacts",
+  "count-asc": "Moins de contacts",
+};
+type SortKey = keyof typeof SORT_OPTIONS;
 
 export function TagsClient({ tags }: { tags: TagData[] }) {
   const [open, setOpen] = useState(false);
@@ -107,7 +110,7 @@ export function TagsClient({ tags }: { tags: TagData[] }) {
             className="h-10 pl-9"
           />
         </div>
-        <TypedSelect values={SORT_KEYS} value={sort} onValueChange={setSort}>
+        <TypedSelect options={SORT_OPTIONS} value={sort} onValueChange={setSort}>
           <SelectTrigger className="sm:w-52" aria-label="Trier les tags">
             {/* A div, not a span: the trigger line-clamps its direct span children. */}
             <div className="flex min-w-0 items-center gap-2">
@@ -115,12 +118,6 @@ export function TagsClient({ tags }: { tags: TagData[] }) {
               <SelectValue />
             </div>
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="name-asc">Nom A-Z</SelectItem>
-            <SelectItem value="name-desc">Nom Z-A</SelectItem>
-            <SelectItem value="count-desc">Plus de contacts</SelectItem>
-            <SelectItem value="count-asc">Moins de contacts</SelectItem>
-          </SelectContent>
         </TypedSelect>
       </div>
 

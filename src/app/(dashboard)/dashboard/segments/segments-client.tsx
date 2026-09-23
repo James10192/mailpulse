@@ -14,8 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -38,11 +36,20 @@ type SegmentData = {
   createdAt: string;
 };
 
-const SORT_KEYS = ["recent", "oldest", "name-asc", "name-desc"] as const;
-type SortKey = (typeof SORT_KEYS)[number];
+const SORT_OPTIONS = {
+  recent: "Plus récents",
+  oldest: "Plus anciens",
+  "name-asc": "Nom A-Z",
+  "name-desc": "Nom Z-A",
+};
+type SortKey = keyof typeof SORT_OPTIONS;
 
-const SUBSCRIPTION_FILTERS = ["all", "true", "false"] as const;
-type SubscriptionFilter = (typeof SUBSCRIPTION_FILTERS)[number];
+const SUBSCRIPTION_OPTIONS = {
+  all: "Tous",
+  true: "Abonnés uniquement",
+  false: "Désabonnés uniquement",
+};
+type SubscriptionFilter = keyof typeof SUBSCRIPTION_OPTIONS;
 
 export function SegmentsClient({
   segments,
@@ -146,13 +153,12 @@ export function SegmentsClient({
             <span className="text-xs text-zinc-500">
               {currentCount}/{limit === -1 ? "\u221E" : limit} segments
             </span>
-            <Link
-              href="/dashboard/settings/billing"
-              className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-orange-600/30"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Passer au Pro
-            </Link>
+            <Button asChild variant="outline-accent">
+              <Link href="/dashboard/settings/billing">
+                <Sparkles />
+                Passer au Pro
+              </Link>
+            </Button>
           </div>
         )}
       </div>
@@ -174,7 +180,7 @@ export function SegmentsClient({
             className="h-10 pl-9"
           />
         </div>
-        <TypedSelect values={SORT_KEYS} value={sort} onValueChange={setSort}>
+        <TypedSelect options={SORT_OPTIONS} value={sort} onValueChange={setSort}>
           <SelectTrigger className="sm:w-48" aria-label="Trier les segments">
             {/* A div, not a span: the trigger line-clamps its direct span children. */}
             <div className="flex min-w-0 items-center gap-2">
@@ -182,12 +188,6 @@ export function SegmentsClient({
               <SelectValue />
             </div>
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="recent">Plus récents</SelectItem>
-            <SelectItem value="oldest">Plus anciens</SelectItem>
-            <SelectItem value="name-asc">Nom A-Z</SelectItem>
-            <SelectItem value="name-desc">Nom Z-A</SelectItem>
-          </SelectContent>
         </TypedSelect>
       </div>
 
@@ -264,15 +264,10 @@ export function SegmentsClient({
           <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Filtres dynamiques</p>
           <div className="space-y-1.5">
             <Label htmlFor="segment-filter-subscribed" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Statut abonnement</Label>
-            <TypedSelect values={SUBSCRIPTION_FILTERS} value={filterSubscribed} onValueChange={setFilterSubscribed}>
+            <TypedSelect options={SUBSCRIPTION_OPTIONS} value={filterSubscribed} onValueChange={setFilterSubscribed}>
               <SelectTrigger id="segment-filter-subscribed">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous</SelectItem>
-                <SelectItem value="true">Abonnés uniquement</SelectItem>
-                <SelectItem value="false">Désabonnés uniquement</SelectItem>
-              </SelectContent>
             </TypedSelect>
           </div>
           <div className="space-y-1.5">
