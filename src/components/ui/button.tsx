@@ -13,6 +13,11 @@ const buttonVariants = cva(
         outline: "bg-white text-zinc-700 shadow-[var(--shadow-border)] hover:bg-zinc-50 hover:shadow-[var(--shadow-border-hover)] dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900",
         secondary: "bg-zinc-100 text-zinc-900 shadow-[inset_0_0_0_1px_rgba(24,24,27,0.06)] hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700",
         ghost: "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
+        // Delete actions in lists and menus: quiet at rest, red on hover and focus.
+        "ghost-destructive": "text-zinc-500 hover:bg-red-50 hover:text-red-600 focus-visible:text-red-600 dark:text-zinc-400 dark:hover:bg-red-500/10 dark:hover:text-red-400 dark:focus-visible:text-red-400",
+        // Dense toolbars (editor, bubble menus): no press scale. Highlighted while its menu is open
+        // (Radix data-state) or while the editor reports the format as active (data-active).
+        toolbar: "text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 active:scale-100 disabled:opacity-40 data-[active=true]:bg-orange-500/15 data-[active=true]:text-orange-600 data-[state=open]:bg-orange-500/15 data-[state=open]:text-orange-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:data-[active=true]:text-orange-400 dark:data-[state=open]:text-orange-400",
         link: "text-orange-500 underline-offset-4 hover:underline",
       },
       size: {
@@ -20,6 +25,13 @@ const buttonVariants = cva(
         sm: "h-9 rounded-md px-3 text-xs",
         lg: "h-11 rounded-lg px-6",
         icon: "h-10 w-10",
+        // Compact icon buttons keep a 44px touch target on mobile and shrink from `sm` up.
+        "icon-sm": "size-11 rounded-md sm:size-8",
+        "icon-xs": "size-11 rounded-md sm:size-7 [&_svg]:size-3.5",
+        // Text-only action inside a sentence or a caption (usually with variant="link").
+        inline: "h-auto p-0",
+        // Toolbar control carrying a short label (font size, "Variables").
+        toolbar: "h-11 gap-1 rounded-md px-2 text-xs sm:h-8 [&_svg]:size-3.5",
       },
     },
     defaultVariants: {
