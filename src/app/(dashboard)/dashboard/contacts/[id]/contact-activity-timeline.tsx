@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertOctagon, AlertTriangle, CheckCircle, Eye, Filter, Mail, MousePointerClick,
   Search, Send, Tag, UserMinus, UserPlus, Zap,
@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { isRecord, readString } from "@/lib/guards";
 
 export interface TimelineEvent {
   id: string;
@@ -61,6 +62,15 @@ export function ContactActivityTimeline({ events, subscribedAt }: { events: Time
   const [eventFilter, setEventFilter] = useState<string>("ALL");
   const [eventSearch, setEventSearch] = useState("");
 
+  // Real events plus a "Subscribed" pseudo-event dated from the contact creation, newest first.
+  const visibleEvents = useMemo(() => {
+    const search = eventSearch.toLowerCase();
+    return [...events, { id: "subscribed-event", type: "SUBSCRIBED", metadata: null, createdAt: subscribedAt }]
+      .filter((e) => eventFilter === "ALL" || e.type === eventFilter)
+      .filter((e) => !search || EVENT_CONFIG[e.type]?.label.toLowerCase().includes(search))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [events, subscribedAt, eventFilter, eventSearch]);
+
   return (
     <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6">
       <div className="flex items-center justify-between mb-4">
@@ -102,61 +112,45 @@ export function ContactActivityTimeline({ events, subscribedAt }: { events: Time
         </div>
       </div>
 
-      {(() => {
-        // Build timeline: real events + "Subscribed" pseudo-event from createdAt
-        const allEvents = [
-          ...events,
-          { id: "subscribed-event", type: "SUBSCRIBED", metadata: null, createdAt: subscribedAt },
-        ]
-          .filter((e) => eventFilter === "ALL" || e.type === eventFilter)
-          .filter((e) => {
-            if (!eventSearch) return true;
-            const cfg = EVENT_CONFIG[e.type];
-            return cfg?.label.toLowerCase().includes(eventSearch.toLowerCase());
-          })
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      {visibleEvents.length > 0 ? (
+        <div className="space-y-1">
+          {visibleEvents.map((event) => {
+            const config = EVENT_CONFIG[event.type] ?? {
+              icon: Mail,
+              label: event.type,
+              color: "text-zinc-400",
+            };
+            const Icon = config.icon;
+            const campaignName = isRecord(event.metadata) ? readString(event.metadata.campaignName) : null;
 
-        return allEvents.length > 0 ? (
-          <div className="space-y-1">
-            {allEvents.map((event) => {
-              const config = EVENT_CONFIG[event.type] ?? {
-                icon: Mail,
-                label: event.type,
-                color: "text-zinc-400",
-              };
-              const Icon = config.icon;
-              const meta = event.metadata as Record<string, string> | null;
-              const campaignName = meta?.campaignName ?? null;
-
-              return (
-                <div
-                  key={event.id}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
-                >
-                  <div className={`shrink-0 ${config.color}`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                      {config.label}
-                    </span>
-                    {campaignName && (
-                      <span className="text-sm text-zinc-500"> · {campaignName}</span>
-                    )}
-                  </div>
-                  <span className="text-xs text-zinc-500 shrink-0">
-                    {formatDateTime(event.createdAt)}
-                  </span>
+            return (
+              <div
+                key={event.id}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
+              >
+                <div className={`shrink-0 ${config.color}`}>
+                  <Icon className="h-4 w-4" />
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-20 text-sm text-zinc-500">
-            Aucun événement {eventFilter !== "ALL" ? "de ce type" : ""}
-          </div>
-        );
-      })()}
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                    {config.label}
+                  </span>
+                  {campaignName && (
+                    <span className="text-sm text-zinc-500"> · {campaignName}</span>
+                  )}
+                </div>
+                <span className="text-xs text-zinc-500 shrink-0">
+                  {formatDateTime(event.createdAt)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex items-center justify-center h-20 text-sm text-zinc-500">
+          Aucun événement {eventFilter !== "ALL" ? "de ce type" : ""}
+        </div>
+      )}
     </div>
   );
 }
