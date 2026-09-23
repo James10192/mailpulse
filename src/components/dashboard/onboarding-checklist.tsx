@@ -4,9 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
-  CheckCircle2, Circle, ChevronDown, ChevronUp, X,
+  ChevronDown, ChevronUp, X,
   Users, Send, AtSign, Globe, FileEdit, Zap, Rocket,
 } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "mailpulse-onboarding";
 const DISMISSED_KEY = "mailpulse-onboarding-dismissed";
@@ -162,10 +167,12 @@ export function OnboardingChecklist() {
     <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/20">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => setExpanded(!expanded)}
-          className="flex min-h-11 flex-1 items-center gap-3 rounded-lg text-left transition-[scale,color] active:scale-[0.99]"
+          aria-expanded={expanded}
+          className="h-auto min-h-11 flex-1 justify-start gap-3 whitespace-normal p-0 text-left font-normal hover:bg-transparent active:scale-[0.99] dark:hover:bg-transparent"
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
             <Rocket className="h-4 w-4 text-orange-500" />
@@ -174,28 +181,30 @@ export function OnboardingChecklist() {
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Premiers pas avec MailPulse</p>
             <p className="text-xs text-zinc-500">{completedCount}/{totalCount} étapes complétées</p>
           </div>
-        </button>
+        </Button>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={(e) => { e.stopPropagation(); handleDismiss(); }}
-            className="flex h-8 w-8 items-center justify-center rounded text-zinc-400 transition-[scale,color,background-color] hover:text-zinc-600 active:scale-[0.96] dark:hover:text-zinc-300"
+            className="size-8 text-zinc-400 hover:bg-transparent hover:text-zinc-600 active:scale-[0.96] dark:hover:bg-transparent dark:hover:text-zinc-300"
             title="Masquer"
+            aria-label="Masquer la checklist"
           >
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
           {expanded ? <ChevronUp className="h-4 w-4 text-zinc-400" /> : <ChevronDown className="h-4 w-4 text-zinc-400" />}
         </div>
       </div>
 
       {/* Progress bar */}
       <div className="px-4 pb-2">
-        <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-orange-500 transition-[width] duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+        <Progress
+          value={progress}
+          aria-label={`Progression : ${progress} %`}
+          className="h-1.5 bg-zinc-100 dark:bg-zinc-800"
+        />
       </div>
 
       {/* Tasks */}
@@ -207,29 +216,27 @@ export function OnboardingChecklist() {
             return (
               <div
                 key={task.id}
-                className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${
-                  done ? "opacity-60" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30"
-                }`}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg p-2 transition-colors",
+                  done ? "opacity-60" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30",
+                )}
               >
-                <button
-                  onClick={() => toggleTask(task.id)}
-                  className="shrink-0 cursor-pointer"
-                >
-                  {done ? (
-                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                  ) : (
-                    <Circle className="h-5 w-5 text-zinc-300 dark:text-zinc-600" />
-                  )}
-                </button>
-                <Icon className={`h-4 w-4 shrink-0 ${done ? "text-zinc-400" : "text-zinc-500"}`} />
+                <Checkbox
+                  checked={done}
+                  onCheckedChange={() => toggleTask(task.id)}
+                  aria-label={done ? `Marquer « ${task.label} » comme à faire` : `Marquer « ${task.label} » comme fait`}
+                  className="size-5 cursor-pointer rounded-full"
+                />
+                <Icon className={cn("h-4 w-4 shrink-0", done ? "text-zinc-400" : "text-zinc-500")} />
                 <div className="flex-1 min-w-0">
                   <Link
                     href={task.href}
-                    className={`text-sm block ${
+                    className={cn(
+                      "block text-sm",
                       done
                         ? "text-zinc-500 line-through"
-                        : "text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors"
-                    }`}
+                        : "text-zinc-900 transition-colors hover:text-orange-500 dark:text-zinc-100",
+                    )}
                   >
                     {task.label}
                   </Link>
@@ -260,15 +267,19 @@ export function ShowChecklistButton() {
   if (!visible) return null;
 
   return (
-    <button
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
       onClick={() => {
         localStorage.removeItem(DISMISSED_KEY);
         window.location.reload();
       }}
-      className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 transition-[scale,color,background-color] hover:bg-orange-50 hover:text-orange-500 active:scale-[0.96] dark:hover:bg-orange-500/10"
+      className="text-zinc-400 hover:bg-orange-50 hover:text-orange-500 active:scale-[0.96] dark:hover:bg-orange-500/10"
       title="Guide de démarrage"
+      aria-label="Guide de démarrage"
     >
       <Rocket className="h-4 w-4" />
-    </button>
+    </Button>
   );
 }

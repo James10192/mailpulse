@@ -26,6 +26,17 @@ import {
   List, ListOrdered, Quote, TableIcon, Trash2,
   Plus, RowsIcon, ColumnsIcon, X,
 } from "lucide-react";
+import { Button, type ButtonProps } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
+import { Toggle } from "@/components/ui/toggle";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // ──────────── Types ────────────
 
@@ -70,39 +81,63 @@ const FONT_SIZES = [
 
 // ──────────── Shared UI ────────────
 
-function Btn({ onClick, active, disabled, title, children, className: cls }: {
-  onClick: () => void; active?: boolean; disabled?: boolean; title: string; children: React.ReactNode; className?: string;
-}) {
+const TOOLBAR_IDLE = "text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
+const TOOLBAR_ACTIVE = "bg-orange-500/15 text-orange-600 hover:bg-orange-500/20 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-400";
+const MENU_ITEM_CLASS = "cursor-pointer text-zinc-700 dark:text-zinc-300";
+const POPOVER_ITEM_CLASS = "h-auto w-full justify-start gap-2 rounded-md px-3 py-1.5 text-sm font-normal active:scale-100 [&_svg]:size-3.5";
+const TOOLTIP_DELAY_MS = 300;
+
+function ToolbarTooltip({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled} title={title}
-      className={cn("p-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-40",
-        active ? "bg-orange-500/20 text-orange-500" : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800",
-        cls,
-      )}>
-      {children}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
-function Sep() { return <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800 mx-0.5 shrink-0" />; }
-
-// Dropdown wrapper
-function Drop({ open, onClose, children, dropRef }: {
-  open: boolean; onClose: () => void; children: React.ReactNode; dropRef: React.RefObject<HTMLDivElement | null>;
-}) {
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => { if (dropRef.current && !dropRef.current.contains(e.target as Node)) onClose(); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open, onClose, dropRef]);
-  if (!open) return null;
-  return (
-    <div className="absolute left-0 z-50 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xl py-1 max-h-72 overflow-y-auto bottom-full mb-1 sm:bottom-auto sm:mb-0 sm:top-full sm:mt-1">
+/** Icon button for one-shot actions and menu triggers. */
+const ToolbarButton = forwardRef<HTMLButtonElement, ButtonProps & { label: string; active?: boolean }>(
+  ({ label, active, className, children, ...props }, ref) => (
+    <Button
+      ref={ref}
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label={label}
+      className={cn("h-8 w-8 rounded-md active:scale-100 disabled:opacity-40", active ? TOOLBAR_ACTIVE : TOOLBAR_IDLE, className)}
+      {...props}
+    >
       {children}
-    </div>
+    </Button>
+  ),
+);
+ToolbarButton.displayName = "ToolbarButton";
+
+/** Pressed/unpressed formatting control (bold, alignment, lists...). */
+function ToolbarToggle({ label, pressed, onToggle, children }: {
+  label: string; pressed: boolean; onToggle: () => void; children: React.ReactNode;
+}) {
+  return (
+    <ToolbarTooltip label={label}>
+      <Toggle
+        size="sm"
+        pressed={pressed}
+        onPressedChange={() => onToggle()}
+        aria-label={label}
+        className={cn(
+          "size-8 min-w-8 cursor-pointer rounded-md p-0",
+          TOOLBAR_IDLE,
+          "data-[state=on]:bg-orange-500/15 data-[state=on]:text-orange-600 dark:data-[state=on]:text-orange-400",
+        )}
+      >
+        {children}
+      </Toggle>
+    </ToolbarTooltip>
   );
 }
+
+function Sep() { return <Separator orientation="vertical" className="mx-0.5 h-5 w-px" />; }
 
 // ──────────── Mention list for @ autocomplete ────────────
 
@@ -182,18 +217,20 @@ function TableGridSelector({ onSelect, onClose }: { onSelect: (rows: number, col
 
   return (
     <div className="w-48 p-2">
-      <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5 px-1">Inserer un tableau</p>
+      <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5 px-1">Insérer un tableau</p>
       <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${maxC}, 1fr)` }}>
         {Array.from({ length: maxR * maxC }, (_, i) => {
           const r = Math.floor(i / maxC) + 1;
           const c = (i % maxC) + 1;
           const active = r <= hover.r && c <= hover.c;
           return (
-            <button key={i} type="button"
-              className={cn("w-6 h-6 rounded-sm border cursor-pointer transition-colors",
-                active ? "bg-orange-500/30 border-orange-500" : "bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"
+            <Button key={i} type="button" variant="ghost"
+              aria-label={`Tableau ${r} x ${c}`}
+              className={cn("size-6 rounded-sm border p-0 active:scale-100",
+                active ? "border-orange-500 bg-orange-500/30 hover:bg-orange-500/30" : "border-zinc-200 bg-zinc-100 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-800"
               )}
               onMouseEnter={() => setHover({ r, c })}
+              onFocus={() => setHover({ r, c })}
               onClick={() => { onSelect(r, c); onClose(); }}
             />
           );
@@ -219,14 +256,6 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [uploadError, setUploadError] = useState("");
-  const varsRef = useRef<HTMLDivElement>(null);
-  const snipsRef = useRef<HTMLDivElement>(null);
-  const headRef = useRef<HTMLDivElement>(null);
-  const colorRef = useRef<HTMLDivElement>(null);
-  const bgRef = useRef<HTMLDivElement>(null);
-  const fontSizeRef = useRef<HTMLDivElement>(null);
-  const tableRef = useRef<HTMLDivElement>(null);
-  const linkRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const onChangeRef = useRef(onChange);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -387,212 +416,234 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
 
   if (!editor) return <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950"><div className="p-4 min-h-[200px]" /></div>;
 
+  // Radix returns focus to the trigger on close; keep it in the editor when a toolbar action just focused it.
+  const keepEditorFocus = (event: Event) => { if (editor.isFocused) event.preventDefault(); };
+
   const charCount = editor.storage.characterCount?.characters() ?? 0;
   const wordCount = editor.storage.characterCount?.words() ?? 0;
 
   return (
     <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
       {/* ─── Sticky Toolbar ─── */}
-      <div className="sticky top-0 z-30 flex items-center gap-0.5 p-1.5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 rounded-t-xl flex-wrap">
+      <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>
+      <div role="toolbar" aria-label="Mise en forme" className="sticky top-0 z-30 flex items-center gap-0.5 p-1.5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 rounded-t-xl flex-wrap">
         {/* Headings */}
-        <div className="relative" ref={headRef}>
-          <Btn onClick={() => { closeAll(); setHeadOpen(!headOpen); }} active={editor.isActive("heading")} title="Titre">
-            <Type className="w-4 h-4" />
-          </Btn>
-          <Drop open={headOpen} onClose={() => setHeadOpen(false)} dropRef={headRef}>
-            <div className="w-40">
-              {[
-                { label: "Paragraphe", fn: () => editor.chain().focus().setParagraph().run(), icon: <Type className="w-4 h-4" /> },
-                { label: "Titre 1", fn: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), icon: <Heading1 className="w-4 h-4" /> },
-                { label: "Titre 2", fn: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), icon: <Heading2 className="w-4 h-4" /> },
-                { label: "Titre 3", fn: () => editor.chain().focus().toggleHeading({ level: 3 }).run(), icon: <Heading3 className="w-4 h-4" /> },
-              ].map((h) => (
-                <button key={h.label} type="button" onClick={() => { h.fn(); setHeadOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                  {h.icon} {h.label}
-                </button>
-              ))}
-            </div>
-          </Drop>
-        </div>
+        <DropdownMenu modal={false} open={headOpen} onOpenChange={(open) => { if (open) closeAll(); setHeadOpen(open); }}>
+          <ToolbarTooltip label="Titre">
+            <DropdownMenuTrigger asChild>
+              <ToolbarButton label="Titre" active={editor.isActive("heading")}>
+                <Type className="w-4 h-4" />
+              </ToolbarButton>
+            </DropdownMenuTrigger>
+          </ToolbarTooltip>
+          <DropdownMenuContent align="start" className="w-40" onCloseAutoFocus={keepEditorFocus}>
+            {[
+              { label: "Paragraphe", fn: () => editor.chain().focus().setParagraph().run(), icon: <Type className="w-4 h-4" /> },
+              { label: "Titre 1", fn: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), icon: <Heading1 className="w-4 h-4" /> },
+              { label: "Titre 2", fn: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), icon: <Heading2 className="w-4 h-4" /> },
+              { label: "Titre 3", fn: () => editor.chain().focus().toggleHeading({ level: 3 }).run(), icon: <Heading3 className="w-4 h-4" /> },
+            ].map((h) => (
+              <DropdownMenuItem key={h.label} onSelect={() => h.fn()} className={MENU_ITEM_CLASS}>
+                {h.icon} {h.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Font Size */}
-        <div className="relative" ref={fontSizeRef}>
-          <button type="button" onClick={() => { closeAll(); setFontSizeOpen(!fontSizeOpen); }} title="Taille de police"
-            className={cn("flex items-center gap-0.5 px-1.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer min-w-[40px] justify-center",
-              fontSizeOpen ? "bg-orange-500/20 text-orange-500" : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800"
-            )}>
-            <span>{currentFontSizeLabel}</span>
-            <ChevronDown className="w-3 h-3" />
-          </button>
-          <Drop open={fontSizeOpen} onClose={() => setFontSizeOpen(false)} dropRef={fontSizeRef}>
-            <div className="w-28">
-              <button type="button" onClick={() => { editor.chain().focus().unsetFontSize().run(); setFontSizeOpen(false); }}
-                className="w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer text-zinc-500">
-                Par defaut
-              </button>
-              {FONT_SIZES.map((fs) => (
-                <button key={fs.value} type="button"
-                  onClick={() => { editor.chain().focus().setFontSize(fs.value).run(); setFontSizeOpen(false); }}
-                  className={cn("w-full text-left px-3 py-1.5 text-sm cursor-pointer",
-                    currentFontSize === fs.value ? "bg-orange-500/10 text-orange-500" : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
-                  )}>
-                  {fs.label}px
-                </button>
-              ))}
-            </div>
-          </Drop>
-        </div>
+        <DropdownMenu modal={false} open={fontSizeOpen} onOpenChange={(open) => { if (open) closeAll(); setFontSizeOpen(open); }}>
+          <ToolbarTooltip label="Taille de police">
+            <DropdownMenuTrigger asChild>
+              <ToolbarButton label="Taille de police" active={fontSizeOpen}
+                className="w-auto min-w-10 gap-0.5 px-1.5 text-xs [&_svg]:size-3">
+                <span>{currentFontSizeLabel}</span>
+                <ChevronDown className="w-3 h-3" />
+              </ToolbarButton>
+            </DropdownMenuTrigger>
+          </ToolbarTooltip>
+          <DropdownMenuContent align="start" className="max-h-72 w-28 min-w-28 overflow-y-auto" onCloseAutoFocus={keepEditorFocus}>
+            <DropdownMenuItem onSelect={() => editor.chain().focus().unsetFontSize().run()} className="cursor-pointer text-zinc-500">
+              Par défaut
+            </DropdownMenuItem>
+            {FONT_SIZES.map((fs) => (
+              <DropdownMenuItem key={fs.value}
+                onSelect={() => editor.chain().focus().setFontSize(fs.value).run()}
+                className={cn("cursor-pointer",
+                  currentFontSize === fs.value ? "bg-orange-500/10 text-orange-500" : "text-zinc-700 dark:text-zinc-300"
+                )}>
+                {fs.label}px
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Sep />
 
         {/* Formatting */}
-        <Btn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Gras"><Bold className="w-4 h-4" /></Btn>
-        <Btn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Italique"><Italic className="w-4 h-4" /></Btn>
-        <Btn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Souligne"><UnderlineIcon className="w-4 h-4" /></Btn>
-        <Btn onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="Barre"><Strikethrough className="w-4 h-4" /></Btn>
-        <div className="relative" ref={linkRef}>
-          <Btn onClick={doLink} active={editor.isActive("link") || linkOpen} title="Lien"><LinkIcon className="w-4 h-4" /></Btn>
-          <Drop open={linkOpen} onClose={() => setLinkOpen(false)} dropRef={linkRef}>
-            <div className="w-72 p-2">
-              <label className="block text-[10px] uppercase tracking-wider text-zinc-500" htmlFor="rich-editor-link-url">
-                URL du lien
-              </label>
-              <input
-                id="rich-editor-link-url"
-                value={linkUrl}
-                onChange={(event) => setLinkUrl(event.target.value)}
-                placeholder="https://..."
-                className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-orange-500/30 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
-              />
-              <div className="mt-2 flex justify-end gap-2">
-                <button type="button" onClick={clearLink} className="h-9 rounded-md px-3 text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-                  Retirer
-                </button>
-                <button type="button" onClick={applyLink} className="h-9 rounded-md bg-orange-600 px-3 text-xs font-medium text-white hover:bg-orange-500">
-                  Appliquer
-                </button>
-              </div>
+        <ToolbarToggle label="Gras" pressed={editor.isActive("bold")} onToggle={() => editor.chain().focus().toggleBold().run()}><Bold className="w-4 h-4" /></ToolbarToggle>
+        <ToolbarToggle label="Italique" pressed={editor.isActive("italic")} onToggle={() => editor.chain().focus().toggleItalic().run()}><Italic className="w-4 h-4" /></ToolbarToggle>
+        <ToolbarToggle label="Souligné" pressed={editor.isActive("underline")} onToggle={() => editor.chain().focus().toggleUnderline().run()}><UnderlineIcon className="w-4 h-4" /></ToolbarToggle>
+        <ToolbarToggle label="Barré" pressed={editor.isActive("strike")} onToggle={() => editor.chain().focus().toggleStrike().run()}><Strikethrough className="w-4 h-4" /></ToolbarToggle>
+        {/* Anchored rather than triggered: the link bubble menu also opens this editor through doLink. */}
+        <Popover open={linkOpen} onOpenChange={setLinkOpen}>
+          <ToolbarTooltip label="Lien">
+            <PopoverAnchor asChild>
+              <ToolbarButton label="Lien" active={editor.isActive("link") || linkOpen} aria-expanded={linkOpen} onClick={doLink}>
+                <LinkIcon className="w-4 h-4" />
+              </ToolbarButton>
+            </PopoverAnchor>
+          </ToolbarTooltip>
+          <PopoverContent align="start" className="w-72 p-2" onCloseAutoFocus={keepEditorFocus}>
+            <Label className="block text-[10px] font-normal uppercase tracking-wider text-zinc-500 dark:text-zinc-500" htmlFor="rich-editor-link-url">
+              URL du lien
+            </Label>
+            <Input
+              id="rich-editor-link-url"
+              value={linkUrl}
+              onChange={(event) => setLinkUrl(event.target.value)}
+              placeholder="https://..."
+              className="mt-1 h-10 rounded-md px-2"
+            />
+            <div className="mt-2 flex justify-end gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={clearLink} className="text-zinc-500">
+                Retirer
+              </Button>
+              <Button type="button" size="sm" onClick={applyLink}>
+                Appliquer
+              </Button>
             </div>
-          </Drop>
-        </div>
+          </PopoverContent>
+        </Popover>
 
         <Sep />
 
         {/* Text color */}
-        <div className="relative" ref={colorRef}>
-          <button type="button" onClick={() => { closeAll(); setColorOpen(!colorOpen); }} title="Couleur du texte"
-            className={cn("p-1.5 rounded-md transition-colors cursor-pointer relative",
-              colorOpen ? "bg-orange-500/20 text-orange-500" : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800"
-            )}>
-            <Palette className="w-4 h-4" />
-            {currentTextColor && (
-              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-3 h-0.5 rounded-full" style={{ backgroundColor: currentTextColor }} />
-            )}
-          </button>
-          <Drop open={colorOpen} onClose={() => setColorOpen(false)} dropRef={colorRef}>
-            <div className="w-48 p-2">
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5 px-1">Couleur du texte</p>
-              <div className="grid grid-cols-6 gap-1">
-                {COLORS.map((c) => (
-                  <button key={c} type="button" onClick={() => { editor.chain().focus().setColor(c).run(); setColorOpen(false); }}
-                    className={cn("w-6 h-6 rounded-md border cursor-pointer hover:scale-110 transition-transform",
-                      currentTextColor === c ? "border-orange-500 ring-1 ring-orange-500" : "border-zinc-200 dark:border-zinc-700"
-                    )}
-                    style={{ backgroundColor: c }} title={c} />
-                ))}
-              </div>
-              <button type="button" onClick={() => { editor.chain().focus().unsetColor().run(); setColorOpen(false); }}
-                className="mt-2 w-full text-left px-2 py-1 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer">
-                Reinitialiser
-              </button>
+        <Popover open={colorOpen} onOpenChange={(open) => { if (open) closeAll(); setColorOpen(open); }}>
+          <ToolbarTooltip label="Couleur du texte">
+            <PopoverTrigger asChild>
+              <ToolbarButton label="Couleur du texte" active={colorOpen} className="relative">
+                <Palette className="w-4 h-4" />
+                {currentTextColor && (
+                  <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-3 h-0.5 rounded-full" style={{ backgroundColor: currentTextColor }} />
+                )}
+              </ToolbarButton>
+            </PopoverTrigger>
+          </ToolbarTooltip>
+          <PopoverContent align="start" className="w-48 p-2" onCloseAutoFocus={keepEditorFocus}>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5 px-1">Couleur du texte</p>
+            <div className="grid grid-cols-6 gap-1">
+              {COLORS.map((c) => (
+                <Button key={c} type="button" variant="ghost"
+                  onClick={() => { editor.chain().focus().setColor(c).run(); setColorOpen(false); }}
+                  className={cn("size-6 rounded-md border p-0 transition-transform hover:scale-110 active:scale-100",
+                    currentTextColor === c ? "border-orange-500 ring-1 ring-orange-500" : "border-zinc-200 dark:border-zinc-700"
+                  )}
+                  style={{ backgroundColor: c }} title={c} aria-label={`Couleur ${c}`} />
+              ))}
             </div>
-          </Drop>
-        </div>
+            <Button type="button" variant="ghost" size="sm"
+              onClick={() => { editor.chain().focus().unsetColor().run(); setColorOpen(false); }}
+              className="mt-2 h-auto w-full justify-start px-2 py-1 text-xs font-normal text-zinc-500 hover:bg-transparent hover:text-zinc-900 active:scale-100 dark:hover:bg-transparent dark:hover:text-zinc-100">
+              Réinitialiser
+            </Button>
+          </PopoverContent>
+        </Popover>
 
         {/* Highlight */}
-        <div className="relative" ref={bgRef}>
-          <Btn onClick={() => { closeAll(); setBgOpen(!bgOpen); }} title="Surlignage"><Highlighter className="w-4 h-4" /></Btn>
-          <Drop open={bgOpen} onClose={() => setBgOpen(false)} dropRef={bgRef}>
-            <div className="w-48 p-2">
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5 px-1">Surlignage</p>
-              <div className="grid grid-cols-6 gap-1">
-                {COLORS.map((c) => (
-                  <button key={c} type="button" onClick={() => { editor.chain().focus().toggleHighlight({ color: c }).run(); setBgOpen(false); }}
-                    className="w-6 h-6 rounded-md border border-zinc-200 dark:border-zinc-700 cursor-pointer hover:scale-110 transition-transform"
-                    style={{ backgroundColor: c }} title={c} />
-                ))}
-              </div>
-              <button type="button" onClick={() => { editor.chain().focus().unsetHighlight().run(); setBgOpen(false); }}
-                className="mt-2 w-full text-left px-2 py-1 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer">
-                Reinitialiser
-              </button>
+        <Popover open={bgOpen} onOpenChange={(open) => { if (open) closeAll(); setBgOpen(open); }}>
+          <ToolbarTooltip label="Surlignage">
+            <PopoverTrigger asChild>
+              <ToolbarButton label="Surlignage" active={bgOpen}>
+                <Highlighter className="w-4 h-4" />
+              </ToolbarButton>
+            </PopoverTrigger>
+          </ToolbarTooltip>
+          <PopoverContent align="start" className="w-48 p-2" onCloseAutoFocus={keepEditorFocus}>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5 px-1">Surlignage</p>
+            <div className="grid grid-cols-6 gap-1">
+              {COLORS.map((c) => (
+                <Button key={c} type="button" variant="ghost"
+                  onClick={() => { editor.chain().focus().toggleHighlight({ color: c }).run(); setBgOpen(false); }}
+                  className="size-6 rounded-md border border-zinc-200 p-0 transition-transform hover:scale-110 active:scale-100 dark:border-zinc-700"
+                  style={{ backgroundColor: c }} title={c} aria-label={`Surlignage ${c}`} />
+              ))}
             </div>
-          </Drop>
-        </div>
+            <Button type="button" variant="ghost" size="sm"
+              onClick={() => { editor.chain().focus().unsetHighlight().run(); setBgOpen(false); }}
+              className="mt-2 h-auto w-full justify-start px-2 py-1 text-xs font-normal text-zinc-500 hover:bg-transparent hover:text-zinc-900 active:scale-100 dark:hover:bg-transparent dark:hover:text-zinc-100">
+              Réinitialiser
+            </Button>
+          </PopoverContent>
+        </Popover>
 
-        <Btn onClick={() => editor.chain().focus().unsetAllMarks().run()} title="Effacer formatage"><RemoveFormatting className="w-4 h-4" /></Btn>
+        <ToolbarTooltip label="Effacer la mise en forme">
+          <ToolbarButton label="Effacer la mise en forme" onClick={() => editor.chain().focus().unsetAllMarks().run()}><RemoveFormatting className="w-4 h-4" /></ToolbarButton>
+        </ToolbarTooltip>
 
         <Sep />
 
         {/* Alignment */}
-        <Btn onClick={() => editor.chain().focus().setTextAlign("left").run()} active={editor.isActive({ textAlign: "left" })} title="Gauche"><AlignLeft className="w-4 h-4" /></Btn>
-        <Btn onClick={() => editor.chain().focus().setTextAlign("center").run()} active={editor.isActive({ textAlign: "center" })} title="Centrer"><AlignCenter className="w-4 h-4" /></Btn>
-        <Btn onClick={() => editor.chain().focus().setTextAlign("right").run()} active={editor.isActive({ textAlign: "right" })} title="Droite"><AlignRight className="w-4 h-4" /></Btn>
+        <ToolbarToggle label="Aligner à gauche" pressed={editor.isActive({ textAlign: "left" })} onToggle={() => editor.chain().focus().setTextAlign("left").run()}><AlignLeft className="w-4 h-4" /></ToolbarToggle>
+        <ToolbarToggle label="Centrer" pressed={editor.isActive({ textAlign: "center" })} onToggle={() => editor.chain().focus().setTextAlign("center").run()}><AlignCenter className="w-4 h-4" /></ToolbarToggle>
+        <ToolbarToggle label="Aligner à droite" pressed={editor.isActive({ textAlign: "right" })} onToggle={() => editor.chain().focus().setTextAlign("right").run()}><AlignRight className="w-4 h-4" /></ToolbarToggle>
 
         <Sep />
 
         {/* Lists */}
-        <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")} title="Liste a puces"><List className="w-4 h-4" /></Btn>
-        <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")} title="Liste numerotee"><ListOrdered className="w-4 h-4" /></Btn>
-        <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")} title="Citation"><Quote className="w-4 h-4" /></Btn>
+        <ToolbarToggle label="Liste à puces" pressed={editor.isActive("bulletList")} onToggle={() => editor.chain().focus().toggleBulletList().run()}><List className="w-4 h-4" /></ToolbarToggle>
+        <ToolbarToggle label="Liste numérotée" pressed={editor.isActive("orderedList")} onToggle={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered className="w-4 h-4" /></ToolbarToggle>
+        <ToolbarToggle label="Citation" pressed={editor.isActive("blockquote")} onToggle={() => editor.chain().focus().toggleBlockquote().run()}><Quote className="w-4 h-4" /></ToolbarToggle>
 
         <Sep />
 
         {/* HR + Image + Table */}
-        <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Ligne horizontale"><Minus className="w-4 h-4" /></Btn>
-        <label title="Image" className="p-1.5 rounded-md transition-colors cursor-pointer text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 inline-flex relative overflow-hidden">
-          <ImagePlus className="w-4 h-4" />
-          <input ref={fileRef} type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={doImage} />
-        </label>
+        <ToolbarTooltip label="Ligne horizontale">
+          <ToolbarButton label="Ligne horizontale" onClick={() => editor.chain().focus().setHorizontalRule().run()}><Minus className="w-4 h-4" /></ToolbarButton>
+        </ToolbarTooltip>
+        <ToolbarTooltip label="Image">
+          <ToolbarButton label="Insérer une image" onClick={() => fileRef.current?.click()}>
+            <ImagePlus className="w-4 h-4" />
+          </ToolbarButton>
+        </ToolbarTooltip>
+        {/* Native file picker, opened programmatically by the image button above. */}
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" tabIndex={-1} aria-hidden="true" onChange={doImage} />
 
         {/* Table */}
-        <div className="relative" ref={tableRef}>
-          <Btn onClick={() => { closeAll(); setTableOpen(!tableOpen); }} active={editor.isActive("table")} title="Tableau">
-            <TableIcon className="w-4 h-4" />
-          </Btn>
-          <Drop open={tableOpen} onClose={() => setTableOpen(false)} dropRef={tableRef}>
+        <Popover open={tableOpen} onOpenChange={(open) => { if (open) closeAll(); setTableOpen(open); }}>
+          <ToolbarTooltip label="Tableau">
+            <PopoverTrigger asChild>
+              <ToolbarButton label="Tableau" active={editor.isActive("table")}>
+                <TableIcon className="w-4 h-4" />
+              </ToolbarButton>
+            </PopoverTrigger>
+          </ToolbarTooltip>
+          <PopoverContent align="start" className="w-auto p-1" onCloseAutoFocus={keepEditorFocus}>
             {editor.isActive("table") ? (
-              <div className="w-48 p-1">
-                <button type="button" onClick={() => { editor.chain().focus().addRowAfter().run(); setTableOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                  <Plus className="w-3.5 h-3.5" /> Ajouter ligne en dessous
-                </button>
-                <button type="button" onClick={() => { editor.chain().focus().addRowBefore().run(); setTableOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                  <RowsIcon className="w-3.5 h-3.5" /> Ajouter ligne au dessus
-                </button>
-                <button type="button" onClick={() => { editor.chain().focus().addColumnAfter().run(); setTableOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                  <Plus className="w-3.5 h-3.5" /> Ajouter colonne a droite
-                </button>
-                <button type="button" onClick={() => { editor.chain().focus().addColumnBefore().run(); setTableOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                  <ColumnsIcon className="w-3.5 h-3.5" /> Ajouter colonne a gauche
-                </button>
-                <div className="h-px bg-zinc-200 dark:bg-zinc-800 my-1" />
-                <button type="button" onClick={() => { editor.chain().focus().deleteRow().run(); setTableOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer flex items-center gap-2 text-red-600">
-                  <X className="w-3.5 h-3.5" /> Supprimer ligne
-                </button>
-                <button type="button" onClick={() => { editor.chain().focus().deleteColumn().run(); setTableOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer flex items-center gap-2 text-red-600">
-                  <X className="w-3.5 h-3.5" /> Supprimer colonne
-                </button>
-                <button type="button" onClick={() => { editor.chain().focus().deleteTable().run(); setTableOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer flex items-center gap-2 text-red-600">
-                  <Trash2 className="w-3.5 h-3.5" /> Supprimer tableau
-                </button>
+              <div className="w-48">
+                {[
+                  { label: "Ajouter une ligne en dessous", icon: <Plus className="w-3.5 h-3.5" />, fn: () => editor.chain().focus().addRowAfter().run() },
+                  { label: "Ajouter une ligne au-dessus", icon: <RowsIcon className="w-3.5 h-3.5" />, fn: () => editor.chain().focus().addRowBefore().run() },
+                  { label: "Ajouter une colonne à droite", icon: <Plus className="w-3.5 h-3.5" />, fn: () => editor.chain().focus().addColumnAfter().run() },
+                  { label: "Ajouter une colonne à gauche", icon: <ColumnsIcon className="w-3.5 h-3.5" />, fn: () => editor.chain().focus().addColumnBefore().run() },
+                ].map((action) => (
+                  <Button key={action.label} type="button" variant="ghost"
+                    onClick={() => { action.fn(); setTableOpen(false); }}
+                    className={cn(POPOVER_ITEM_CLASS, "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800/80")}>
+                    {action.icon} {action.label}
+                  </Button>
+                ))}
+                <Separator className="my-1" />
+                {[
+                  { label: "Supprimer la ligne", icon: <X className="w-3.5 h-3.5" />, fn: () => editor.chain().focus().deleteRow().run() },
+                  { label: "Supprimer la colonne", icon: <X className="w-3.5 h-3.5" />, fn: () => editor.chain().focus().deleteColumn().run() },
+                  { label: "Supprimer le tableau", icon: <Trash2 className="w-3.5 h-3.5" />, fn: () => editor.chain().focus().deleteTable().run() },
+                ].map((action) => (
+                  <Button key={action.label} type="button" variant="ghost"
+                    onClick={() => { action.fn(); setTableOpen(false); }}
+                    className={cn(POPOVER_ITEM_CLASS, "text-red-600 hover:bg-red-50 hover:text-red-600 dark:text-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-500")}>
+                    {action.icon} {action.label}
+                  </Button>
+                ))}
               </div>
             ) : (
               <TableGridSelector
@@ -600,61 +651,61 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
                 onClose={() => setTableOpen(false)}
               />
             )}
-          </Drop>
-        </div>
+          </PopoverContent>
+        </Popover>
 
         <Sep />
 
         {/* Undo/Redo */}
-        <Btn onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Annuler"><Undo2 className="w-4 h-4" /></Btn>
-        <Btn onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="Refaire"><Redo2 className="w-4 h-4" /></Btn>
+        <ToolbarTooltip label="Annuler">
+          <ToolbarButton label="Annuler" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}><Undo2 className="w-4 h-4" /></ToolbarButton>
+        </ToolbarTooltip>
+        <ToolbarTooltip label="Refaire">
+          <ToolbarButton label="Refaire" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}><Redo2 className="w-4 h-4" /></ToolbarButton>
+        </ToolbarTooltip>
 
         <Sep />
 
         {/* Variables */}
-        <div className="relative" ref={varsRef}>
-          <button type="button" onClick={() => { closeAll(); setVarsOpen(!varsOpen); }}
-            className={cn("flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer",
-              varsOpen ? "bg-orange-500/20 text-orange-500" : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800"
-            )}>
-            <Variable className="w-3.5 h-3.5" /><span className="hidden sm:inline">Variables</span><ChevronDown className="w-3 h-3" />
-          </button>
-          <Drop open={varsOpen} onClose={() => setVarsOpen(false)} dropRef={varsRef}>
-            <div className="w-60">
-              {VARIABLES.map((v) => (
-                <button key={v.name} type="button" onClick={() => insertVar(v.name, v.label)}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer flex items-center justify-between gap-2">
-                  <span className="text-zinc-700 dark:text-zinc-300">{v.label}</span>
-                  <code className="text-[10px] text-orange-600 bg-orange-500/10 px-1 py-0.5 rounded font-mono">{`{{ ${v.name} }}`}</code>
-                </button>
-              ))}
-            </div>
-          </Drop>
-        </div>
+        <DropdownMenu modal={false} open={varsOpen} onOpenChange={(open) => { if (open) closeAll(); setVarsOpen(open); }}>
+          <DropdownMenuTrigger asChild>
+            <ToolbarButton label="Insérer une variable" active={varsOpen}
+              className="w-auto gap-1 px-2 text-xs [&_svg]:size-3.5">
+              <Variable className="w-3.5 h-3.5" /><span className="hidden sm:inline">Variables</span><ChevronDown className="w-3 h-3" />
+            </ToolbarButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-72 w-60 overflow-y-auto" onCloseAutoFocus={keepEditorFocus}>
+            {VARIABLES.map((v) => (
+              <DropdownMenuItem key={v.name} onSelect={() => insertVar(v.name, v.label)}
+                className="cursor-pointer justify-between">
+                <span className="text-zinc-700 dark:text-zinc-300">{v.label}</span>
+                <code className="text-[10px] text-orange-600 bg-orange-500/10 px-1 py-0.5 rounded font-mono">{`{{ ${v.name} }}`}</code>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Snippets */}
         {snippets && (
-          <div className="relative" ref={snipsRef}>
-            <button type="button" onClick={() => { closeAll(); setSnipsOpen(!snipsOpen); }}
-              className={cn("flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer",
-                snipsOpen ? "bg-orange-500/20 text-orange-500" : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800"
-              )}>
-              <FileCode className="w-3.5 h-3.5" /><span className="hidden sm:inline">Snippets</span><ChevronDown className="w-3 h-3" />
-            </button>
-            <Drop open={snipsOpen} onClose={() => setSnipsOpen(false)} dropRef={snipsRef}>
-              <div className="w-56">
-                {snippets.length === 0 ? <div className="px-3 py-2 text-xs text-zinc-500">Aucun snippet</div> : snippets.map((s) => (
-                  <button key={s.id} type="button" onClick={() => insertSnip(s.htmlContent)}
-                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer flex items-center gap-2">
-                    <FileCode className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                    <span className="text-zinc-700 dark:text-zinc-300 truncate">{s.name}</span>
-                  </button>
-                ))}
-              </div>
-            </Drop>
-          </div>
+          <DropdownMenu modal={false} open={snipsOpen} onOpenChange={(open) => { if (open) closeAll(); setSnipsOpen(open); }}>
+            <DropdownMenuTrigger asChild>
+              <ToolbarButton label="Insérer un snippet" active={snipsOpen}
+                className="w-auto gap-1 px-2 text-xs [&_svg]:size-3.5">
+                <FileCode className="w-3.5 h-3.5" /><span className="hidden sm:inline">Snippets</span><ChevronDown className="w-3 h-3" />
+              </ToolbarButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-72 w-56 overflow-y-auto" onCloseAutoFocus={keepEditorFocus}>
+              {snippets.length === 0 ? <div className="px-3 py-2 text-xs text-zinc-500">Aucun snippet</div> : snippets.map((s) => (
+                <DropdownMenuItem key={s.id} onSelect={() => insertSnip(s.htmlContent)} className="cursor-pointer">
+                  <FileCode className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                  <span className="text-zinc-700 dark:text-zinc-300 truncate">{s.name}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
+      </TooltipProvider>
 
       {/* ─── Link Bubble Menu ─── */}
       <BubbleMenu editor={editor}
@@ -669,18 +720,20 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
           >
             {editor.getAttributes("link").href}
           </a>
-          <button type="button" title="Ouvrir" onClick={() => window.open(editor.getAttributes("link").href, "_blank")}
-            className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+          <Button type="button" variant="ghost" size="icon" title="Ouvrir" aria-label="Ouvrir le lien"
+            onClick={() => window.open(editor.getAttributes("link").href, "_blank")}
+            className="size-6 rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 active:scale-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 [&_svg]:size-3.5">
             <ExternalLink className="w-3.5 h-3.5" />
-          </button>
-          <button type="button" title="Modifier" onClick={doLink}
-            className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+          </Button>
+          <Button type="button" variant="ghost" size="icon" title="Modifier" aria-label="Modifier le lien" onClick={doLink}
+            className="size-6 rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 active:scale-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 [&_svg]:size-3.5">
             <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button type="button" title="Supprimer le lien" onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()}
-            className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer text-red-500">
+          </Button>
+          <Button type="button" variant="ghost" size="icon" title="Supprimer le lien" aria-label="Supprimer le lien"
+            onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()}
+            className="size-6 rounded p-1 text-red-500 hover:bg-red-50 hover:text-red-500 active:scale-100 dark:hover:bg-red-950/30 dark:hover:text-red-500 [&_svg]:size-3.5">
             <Unlink className="w-3.5 h-3.5" />
-          </button>
+          </Button>
         </div>
       </BubbleMenu>
 
@@ -702,7 +755,7 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
 
       {/* ─── Character / Word Count ─── */}
       <div className="flex items-center justify-end gap-3 px-3 py-1.5 border-t border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-400 font-mono">
-        <span>{charCount} caractere{charCount !== 1 ? "s" : ""}</span>
+        <span>{charCount} caractère{charCount !== 1 ? "s" : ""}</span>
         <span>{wordCount} mot{wordCount !== 1 ? "s" : ""}</span>
       </div>
     </div>
@@ -752,14 +805,14 @@ function ImageBubbleToolbar({ editor }: { editor: ReturnType<typeof useEditor> }
       {/* Slider */}
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-zinc-500 w-10 shrink-0">Taille</span>
-        <input
-          type="range"
+        <Slider
           min={10}
           max={100}
           step={5}
-          value={sliderValue}
-          onChange={(e) => applyWidth(Number(e.target.value))}
-          className="flex-1 h-1.5 rounded-full appearance-none bg-zinc-700 accent-orange-500 cursor-pointer"
+          value={[sliderValue]}
+          onValueChange={([value]) => { if (value !== undefined) applyWidth(value); }}
+          aria-label="Taille de l'image"
+          className="flex-1 cursor-pointer [&_[data-slot=slider-track]]:bg-zinc-700"
         />
         <span className="text-[11px] font-mono text-zinc-300 w-10 text-right">{sliderValue}%</span>
       </div>
@@ -767,29 +820,32 @@ function ImageBubbleToolbar({ editor }: { editor: ReturnType<typeof useEditor> }
       {/* Presets + alignment + delete */}
       <div className="flex items-center gap-1">
         {[25, 50, 75, 100].map((w) => (
-          <button key={w} type="button" title={`${w}%`}
+          <Button key={w} type="button" variant="ghost" title={`${w}%`} aria-label={`Largeur ${w}%`}
             onClick={() => applyWidth(w)}
             className={cn(
-              "px-1.5 py-0.5 rounded text-[10px] font-mono cursor-pointer transition-colors",
-              sliderValue === w ? "bg-orange-500/20 text-orange-400" : "text-zinc-500 hover:text-white hover:bg-zinc-700"
+              "h-auto rounded px-1.5 py-0.5 font-mono text-[10px] font-normal active:scale-100",
+              sliderValue === w ? "bg-orange-500/20 text-orange-400 hover:bg-orange-500/20 hover:text-orange-400 dark:text-orange-400 dark:hover:bg-orange-500/20 dark:hover:text-orange-400" : "text-zinc-500 hover:bg-zinc-700 hover:text-white dark:text-zinc-500 dark:hover:bg-zinc-700 dark:hover:text-white"
             )}>
             {w}%
-          </button>
+          </Button>
         ))}
-        <div className="w-px h-4 bg-zinc-700 mx-1" />
-        {(["left", "center", "right"] as const).map((align) => (
-          <button key={align} type="button" title={align === "left" ? "Gauche" : align === "center" ? "Centre" : "Droite"}
-            onClick={() => applyAlign(align)}
-            className="p-1 rounded cursor-pointer text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
-            {align === "left" ? <AlignLeft className="w-3 h-3" /> : align === "center" ? <AlignCenter className="w-3 h-3" /> : <AlignRight className="w-3 h-3" />}
-          </button>
-        ))}
-        <div className="w-px h-4 bg-zinc-700 mx-1" />
-        <button type="button" title="Supprimer"
+        <Separator orientation="vertical" className="mx-1 h-4 w-px bg-zinc-700 dark:bg-zinc-700" />
+        {(["left", "center", "right"] as const).map((align) => {
+          const label = align === "left" ? "Gauche" : align === "center" ? "Centre" : "Droite";
+          return (
+            <Button key={align} type="button" variant="ghost" size="icon" title={label} aria-label={`Aligner l'image : ${label}`}
+              onClick={() => applyAlign(align)}
+              className="size-5 rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-white active:scale-100 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white [&_svg]:size-3">
+              {align === "left" ? <AlignLeft className="w-3 h-3" /> : align === "center" ? <AlignCenter className="w-3 h-3" /> : <AlignRight className="w-3 h-3" />}
+            </Button>
+          );
+        })}
+        <Separator orientation="vertical" className="mx-1 h-4 w-px bg-zinc-700 dark:bg-zinc-700" />
+        <Button type="button" variant="ghost" size="icon" title="Supprimer" aria-label="Supprimer l'image"
           onClick={() => editor!.chain().focus().deleteSelection().run()}
-          className="p-1 rounded hover:bg-red-500/20 cursor-pointer text-red-400 hover:text-red-300">
+          className="size-5 rounded p-1 text-red-400 hover:bg-red-500/20 hover:text-red-300 active:scale-100 dark:text-red-400 dark:hover:bg-red-500/20 dark:hover:text-red-300 [&_svg]:size-3">
           <Trash2 className="w-3 h-3" />
-        </button>
+        </Button>
       </div>
     </div>
   );

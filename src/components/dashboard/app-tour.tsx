@@ -5,6 +5,8 @@ import { driver, type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { HelpCircle } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+
 const TOUR_DONE_KEY = "mailpulse-tour-done";
 
 const tourSteps: DriveStep[] = [
@@ -159,13 +161,17 @@ export function TourButton() {
   const { startTour } = useAppTour();
 
   return (
-    <button
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
       onClick={() => startTour(true)}
-      className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 transition-[scale,color,background-color] hover:bg-orange-50 hover:text-orange-500 active:scale-[0.96] dark:hover:bg-orange-500/10"
+      className="text-zinc-400 hover:bg-orange-50 hover:text-orange-500 active:scale-[0.96] dark:hover:bg-orange-500/10"
       title="Guide interactif"
+      aria-label="Guide interactif"
     >
       <HelpCircle className="h-4 w-4" />
-    </button>
+    </Button>
   );
 }
 

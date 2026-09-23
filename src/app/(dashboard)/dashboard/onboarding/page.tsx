@@ -26,9 +26,17 @@ import {
   Reply,
 } from "lucide-react";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MailPulseLogo } from "@/components/mailpulse-logo";
 import { usePostHog } from "posthog-js/react";
 import { EVENTS } from "@/lib/analytics-events";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,11 +79,11 @@ const INITIAL_DATA: OnboardingData = {
 // ---------------------------------------------------------------------------
 
 const STEPS = [
-  { label: "D?tails", title: "Parlez-nous de votre entreprise" },
+  { label: "Détails", title: "Parlez-nous de votre entreprise" },
   { label: "Besoins", title: "Parlez-nous de vos besoins" },
   { label: "Domaine", title: "Configurez votre domaine d'envoi" },
-  { label: "Exp?diteur", title: "Configurez votre exp?diteur" },
-  { label: "Termin?", title: "Vous ?tes pr?t !" },
+  { label: "Expéditeur", title: "Configurez votre expéditeur" },
+  { label: "Terminé", title: "Vous êtes prêt !" },
 ];
 
 const SUBSCRIBER_OPTIONS = [
@@ -106,26 +114,29 @@ const GOAL_OPTIONS = [
 ];
 
 // ---------------------------------------------------------------------------
+// Shared styles (the onboarding screen is always rendered on a dark canvas)
+// ---------------------------------------------------------------------------
+
+const FIELD_LABEL_CLASS = "flex items-center gap-2 text-sm font-medium text-zinc-300 dark:text-zinc-300";
+
+const FIELD_CLASS =
+  "h-auto rounded-lg bg-zinc-900 px-4 py-3 text-sm text-zinc-100 shadow-[inset_0_0_0_1px_rgba(39,39,42,1)] placeholder:text-zinc-600 dark:bg-zinc-900 dark:shadow-[inset_0_0_0_1px_rgba(39,39,42,1)]";
+
+const CHOICE_CLASS =
+  "h-auto border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-normal text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900 hover:text-zinc-300 data-[state=on]:border-orange-500 data-[state=on]:bg-orange-500/10 data-[state=on]:text-orange-400 data-[state=on]:hover:border-orange-500 data-[state=on]:hover:bg-orange-500/10 data-[state=on]:hover:text-orange-400";
+
+// ---------------------------------------------------------------------------
 // Progress Bar
 // ---------------------------------------------------------------------------
 
 function ProgressBar({ current, total }: { current: number; total: number }) {
+  const value = Math.round((current / total) * 100);
   return (
-    <div className="flex gap-2">
-      {Array.from({ length: total }, (_, i) => {
-        const filled = i < current;
-        return (
-          <div
-            key={i}
-            className={`h-2 flex-1 rounded-full transition-[background-color,box-shadow] duration-500 ${
-              filled
-                ? "bg-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.28)]"
-                : "border border-dashed border-zinc-700 bg-transparent"
-            }`}
-          />
-        );
-      })}
-    </div>
+    <Progress
+      value={value}
+      aria-label={`Progression de l'onboarding : étape ${current} sur ${total}`}
+      className="h-2 bg-zinc-800"
+    />
   );
 }
 
@@ -144,85 +155,93 @@ function StepDetails({
     <div className="space-y-6">
       {/* Organization name */}
       <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <Label htmlFor="onboarding-organization" className={FIELD_LABEL_CLASS}>
           <Building2 size={16} className="text-zinc-500" />
           Nom de l&apos;organisation
-        </label>
-        <input
+        </Label>
+        <Input
+          id="onboarding-organization"
           type="text"
           value={data.organizationName}
           onChange={(e) => onChange({ organizationName: e.target.value })}
           placeholder="Acme Inc."
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/25"
+          className={FIELD_CLASS}
         />
       </div>
 
       {/* Website */}
       <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <Label htmlFor="onboarding-website" className={FIELD_LABEL_CLASS}>
           <Globe size={16} className="text-zinc-500" />
           Site web
-        </label>
-        <input
+        </Label>
+        <Input
+          id="onboarding-website"
           type="url"
           value={data.website}
           onChange={(e) => onChange({ website: e.target.value })}
           placeholder="https://example.com"
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/25"
+          className={FIELD_CLASS}
         />
       </div>
 
       {/* Social media */}
       <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <Label htmlFor="onboarding-social" className={FIELD_LABEL_CLASS}>
           <Share2 size={16} className="text-zinc-500" />
-          Profil de r?seau social
-        </label>
-        <input
+          Profil de réseau social
+        </Label>
+        <Input
+          id="onboarding-social"
           type="text"
           value={data.socialProfile}
           onChange={(e) => onChange({ socialProfile: e.target.value })}
           placeholder="https://twitter.com/acme"
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/25"
+          className={FIELD_CLASS}
         />
       </div>
 
       {/* Subscriber range */}
       <div className="space-y-3">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <p id="onboarding-subscribers-label" className={FIELD_LABEL_CLASS}>
           <Users size={16} className="text-zinc-500" />
-          Combien d&apos;abonn?s avez-vous ?
-        </label>
-        <div className="grid grid-cols-2 gap-3">
+          Combien d&apos;abonnés avez-vous ?
+        </p>
+        <ToggleGroup
+          type="single"
+          value={data.subscriberRange}
+          // Radix emits "" when the active item is clicked again; keep the current choice.
+          onValueChange={(value) => {
+            if (value) onChange({ subscriberRange: value });
+          }}
+          aria-labelledby="onboarding-subscribers-label"
+          className="grid w-full grid-cols-2 gap-3"
+        >
           {SUBSCRIBER_OPTIONS.map((option) => (
-            <button
+            <ToggleGroupItem
               key={option.value}
-              type="button"
-              onClick={() => onChange({ subscriberRange: option.value })}
-              className={`rounded-lg border px-4 py-3 text-sm transition ${
-                data.subscriberRange === option.value
-                  ? "border-orange-500 bg-orange-500/10 text-orange-400"
-                  : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
-              }`}
+              value={option.value}
+              className={cn(CHOICE_CLASS, "rounded-lg")}
             >
               {option.label}
-            </button>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
       </div>
 
       {/* Usage description */}
       <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <Label htmlFor="onboarding-usage" className={FIELD_LABEL_CLASS}>
           <MessageSquare size={16} className="text-zinc-500" />
           Comment allez-vous utiliser MailPulse ?
-        </label>
-        <textarea
+        </Label>
+        <Textarea
+          id="onboarding-usage"
           value={data.usageDescription}
           onChange={(e) => onChange({ usageDescription: e.target.value })}
-          placeholder="D?crivez bri?vement votre cas d'utilisation..."
+          placeholder="Décrivez brièvement votre cas d'utilisation..."
           rows={3}
-          className="w-full resize-none rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/25"
+          className={cn(FIELD_CLASS, "min-h-0 resize-none border-0 dark:border-0")}
         />
       </div>
     </div>
@@ -240,71 +259,68 @@ function StepSurvey({
   data: OnboardingData;
   onChange: (patch: Partial<OnboardingData>) => void;
 }) {
-  function toggleGoal(value: string) {
-    const current = data.goals;
-    const next = current.includes(value)
-      ? current.filter((g) => g !== value)
-      : [...current, value];
-    onChange({ goals: next });
-  }
-
   return (
     <div className="space-y-8">
       {/* Discovery source */}
       <div className="space-y-3">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <p id="onboarding-discovery-label" className={FIELD_LABEL_CLASS}>
           <Search size={16} className="text-zinc-500" />
           Comment avez-vous connu MailPulse ?
-        </label>
-        <div className="flex flex-wrap gap-2">
+        </p>
+        <ToggleGroup
+          type="single"
+          value={data.discoverySource}
+          // Radix emits "" when the active item is clicked again; keep the current choice.
+          onValueChange={(value) => {
+            if (value) onChange({ discoverySource: value });
+          }}
+          aria-labelledby="onboarding-discovery-label"
+          className="flex w-full flex-wrap gap-2"
+        >
           {DISCOVERY_SOURCES.map((source) => (
-            <button
+            <ToggleGroupItem
               key={source}
-              type="button"
-              onClick={() => onChange({ discoverySource: source })}
-              className={`rounded-full border px-4 py-2 text-sm transition ${
-                data.discoverySource === source
-                  ? "border-orange-500 bg-orange-500/10 text-orange-400"
-                  : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
-              }`}
+              value={source}
+              className={cn(CHOICE_CLASS, "rounded-full py-2")}
             >
               {source}
-            </button>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
       </div>
 
       {/* Goals (multi-select) */}
       <div className="space-y-3">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <p id="onboarding-goals-label" className={FIELD_LABEL_CLASS}>
           <Target size={16} className="text-zinc-500" />
           Que souhaitez-vous faire ?
-        </label>
-        <p className="text-xs text-zinc-500">
-          S?lectionnez tous les objectifs qui vous correspondent.
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <p className="text-xs text-zinc-500">
+          Sélectionnez tous les objectifs qui vous correspondent.
+        </p>
+        <ToggleGroup
+          type="multiple"
+          value={data.goals}
+          onValueChange={(goals) => onChange({ goals })}
+          aria-labelledby="onboarding-goals-label"
+          className="grid w-full grid-cols-2 gap-3"
+        >
           {GOAL_OPTIONS.map((goal) => {
             const Icon = goal.icon;
             const selected = data.goals.includes(goal.value);
             return (
-              <button
+              <ToggleGroupItem
                 key={goal.value}
-                type="button"
-                onClick={() => toggleGoal(goal.value)}
-                className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition ${
-                  selected
-                    ? "border-orange-500 bg-orange-500/10 text-orange-400"
-                    : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
-                }`}
+                value={goal.value}
+                className={cn(CHOICE_CLASS, "justify-start gap-3 rounded-lg text-left whitespace-normal")}
               >
                 <Icon size={16} className="shrink-0" />
                 {goal.label}
                 {selected && <Check size={14} className="ml-auto shrink-0" />}
-              </button>
+              </ToggleGroupItem>
             );
           })}
-        </div>
+        </ToggleGroup>
       </div>
     </div>
   );
@@ -330,41 +346,44 @@ function StepDomain({
       </p>
 
       <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <Label htmlFor="onboarding-domain" className={FIELD_LABEL_CLASS}>
           <Globe size={16} className="text-zinc-500" />
           Nom de domaine
-        </label>
-        <input
+        </Label>
+        <Input
+          id="onboarding-domain"
           type="text"
           value={data.domainName}
           onChange={(e) => onChange({ domainName: e.target.value })}
           placeholder="exemple.com"
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/25"
+          className={FIELD_CLASS}
         />
       </div>
 
-      <button
+      <Button
         type="button"
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-orange-500 bg-orange-500/10 px-4 py-3 text-sm font-medium text-orange-400 transition hover:bg-orange-500/20"
+        variant="outline"
+        className="h-auto w-full border border-orange-500 bg-orange-500/10 py-3 text-orange-400 shadow-none hover:bg-orange-500/20 hover:text-orange-400 hover:shadow-none dark:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/20"
       >
         <Plus size={16} />
         Ajouter un domaine
-      </button>
+      </Button>
 
       <div className="relative flex items-center gap-4 py-2">
-        <div className="h-px flex-1 bg-zinc-800" />
+        <Separator className="flex-1 bg-zinc-800 dark:bg-zinc-800" />
         <span className="text-xs text-zinc-600">ou</span>
-        <div className="h-px flex-1 bg-zinc-800" />
+        <Separator className="flex-1 bg-zinc-800 dark:bg-zinc-800" />
       </div>
 
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={() => onChange({ domainName: "test.mailpulse.app" })}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-300"
+        className="h-auto w-full border border-zinc-800 bg-zinc-900 py-3 font-normal text-zinc-400 shadow-none hover:border-zinc-700 hover:bg-zinc-900 hover:text-zinc-300 hover:shadow-none dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900"
       >
         <Send size={16} />
         Utiliser test.mailpulse.app
-      </button>
+      </Button>
     </div>
   );
 }
@@ -383,50 +402,53 @@ function StepSender({
   return (
     <div className="space-y-6">
       <p className="text-sm text-zinc-400">
-        Configurez les informations qui appara?tront dans les emails envoy?s ?
+        Configurez les informations qui apparaîtront dans les emails envoyés à
         vos contacts.
       </p>
 
       <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <Label htmlFor="onboarding-sender-name" className={FIELD_LABEL_CLASS}>
           <Users size={16} className="text-zinc-500" />
-          Nom de l&apos;exp?diteur
-        </label>
-        <input
+          Nom de l&apos;expéditeur
+        </Label>
+        <Input
+          id="onboarding-sender-name"
           type="text"
           value={data.senderName}
           onChange={(e) => onChange({ senderName: e.target.value })}
-          placeholder="Equipe Marketing"
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/25"
+          placeholder="Équipe Marketing"
+          className={FIELD_CLASS}
         />
       </div>
 
       <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <Label htmlFor="onboarding-sender-email" className={FIELD_LABEL_CLASS}>
           <AtSign size={16} className="text-zinc-500" />
           Adresse email
-        </label>
-        <input
+        </Label>
+        <Input
+          id="onboarding-sender-email"
           type="email"
           value={data.senderEmail}
           onChange={(e) => onChange({ senderEmail: e.target.value })}
           placeholder="newsletter@exemple.com"
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/25"
+          className={FIELD_CLASS}
         />
       </div>
 
       <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <Label htmlFor="onboarding-reply-to" className={FIELD_LABEL_CLASS}>
           <Reply size={16} className="text-zinc-500" />
-          Adresse de r?ponse
+          Adresse de réponse
           <span className="text-xs text-zinc-600">(optionnel)</span>
-        </label>
-        <input
+        </Label>
+        <Input
+          id="onboarding-reply-to"
           type="email"
           value={data.replyToEmail}
           onChange={(e) => onChange({ replyToEmail: e.target.value })}
           placeholder="support@exemple.com"
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/25"
+          className={FIELD_CLASS}
         />
       </div>
     </div>
@@ -449,17 +471,17 @@ function StepComplete() {
       </div>
 
       <h2 className="mb-3 text-2xl font-semibold text-zinc-100">
-        F?licitations !
+        Félicitations !
       </h2>
       <p className="max-w-sm text-sm leading-relaxed text-zinc-400">
-        Votre compte MailPulse est configur?. Vous pouvez maintenant cr?er votre
-        premi?re campagne, importer vos contacts, ou explorer le tableau de
+        Votre compte MailPulse est configuré. Vous pouvez maintenant créer votre
+        première campagne, importer vos contacts, ou explorer le tableau de
         bord.
       </p>
 
       <div className="mt-8 flex items-center gap-2 text-xs text-zinc-600">
         <Sparkles size={14} />
-        Pr?t ? envoyer vos premiers emails
+        Prêt à envoyer vos premiers emails
       </div>
     </div>
   );
@@ -521,7 +543,7 @@ export default function OnboardingPage() {
         <div className="mb-6">
           <ProgressBar current={step + 1} total={STEPS.length} />
           <p className="mt-3 text-center text-xs text-zinc-500">
-            ?tape {step + 1} sur {STEPS.length} ? {STEPS[step].label}
+            Étape {step + 1} sur {STEPS.length} · {STEPS[step].label}
           </p>
         </div>
 
@@ -552,30 +574,30 @@ export default function OnboardingPage() {
           {/* Navigation */}
           <div className="mt-8 flex items-center justify-between">
             {step > 0 && !isLastStep ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleBack}
-                className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-5 py-2.5 text-sm text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-300"
+                className="h-auto border border-zinc-800 bg-zinc-900 px-5 py-2.5 font-normal text-zinc-400 shadow-none hover:border-zinc-700 hover:bg-zinc-900 hover:text-zinc-300 hover:shadow-none dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900"
               >
                 <ArrowLeft size={16} />
                 Retour
-              </button>
+              </Button>
             ) : (
               <div />
             )}
 
-            <button
+            <Button
               type="button"
               onClick={handleContinue}
-              className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-medium transition ${
-                isLastStep
-                  ? "w-full justify-center bg-orange-600 text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_10px_24px_rgba(234,88,12,0.22)] hover:bg-orange-500"
-                  : "ml-auto bg-orange-600 text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset] hover:bg-orange-500"
-              }`}
+              className={cn(
+                "h-auto px-6 py-2.5",
+                isLastStep ? "w-full" : "ml-auto shadow-[0_1px_0_rgba(255,255,255,0.12)_inset]",
+              )}
             >
               {isLastStep ? (
                 <>
-                  Acc?der au dashboard
+                  Accéder au dashboard
                   <ArrowRight size={16} />
                 </>
               ) : (
@@ -584,20 +606,21 @@ export default function OnboardingPage() {
                   <ArrowRight size={16} />
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Skip link */}
         {!isLastStep && (
           <p className="mt-4 text-center">
-            <button
+            <Button
               type="button"
+              variant="link"
               onClick={() => router.push("/dashboard")}
-              className="text-xs text-zinc-600 underline-offset-4 transition hover:text-zinc-400 hover:underline"
+              className="h-auto p-0 text-xs font-normal text-zinc-600 hover:text-zinc-400"
             >
-              Passer cette ?tape
-            </button>
+              Passer cette étape
+            </Button>
           </p>
         )}
       </div>

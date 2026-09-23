@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Bug, ChevronDown, ChevronUp, Sparkles, Zap } from "lucide-react";
 
 import { changelog, APP_VERSION, type ChangelogEntry } from "@/lib/changelog";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,25 +14,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "mailpulse-last-seen-version";
 
 const typeConfig = {
-  feature: { icon: Sparkles, label: "Nouveau", className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
-  fix: { icon: Bug, label: "Correction", className: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300" },
-  improvement: { icon: Zap, label: "Amélioré", className: "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300" },
-};
+  feature: { icon: Sparkles, label: "Nouveau", variant: "success" },
+  fix: { icon: Bug, label: "Correction", variant: "warning" },
+  improvement: { icon: Zap, label: "Amélioré", variant: "secondary" },
+} as const satisfies Record<string, { icon: typeof Sparkles; label: string; variant: BadgeProps["variant"] }>;
 
 function VersionBlock({ entry, defaultOpen }: { entry: ChangelogEntry; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
     <section className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => setOpen((current) => !current)}
-        className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left transition-[color,background-color] hover:bg-zinc-50 dark:hover:bg-zinc-900"
+        aria-expanded={open}
+        className="h-auto min-h-11 w-full justify-between gap-3 rounded-none px-3 py-2 text-left font-normal whitespace-normal hover:bg-zinc-50 active:scale-100 dark:hover:bg-zinc-900"
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className="rounded-md bg-orange-500/10 px-2 py-1 font-mono text-[11px] font-semibold text-orange-600 dark:text-orange-400">
@@ -43,7 +45,7 @@ function VersionBlock({ entry, defaultOpen }: { entry: ChangelogEntry; defaultOp
           {entry.date}
           {open ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
         </span>
-      </button>
+      </Button>
       {open ? (
         <div className="space-y-2 px-3 pb-3">
           {entry.changes.map((change) => {
@@ -52,15 +54,10 @@ function VersionBlock({ entry, defaultOpen }: { entry: ChangelogEntry; defaultOp
 
             return (
               <div key={`${entry.version}-${change.text}`} className="flex items-start gap-2">
-                <span
-                  className={cn(
-                    "mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
-                    config.className,
-                  )}
-                >
+                <Badge variant={config.variant} className="mt-0.5 shrink-0 rounded-md px-1.5 text-[10px]">
                   <Icon className="size-3" />
                   {config.label}
-                </span>
+                </Badge>
                 <span className="text-pretty text-xs leading-5 text-zinc-600 dark:text-zinc-400">{change.text}</span>
               </div>
             );
