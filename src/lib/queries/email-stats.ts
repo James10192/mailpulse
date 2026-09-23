@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/prisma";
 
-export async function getEmailEventStats() {
+/** Email event rates of one organization, through the contact each event belongs to. */
+export async function getEmailEventStats(organizationId: string) {
+  const scope = { contact: { organizationId } };
   const [totalEvents, openEvents, clickEvents, bounceEvents] = await Promise.all([
-    prisma.emailEvent.count(),
-    prisma.emailEvent.count({ where: { type: "OPENED" } }),
-    prisma.emailEvent.count({ where: { type: "CLICKED" } }),
-    prisma.emailEvent.count({ where: { type: { in: ["BOUNCED_HARD", "BOUNCED_SOFT"] } } }),
+    prisma.emailEvent.count({ where: scope }),
+    prisma.emailEvent.count({ where: { ...scope, type: "OPENED" } }),
+    prisma.emailEvent.count({ where: { ...scope, type: "CLICKED" } }),
+    prisma.emailEvent.count({ where: { ...scope, type: { in: ["BOUNCED_HARD", "BOUNCED_SOFT"] } } }),
   ]);
 
   const delivered = totalEvents > 0 ? totalEvents : 1;
