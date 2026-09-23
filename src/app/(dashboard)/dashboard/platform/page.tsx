@@ -15,6 +15,7 @@ import { DeliveryByChannelChart, MessageVolumeChart } from "./platform-charts";
 import { ApiKeysPanel } from "./platform-client";
 import { PlatformMessagesPanel, type ApiMessageDetail } from "./platform-messages-panel";
 import { PlatformTabs } from "./platform-tabs";
+import { VerificationsPanel } from "./verifications-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ export default async function PlatformPage({
   const orgId = org?.id ?? "";
   const params = await searchParams;
   const filters = normalizeMessageFilters(params);
-  const tab = params.tab === "integrations" ? "integrations" : "messages";
+  const tab = params.tab === "integrations" || params.tab === "verifications" ? params.tab : "messages";
   const now = new Date();
   const messageWhere = buildMessageWhere(orgId, filters, now);
   const outcomeWhere = buildMessageWhere(orgId, filters, now, { withStatus: false });
@@ -170,6 +171,7 @@ export default async function PlatformPage({
             </section>
           </>
         }
+        verifications={<VerificationsPanel organizationId={orgId} />}
         integrations={
           <>
             {!canManage ? <PlanReadOnlyNotice feature="Les clés API, webhooks et intégrations" /> : null}
