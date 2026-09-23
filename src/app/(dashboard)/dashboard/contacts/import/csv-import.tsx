@@ -22,7 +22,7 @@ type Step = "upload" | "mapping" | "result";
 const IGNORE_FIELD = "__ignore__";
 
 const CONTACT_FIELDS = [
-  { value: "", label: "— Ignorer —" },
+  { value: IGNORE_FIELD, label: "Ignorer cette colonne" },
   { value: "email", label: "Email *" },
   { value: "firstName", label: "Prénom" },
   { value: "lastName", label: "Nom" },
@@ -45,7 +45,7 @@ export function CsvImport() {
 
   const handleFile = useCallback((file: File) => {
     if (!file.name.endsWith(".csv")) {
-      setError("Seuls les fichiers .csv sont acceptes.");
+      setError("Seuls les fichiers .csv sont acceptés.");
       return;
     }
 
@@ -57,7 +57,7 @@ export function CsvImport() {
       complete: (results) => {
         const rows = results.data as string[][];
         if (rows.length < 2) {
-          setError("Le fichier CSV doit contenir au moins une ligne de donnees.");
+          setError("Le fichier CSV doit contenir au moins une ligne de données.");
           return;
         }
 
@@ -99,12 +99,16 @@ export function CsvImport() {
   function updateMapping(colIndex: number, field: string) {
     setColumnMapping((prev) => {
       const next = { ...prev };
+      // The ignore sentinel only exists for the Select: an ignored column has no mapping.
+      if (field === IGNORE_FIELD) {
+        delete next[colIndex];
+        return next;
+      }
       // Remove field if already mapped to another column
       for (const [key, val] of Object.entries(next)) {
         if (val === field && Number(key) !== colIndex) delete next[Number(key)];
       }
-      if (field) next[colIndex] = field;
-      else delete next[colIndex];
+      next[colIndex] = field;
       return next;
     });
   }
@@ -196,7 +200,7 @@ export function CsvImport() {
           </p>
           <p className="text-xs text-zinc-400">ou cliquez pour sélectionner</p>
           <p className="text-xs text-zinc-500 mt-4">
-            Format attendu : une colonne email obligatoire, colonnes prenom/nom/telephone optionnelles
+            Format attendu : une colonne email obligatoire, colonnes prénom/nom/téléphone optionnelles
           </p>
         </div>
       )}
@@ -207,13 +211,13 @@ export function CsvImport() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-zinc-500">
               <FileSpreadsheet className="h-4 w-4" />
-              {fileName} — {csvData.length} lignes détectées
+              {fileName} · {csvData.length} lignes détectées
             </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => { setStep("upload"); setCsvHeaders([]); setCsvData([]); setColumnMapping({}); }}
-              className="h-7 px-2 text-zinc-500"
+              className="text-zinc-500"
             >
               Changer de fichier
             </Button>
@@ -232,15 +236,15 @@ export function CsvImport() {
                   </span>
                   <ArrowRight className="h-3 w-3 text-zinc-600 shrink-0" />
                   <Select
-                    value={columnMapping[i] || IGNORE_FIELD}
-                    onValueChange={(value) => updateMapping(i, value === IGNORE_FIELD ? "" : value)}
+                    value={columnMapping[i] ?? IGNORE_FIELD}
+                    onValueChange={(value) => updateMapping(i, value)}
                   >
-                    <SelectTrigger aria-labelledby={`csv-column-${i}`} className="flex-1 cursor-pointer">
+                    <SelectTrigger aria-labelledby={`csv-column-${i}`} className="flex-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {CONTACT_FIELDS.map((f) => (
-                        <SelectItem key={f.value || IGNORE_FIELD} value={f.value || IGNORE_FIELD}>
+                        <SelectItem key={f.value} value={f.value}>
                           {f.label}
                         </SelectItem>
                       ))}
@@ -264,9 +268,9 @@ export function CsvImport() {
             </div>
             <Table className="text-xs">
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent dark:hover:bg-transparent">
+                  <TableRow>
                     {csvHeaders.map((h, i) => (
-                      <TableHead key={i} className="h-auto px-3 py-2 text-xs font-medium normal-case tracking-normal text-zinc-500">
+                      <TableHead key={i} className="px-3 py-2 text-xs font-medium normal-case tracking-normal text-zinc-500">
                         {columnMapping[i] ? (
                           <span className="text-orange-500">{CONTACT_FIELDS.find((f) => f.value === columnMapping[i])?.label}</span>
                         ) : (
@@ -278,7 +282,7 @@ export function CsvImport() {
                 </TableHeader>
                 <TableBody>
                   {csvData.slice(0, 5).map((row, ri) => (
-                    <TableRow key={ri} className="border-zinc-100 hover:bg-transparent dark:border-zinc-800/50 dark:hover:bg-transparent">
+                    <TableRow key={ri} className="border-zinc-100 dark:border-zinc-800/50">
                       {row.map((cell, ci) => (
                         <TableCell key={ci} className={`px-3 py-2 ${columnMapping[ci] ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400"}`}>
                           {cell || "—"}

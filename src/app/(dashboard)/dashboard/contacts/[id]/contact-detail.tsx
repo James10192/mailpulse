@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { toggleContactSubscription, triggerAutomation, updateContact, addTagToContact, removeTagFromContact } from "./actions";
 
 // ────────────────────────────────────────────────────────
@@ -139,19 +140,19 @@ function formatDateTime(iso: string) {
 }
 
 const EVENT_CONFIG: Record<string, { icon: typeof Send; label: string; color: string }> = {
-  SUBSCRIBED: { icon: UserPlus, label: "Abonne", color: "text-emerald-500" },
-  SENT: { icon: Send, label: "Email envoye", color: "text-blue-400" },
-  DELIVERED: { icon: CheckCircle, label: "Email delivre", color: "text-emerald-400" },
+  SUBSCRIBED: { icon: UserPlus, label: "Abonné", color: "text-emerald-500" },
+  SENT: { icon: Send, label: "Email envoyé", color: "text-blue-400" },
+  DELIVERED: { icon: CheckCircle, label: "Email délivré", color: "text-emerald-400" },
   OPENED: { icon: Eye, label: "Email ouvert", color: "text-sky-400" },
-  CLICKED: { icon: MousePointerClick, label: "Email clique", color: "text-orange-400" },
+  CLICKED: { icon: MousePointerClick, label: "Email cliqué", color: "text-orange-400" },
   BOUNCED_SOFT: { icon: AlertTriangle, label: "Bounce soft", color: "text-amber-400" },
   BOUNCED_HARD: { icon: AlertTriangle, label: "Bounce hard", color: "text-red-400" },
   COMPLAINED: { icon: AlertOctagon, label: "Spam", color: "text-red-500" },
-  UNSUBSCRIBED: { icon: UserMinus, label: "Desabonne", color: "text-zinc-400" },
-  TAG_ADDED: { icon: Tag, label: "Tag ajoute", color: "text-purple-400" },
-  TAG_REMOVED: { icon: Tag, label: "Tag retire", color: "text-zinc-400" },
-  WORKFLOW_STARTED: { icon: Zap, label: "Automation demarree", color: "text-orange-500" },
-  WORKFLOW_COMPLETED: { icon: CheckCircle, label: "Automation terminee", color: "text-emerald-500" },
+  UNSUBSCRIBED: { icon: UserMinus, label: "Désabonné", color: "text-zinc-400" },
+  TAG_ADDED: { icon: Tag, label: "Tag ajouté", color: "text-purple-400" },
+  TAG_REMOVED: { icon: Tag, label: "Tag retiré", color: "text-zinc-400" },
+  WORKFLOW_STARTED: { icon: Zap, label: "Automation démarrée", color: "text-orange-500" },
+  WORKFLOW_COMPLETED: { icon: CheckCircle, label: "Automation terminée", color: "text-emerald-500" },
 };
 
 const EVENT_FILTER_OPTIONS = Object.entries(EVENT_CONFIG).map(([value, cfg]) => ({
@@ -160,13 +161,16 @@ const EVENT_FILTER_OPTIONS = Object.entries(EVENT_CONFIG).map(([value, cfg]) => 
 }));
 
 const TRIGGER_LABELS: Record<string, string> = {
-  SUBSCRIBER_ADDED: "Nouvel abonne",
-  TAG_ADDED: "Tag ajoute",
+  SUBSCRIBER_ADDED: "Nouvel abonné",
+  TAG_ADDED: "Tag ajouté",
   CAMPAIGN_OPENED: "Campagne ouverte",
-  LINK_CLICKED: "Lien clique",
+  LINK_CLICKED: "Lien cliqué",
   DATE_BASED: "Date",
-  CUSTOM_EVENT: "Evenement custom",
+  CUSTOM_EVENT: "Événement personnalisé",
 };
+
+// One row of the tag suggestion list under the "Ajouter un tag" field.
+const TAG_OPTION_CLASS = "block w-full px-3 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:bg-zinc-100 disabled:opacity-50 dark:focus-visible:bg-zinc-800";
 
 // ────────────────────────────────────────────────────────
 // Component
@@ -175,7 +179,6 @@ const TRIGGER_LABELS: Record<string, string> = {
 export function ContactDetail({ contact, stats, activeAutomations, customFields, availableTags }: ContactDetailProps) {
   const [isPending, startTransition] = useTransition();
   const [showUnsubConfirm, setShowUnsubConfirm] = useState(false);
-  const [automationDropdown, setAutomationDropdown] = useState(false);
 
   // Edit mode state
   const [editing, setEditing] = useState(false);
@@ -196,7 +199,6 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
   const [newTag, setNewTag] = useState("");
   const [addingTag, setAddingTag] = useState(false);
   const [eventFilter, setEventFilter] = useState<string>("ALL");
-  const [eventFilterOpen, setEventFilterOpen] = useState(false);
   const [eventSearch, setEventSearch] = useState("");
 
   async function handleSave() {
@@ -270,7 +272,6 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
   }
 
   function handleTriggerAutomation(automationId: string) {
-    setAutomationDropdown(false);
     startTransition(async () => {
       const result = await triggerAutomation(contact.id, automationId);
       if (result?.success) {
@@ -518,15 +519,14 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                   style={{ borderColor: tag.color + "40", backgroundColor: tag.color + "15", color: tag.color }}
                 >
                   {tag.name}
-                  <Button
-                    variant="ghost"
-                    size="icon"
+                  <button
+                    type="button"
                     onClick={() => handleRemoveTag(tag.id)}
                     aria-label={`Retirer le tag ${tag.name}`}
-                    className="h-auto w-auto p-0 text-xs leading-none text-current hover:bg-transparent hover:text-current hover:opacity-60 dark:hover:bg-transparent dark:hover:text-current"
+                    className="rounded-sm text-xs leading-none transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35"
                   >
                     ×
-                  </Button>
+                  </button>
                 </Badge>
               ))}
               <div className="relative">
@@ -544,24 +544,24 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                     {availableTags
                       .filter((t) => t.toLowerCase().includes(newTag.toLowerCase()) && !contact.tags.some((ct) => ct.name === t))
                       .map((t) => (
-                        <Button
+                        <button
                           key={t}
-                          variant="ghost"
+                          type="button"
                           onClick={() => { setNewTag(""); addTagToContact(contact.id, t); }}
-                          className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-xs font-normal"
+                          className={cn(TAG_OPTION_CLASS, "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800")}
                         >
                           {t}
-                        </Button>
+                        </button>
                       ))}
                     {!availableTags.some((t) => t.toLowerCase() === newTag.toLowerCase()) && (
-                      <Button
-                        variant="ghost"
+                      <button
+                        type="button"
                         onClick={handleAddTag}
                         disabled={addingTag}
-                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-xs font-normal text-orange-500 hover:bg-orange-500/5 hover:text-orange-500 dark:text-orange-500 dark:hover:bg-orange-500/5 dark:hover:text-orange-500"
+                        className={cn(TAG_OPTION_CLASS, "text-orange-600 hover:bg-orange-500/5 dark:text-orange-400")}
                       >
                         + Créer &quot;{newTag}&quot;
-                      </Button>
+                      </button>
                     )}
                   </div>
                 )}
@@ -621,10 +621,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
           )}
 
           {/* Trigger automation dropdown */}
-          <DropdownMenu
-            open={automationDropdown && activeAutomations.length > 0}
-            onOpenChange={setAutomationDropdown}
-          >
+          <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 disabled={activeAutomations.length === 0 || isPending}
@@ -644,7 +641,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                 <DropdownMenuItem
                   key={auto.id}
                   onSelect={() => handleTriggerAutomation(auto.id)}
-                  className="cursor-pointer text-zinc-600 focus:bg-orange-500/5 focus:text-orange-500 dark:text-zinc-300 dark:focus:bg-orange-500/5 dark:focus:text-orange-400"
+                  className="text-zinc-600 focus:bg-orange-500/5 focus:text-orange-500 dark:text-zinc-300 dark:focus:bg-orange-500/5 dark:focus:text-orange-400"
                 >
                   {auto.name}
                 </DropdownMenuItem>
@@ -671,7 +668,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                 className="h-8 w-36 pl-8 pr-3 text-xs"
               />
             </div>
-            <DropdownMenu open={eventFilterOpen} onOpenChange={setEventFilterOpen}>
+            <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 gap-1.5 font-normal">
                   <Filter className="h-3.5 w-3.5" />
@@ -734,7 +731,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                         {config.label}
                       </span>
                       {campaignName && (
-                        <span className="text-sm text-zinc-500"> — {campaignName}</span>
+                        <span className="text-sm text-zinc-500"> · {campaignName}</span>
                       )}
                     </div>
                     <span className="text-xs text-zinc-500 shrink-0">
