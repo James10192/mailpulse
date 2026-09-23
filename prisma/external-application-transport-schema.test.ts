@@ -47,5 +47,5 @@ test("SMS reconciliation history includes external transport closures", () => {
 });
 
 test("the generic transport migration contains no client-specific backfill", () => {
-  assert.doesNotMatch(migration, /klassci/i);
+  assert.doesNotMatch(migration, /^\s*(INSERT|UPDATE|DELETE|COPY)\b/im);
 });
