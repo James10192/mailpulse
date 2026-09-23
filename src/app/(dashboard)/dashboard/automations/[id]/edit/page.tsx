@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { WorkflowEditor } from "@/components/automations/workflow-editor";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import type { Node, Edge, MarkerType } from "@xyflow/react";
@@ -10,9 +11,11 @@ export default async function EditAutomationPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { org } = await getCurrentUserAndOrg();
+  if (!org) notFound();
 
-  const automation = await prisma.automation.findUnique({
-    where: { id },
+  const automation = await prisma.automation.findFirst({
+    where: { id, organizationId: org.id },
     include: {
       steps: { orderBy: { position: "asc" } },
     },
