@@ -39,7 +39,8 @@ An email refused by the provider moves to `failed` and `error_code` gives the
 cause: `email_bounced`, `email_complained`, `email_suppressed` (address on the
 provider's suppression list) or `email_failed` (sending failure, reason in
 `error_message`). A late event never moves a delivered, read or failed message
-backwards.
+backwards. A complaint received after delivery unsubscribes the contact but
+leaves the message `delivered` or `read`.
 
 `GET /api/v1/messages/{message_id}` also returns `delivery_delays`, the delivery
 delays reported by the provider (at most 20, newest first). A delay does not

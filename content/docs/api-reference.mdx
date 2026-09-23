@@ -61,7 +61,9 @@ Un email refusé par le fournisseur passe en `failed` et `error_code` en donne l
 cause : `email_bounced` (rebond), `email_complained` (plainte),
 `email_suppressed` (adresse sur la liste de suppression du fournisseur) ou
 `email_failed` (échec d'envoi, motif dans `error_message`). Un événement tardif
-ne fait jamais reculer un message déjà délivré, lu ou en échec.
+ne fait jamais reculer un message déjà délivré, lu ou en échec. Une plainte
+reçue après la remise désabonne le contact mais laisse le message à `delivered`
+ou `read`.
 
 `GET /api/v1/messages/{message_id}` renvoie aussi `delivery_delays`, les retards
 de remise signalés par le fournisseur (20 au plus, du plus récent au plus
