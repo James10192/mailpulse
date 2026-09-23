@@ -14,7 +14,6 @@ import {
 export type ResendDelivery = {
   event: ResendWebhookEvent;
   deliveryId: string;
-  receivedAt: Date;
 };
 
 const MESSAGE_SELECT = {
@@ -67,8 +66,8 @@ export type ResendWebhookStore = {
 
 type CampaignEffect = { eventType: EmailEventType; timestamp?: RecipientTimestamp };
 
-// Resend excludes suppressions from the bounce rate, so a suppression is
-// recorded as its own event without stamping bouncedAt.
+// Resend excludes suppressions from the bounce rate, so suppressions and sending
+// failures are recorded as their own events without stamping bouncedAt.
 const CAMPAIGN_EFFECTS: Partial<Record<ResendEventType, CampaignEffect>> = {
   "email.delivered": { eventType: "DELIVERED", timestamp: "deliveredAt" },
   "email.opened": { eventType: "OPENED", timestamp: "openedAt" },
@@ -76,6 +75,7 @@ const CAMPAIGN_EFFECTS: Partial<Record<ResendEventType, CampaignEffect>> = {
   "email.bounced": { eventType: "BOUNCED_HARD", timestamp: "bouncedAt" },
   "email.complained": { eventType: "COMPLAINED", timestamp: "complainedAt" },
   "email.suppressed": { eventType: "SUPPRESSED" },
+  "email.failed": { eventType: "FAILED" },
 };
 
 // Resend only suppresses an address after a hard bounce or a complaint.
@@ -125,7 +125,7 @@ async function reconcileCommunicationMessage(store: ResendWebhookStore, delivery
   });
   if (!message) return { changed: false, contactId: null, organizationId: null };
 
-  const occurredAt = resendEventTime(event, delivery.receivedAt);
+  const occurredAt = resendEventTime(event);
   const classification = classifyResendEvent(event.type, message, occurredAt, resendEventReason(event));
   const statusChange = await applyClassification(store, classification, {
     organizationId: message.organizationId,
@@ -133,8 +133,6 @@ async function reconcileCommunicationMessage(store: ResendWebhookStore, delivery
     provider: "RESEND",
     providerEventId: delivery.deliveryId,
     occurredAt,
-    // Resend documents no reason for a delay; the column serves providers that give one.
-    reason: null,
   });
 
   const update = await store.communicationMessage.updateMany({
@@ -184,7 +182,7 @@ async function applyCampaignEffect(
   if (effect.timestamp) {
     await store.campaignRecipient.updateMany({
       where: { id: recipientId },
-      data: { [effect.timestamp]: resendEventTime(delivery.event, delivery.receivedAt) },
+      data: { [effect.timestamp]: resendEventTime(delivery.event) },
     });
   }
   return !existing;

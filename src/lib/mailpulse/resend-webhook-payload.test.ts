@@ -5,10 +5,8 @@ import {
   resendEventReason,
   resendEventTag,
   resendEventTime,
-  // @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-} from "./resend-webhook-payload.ts";
+} from "./resend-webhook-payload";
 
-const receivedAt = new Date("2026-09-23T12:00:00.000Z");
 
 function payload(type: string, extra: Record<string, unknown> = {}) {
   return {
@@ -56,9 +54,15 @@ test("reads tags in both shapes Resend sends", () => {
   assert.equal(resendEventTag(record, "toString"), null);
 });
 
-test("dates the event from its payload, falling back to reception time", () => {
-  assert.equal(resendEventTime(parsedEvent("email.delivered"), receivedAt).toISOString(), "2026-09-23T11:59:00.000Z");
-  const undated = parseResendWebhookPayload({ ...payload("email.delivered"), created_at: "not a date" });
-  assert.equal(undated.kind, "event");
-  assert.equal(resendEventTime(undated.event, receivedAt), receivedAt);
+test("dates the event from the ISO timestamp Resend sends", () => {
+  assert.equal(resendEventTime(parsedEvent("email.delivered")).toISOString(), "2026-09-23T11:59:00.000Z");
+  const withOffset = parseResendWebhookPayload({ ...payload("email.delivered"), created_at: "2026-11-22T23:41:12.126+00:00" });
+  assert.equal(withOffset.kind, "event");
+});
+
+test("rejects a handled event whose timestamp is not an ISO date", () => {
+  for (const createdAt of ["not a date", "2026-09-23", "", 1_695_470_400]) {
+    const parsed = parseResendWebhookPayload({ ...payload("email.delivered"), created_at: createdAt });
+    assert.equal(parsed.kind, "invalid", String(createdAt));
+  }
 });

@@ -5,20 +5,6 @@ import { z } from "zod";
  * platform reads are declared; Resend may add others without breaking parsing.
  * Reference: https://resend.com/docs/webhooks/emails
  */
-export const RESEND_EVENT_TYPES = [
-  "email.sent",
-  "email.delivered",
-  "email.delivery_delayed",
-  "email.opened",
-  "email.clicked",
-  "email.bounced",
-  "email.complained",
-  "email.suppressed",
-  "email.failed",
-] as const;
-
-export type ResendEventType = (typeof RESEND_EVENT_TYPES)[number];
-
 const tagsSchema = z.union([
   z.record(z.string(), z.string()),
   z.array(z.object({ name: z.string(), value: z.string() })),
@@ -29,10 +15,11 @@ const baseData = {
   tags: tagsSchema.optional(),
 };
 
-function event<T extends ResendEventType, D extends z.ZodRawShape>(type: T, data: D) {
+function event<T extends string, D extends z.ZodRawShape>(type: T, data: D) {
   return z.object({
     type: z.literal(type),
-    created_at: z.string(),
+    // Resend sends ISO 8601 UTC timestamps such as 2026-11-22T23:41:12.126Z.
+    created_at: z.iso.datetime({ offset: true }),
     data: z.object({ ...baseData, ...data }),
   });
 }
@@ -53,7 +40,11 @@ const resendWebhookEventSchema = z.discriminatedUnion("type", [
 const eventEnvelopeSchema = z.object({ type: z.string() });
 
 export type ResendWebhookEvent = z.infer<typeof resendWebhookEventSchema>;
+export type ResendEventType = ResendWebhookEvent["type"];
 
+const HANDLED_EVENT_TYPES: ReadonlySet<string> = new Set(
+  resendWebhookEventSchema.options.map((option) => option.shape.type.value),
+);
 export type ParsedResendPayload =
   | { kind: "event"; event: ResendWebhookEvent }
   | { kind: "unsupported"; type: string }
@@ -63,7 +54,7 @@ export type ParsedResendPayload =
 export function parseResendWebhookPayload(payload: unknown): ParsedResendPayload {
   const envelope = eventEnvelopeSchema.safeParse(payload);
   if (!envelope.success) return { kind: "invalid", issues: "type" };
-  if (!isResendEventType(envelope.data.type)) return { kind: "unsupported", type: envelope.data.type };
+  if (!HANDLED_EVENT_TYPES.has(envelope.data.type)) return { kind: "unsupported", type: envelope.data.type };
   const result = resendWebhookEventSchema.safeParse(payload);
   if (!result.success) {
     return { kind: "invalid", issues: result.error.issues.map((issue) => issue.path.join(".")).join(", ") };
@@ -92,14 +83,8 @@ export function resendEventTag(event: ResendWebhookEvent, name: string): string 
   return Object.hasOwn(tags, name) ? tags[name] : null;
 }
 
-/** An unreadable timestamp falls back to reception time: it only dates the event. */
-export function resendEventTime(event: ResendWebhookEvent, receivedAt: Date) {
-  const occurredAt = new Date(event.created_at);
-  return Number.isNaN(occurredAt.getTime()) ? receivedAt : occurredAt;
-}
-
-function isResendEventType(type: string): type is ResendEventType {
-  return (RESEND_EVENT_TYPES as readonly string[]).includes(type);
+export function resendEventTime(event: ResendWebhookEvent) {
+  return new Date(event.created_at);
 }
 
 function cleanReason(value: string | undefined) {

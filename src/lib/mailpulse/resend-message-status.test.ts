@@ -3,8 +3,7 @@ import test from "node:test";
 
 import type { MessageStatus } from "@/generated/prisma";
 
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { classifyResendEvent, isOutcomeOpen, type ResendClassification } from "./resend-message-status.ts";
+import { classifyResendEvent, isOutcomeOpen, type ResendClassification } from "./resend-message-status";
 import type { ResendEventType } from "./resend-webhook-payload";
 
 const occurredAt = new Date("2026-08-02T10:45:00.000Z");
@@ -72,6 +71,8 @@ const EVENTS: ResendEventType[] = [
 const FAILURES: ResendEventType[] = ["email.bounced", "email.complained", "email.suppressed", "email.failed"];
 const OPEN: MessageStatus[] = ["QUEUED", "PROCESSING", "RETRYING", "SUBMISSION_UNKNOWN", "SENT"];
 const SETTLED: MessageStatus[] = ["FAILED", "CANCELLED", "RECONCILED", "DUPLICATE_CONFIRMED", "TEMPLATE_REQUIRED"];
+const REACHED: MessageStatus[] = ["DELIVERED", "READ"];
+const ALL: MessageStatus[] = [...OPEN, ...REACHED, ...SETTLED];
 
 // Expected outcome of every event on every status: a status name, "delay", or
 // null when the event is ignored. Late events never move a message backwards.
@@ -88,7 +89,7 @@ function expected(status: MessageStatus, eventType: ResendEventType): string | n
 }
 
 test("transition matrix over every message status and Resend event", () => {
-  for (const status of [...OPEN, "DELIVERED", "READ", ...SETTLED] as MessageStatus[]) {
+  for (const status of ALL) {
     for (const eventType of EVENTS) {
       assert.equal(outcome(eventType, status, "r"), expected(status, eventType), `${eventType} on ${status}`);
     }
@@ -103,5 +104,5 @@ test("transition matrix over every message status and Resend event", () => {
 
 test("only unsettled statuses keep an open outcome", () => {
   for (const status of OPEN) assert.equal(isOutcomeOpen(status), true, status);
-  for (const status of ["DELIVERED", "READ", ...SETTLED] as MessageStatus[]) assert.equal(isOutcomeOpen(status), false, status);
+  for (const status of [...REACHED, ...SETTLED]) assert.equal(isOutcomeOpen(status), false, status);
 });

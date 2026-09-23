@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
   if (delivery instanceof Response) return delivery;
 
   try {
-    console.log("Webhook event:", delivery.event.type, delivery.event.data.email_id);
     await processDelivery(delivery);
     return new Response("OK", { status: 200 });
   } catch (error) {
@@ -62,7 +61,7 @@ function readDelivery(payload: unknown, deliveryId: string): ResendDelivery | Re
     console.error("Webhook payload invalid:", parsed.issues);
     return new Response("Invalid payload", { status: 400 });
   }
-  return { event: parsed.event, deliveryId, receivedAt: new Date() };
+  return { event: parsed.event, deliveryId };
 }
 
 async function processDelivery(delivery: ResendDelivery) {
