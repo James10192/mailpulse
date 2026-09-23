@@ -2,11 +2,11 @@
 // based on the organization's whatsappMode setting.
 
 import type { IWhatsAppProvider, WhatsAppProviderConfig } from "@/lib/whatsapp/types";
-import { BaileysProvider } from "@/lib/whatsapp-baileys";
-import { MetaProvider } from "@/lib/whatsapp-meta";
-import * as baileys from "@/lib/whatsapp-baileys";
-import * as meta from "@/lib/whatsapp-meta";
-import { getWhatsAppPhoneCandidates } from "@/lib/phone-numbers";
+import { BaileysProvider } from "./whatsapp-baileys";
+import { MetaProvider } from "./whatsapp-meta";
+import * as baileys from "./whatsapp-baileys";
+import * as meta from "./whatsapp-meta";
+import { getWhatsAppPhoneCandidates } from "./phone-numbers";
 
 export type WhatsAppMode = "BAILEYS" | "META";
 
@@ -50,10 +50,20 @@ function resolveProviderConfig(org: OrgWhatsAppConfig): WhatsAppProviderConfig {
   return { mode: "BAILEYS", instanceName: org.evoInstanceName };
 }
 
+export type SendWhatsAppOptions = {
+  /**
+   * Retry legacy variants of the number (8-digit Ivorian numbers) when the
+   * exact one fails. Default true; must be false when the message proves
+   * ownership of that exact number, or a code could reach someone else.
+   */
+  fallbacks?: boolean;
+};
+
 export async function sendWhatsApp(
   org: OrgWhatsAppConfig,
   to: string,
   text: string,
+  options: SendWhatsAppOptions = {},
 ) {
   if (!org.whatsappEnabled) {
     throw new Error("WhatsApp non active pour cette organisation.");
@@ -61,7 +71,7 @@ export async function sendWhatsApp(
 
   const config = resolveProviderConfig(org);
   const provider = createProvider(config);
-  const candidates = getWhatsAppPhoneCandidates(to);
+  const candidates = options.fallbacks === false ? [to] : getWhatsAppPhoneCandidates(to);
   let result = await provider.sendText(candidates[0] ?? to, text);
 
   for (const candidate of candidates.slice(1)) {
