@@ -6,11 +6,18 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
-import { deleteOrganizationTag } from "@/lib/contacts/tenant-scope";
+import { deleteOrganizationTag, normalizeContactTagName } from "@/lib/contacts/tenant-scope";
 import { prismaTenantDb } from "@/lib/contacts/prisma-tenant-db";
 
 const tagSchema = z.object({
-  name: z.string().min(1, "Le nom est requis"),
+  name: z.string().transform((value, ctx) => {
+    const name = normalizeContactTagName(value);
+    if (!name) {
+      ctx.addIssue({ code: "custom", message: "Nom de tag invalide" });
+      return z.NEVER;
+    }
+    return name;
+  }),
   color: z.string().default("#f97316"),
 });
 
@@ -22,7 +29,7 @@ export async function createTag(
     name: formData.get("name"),
     color: formData.get("color"),
   });
-  if (!result.success) return { error: "Nom requis" };
+  if (!result.success) return { error: "Nom de tag invalide." };
 
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifié." };

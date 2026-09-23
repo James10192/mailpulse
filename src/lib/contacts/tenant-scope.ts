@@ -30,10 +30,6 @@ export type TenantScopedDb = {
     deleteMany(args: { where: ContactTagWhere }): Promise<{ count: number }>;
   };
   contactList: {
-    findFirst(args: {
-      where: OrgScopedId;
-      select: { id: true; dynamicFilter: true };
-    }): Promise<{ id: string; dynamicFilter: unknown } | null>;
     deleteMany(args: { where: OrgScopedId }): Promise<{ count: number }>;
   };
 };
@@ -60,7 +56,13 @@ export async function contactBelongsToOrganization(
   return contact !== null;
 }
 
-/** Adds a tag to a contact of the organization. Prisma errors propagate. */
+/**
+ * Adds a tag to a contact of the organization. Prisma errors propagate.
+ *
+ * `contact_tag` has no unique index on (contactId, name), so duplicates are
+ * detected by the read below. Run it inside a serializable transaction so two
+ * concurrent calls cannot both pass the check.
+ */
 export async function addTagToOrganizationContact(
   db: TenantScopedDb,
   organizationId: string,
@@ -109,18 +111,6 @@ export async function deleteOrganizationTag(
     where: { name: rawName, contact: { organizationId } },
   });
   return count > 0 ? { ok: true } : { ok: false, reason: "not_found" };
-}
-
-export async function findOrganizationSegment(
-  db: TenantScopedDb,
-  organizationId: string,
-  segmentId: string
-): Promise<{ id: string; dynamicFilter: unknown } | null> {
-  if (!segmentId) return null;
-  return db.contactList.findFirst({
-    where: { id: segmentId, organizationId },
-    select: { id: true, dynamicFilter: true },
-  });
 }
 
 export async function deleteOrganizationSegment(

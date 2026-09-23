@@ -12,14 +12,10 @@ import {
   addTagToOrganizationContact,
   removeTagFromOrganizationContact,
 } from "@/lib/contacts/tenant-scope";
-import { prismaTenantDb } from "@/lib/contacts/prisma-tenant-db";
+import { createTenantDb, prismaTenantDb } from "@/lib/contacts/prisma-tenant-db";
 
 const NOT_AUTHENTICATED = "Non authentifié.";
 const CONTACT_NOT_FOUND = "Contact introuvable.";
-
-function isUniqueConstraintViolation(error: unknown): boolean {
-  return (error as { code?: unknown } | null)?.code === "P2002";
-}
 
 export async function toggleContactSubscription(
   contactId: string
@@ -38,10 +34,11 @@ export async function toggleContactSubscription(
     const newSubscribed = !contact.subscribed;
 
     const { count } = await prisma.contact.updateMany({
-      where: { id: contactId, organizationId: org.id },
+      // Filtering on the value just read makes a concurrent toggle fail instead of being silently undone.
+      where: { id: contactId, organizationId: org.id, subscribed: contact.subscribed },
       data: { subscribed: newSubscribed },
     });
-    if (count === 0) return { error: CONTACT_NOT_FOUND };
+    if (count === 0) return { error: "Le contact a été modifié entre-temps. Réessayez." };
 
     trackServerEvent(
       user.id,
@@ -110,7 +107,11 @@ export async function addTagToContact(
   if (!user || !org) return { error: NOT_AUTHENTICATED };
 
   try {
-    const result = await addTagToOrganizationContact(prismaTenantDb, org.id, contactId, tagName);
+    // Duplicate check and insert run in one serializable transaction: see addTagToOrganizationContact.
+    const result = await prisma.$transaction(
+      (tx) => addTagToOrganizationContact(createTenantDb(tx), org.id, contactId, tagName),
+      { isolationLevel: "Serializable" }
+    );
     if (!result.ok) {
       if (result.reason === "duplicate") return { error: "Ce tag existe déjà." };
       if (result.reason === "invalid") return { error: "Nom de tag invalide." };
@@ -120,7 +121,6 @@ export async function addTagToContact(
     revalidatePath(`/dashboard/contacts/${contactId}`);
     return { success: true };
   } catch (error) {
-    if (isUniqueConstraintViolation(error)) return { error: "Ce tag existe déjà." };
     console.error("[contacts] Failed to add tag", { organizationId: org.id, contactId, error });
     return { error: "Impossible d'ajouter le tag." };
   }

@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { notFound } from "next/navigation";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
-import { resolveSegmentContacts } from "@/lib/queries/segment-contacts";
+import { listSegmentContacts } from "@/lib/queries/segment-contacts";
+import { parseSegmentFilter } from "@/lib/contacts/segment-filter";
 import { Users, Filter, CheckCircle, XCircle, Tag, Calendar, BarChart3 } from "lucide-react";
 import Link from "next/link";
 
@@ -15,15 +16,19 @@ export default async function SegmentDetailPage({
   const { org } = await getCurrentUserAndOrg();
   if (!org) notFound();
 
-  const segment = await prisma.contactList.findUnique({
+  const segment = await prisma.contactList.findFirst({
     where: { id, organizationId: org.id },
     select: { id: true, name: true, description: true, type: true, dynamicFilter: true, contactCount: true, createdAt: true },
   });
 
   if (!segment) notFound();
 
-  const contacts = await resolveSegmentContacts(org.id, segment.id);
-  const filters = segment.dynamicFilter as Record<string, unknown> | null;
+  const parsed = parseSegmentFilter(segment.dynamicFilter);
+  if (!parsed.ok) {
+    console.warn("[segments] Stored segment filter is invalid", { organizationId: org.id, segmentId: segment.id });
+  }
+  const filters = parsed.ok ? parsed.filter : null;
+  const contacts = parsed.ok ? await listSegmentContacts(org.id, filters) : [];
 
   return (
     <>
@@ -60,12 +65,12 @@ export default async function SegmentDetailPage({
               )}
               {Array.isArray(filters.includeTags) && filters.includeTags.length > 0 && (
                 <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                  <Tag className="h-3 w-3" /> Tags: {(filters.includeTags as string[]).join(", ")}
+                  <Tag className="h-3 w-3" /> Tags: {filters.includeTags.join(", ")}
                 </span>
               )}
               {typeof filters.engagementMin === "number" && (
                 <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                  <BarChart3 className="h-3 w-3" /> Score &ge; {filters.engagementMin as number}
+                  <BarChart3 className="h-3 w-3" /> Score &ge; {filters.engagementMin}
                 </span>
               )}
               {typeof filters.createdAfter === "string" && (

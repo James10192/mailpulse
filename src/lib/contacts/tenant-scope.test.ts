@@ -6,14 +6,13 @@ import {
   contactBelongsToOrganization,
   deleteOrganizationSegment,
   deleteOrganizationTag,
-  findOrganizationSegment,
   removeTagFromOrganizationContact,
   type TenantScopedDb,
 } from "./tenant-scope";
 
 type Contact = { id: string; organizationId: string };
 type Tag = { id: string; name: string; contactId: string };
-type Segment = { id: string; organizationId: string; dynamicFilter: unknown };
+type Segment = { id: string; organizationId: string };
 
 /**
  * In-memory stand-in that applies the `where` filters the helpers send, the way
@@ -29,8 +28,8 @@ function createDb() {
     { id: "tag-b", name: "vip", contactId: "contact-b" },
   ];
   const segments: Segment[] = [
-    { id: "segment-a", organizationId: "org-a", dynamicFilter: { subscribed: true } },
-    { id: "segment-b", organizationId: "org-b", dynamicFilter: null },
+    { id: "segment-a", organizationId: "org-a" },
+    { id: "segment-b", organizationId: "org-b" },
   ];
   let nextTagId = 1;
 
@@ -68,10 +67,6 @@ function createDb() {
       },
     },
     contactList: {
-      async findFirst({ where }) {
-        const found = segments.find((s) => s.id === where.id && s.organizationId === where.organizationId);
-        return found ? { id: found.id, dynamicFilter: found.dynamicFilter } : null;
-      },
       async deleteMany({ where }) {
         const before = segments.length;
         for (let i = segments.length - 1; i >= 0; i--) {
@@ -155,16 +150,6 @@ test("deleting a tag the organization does not have reports not found", async ()
   assert.deepEqual(await deleteOrganizationTag(db, "org-c", "vip"), { ok: false, reason: "not_found" });
   assert.deepEqual(await deleteOrganizationTag(db, "org-a", ""), { ok: false, reason: "not_found" });
   assert.equal(tags.length, 2);
-});
-
-test("a segment is only visible to its organization", async () => {
-  const { db } = createDb();
-  assert.deepEqual(await findOrganizationSegment(db, "org-a", "segment-a"), {
-    id: "segment-a",
-    dynamicFilter: { subscribed: true },
-  });
-  assert.equal(await findOrganizationSegment(db, "org-a", "segment-b"), null);
-  assert.equal(await findOrganizationSegment(db, "org-a", "segment-zzz"), null);
 });
 
 test("cannot delete another organization's segment, exactly like an unknown one", async () => {

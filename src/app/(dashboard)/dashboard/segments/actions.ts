@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { checkSegmentLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
-import { buildSegmentWhere } from "@/lib/queries/segment-contacts";
+import { buildSegmentWhere, parseSegmentFilterJson } from "@/lib/contacts/segment-filter";
 import { deleteOrganizationSegment } from "@/lib/contacts/tenant-scope";
 import { prismaTenantDb } from "@/lib/contacts/prisma-tenant-db";
 
@@ -36,10 +37,9 @@ export async function createSegment(
     return { error: `Limite de segments atteinte (${segmentCheck.limit}). Passez au plan Pro pour en créer davantage.` };
   }
 
-  let dynamicFilter = null;
-  if (result.data.filters) {
-    try { dynamicFilter = JSON.parse(result.data.filters); } catch { /* ignore */ }
-  }
+  const parsedFilter = parseSegmentFilterJson(result.data.filters);
+  if (!parsedFilter.ok) return { error: "Filtres de segment invalides." };
+  const dynamicFilter = parsedFilter.filter;
 
   try {
     // Resolve contact count based on filters
@@ -51,7 +51,7 @@ export async function createSegment(
         name: result.data.name,
         description: result.data.description || null,
         type: "dynamic",
-        dynamicFilter,
+        dynamicFilter: dynamicFilter ?? Prisma.DbNull,
         contactCount,
         userId: user.id,
         organizationId: org.id,
