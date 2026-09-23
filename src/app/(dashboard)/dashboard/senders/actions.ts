@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
@@ -22,10 +23,10 @@ export async function createSender(
     email: formData.get("email"),
     replyTo: formData.get("replyTo"),
   });
-  if (!result.success) return { error: "Donnees invalides." };
+  if (!result.success) return { error: "Données invalides." };
 
   const { user, org } = await getCurrentUserAndOrg();
-  if (!user || !org) return { error: "Non authentifie." };
+  if (!user || !org) return { error: "Non authentifié." };
 
   try {
     const existingCount = await prisma.emailSender.count({
@@ -49,9 +50,9 @@ export async function createSender(
     revalidatePath("/dashboard/senders");
     return { success: true };
   } catch (e) {
-    if ((e as Record<string, unknown>).code === "P2002")
-      return { error: "Cet expediteur existe deja." };
-    return { error: "Erreur lors de la creation." };
+    if (isUniqueConstraintViolation(e))
+      return { error: "Cet expéditeur existe déjà." };
+    return { error: "Erreur lors de la création." };
   }
 }
 
@@ -65,10 +66,10 @@ export async function updateSender(
     email: formData.get("email"),
     replyTo: formData.get("replyTo"),
   });
-  if (!result.success) return { error: "Donnees invalides." };
+  if (!result.success) return { error: "Données invalides." };
 
   const { user, org } = await getCurrentUserAndOrg();
-  if (!user || !org) return { error: "Non authentifie." };
+  if (!user || !org) return { error: "Non authentifié." };
 
   try {
     await prisma.emailSender.update({
@@ -83,30 +84,30 @@ export async function updateSender(
     revalidatePath("/dashboard/senders");
     return { success: true };
   } catch (e) {
-    if ((e as Record<string, unknown>).code === "P2002")
-      return { error: "Cet expediteur existe deja." };
-    return { error: "Erreur lors de la mise a jour." };
+    if (isUniqueConstraintViolation(e))
+      return { error: "Cet expéditeur existe déjà." };
+    return { error: "Erreur lors de la mise à jour." };
   }
 }
 
 export async function setDefaultSender(id: string): Promise<ActionState> {
   const { org } = await getCurrentUserAndOrg();
-  if (!org) return { error: "Non authentifie." };
+  if (!org) return { error: "Non authentifié." };
 
   const sender = await prisma.emailSender.findUnique({
     where: { id, organizationId: org.id },
     select: { id: true },
   });
 
-  if (!sender) return { error: "Expediteur introuvable." };
+  if (!sender) return { error: "Expéditeur introuvable." };
 
   await prisma.$transaction([
     prisma.emailSender.updateMany({
       where: { organizationId: org.id },
       data: { isDefault: false },
     }),
-    prisma.emailSender.update({
-      where: { id },
+    prisma.emailSender.updateMany({
+      where: { id, organizationId: org.id },
       data: { isDefault: true },
     }),
   ]);
@@ -118,37 +119,42 @@ export async function setDefaultSender(id: string): Promise<ActionState> {
 
 export async function deleteSender(id: string): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
-  if (!user || !org) return { error: "Non authentifie." };
+  if (!user || !org) return { error: "Non authentifié." };
 
   try {
-    const sender = await prisma.emailSender.findUnique({
-      where: { id, organizationId: org.id },
-      select: { isDefault: true },
-    });
-
-    if (!sender) return { error: "Expediteur introuvable." };
-
-    await prisma.emailSender.delete({ where: { id, organizationId: org.id } });
-
-    if (sender.isDefault) {
-      const nextSender = await prisma.emailSender.findFirst({
-        where: { organizationId: org.id },
-        orderBy: { createdAt: "desc" },
-        select: { id: true },
+    // Delete and promote the next default together, so the organization never
+    // ends up without a default sender after a partial failure.
+    const deleted = await prisma.$transaction(async (tx) => {
+      const sender = await tx.emailSender.findFirst({
+        where: { id, organizationId: org.id },
+        select: { isDefault: true },
       });
+      if (!sender) return false;
 
-      if (nextSender) {
-        await prisma.emailSender.update({
-          where: { id: nextSender.id },
-          data: { isDefault: true },
+      await tx.emailSender.deleteMany({ where: { id, organizationId: org.id } });
+
+      if (sender.isDefault) {
+        const nextSender = await tx.emailSender.findFirst({
+          where: { organizationId: org.id },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
         });
+        if (nextSender) {
+          await tx.emailSender.updateMany({
+            where: { id: nextSender.id, organizationId: org.id },
+            data: { isDefault: true },
+          });
+        }
       }
-    }
+      return true;
+    });
+    if (!deleted) return { error: "Expéditeur introuvable." };
 
     trackServerEvent(user.id, EVENTS.SENDER_DELETED, { sender_id: id }, org.id);
     revalidatePath("/dashboard/senders");
     return { success: true };
-  } catch {
+  } catch (error) {
+    console.error("[senders] Failed to delete sender", { organizationId: org.id, senderId: id, error });
     return { error: "Erreur lors de la suppression." };
   }
 }

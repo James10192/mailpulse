@@ -89,7 +89,7 @@ export function CreateApplicationDialog() {
               <DialogHeader>
                 <DialogTitle>Nouvelle application externe</DialogTitle>
                 <DialogDescription>
-                  Déclarez une application partenaire (ex. KLASSCI). Un credential de commande sera généré
+                  Déclarez une application partenaire (ex. votre application mobile). Un credential de commande sera généré
                   immédiatement.
                 </DialogDescription>
               </DialogHeader>
@@ -99,7 +99,7 @@ export function CreateApplicationDialog() {
                   id="application-name"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="KLASSCI"
+                  placeholder="Mon application"
                   required
                   minLength={2}
                   maxLength={80}
@@ -111,7 +111,7 @@ export function CreateApplicationDialog() {
                   id="application-key"
                   value={key}
                   onChange={(event) => setKey(event.target.value.toLowerCase())}
-                  placeholder="klassci"
+                  placeholder="mon-application"
                   required
                   pattern="[a-z0-9][a-z0-9._-]{1,63}"
                   className="font-mono"

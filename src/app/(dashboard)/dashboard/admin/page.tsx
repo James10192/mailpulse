@@ -91,9 +91,9 @@ function StatCard({
 }
 
 export default async function AdminPage() {
-  const { user, isAdmin } = await getCurrentUserAndOrg();
+  const { user, isPlatformAdmin } = await getCurrentUserAndOrg();
   if (!user) redirect("/login");
-  if (!isAdmin) redirect("/dashboard");
+  if (!isPlatformAdmin) redirect("/dashboard");
 
   const [
     users,

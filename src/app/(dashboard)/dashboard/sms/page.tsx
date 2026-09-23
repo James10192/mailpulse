@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { canManageOrganization } from "@/lib/access/roles";
 import {
   isOrangeSmsSenderAddress,
   orangeSmsDeliveryReceiptConfiguration,
@@ -28,13 +29,14 @@ type ReconciliationItem = {
 };
 
 export default async function SmsPage() {
-  const { user, org, isAdmin, memberRole } = await getCurrentUserAndOrg();
+  const { user, org, isPlatformAdmin, memberRole } = await getCurrentUserAndOrg();
+  const isManager = canManageOrganization({ memberRole, isPlatformAdmin });
   if (!user) redirect("/login");
   if (!org) redirect("/dashboard");
 
   const messageWhere = { organizationId: org.id, channel: "SMS" as const };
-  const canReconcile = isAdmin || memberRole === "owner";
-  const canAccessSensitiveContent = isAdmin || memberRole === "owner";
+  const canReconcile = isManager;
+  const canAccessSensitiveContent = isManager;
   const [messages, queued, processing, delivered, failed, phoneContacts, smsOrganization, reconciliation] = await Promise.all([
     prisma.communicationMessage.findMany({
       where: messageWhere,
@@ -71,7 +73,7 @@ export default async function SmsPage() {
   );
   const providerConfigured = Boolean(smsOrganization?.smsEnabled && smsOrganization.smsProvider && senderAddressConfigured);
   const deliveryReceiptConfiguration = orangeSmsDeliveryReceiptConfiguration();
-  const adminConfiguration = isAdmin || memberRole === "owner"
+  const adminConfiguration = isManager
     ? {
         providerConfigured,
         enabled: smsOrganization?.smsEnabled ?? false,

@@ -1,0 +1,155 @@
+import assert from "node:assert/strict";
+import { afterEach, test } from "node:test";
+
+// The Evolution client reads its configuration when first loaded.
+process.env.EVOLUTION_API_URL = "https://evolution.test";
+process.env.EVOLUTION_API_KEY = "test-key";
+
+const { canSendVerificationCodes, whatsAppVerificationTransport } = await import("./transport");
+const { sendWhatsApp, WhatsAppSendError } = await import("@/lib/whatsapp");
+const { startVerification } = await import("./service");
+const { startVerificationResponse } = await import("./api");
+const { createMemoryStore } = await import("./memory-store.fixture");
+
+const ORG = {
+  whatsappEnabled: true,
+  whatsappMode: "BAILEYS" as const,
+  whatsappPhone: null,
+  evoInstanceName: "instance-a",
+  evoInstanceStatus: "open",
+  metaWabaId: null,
+  metaPhoneNumberId: null,
+  metaAccessToken: null,
+};
+
+// A 10-digit Ivorian mobile number: the generic sender also tries its legacy
+// 8-digit form, which belongs to someone else.
+const EXACT = "+2250707123456";
+const originalFetch = globalThis.fetch;
+afterEach(() => { globalThis.fetch = originalFetch; });
+
+/** Replaces the network: records every number Evolution is asked to reach. */
+function stubEvolution(respond: () => Response) {
+  const numbers: string[] = [];
+  globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+    numbers.push((JSON.parse(String(init?.body)) as { number: string }).number);
+    return respond();
+  }) as typeof fetch;
+  return numbers;
+}
+
+const notOnWhatsApp = () => new Response(JSON.stringify({ response: { message: [{ exists: false, number: "2250707123456" }] } }), { status: 400 });
+
+test("a verification code is sent to the exact number only, never to a legacy variant", async () => {
+  const numbers = stubEvolution(notOnWhatsApp);
+
+  await assert.rejects(whatsAppVerificationTransport(ORG).send(EXACT, "Votre code de vérification est 123456."));
+  assert.deepEqual(numbers, ["2250707123456"]);
+});
+
+test("the generic sender does try the legacy variant, so the test above is meaningful", async () => {
+  const numbers = stubEvolution(notOnWhatsApp);
+
+  await assert.rejects(sendWhatsApp(ORG, EXACT, "Bonjour"));
+  assert.deepEqual(numbers, ["2250707123456", "22507123456"]);
+});
+
+test("a successful send resolves with the provider message id", async () => {
+  stubEvolution(() => Response.json({ key: { remoteJid: "x", fromMe: true, id: "3EB0ABC" } }, { status: 201 }));
+
+  const transport = whatsAppVerificationTransport(ORG);
+  assert.equal(transport.provider, "EVOLUTION_API");
+  assert.deepEqual(await transport.send(EXACT, "code"), { messageId: "3EB0ABC" });
+});
+
+test("an unknown recipient fails with a structured reason, whatever the wording", async () => {
+  stubEvolution(notOnWhatsApp);
+
+  const error = await whatsAppVerificationTransport(ORG).send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "recipient_unreachable");
+});
+
+test("any other provider error is a transport failure", async () => {
+  stubEvolution(() => new Response("upstream down", { status: 500 }));
+
+  const error = await whatsAppVerificationTransport(ORG).send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "transport");
+});
+
+test("codes are refused on WhatsApp Cloud API and on a disconnected Evolution session", () => {
+  assert.equal(canSendVerificationCodes(ORG), true);
+  assert.equal(canSendVerificationCodes({ ...ORG, whatsappMode: "META" as const, metaPhoneNumberId: "123", metaAccessToken: "token" }), false);
+  assert.equal(canSendVerificationCodes({ ...ORG, evoInstanceStatus: "connecting" }), false);
+  assert.equal(canSendVerificationCodes({ ...ORG, whatsappEnabled: false }), false);
+});
+
+test("an explicit 4xx refusal is a rejection", async () => {
+  stubEvolution(() => new Response(JSON.stringify({ response: { message: ["session closed"] } }), { status: 400 }));
+
+  const error = await whatsAppVerificationTransport(ORG).send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "rejected");
+});
+
+test("a provider timeout keeps the verification pending and answers 201", async () => {
+  globalThis.fetch = (async () => {
+    throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+  }) as typeof fetch;
+
+  const transport = whatsAppVerificationTransport(ORG);
+  const error = await transport.send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "timeout");
+
+  const { store, rows } = createMemoryStore();
+  const now = new Date("2026-09-23T10:00:00.000Z");
+  const result = await startVerification(
+    { store, now: () => now, secret: "t".repeat(32) },
+    { organizationId: "org_a", apiKeyId: "key_a", phoneNumber: EXACT, locale: "fr", reference: null, transport },
+  );
+  assert.equal(result.type, "sent");
+  assert.equal(rows[0].status, "PENDING");
+  assert.equal(rows[0].errorCode, "TIMEOUT");
+
+  const response = startVerificationResponse(result, now);
+  assert.equal(response.status, 201);
+  assert.equal((await response.json()).status, "pending");
+});
+
+test("a provider 429 fails the verification as rate limited and answers 503 with its Retry-After", async () => {
+  stubEvolution(() => new Response("Too Many Requests", { status: 429, headers: { "retry-after": "30" } }));
+
+  const transport = whatsAppVerificationTransport(ORG);
+  const error = await transport.send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "rate_limited");
+  assert.equal(error.retryAfterSeconds, 30);
+
+  const { store, rows } = createMemoryStore();
+  const now = new Date("2026-09-23T10:00:00.000Z");
+  const result = await startVerification(
+    { store, now: () => now, secret: "t".repeat(32) },
+    { organizationId: "org_a", apiKeyId: "key_a", phoneNumber: EXACT, locale: "fr", reference: null, transport },
+  );
+  assert.equal(result.type, "failed");
+  assert.equal(rows[0].status, "FAILED");
+  assert.equal(rows[0].errorCode, "PROVIDER_RATE_LIMITED");
+
+  const response = startVerificationResponse(result, now);
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("retry-after"), "30");
+  const body = await response.json();
+  assert.equal(body.error, "whatsapp_sature");
+  assert.equal(body.retry_after, 30);
+  assert.equal(body.status, "failed");
+});
+
+test("a provider 408 is a timeout, not a rejection", async () => {
+  stubEvolution(() => new Response("Request Timeout", { status: 408 }));
+
+  const error = await whatsAppVerificationTransport(ORG).send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "timeout");
+});

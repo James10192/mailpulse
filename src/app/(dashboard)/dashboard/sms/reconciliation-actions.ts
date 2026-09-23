@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { canManageOrganization } from "@/lib/access/roles";
 import { syncSmsCampaignProgressInTransaction } from "@/lib/sms/queue";
 
 const reconciliationSchema = z.object({
@@ -33,9 +34,9 @@ export async function closeReconciliationItem(
   });
   if (!parsed.success) return { error: "La décision de réconciliation est invalide." };
 
-  const { user, org, isAdmin, memberRole } = await getCurrentUserAndOrg();
+  const { user, org, isPlatformAdmin, memberRole } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Votre session a expiré." };
-  if (!isAdmin && memberRole !== "owner") return { error: "Cette action est réservée aux administrateurs." };
+  if (!canManageOrganization({ memberRole, isPlatformAdmin })) return { error: "Cette action est réservée aux administrateurs." };
 
   const { resourceId, resourceType, applicationId, decision } = parsed.data;
   if (resourceType === "external_transport_operation" && !applicationId) {

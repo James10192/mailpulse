@@ -5,7 +5,8 @@ import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { canAccessFeature, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plans";
+import { canManageOrganization } from "@/lib/access/roles";
+import { canAccessFeature, getFeatureUpgradeMessage } from "@/lib/plans";
 import { isOrangeSmsSenderAddress, orangeSmsSenderAddressFromEnvironment } from "@/lib/sms/orange-config";
 import {
   CampaignAlreadyClaimedError,
@@ -16,7 +17,6 @@ import {
   queueSmsForRecipients,
   sendEmailsToRecipients,
   sendWhatsAppToRecipients,
-  type CampaignChannel,
   validateCampaignForSending,
 } from "./campaign-sending-helpers";
 
@@ -24,10 +24,6 @@ const orangeSmsConfigurationSchema = z.object({
   enabled: z.enum(["true", "false"]),
   senderName: z.string().trim().min(1).max(11).regex(/^[A-Za-z0-9 ]+$/, "Le nom d'expéditeur accepte uniquement lettres, chiffres et espaces."),
 });
-
-function isSmsManager(memberRole: string | null, isAdmin: boolean) {
-  return isAdmin || memberRole === "owner";
-}
 
 export async function updateOrangeSmsConfiguration(
   _prevState: ActionState,
@@ -39,9 +35,9 @@ export async function updateOrangeSmsConfiguration(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Configuration Orange CI invalide." };
 
-  const { org, memberRole, isAdmin } = await getCurrentUserAndOrg();
+  const { org, memberRole, isPlatformAdmin } = await getCurrentUserAndOrg();
   if (!org) return { error: "Non authentifié." };
-  if (!isSmsManager(memberRole, isAdmin)) {
+  if (!canManageOrganization({ memberRole, isPlatformAdmin })) {
     return { error: "Seuls les administrateurs et le propriétaire peuvent configurer Orange CI." };
   }
   if (parsed.data.enabled === "true" && process.env.ORANGE_SMS_OWNER_ORGANIZATION_ID !== org.id) {
@@ -73,17 +69,17 @@ export async function sendCampaign(
   senderId: string,
   audience: string,
 ): Promise<ActionState> {
-  const { user, org, memberRole, isAdmin } = await getCurrentUserAndOrg();
-  if (!user || !org) return { error: "Non authentifie." };
+  const { user, org, memberRole, isPlatformAdmin } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: "Non authentifié." };
 
   const validation = await validateCampaignForSending(campaignId, org.id);
   if ("error" in validation) return { error: validation.error };
   const { campaign } = validation;
-  if (campaign.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+  if (campaign.channel === "WHATSAPP" && !canAccessFeature(org.plan, "whatsapp")) {
     return { error: getFeatureUpgradeMessage("whatsapp") };
   }
   if (campaign.channel === "SMS") {
-    if (!isSmsManager(memberRole, isAdmin)) {
+    if (!canManageOrganization({ memberRole, isPlatformAdmin })) {
       return { error: "Seuls les administrateurs et le propriétaire peuvent lancer une campagne SMS." };
     }
     const smsConfiguration = await prisma.organization.findUnique({
@@ -105,12 +101,12 @@ export async function sendCampaign(
     }
   }
 
-  const fetched = await fetchSenderAndContacts(senderId, audience, org.id, campaign.channel as CampaignChannel);
+  const fetched = await fetchSenderAndContacts(senderId, audience, org.id, campaign.channel);
   if ("error" in fetched) return { error: fetched.error };
   const { sender, contacts } = fetched;
 
   if (campaign.channel === "EMAIL") {
-    const quotaError = await checkSendingQuota(org.id, org.plan as PlanTier, contacts.length);
+    const quotaError = await checkSendingQuota(org.id, org.plan, contacts.length);
     if (quotaError) return quotaError;
   }
 
@@ -134,7 +130,7 @@ export async function sendCampaign(
       campaignId,
       contacts,
       sender ?? { name: "WhatsApp", email: "", replyTo: null },
-      campaign.channel as CampaignChannel,
+      campaign.channel,
     );
     const sentCount = campaign.channel === "WHATSAPP"
       ? await sendWhatsAppToRecipients(
@@ -155,7 +151,7 @@ export async function sendCampaign(
           recipientMap,
         );
 
-    await completeCampaignSending(campaignId, org.id, sentCount, user, campaign.name, campaign.channel as CampaignChannel);
+    await completeCampaignSending(campaignId, org.id, sentCount, user, campaign.name, campaign.channel);
     return { success: true };
   } catch (error) {
     if (error instanceof CampaignAlreadyClaimedError) {

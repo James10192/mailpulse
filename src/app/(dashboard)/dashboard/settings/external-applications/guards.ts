@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { canManageOrganization } from "@/lib/access/roles";
 
 /** Error whose message is safe to surface to the user as-is (French, no internals). */
 export class ActionGuardError extends Error {}
@@ -12,11 +13,11 @@ export const WHATSAPP_PROVIDERS = [META_PROVIDER, BAILEYS_PROVIDER];
 
 /** Only owners and admins may provision or mutate external applications. */
 export async function requireOrganizationManager() {
-  const { user, org, isAdmin, memberRole } = await getCurrentUserAndOrg();
+  const { user, org, isPlatformAdmin, memberRole } = await getCurrentUserAndOrg();
   if (!user || !org) {
     throw new ActionGuardError("Votre session a expiré. Reconnectez-vous puis réessayez.");
   }
-  if (!isAdmin && memberRole !== "owner") {
+  if (!canManageOrganization({ memberRole, isPlatformAdmin })) {
     throw new ActionGuardError("Cette action est réservée aux propriétaires et administrateurs de l'organisation.");
   }
   return { user, org };

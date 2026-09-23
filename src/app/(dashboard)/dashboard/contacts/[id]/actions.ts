@@ -8,31 +8,43 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
 import type { ActionState } from "@/types/action-state";
 import { normalizeContactPhone } from "@/lib/phone-numbers";
+import {
+  addTagToOrganizationContact,
+  removeTagFromOrganizationContact,
+} from "@/lib/contacts/tenant-scope";
+import { createTenantDb, prismaTenantDb } from "@/lib/contacts/prisma-tenant-db";
+import { retryOnSerializationFailure } from "@/lib/prisma-errors";
+import {
+  contactMetadataInputSchema,
+  mergeContactMetadata,
+  type ContactMetadataInput,
+} from "@/lib/contacts/contact-metadata";
+
+const NOT_AUTHENTICATED = "Non authentifié.";
+const CONTACT_NOT_FOUND = "Contact introuvable.";
 
 export async function toggleContactSubscription(
   contactId: string
 ): Promise<ActionState> {
   try {
     const { user, org } = await getCurrentUserAndOrg();
-    if (!user || !org) {
-      return { error: "Utilisateur non trouve." };
-    }
+    if (!user || !org) return { error: NOT_AUTHENTICATED };
 
-    const contact = await prisma.contact.findUnique({
+    const contact = await prisma.contact.findFirst({
       where: { id: contactId, organizationId: org.id },
       select: { subscribed: true, email: true },
     });
 
-    if (!contact) {
-      return { error: "Contact introuvable." };
-    }
+    if (!contact) return { error: CONTACT_NOT_FOUND };
 
     const newSubscribed = !contact.subscribed;
 
-    await prisma.contact.update({
-      where: { id: contactId },
+    const { count } = await prisma.contact.updateMany({
+      // Filtering on the value just read makes a concurrent toggle fail instead of being silently undone.
+      where: { id: contactId, organizationId: org.id, subscribed: contact.subscribed },
       data: { subscribed: newSubscribed },
     });
+    if (count === 0) return { error: "Le contact a été modifié entre-temps. Réessayez." };
 
     trackServerEvent(
       user.id,
@@ -54,8 +66,9 @@ export async function toggleContactSubscription(
     revalidatePath(`/dashboard/contacts/${contactId}`);
     revalidatePath("/dashboard/contacts");
     return { success: true };
-  } catch {
-    return { error: "Erreur lors de la mise a jour." };
+  } catch (error) {
+    console.error("[contacts] Failed to toggle subscription", { contactId, error });
+    return { error: "Erreur lors de la mise à jour." };
   }
 }
 
@@ -70,23 +83,47 @@ export async function updateContact(
 ): Promise<ActionState> {
   try {
     const { user, org } = await getCurrentUserAndOrg();
-    if (!user || !org) return { error: "Non authentifie." };
+    if (!user || !org) return { error: NOT_AUTHENTICATED };
 
-    await prisma.contact.update({
-      where: { id: contactId, organizationId: org.id },
-      data: {
-        ...(data.firstName !== undefined && { firstName: data.firstName || null }),
-        ...(data.lastName !== undefined && { lastName: data.lastName || null }),
-        ...(data.phone !== undefined && { phone: normalizeContactPhone(data.phone) || null }),
-        ...(data.metadata !== undefined && { metadata: data.metadata as object }),
-      },
-    });
+    let submittedMetadata: ContactMetadataInput | undefined;
+    if (data.metadata !== undefined) {
+      const parsed = contactMetadataInputSchema.safeParse(data.metadata);
+      if (!parsed.success) return { error: "Champs personnalisés invalides." };
+      submittedMetadata = parsed.data;
+    }
+
+    // Read and write in one serializable transaction so a consent change (STOP)
+    // landing meanwhile is never overwritten by the merged metadata.
+    const updated = await retryOnSerializationFailure(() =>
+      prisma.$transaction(
+        async (tx) => {
+          const current = await tx.contact.findFirst({
+            where: { id: contactId, organizationId: org.id },
+            select: { metadata: true },
+          });
+          if (!current) return false;
+          const { count } = await tx.contact.updateMany({
+            where: { id: contactId, organizationId: org.id },
+            data: {
+              ...(data.firstName !== undefined && { firstName: data.firstName || null }),
+              ...(data.lastName !== undefined && { lastName: data.lastName || null }),
+              ...(data.phone !== undefined && { phone: normalizeContactPhone(data.phone) || null }),
+              ...(submittedMetadata !== undefined && { metadata: mergeContactMetadata(current.metadata, submittedMetadata) }),
+            },
+          });
+          return count > 0;
+        },
+        { isolationLevel: "Serializable" }
+      )
+    );
+    if (!updated) return { error: CONTACT_NOT_FOUND };
 
     revalidatePath(`/dashboard/contacts/${contactId}`);
     revalidatePath("/dashboard/contacts");
     return { success: true };
-  } catch {
-    return { error: "Erreur lors de la mise a jour." };
+  } catch (error) {
+    console.error("[contacts] Failed to update contact", { contactId, error });
+    return { error: "Erreur lors de la mise à jour." };
   }
 }
 
@@ -94,18 +131,28 @@ export async function addTagToContact(
   contactId: string,
   tagName: string
 ): Promise<ActionState> {
-  try {
-    const { org } = await getCurrentUserAndOrg();
-    if (!org) return { error: "Non authentifie." };
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: NOT_AUTHENTICATED };
 
-    await prisma.contactTag.create({
-      data: { name: tagName, contactId },
-    });
+  try {
+    // Duplicate check and insert run in one serializable transaction: see addTagToOrganizationContact.
+    const result = await retryOnSerializationFailure(() =>
+      prisma.$transaction(
+        (tx) => addTagToOrganizationContact(createTenantDb(tx), org.id, contactId, tagName),
+        { isolationLevel: "Serializable" }
+      )
+    );
+    if (!result.ok) {
+      if (result.reason === "duplicate") return { error: "Ce tag existe déjà." };
+      if (result.reason === "invalid") return { error: "Nom de tag invalide." };
+      return { error: CONTACT_NOT_FOUND };
+    }
 
     revalidatePath(`/dashboard/contacts/${contactId}`);
     return { success: true };
-  } catch {
-    return { error: "Ce tag existe deja." };
+  } catch (error) {
+    console.error("[contacts] Failed to add tag", { organizationId: org.id, contactId, error });
+    return { error: "Impossible d’ajouter le tag." };
   }
 }
 
@@ -113,12 +160,18 @@ export async function removeTagFromContact(
   contactId: string,
   tagId: string
 ): Promise<ActionState> {
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: NOT_AUTHENTICATED };
+
   try {
-    await prisma.contactTag.delete({ where: { id: tagId } });
+    const result = await removeTagFromOrganizationContact(prismaTenantDb, org.id, contactId, tagId);
+    if (!result.ok) return { error: "Tag introuvable." };
+
     revalidatePath(`/dashboard/contacts/${contactId}`);
     return { success: true };
-  } catch {
-    return { error: "Erreur." };
+  } catch (error) {
+    console.error("[contacts] Failed to remove tag", { organizationId: org.id, contactId, tagId, error });
+    return { error: "Impossible de retirer le tag." };
   }
 }
 
@@ -128,16 +181,14 @@ export async function triggerAutomation(
 ): Promise<ActionState> {
   try {
     const { user, org } = await getCurrentUserAndOrg();
-    if (!user || !org) {
-      return { error: "Utilisateur non trouve." };
-    }
+    if (!user || !org) return { error: NOT_AUTHENTICATED };
 
     const [contact, automation] = await Promise.all([
-      prisma.contact.findUnique({
+      prisma.contact.findFirst({
         where: { id: contactId, organizationId: org.id },
         select: { email: true },
       }),
-      prisma.automation.findUnique({
+      prisma.automation.findFirst({
         where: { id: automationId, organizationId: org.id },
         select: { name: true },
       }),
@@ -170,7 +221,8 @@ export async function triggerAutomation(
     });
 
     return { success: true };
-  } catch {
-    return { error: "Erreur lors du declenchement de l'automation." };
+  } catch (error) {
+    console.error("[contacts] Failed to trigger automation", { contactId, automationId, error });
+    return { error: "Erreur lors du déclenchement de l’automation." };
   }
 }

@@ -1,9 +1,14 @@
 import { Mail, MousePointerClick, Eye, AlertTriangle } from "lucide-react";
 import { getEmailEventStats } from "@/lib/queries/email-stats";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { notFound } from "next/navigation";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
 export default async function AnalyticsPage() {
-  const analytics = await getEmailEventStats();
+  const { org } = await getCurrentUserAndOrg();
+  if (!org) notFound();
+
+  const analytics = await getEmailEventStats(org.id);
 
   return (
     <div className="space-y-6">

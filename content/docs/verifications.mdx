@@ -1,0 +1,189 @@
+---
+title: Vérification de numéro
+description: Confirmer qu'un numéro de téléphone appartient bien à votre utilisateur, par un code à usage unique envoyé sur WhatsApp.
+---
+
+L'API de vérification envoie un code à 6 chiffres sur WhatsApp, puis vous dit si
+le code saisi par l'utilisateur est le bon. MailPulse génère le code, l'envoie
+par le transport WhatsApp de votre organisation, compte les tentatives et gère
+l'expiration : votre application ne voit jamais le code.
+
+## Prérequis
+
+- Une clé API MailPulse (`mp_live_*` ou `mp_test_*`), créée dans
+  **Plateforme › Clés API et intégrations**. Même authentification que
+  `POST /api/v1/messages`.
+- Une instance WhatsApp Evolution connectée pour l'organisation. Sinon l'API
+  répond `409`. WhatsApp Cloud API (Meta) n'est pas encore pris en charge pour les
+  codes : voir [Limites de WhatsApp Cloud API](#limites-de-whatsapp-cloud-api).
+
+```txt
+Authorization: Bearer mp_live_xxx
+Content-Type: application/json
+```
+
+## Envoyer un code
+
+```txt
+POST /api/v1/verifications
+```
+
+```bash
+curl -X POST $MAILPULSE_URL/api/v1/verifications \
+  -H "Authorization: Bearer $MAILPULSE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"whatsapp","to":"+2250700000000","locale":"fr","reference":"inscription_42"}'
+```
+
+| Champ | Obligatoire | Description |
+| --- | --- | --- |
+| `channel` | oui | `whatsapp`, seul canal disponible. |
+| `to` | oui | Numéro au format international (`+225…` ou `00225…`). Espaces, points et tirets acceptés. |
+| `locale` | non | `fr` (par défaut) ou `en`, langue du message. Toute autre valeur est refusée. |
+| `reference` | non | Votre identifiant, 191 caractères au plus, renvoyé tel quel. |
+
+Réponse `201` :
+
+```json
+{
+  "id": "cmf8x2k0p0000abcd1234efgh",
+  "status": "pending",
+  "channel": "whatsapp",
+  "to_masked": "+225 07 ** ** ** 00",
+  "reference": "inscription_42",
+  "expires_at": "2026-09-23T10:10:00.000Z",
+  "created_at": "2026-09-23T10:00:00.000Z",
+  "approved_at": null
+}
+```
+
+L'utilisateur reçoit : « Votre code de vérification est 123456. Il expire dans
+10 minutes. Ne le partagez avec personne. »
+
+Si le fournisseur ne confirme pas l'envoi (délai dépassé, erreur de transport),
+la réponse reste `201` et la vérification reste `pending` : le message a pu
+partir, et un code qui arrive en retard fonctionne. Seul un refus certain du
+fournisseur donne `502`, ou `503 whatsapp_sature` s'il limite les envois.
+
+## Vérifier le code saisi
+
+```txt
+POST /api/v1/verifications/{id}/check
+```
+
+```bash
+curl -X POST $MAILPULSE_URL/api/v1/verifications/cmf8x2k0p0000abcd1234efgh/check \
+  -H "Authorization: Bearer $MAILPULSE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"code":"123456"}'
+```
+
+Code correct, réponse `200` :
+
+```json
+{ "id": "cmf8x2k0p0000abcd1234efgh", "status": "approved" }
+```
+
+Code refusé, réponse `422` :
+
+```json
+{ "id": "cmf8x2k0p0000abcd1234efgh", "status": "pending", "error": "code_invalide" }
+```
+
+| `status` | `error` | Signification |
+| --- | --- | --- |
+| `pending` | `code_invalide` | Mauvais code, l'utilisateur peut réessayer. |
+| `max_attempts` | `trop_de_tentatives` | 5 mauvais codes : la vérification est bloquée, envoyez-en une nouvelle. |
+| `expired` | `expire` | Plus de 10 minutes se sont écoulées. |
+| `canceled` | `expire` | Un nouveau code a été envoyé au même numéro, seul le dernier est valable. |
+| `approved` | `expire` | Code déjà utilisé : un code ne valide qu'une seule fois. |
+| `failed` | `expire` | Le code n'a jamais pu être envoyé. |
+
+Un code mal formé (autre chose que 6 chiffres) est refusé en `422` avec
+`field_errors`, sans consommer de tentative.
+
+## Consulter une vérification
+
+```txt
+GET /api/v1/verifications/{id}
+```
+
+```bash
+curl $MAILPULSE_URL/api/v1/verifications/cmf8x2k0p0000abcd1234efgh \
+  -H "Authorization: Bearer $MAILPULSE_API_KEY"
+```
+
+Renvoie le même objet que l'envoi, avec le statut courant : `pending`,
+`approved`, `expired`, `max_attempts`, `canceled` ou `failed`. Une vérification
+d'une autre organisation répond `404`, comme un identifiant inconnu.
+
+## Renvoyer un code
+
+Pour renvoyer un code, refaites un `POST /api/v1/verifications` pour le même
+numéro. La vérification en attente précédente passe en `canceled` et son code
+cesse de fonctionner.
+
+## Limites
+
+| Limite | Portée |
+| --- | --- |
+| 1 envoi par minute | par numéro et par organisation |
+| 5 envois par heure | par numéro et par organisation |
+| 20 envois par heure | par clé API |
+| 100 envois par heure | par organisation |
+| 30 envois par minute | par organisation, partagés avec les messages WhatsApp de `POST /api/v1/messages` |
+
+Au-delà, réponse `429` avec l'en-tête `Retry-After`. Deux envois simultanés
+pour la même organisation ne s'attendent pas : le second reçoit aussi un `429`,
+avec `retry_after` à 1 seconde.
+
+```json
+{ "error": "trop_de_demandes", "retry_after": 42 }
+```
+
+Chaque envoi compte, y compris un envoi en échec ou remplacé. Les codes partent
+du même numéro WhatsApp que vos messages API : ils consomment la même limite par
+minute, pour ne pas exposer ce numéro à un blocage.
+
+## Erreurs
+
+| HTTP | `error` | Cause |
+| --- | --- | --- |
+| `401` | `Invalid API key` | Clé absente, révoquée ou plan sans accès API. |
+| `404` | `verification_introuvable` | Identifiant inconnu pour cette organisation. |
+| `409` | `whatsapp_indisponible` | Aucune instance Evolution connectée, ou organisation sur WhatsApp Cloud API. |
+| `422` | `Validation failed` | Numéro absent, non international ou de longueur impossible : `field_errors.to`. |
+| `422` | `Validation failed` | Autre champ invalide, détail dans `field_errors`. |
+| `429` | `trop_de_demandes` | Limite atteinte, attendre `retry_after` secondes. |
+| `502` | `envoi_echoue` | Refus certain du fournisseur : numéro sans compte WhatsApp ou requête refusée (HTTP 4xx, hors 408 et 429). Rien n'est parti, la vérification est enregistrée en `failed`. |
+| `503` | `whatsapp_sature` | Le fournisseur WhatsApp limite les envois (HTTP 429). Rien n'est parti, la vérification est enregistrée en `failed`. Réessayez plus tard ; `retry_after` et l'en-tête `Retry-After` sont présents quand le fournisseur donne un délai. |
+| `503` | `verification_indisponible` | Service non configuré côté MailPulse. |
+
+## Suivi dans le tableau de bord
+
+Les vérifications apparaissent dans **Plateforme › Vérifications**, avec le
+numéro masqué, la clé qui les a demandées, le statut, le nombre de tentatives et,
+le cas échéant, la cause d'un envoi refusé ou non confirmé. Le code n'y figure
+jamais.
+
+## Sécurité
+
+- Le code est tiré d'un générateur cryptographique et n'est jamais stocké :
+  MailPulse n'en garde qu'une empreinte HMAC salée, comparée en temps constant.
+- Un code expire après 10 minutes, supporte 5 tentatives et ne valide qu'une fois.
+- Le code part uniquement vers le numéro exact fourni, sans variante (pas
+  d'ancien format à 8 chiffres).
+- Les numéros sont masqués dans les réponses et dans le tableau de bord. En cas
+  d'échec d'envoi, seule une cause classée est conservée (numéro sans compte
+  WhatsApp, délai dépassé ou erreur du fournisseur), jamais le texte du
+  fournisseur.
+- Un refus signalé après coup ne défait jamais un code déjà validé.
+
+## Limites de WhatsApp Cloud API
+
+Hors de la fenêtre de 24 heures ouverte par un message de l'utilisateur, Meta
+accepte un message libre puis ne le remet jamais. Un code de vérification doit
+alors passer par un modèle d'authentification approuvé, que les vérifications ne
+prennent pas encore en charge. Tant que c'est le cas, une organisation sur
+WhatsApp Cloud API reçoit `409 whatsapp_indisponible` plutôt qu'un code qui
+n'arriverait pas.

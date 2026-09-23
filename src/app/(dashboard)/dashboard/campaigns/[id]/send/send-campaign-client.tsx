@@ -64,6 +64,15 @@ export function SendCampaignClient({
   const [sendMode, setSendMode] = useState<SendMode>("now");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
+  // Scheduled sends target every contact: segments and tags are only sent immediately.
+  const canSchedule = audienceMode === "all";
+  const isScheduling = canSchedule && sendMode === "schedule";
+
+  function changeAudience(mode: AudienceMode) {
+    setAudienceMode(mode);
+    // A segment or tag can only be sent now: drop a pending "Planifier" choice.
+    if (mode !== "all") setSendMode("now");
+  }
 
   const selectedSender = senders.find((s) => s.id === senderId);
   const isWhatsApp = campaign.channel === "WHATSAPP";
@@ -96,7 +105,7 @@ export function SendCampaignClient({
     setError("");
 
     let result;
-    if (sendMode === "schedule" && scheduledDate && scheduledTime) {
+    if (isScheduling && scheduledDate && scheduledTime) {
       const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
       result = await scheduleCampaign(campaign.id, senderId, audience, scheduledAt);
     } else {
@@ -118,14 +127,14 @@ export function SendCampaignClient({
           <Check className="h-8 w-8 text-emerald-500" />
         </div>
         <h1 className="text-2xl font-semibold text-zinc-100 mb-2">
-          {sendMode === "schedule"
+          {isScheduling
             ? "Campagne planifiée !"
             : isSms
               ? "Campagne mise en file !"
               : "Campagne envoyée !"}
         </h1>
         <p className="text-zinc-500 mb-8">
-          {sendMode === "schedule"
+          {isScheduling
             ? `« ${campaign.name} » sera envoyée le ${scheduledDate} à ${scheduledTime}.`
             : isSms
               ? `« ${campaign.name} » attend la soumission à Orange CI. Les statuts apparaîtront au fil des accusés de réception.`
@@ -241,7 +250,7 @@ export function SendCampaignClient({
         <SingleChoiceGroup
           values={AUDIENCE_MODES}
           value={audienceMode}
-          onValueChange={setAudienceMode}
+          onValueChange={changeAudience}
           aria-label="Audience"
           className="flex-wrap gap-2"
         >
@@ -315,7 +324,7 @@ export function SendCampaignClient({
         </h2>
         <SingleChoiceGroup
           values={SEND_MODES}
-          value={sendMode}
+          value={isScheduling ? "schedule" : "now"}
           onValueChange={setSendMode}
           aria-label="Quand envoyer"
           className="w-full gap-2"
@@ -324,12 +333,24 @@ export function SendCampaignClient({
             <Send />
             Envoyer maintenant
           </ToggleGroupItem>
-          <ToggleGroupItem value="schedule" variant="choice" size="choice" className="flex-1 gap-2 px-4 py-3 font-medium">
+          <ToggleGroupItem
+            value="schedule"
+            variant="choice"
+            size="choice"
+            disabled={!canSchedule}
+            title={canSchedule ? undefined : "La planification est réservée à l’envoi à tous les contacts."}
+            className="flex-1 gap-2 px-4 py-3 font-medium"
+          >
             <CalendarDays />
             Planifier
           </ToggleGroupItem>
         </SingleChoiceGroup>
-        {sendMode === "schedule" && (
+        {!canSchedule && (
+          <p className="text-xs text-zinc-500">
+            La planification est réservée à l’envoi à tous les contacts. Pour un segment ou un tag, envoyez maintenant.
+          </p>
+        )}
+        {isScheduling && (
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="space-y-1">
               <Label htmlFor="schedule-date" className="text-xs font-normal text-zinc-500">
@@ -379,15 +400,15 @@ export function SendCampaignClient({
         <Button
           size="lg"
           onClick={handleSend}
-          disabled={!canSend || sending || (sendMode === "schedule" && (!scheduledDate || !scheduledTime))}
+          disabled={!canSend || sending || (isScheduling && (!scheduledDate || !scheduledTime))}
           className="rounded-xl font-semibold"
         >
           {sending ? (
             <>
               <Loader2 className="animate-spin" />
-              {sendMode === "schedule" ? "Planification..." : "Envoi en cours..."}
+              {isScheduling ? "Planification..." : "Envoi en cours..."}
             </>
-          ) : sendMode === "schedule" ? (
+          ) : isScheduling ? (
             <>
               <CalendarDays />
               Planifier l&apos;envoi

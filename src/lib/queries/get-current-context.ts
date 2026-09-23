@@ -1,6 +1,11 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { unstable_rethrow } from "next/navigation";
+import { isPlatformAdmin } from "@/lib/access/roles";
+import { ensureUserOrganization, type OrganizationProvisioningDb } from "@/lib/organizations/provisioning";
 
 const ORG_SELECT = {
   id: true,
@@ -14,21 +19,46 @@ const ORG_SELECT = {
   metadata: true,
 } as const;
 
-function adminAllowlist() {
-  return new Set(
-    (process.env.ADMIN_EMAILS ?? "")
-      .split(",")
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean)
-  );
+type CurrentOrganization = Prisma.OrganizationGetPayload<{ select: typeof ORG_SELECT }>;
+
+const provisioningDb: OrganizationProvisioningDb<CurrentOrganization> = {
+  async findMembership(userId) {
+    const member = await prisma.member.findFirst({
+      where: { userId },
+      select: { role: true, organization: { select: ORG_SELECT } },
+      orderBy: { createdAt: "asc" },
+    });
+    return member ? { org: member.organization, role: member.role } : null;
+  },
+  async createOrganizationWithOwner({ userId, name, slug }) {
+    return prisma.$transaction(async (tx) => {
+      const org = await tx.organization.create({ data: { name, slug }, select: ORG_SELECT });
+      await tx.member.create({ data: { userId, organizationId: org.id, role: "owner" } });
+      return org;
+    });
+  },
+};
+
+async function createDefaultSender(org: CurrentOrganization) {
+  try {
+    await prisma.emailSender.create({
+      data: { name: org.name, email: "onboarding@resend.dev", isDefault: true, organizationId: org.id },
+    });
+  } catch (error) {
+    // The organization is usable without it; the user can add a sender later.
+    console.error("[auth] Failed to create the default sender", { organizationId: org.id, error });
+  }
 }
 
 /**
- * Get the current authenticated user and their organization.
- * Tries Better Auth session first, falls back to findFirst for dev/transition.
+ * Get the current authenticated user and their organization, provisioning one
+ * on the first visit. Cached per request.
+ *
+ * Returns nulls only when there is no valid session. A database or auth
+ * failure is logged and rethrown, so it surfaces as an error instead of
+ * looking like a signed-out user.
  */
-export async function getCurrentUserAndOrg() {
-  // 1. Try Better Auth session
+export const getCurrentUserAndOrg = cache(async () => {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -40,42 +70,21 @@ export async function getCurrentUserAndOrg() {
       });
 
       if (user) {
-        const member = await prisma.member.findFirst({
-          where: { userId: user.id },
-          select: { organizationId: true, role: true },
-          orderBy: { createdAt: "asc" },
-        });
+        const membership = await ensureUserOrganization(provisioningDb, user);
+        if (membership.created) await createDefaultSender(membership.org);
 
-        let org = member
-          ? await prisma.organization.findUnique({
-              where: { id: member.organizationId },
-              select: ORG_SELECT,
-            })
-          : null;
+        // Platform administration: a verified ADMIN_EMAILS address, never an organization role.
+        const isPlatformAdminUser = isPlatformAdmin(user, process.env.ADMIN_EMAILS);
 
-        if (!org) {
-          org = await prisma.organization.create({
-            data: { name: user.name || "Mon organisation", slug: `org-${user.id.slice(0, 8)}` },
-            select: ORG_SELECT,
-          });
-
-          await prisma.member.create({
-            data: { userId: user.id, organizationId: org.id, role: "owner" },
-          }).catch(() => {});
-
-          await prisma.emailSender.create({
-            data: { name: org.name, email: "onboarding@resend.dev", isDefault: true, organizationId: org.id },
-          }).catch(() => {});
-        }
-
-        const isAdmin = member?.role === "admin" || adminAllowlist().has(user.email.toLowerCase());
-
-        return { user, org, memberRole: member?.role ?? null, isAdmin };
+        return { user, org: membership.org, memberRole: membership.role, isPlatformAdmin: isPlatformAdminUser };
       }
     }
-  } catch {
-    // Session failed — no fallback, return null
+  } catch (error) {
+    // Next.js request-time and navigation signals must reach the framework untouched.
+    unstable_rethrow(error);
+    console.error("[auth] Failed to resolve the current user and organization", error);
+    throw error;
   }
 
-  return { user: null, org: null, memberRole: null, isAdmin: false };
-}
+  return { user: null, org: null, memberRole: null, isPlatformAdmin: false };
+});
