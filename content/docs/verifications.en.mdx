@@ -64,14 +64,20 @@ Returns the current state. Another organization's verification answers `404`.
 
 Resending is a new `POST` for the same number: the previous pending code is
 canceled. Limits: 1 send per minute and 5 per hour per number and organization,
-20 per hour per API key. Beyond that: `429 {"error":"trop_de_demandes","retry_after":42}`
-with a `Retry-After` header.
+20 per hour per API key, 100 per hour per organization, and 30 per minute per
+organization shared with API WhatsApp messages (same sending number). Beyond
+that: `429 {"error":"trop_de_demandes","retry_after":42}` with a `Retry-After`
+header.
 
-Other errors: `409 whatsapp_indisponible`, `422 numero_invalide`,
+Other errors: `409 whatsapp_indisponible`, `422 Validation failed` (a doubtful
+number is reported under `field_errors.to`),
 `502 envoi_echoue` (provider refused, verification stored as `failed`),
 `503 verification_indisponible` (service not configured).
 
 Codes come from a cryptographic generator, are stored only as a salted HMAC and
 compared in constant time. They expire after 10 minutes, allow 5 attempts and
-approve once. With WhatsApp Cloud API, Meta only delivers free-form text inside
-the 24-hour window opened by the user; prefer an Evolution instance otherwise.
+approve once. The code goes to the exact number only, never to a legacy variant,
+and a failed send stores a classified cause (`numero_non_whatsapp`,
+`delai_depasse`, `transport_erreur`), never the provider text. With WhatsApp
+Cloud API, Meta only delivers free-form text inside the 24-hour window opened by
+the user; prefer an Evolution instance otherwise.

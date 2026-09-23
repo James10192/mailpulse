@@ -124,6 +124,10 @@ cesse de fonctionner.
 | 1 envoi par minute | par numéro et par organisation |
 | 5 envois par heure | par numéro et par organisation |
 | 20 envois par heure | par clé API |
+| 100 envois par heure | par organisation |
+| 30 envois par minute | par organisation, partagés avec les messages WhatsApp de `POST /api/v1/messages` |
+| 100 envois par heure | par organisation |
+| 30 envois par minute | par organisation, partagés avec les messages WhatsApp de `POST /api/v1/messages` |
 
 Au-delà, réponse `429` avec l'en-tête `Retry-After` :
 
@@ -131,7 +135,11 @@ Au-delà, réponse `429` avec l'en-tête `Retry-After` :
 { "error": "trop_de_demandes", "retry_after": 42 }
 ```
 
-Chaque envoi compte, y compris un envoi en échec ou remplacé.
+Chaque envoi compte, y compris un envoi en échec ou remplacé. Les codes partent
+du même numéro WhatsApp que vos messages API : ils consomment la même limite par
+minute, pour ne pas exposer ce numéro à un blocage. Les codes partent
+du même numéro WhatsApp que vos messages API : ils consomment la même limite par
+minute, pour ne pas exposer ce numéro à un blocage.
 
 ## Erreurs
 
@@ -140,8 +148,8 @@ Chaque envoi compte, y compris un envoi en échec ou remplacé.
 | `401` | `Invalid API key` | Clé absente, révoquée ou plan sans accès API. |
 | `404` | `verification_introuvable` | Identifiant inconnu pour cette organisation. |
 | `409` | `whatsapp_indisponible` | Aucun transport WhatsApp opérationnel pour l'organisation. |
-| `422` | `numero_invalide` | Numéro absent, non international ou de longueur impossible. |
-| `422` | `Validation failed` | Corps invalide, détail dans `field_errors`. |
+| `422` | `Validation failed` | Numéro absent, non international ou de longueur impossible : `field_errors.to`. |
+| `422` | `Validation failed` | Autre champ invalide, détail dans `field_errors`. |
 | `429` | `trop_de_demandes` | Limite atteinte, attendre `retry_after` secondes. |
 | `502` | `envoi_echoue` | Le fournisseur WhatsApp a refusé l'envoi. La vérification est enregistrée en `failed`. |
 | `503` | `verification_indisponible` | Service non configuré côté MailPulse. |
@@ -151,7 +159,11 @@ Chaque envoi compte, y compris un envoi en échec ou remplacé.
 - Le code est tiré d'un générateur cryptographique et n'est jamais stocké :
   MailPulse n'en garde qu'une empreinte HMAC salée, comparée en temps constant.
 - Un code expire après 10 minutes, supporte 5 tentatives et ne valide qu'une fois.
-- Les numéros sont masqués dans les réponses et dans le tableau de bord.
+- Le code part uniquement vers le numéro exact fourni, sans variante (pas
+  d'ancien format à 8 chiffres).
+- Les numéros sont masqués dans les réponses et dans le tableau de bord. En cas
+  d'échec d'envoi, seule une cause classée est conservée (`numero_non_whatsapp`,
+  `delai_depasse`, `transport_erreur`), jamais le texte du fournisseur.
 - Avec WhatsApp Cloud API, Meta ne remet un message libre que dans la fenêtre de
   24 heures ouverte par l'utilisateur. Hors fenêtre, préférez une instance
   Evolution pour les vérifications.
