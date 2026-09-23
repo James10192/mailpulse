@@ -1,6 +1,5 @@
-import { directProvider } from "@/lib/mailpulse/direct-provider";
-import { baileys, sendWhatsApp, type WhatsAppMode } from "@/lib/whatsapp";
-import type { VerificationTransport } from "./types";
+import { directProvider } from "../mailpulse/direct-provider";
+import { baileys, sendWhatsApp, type WhatsAppMode } from "../whatsapp";
 
 export type OrganizationWhatsApp = {
   whatsappEnabled: boolean;
@@ -13,6 +12,12 @@ export type OrganizationWhatsApp = {
   metaAccessToken: string | null;
 };
 
+/** Sends a code; resolves with the provider message id or throws. */
+export interface VerificationTransport {
+  readonly provider: string;
+  send(to: string, text: string): Promise<{ messageId: string | null }>;
+}
+
 /**
  * Whether the organization can send a WhatsApp text right now, judged from its
  * stored configuration only: no provider call, so a refusal costs nothing and
@@ -24,17 +29,17 @@ export function isWhatsAppOperational(org: OrganizationWhatsApp) {
   return Boolean(org.evoInstanceName && org.evoInstanceStatus === "open" && baileys.isConfigured());
 }
 
-/** Sends through the organization's configured provider, with the usual number fallbacks. */
+/**
+ * The organization's provider, restricted to the exact number: the legacy
+ * number variants other sends fall back to would deliver the code to whoever
+ * owns that other number.
+ */
 export function whatsAppVerificationTransport(org: OrganizationWhatsApp): VerificationTransport {
-  const provider = directProvider("WHATSAPP", org.whatsappMode);
   return {
+    provider: directProvider("WHATSAPP", org.whatsappMode),
     async send(to, text) {
-      try {
-        const result = await sendWhatsApp(org, to, text);
-        return { ok: true, provider, providerMessageId: result.messageId ?? null };
-      } catch (error) {
-        return { ok: false, provider, error: error instanceof Error ? error.message : "Échec de l'envoi WhatsApp." };
-      }
+      const result = await sendWhatsApp(org, to, text, { fallbacks: false });
+      return { messageId: result.messageId ?? null };
     },
   };
 }

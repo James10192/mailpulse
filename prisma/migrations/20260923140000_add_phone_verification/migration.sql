@@ -20,7 +20,7 @@ CREATE TABLE "phone_verification" (
     "failedAt" TIMESTAMP(3),
     "provider" TEXT,
     "providerMessageId" TEXT,
-    "errorMessage" TEXT,
+    "errorCode" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "organizationId" TEXT NOT NULL,

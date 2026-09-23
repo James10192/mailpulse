@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { generateVerificationCode, hashVerificationCode, readVerificationSecret, verificationCodeMatches } from "./code.ts";
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { buildVerificationMessage, resolveVerificationLocale } from "./message.ts";
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { checkErrorCode, effectiveStatus, evaluateSendLimits, publicStatus } from "./policy.ts";
+import { checkVerificationSchema, refusedCheckBody, startVerificationSchema, verificationSecretOrResponse } from "./api";
+import { generateVerificationCode, hashVerificationCode, verificationCodeMatches } from "./code";
+import { classifySendError, effectiveStatus, evaluateSendLimits, resolveVerificationLocale, buildVerificationMessage } from "./policy";
 
 const SECRET = "s".repeat(32);
 const NOW = new Date("2026-09-23T10:00:00.000Z");
 const secondsAgo = (seconds: number) => new Date(NOW.getTime() - seconds * 1000);
+const send = (seconds: number, phoneNumber = "+2250700000000", apiKeyId = "key_a") => ({ createdAt: secondsAgo(seconds), phoneNumber, apiKeyId });
+const limits = (organizationSends: ReturnType<typeof send>[], whatsAppMessageTimes: Date[] = []) =>
+  evaluateSendLimits({ now: NOW, phoneNumber: "+2250700000000", apiKeyId: "key_a", organizationSends, whatsAppMessageTimes });
 
 test("codes are six digits, leading zeros kept, and vary between draws", () => {
   const codes = new Set(Array.from({ length: 200 }, () => generateVerificationCode()));
@@ -17,61 +17,84 @@ test("codes are six digits, leading zeros kept, and vary between draws", () => {
   assert.ok(codes.size > 190);
 });
 
-test("the stored hash never contains the code and verifies only the right code", () => {
+test("the stored hash never contains the code and verifies only the right code under the right secret", () => {
   const hash = hashVerificationCode(SECRET, "042917");
   assert.equal(hash.includes("042917"), false);
   assert.equal(verificationCodeMatches(SECRET, "042917", hash), true);
   assert.equal(verificationCodeMatches(SECRET, "042918", hash), false);
   assert.equal(verificationCodeMatches("t".repeat(32), "042917", hash), false);
-});
-
-test("the same code hashes differently twice, and a malformed hash never matches", () => {
   assert.notEqual(hashVerificationCode(SECRET, "123456"), hashVerificationCode(SECRET, "123456"));
-  assert.equal(verificationCodeMatches(SECRET, "123456", "garbage"), false);
   assert.equal(verificationCodeMatches(SECRET, "123456", "v2.salt.digest"), false);
 });
 
-test("a missing or short secret is refused", () => {
-  assert.equal(readVerificationSecret({}), null);
-  assert.equal(readVerificationSecret({ VERIFICATION_CODE_SECRET: "short" }), null);
-  assert.equal(readVerificationSecret({ VERIFICATION_CODE_SECRET: ` ${SECRET} ` }), SECRET);
+test("a missing or short secret answers 503, a valid one is returned", async () => {
+  const missing = verificationSecretOrResponse({});
+  assert.ok(missing instanceof Response);
+  assert.equal(missing.status, 503);
+  assert.deepEqual(await missing.json(), { error: "verification_indisponible" });
+  assert.ok(verificationSecretOrResponse({ VERIFICATION_CODE_SECRET: "short" }) instanceof Response);
+  assert.equal(verificationSecretOrResponse({ VERIFICATION_CODE_SECRET: ` ${SECRET} ` }), SECRET);
 });
 
-test("one send per number per minute", () => {
-  assert.deepEqual(evaluateSendLimits({ now: NOW, phoneSends: [secondsAgo(20)], keySends: [secondsAgo(20)] }), { allowed: false, retryAfterSeconds: 40 });
-  assert.deepEqual(evaluateSendLimits({ now: NOW, phoneSends: [secondsAgo(61)], keySends: [secondsAgo(61)] }), { allowed: true });
+test("the start schema normalizes the number and rejects a doubtful one on the `to` field", () => {
+  const ok = startVerificationSchema.safeParse({ channel: "whatsapp", to: "00225 07 00 00 00 00" });
+  assert.equal(ok.success && ok.data.to, "+2250700000000");
+
+  const bad = startVerificationSchema.safeParse({ channel: "whatsapp", to: "0700000000" });
+  assert.equal(bad.success, false);
+  assert.deepEqual(bad.error?.issues.map((issue) => issue.path), [["to"]]);
+  assert.equal(startVerificationSchema.safeParse({ channel: "sms", to: "+2250700000000" }).success, false);
 });
 
-test("five sends per number per hour, retry when the oldest leaves the window", () => {
-  const phoneSends = [3000, 2400, 1800, 1200, 600].map(secondsAgo);
-  assert.deepEqual(evaluateSendLimits({ now: NOW, phoneSends, keySends: phoneSends }), { allowed: false, retryAfterSeconds: 600 });
-  assert.deepEqual(evaluateSendLimits({ now: NOW, phoneSends: phoneSends.slice(1), keySends: phoneSends }), { allowed: true });
+test("the check schema only accepts six digits", () => {
+  assert.equal(checkVerificationSchema.safeParse({ code: "012345" }).success, true);
+  for (const code of ["12345", "1234567", "12a456", 123456]) assert.equal(checkVerificationSchema.safeParse({ code }).success, false);
 });
 
-test("twenty sends per key per hour, whatever the numbers", () => {
-  const keySends = Array.from({ length: 20 }, (_, index) => secondsAgo(3500 - index * 100));
-  assert.deepEqual(evaluateSendLimits({ now: NOW, phoneSends: [], keySends }), { allowed: false, retryAfterSeconds: 100 });
-  assert.deepEqual(evaluateSendLimits({ now: NOW, phoneSends: [], keySends: keySends.slice(1) }), { allowed: true });
+test("one send per number per minute, five per hour", () => {
+  assert.deepEqual(limits([send(20)]), { allowed: false, retryAfterSeconds: 40 });
+  assert.deepEqual(limits([send(61)]), { allowed: true });
+  assert.deepEqual(limits([3000, 2400, 1800, 1200, 600].map((s) => send(s))), { allowed: false, retryAfterSeconds: 600 });
 });
 
-test("a pending code past its expiry reads as expired, other states are kept", () => {
-  assert.equal(effectiveStatus({ status: "PENDING", expiresAt: NOW }, NOW), "EXPIRED");
-  assert.equal(effectiveStatus({ status: "PENDING", expiresAt: secondsAgo(-1) }, NOW), "PENDING");
-  assert.equal(effectiveStatus({ status: "APPROVED", expiresAt: secondsAgo(60) }, NOW), "APPROVED");
+test("twenty sends per key per hour, one hundred per organization", () => {
+  const byKey = Array.from({ length: 20 }, (_, i) => send(3500 - i * 100, `+22507000001${String(i).padStart(2, "0")}`));
+  assert.deepEqual(limits(byKey), { allowed: false, retryAfterSeconds: 100 });
+  const byOrg = Array.from({ length: 100 }, (_, i) => send(3590 - i * 30, `+2250700001${String(i).padStart(3, "0")}`, `key_${i}`));
+  assert.deepEqual(limits(byOrg), { allowed: false, retryAfterSeconds: 10 });
 });
 
-test("refusals map to the public vocabulary", () => {
-  assert.equal(publicStatus("MAX_ATTEMPTS"), "max_attempts");
-  assert.equal(checkErrorCode("PENDING"), "code_invalide");
-  assert.equal(checkErrorCode("MAX_ATTEMPTS"), "trop_de_tentatives");
-  assert.equal(checkErrorCode("EXPIRED"), "expire");
-  assert.equal(checkErrorCode("CANCELED"), "expire");
+test("codes and API WhatsApp messages share thirty sends a minute", () => {
+  const messages = Array.from({ length: 29 }, () => secondsAgo(30));
+  assert.deepEqual(limits([], messages), { allowed: true });
+  assert.deepEqual(limits([send(40, "+2250700000999", "key_b")], messages), { allowed: false, retryAfterSeconds: 20 });
 });
 
-test("the message carries the code and its lifetime in the requested language", () => {
+test("the effective status reflects expiry and spent attempts", () => {
+  assert.equal(effectiveStatus({ status: "PENDING", expiresAt: NOW, attempts: 0 }, NOW), "EXPIRED");
+  assert.equal(effectiveStatus({ status: "PENDING", expiresAt: secondsAgo(-60), attempts: 5 }, NOW), "MAX_ATTEMPTS");
+  assert.equal(effectiveStatus({ status: "PENDING", expiresAt: secondsAgo(-60), attempts: 4 }, NOW), "PENDING");
+  assert.equal(effectiveStatus({ status: "APPROVED", expiresAt: secondsAgo(60), attempts: 1 }, NOW), "APPROVED");
+});
+
+test("refusals speak the public vocabulary", () => {
+  assert.deepEqual(refusedCheckBody("v1", "PENDING"), { id: "v1", status: "pending", error: "code_invalide" });
+  assert.deepEqual(refusedCheckBody("v1", "MAX_ATTEMPTS"), { id: "v1", status: "max_attempts", error: "trop_de_tentatives" });
+  assert.deepEqual(refusedCheckBody("v1", "CANCELED"), { id: "v1", status: "canceled", error: "expire" });
+});
+
+test("the message follows the requested language", () => {
+  assert.match(buildVerificationMessage(resolveVerificationLocale(undefined), "123456"), /^Votre code de vérification est 123456\./);
   assert.equal(
-    buildVerificationMessage(resolveVerificationLocale(undefined), "123456", 10),
-    "Votre code de vérification est 123456. Il expire dans 10 minutes. Ne le partagez avec personne.",
+    buildVerificationMessage(resolveVerificationLocale("en-US"), "123456"),
+    "Your verification code is 123456. It expires in 10 minutes. Do not share it with anyone.",
   );
-  assert.match(buildVerificationMessage(resolveVerificationLocale("en-US"), "123456", 10), /^Your verification code is 123456\./);
+});
+
+test("provider errors are reduced to codes", () => {
+  assert.equal(classifySendError(new Error("Le numéro 2250700000000 n'est pas enregistré sur WhatsApp.")), "numero_non_whatsapp");
+  assert.equal(classifySendError(new Error("Meta API: (#131026) Message undeliverable")), "numero_non_whatsapp");
+  assert.equal(classifySendError(new Error("The operation was aborted due to timeout")), "delai_depasse");
+  assert.equal(classifySendError(new Error("Evolution API 500")), "transport_erreur");
+  assert.equal(classifySendError("boom"), "transport_erreur");
 });

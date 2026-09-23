@@ -1,41 +1,48 @@
-import type { VerificationRecord, VerificationSendTx, VerificationStore } from "./types";
+import type { PhoneVerification } from "@/generated/prisma";
+import type { VerificationSendTx, VerificationStore } from "./store";
 
 /**
- * In-memory store for the tests: same contract as the Prisma store, including
- * the serialized send lock and the conditional attempt write.
+ * In-memory store for the tests, honouring the same contract as the Prisma
+ * store: a serialized organization lock and single-step conditional writes
+ * (no await between the condition and the write, as a SQL UPDATE … WHERE).
  */
 export function createMemoryStore() {
-  const rows: VerificationRecord[] = [];
+  const rows: PhoneVerification[] = [];
+  const whatsAppMessages: Array<{ organizationId: string; createdAt: Date }> = [];
   let sequence = 0;
   let queue: Promise<unknown> = Promise.resolve();
 
   const tx: VerificationSendTx = {
-    async sendsForPhone(organizationId, phoneNumber, since) {
-      return rows.filter((row) => row.organizationId === organizationId && row.phoneNumber === phoneNumber && row.createdAt > since).map((row) => row.createdAt);
+    async recentSends(organizationId, since) {
+      return rows
+        .filter((row) => row.organizationId === organizationId && row.createdAt > since)
+        .map(({ createdAt, phoneNumber, apiKeyId }) => ({ createdAt, phoneNumber, apiKeyId }));
     },
-    async sendsForKey(apiKeyId, since) {
-      return rows.filter((row) => row.apiKeyId === apiKeyId && row.createdAt > since).map((row) => row.createdAt);
+    async whatsAppMessageTimes(organizationId, since) {
+      return whatsAppMessages.filter((item) => item.organizationId === organizationId && item.createdAt > since).map((item) => item.createdAt);
     },
     async cancelPending(organizationId, phoneNumber, at) {
       for (const row of rows) {
         if (row.organizationId === organizationId && row.phoneNumber === phoneNumber && row.status === "PENDING") {
-          row.status = "CANCELED";
-          row.canceledAt = at;
+          Object.assign(row, { status: "CANCELED", canceledAt: at });
         }
       }
     },
     async create(data) {
       sequence += 1;
-      const row: VerificationRecord = {
+      const row: PhoneVerification = {
         ...data,
         id: `ver_${sequence}`,
+        channel: "WHATSAPP",
         status: "PENDING",
         attempts: 0,
         approvedAt: null,
         canceledAt: null,
         failedAt: null,
         provider: null,
-        errorMessage: null,
+        providerMessageId: null,
+        errorCode: null,
+        updatedAt: data.createdAt,
       };
       rows.push(row);
       return { ...row };
@@ -49,7 +56,7 @@ export function createMemoryStore() {
   }
 
   const store: VerificationStore = {
-    withSendLock(_scope, fn) {
+    withOrganizationLock(_organizationId, fn) {
       const run = queue.then(() => fn(tx));
       queue = run.catch(() => undefined);
       return run;
@@ -59,28 +66,29 @@ export function createMemoryStore() {
       return row ? { ...row } : null;
     },
     async markSent(id, sent) {
-      const row = byId(id);
-      row.provider = sent.provider;
-      return { ...row };
+      return { ...Object.assign(byId(id), sent) };
     },
     async markFailed(id, failure) {
-      const row = byId(id);
-      Object.assign(row, { status: "FAILED", provider: failure.provider, errorMessage: failure.errorMessage, failedAt: failure.failedAt });
-      return { ...row };
+      return { ...Object.assign(byId(id), failure, { status: "FAILED" }) };
     },
     async expire(id) {
       const row = byId(id);
       if (row.status === "PENDING") row.status = "EXPIRED";
     },
-    async recordAttempt(update) {
-      const row = byId(update.id);
-      if (row.status !== "PENDING" || row.attempts !== update.expectedAttempts || row.expiresAt <= update.now) return false;
-      row.attempts = update.attempts;
-      row.status = update.status;
-      if (update.status === "APPROVED") row.approvedAt = update.now;
+    async consumeAttempt({ organizationId, id, now, maxAttempts }) {
+      const row = rows.find((item) => item.id === id && item.organizationId === organizationId);
+      if (!row || row.status !== "PENDING" || row.attempts >= maxAttempts || row.expiresAt <= now) return null;
+      row.attempts += 1;
+      return { ...row };
+    },
+    async settle(id, status, now) {
+      const row = byId(id);
+      if (row.status !== "PENDING") return false;
+      row.status = status;
+      if (status === "APPROVED") row.approvedAt = now;
       return true;
     },
   };
 
-  return { store, rows };
+  return { store, rows, whatsAppMessages };
 }

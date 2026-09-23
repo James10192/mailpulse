@@ -672,7 +672,8 @@ model PhoneVerification {
   failedAt          DateTime?
   provider          String?
   providerMessageId String?
-  errorMessage      String?
+  // Classified cause of a failed send, never the provider text (it carries the number).
+  errorCode         String?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
 
