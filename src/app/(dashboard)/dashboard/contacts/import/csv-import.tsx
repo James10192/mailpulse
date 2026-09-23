@@ -2,19 +2,32 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, Loader2, AlertTriangle, X } from "lucide-react";
+import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, Loader2, AlertTriangle } from "lucide-react";
 import Papa from "papaparse";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { importContacts } from "../actions";
 
 type Step = "upload" | "mapping" | "result";
 
+// Radix Select items cannot use "" as a value: the "ignore" option is mapped to this sentinel.
+const IGNORE_FIELD = "__ignore__";
+
 const CONTACT_FIELDS = [
   { value: "", label: "— Ignorer —" },
   { value: "email", label: "Email *" },
-  { value: "firstName", label: "Prenom" },
+  { value: "firstName", label: "Prénom" },
   { value: "lastName", label: "Nom" },
-  { value: "phone", label: "Telephone" },
-  { value: "tags", label: "Tags (separes par des virgules)" },
+  { value: "phone", label: "Téléphone" },
+  { value: "tags", label: "Tags (séparés par des virgules)" },
 ];
 
 export function CsvImport() {
@@ -150,7 +163,7 @@ export function CsvImport() {
         {[
           { id: "upload", label: "1. Fichier" },
           { id: "mapping", label: "2. Mapping" },
-          { id: "result", label: "3. Resultat" },
+          { id: "result", label: "3. Résultat" },
         ].map((s, i) => (
           <div key={s.id} className="flex items-center gap-2">
             {i > 0 && <ArrowRight className="h-3 w-3 text-zinc-600" />}
@@ -162,10 +175,10 @@ export function CsvImport() {
       </div>
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+        <Alert variant="destructive" className="flex items-center gap-2 p-3">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           {error}
-        </div>
+        </Alert>
       )}
 
       {/* Step 1: Upload */}
@@ -179,9 +192,9 @@ export function CsvImport() {
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileInput} />
           <Upload className="h-10 w-10 text-zinc-400 mx-auto mb-4" />
           <p className="text-sm text-zinc-500 mb-1">
-            Glissez-deposez votre fichier CSV ici
+            Glissez-déposez votre fichier CSV ici
           </p>
-          <p className="text-xs text-zinc-400">ou cliquez pour selectionner</p>
+          <p className="text-xs text-zinc-400">ou cliquez pour sélectionner</p>
           <p className="text-xs text-zinc-500 mt-4">
             Format attendu : une colonne email obligatoire, colonnes prenom/nom/telephone optionnelles
           </p>
@@ -194,14 +207,16 @@ export function CsvImport() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-zinc-500">
               <FileSpreadsheet className="h-4 w-4" />
-              {fileName} — {csvData.length} lignes detectees
+              {fileName} — {csvData.length} lignes détectées
             </div>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => { setStep("upload"); setCsvHeaders([]); setCsvData([]); setColumnMapping({}); }}
-              className="text-xs text-zinc-500 hover:text-zinc-300 cursor-pointer"
+              className="h-7 px-2 text-zinc-500"
             >
               Changer de fichier
-            </button>
+            </Button>
           </div>
 
           {/* Column mapping */}
@@ -212,26 +227,32 @@ export function CsvImport() {
             <div className="space-y-3">
               {csvHeaders.map((header, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <span className="text-sm font-mono text-zinc-500 w-40 truncate" title={header}>
+                  <span id={`csv-column-${i}`} className="text-sm font-mono text-zinc-500 w-40 truncate" title={header}>
                     {header}
                   </span>
                   <ArrowRight className="h-3 w-3 text-zinc-600 shrink-0" />
-                  <select
-                    value={columnMapping[i] || ""}
-                    onChange={(e) => updateMapping(i, e.target.value)}
-                    className="flex-1 px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                  <Select
+                    value={columnMapping[i] || IGNORE_FIELD}
+                    onValueChange={(value) => updateMapping(i, value === IGNORE_FIELD ? "" : value)}
                   >
-                    {CONTACT_FIELDS.map((f) => (
-                      <option key={f.value} value={f.value}>{f.label}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger aria-labelledby={`csv-column-${i}`} className="flex-1 cursor-pointer">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONTACT_FIELDS.map((f) => (
+                        <SelectItem key={f.value || IGNORE_FIELD} value={f.value || IGNORE_FIELD}>
+                          {f.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               ))}
             </div>
             {!hasEmailMapping && (
               <p className="text-xs text-amber-500 flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
-                Associez au moins une colonne a &quot;Email&quot;
+                Associez au moins une colonne à &quot;Email&quot;
               </p>
             )}
           </div>
@@ -239,51 +260,46 @@ export function CsvImport() {
           {/* Preview */}
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
             <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
-              Apercu (5 premieres lignes)
+              Aperçu (5 premières lignes)
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-zinc-200 dark:border-zinc-800">
+            <Table className="text-xs">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent dark:hover:bg-transparent">
                     {csvHeaders.map((h, i) => (
-                      <th key={i} className="px-3 py-2 text-left font-medium text-zinc-500">
+                      <TableHead key={i} className="h-auto px-3 py-2 text-xs font-medium normal-case tracking-normal text-zinc-500">
                         {columnMapping[i] ? (
                           <span className="text-orange-500">{CONTACT_FIELDS.find((f) => f.value === columnMapping[i])?.label}</span>
                         ) : (
                           <span className="text-zinc-400 line-through">{h}</span>
                         )}
-                      </th>
+                      </TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {csvData.slice(0, 5).map((row, ri) => (
-                    <tr key={ri} className="border-b border-zinc-100 dark:border-zinc-800/50">
+                    <TableRow key={ri} className="border-zinc-100 hover:bg-transparent dark:border-zinc-800/50 dark:hover:bg-transparent">
                       {row.map((cell, ci) => (
-                        <td key={ci} className={`px-3 py-2 ${columnMapping[ci] ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400"}`}>
+                        <TableCell key={ci} className={`px-3 py-2 ${columnMapping[ci] ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400"}`}>
                           {cell || "—"}
-                        </td>
+                        </TableCell>
                       ))}
-                    </tr>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+            </Table>
           </div>
 
           {/* Actions */}
           <div className="flex justify-between">
-            <button
-              onClick={() => setStep("upload")}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm text-zinc-500 hover:text-zinc-300 cursor-pointer"
-            >
+            <Button variant="ghost" onClick={() => setStep("upload")} className="text-zinc-500">
               <ArrowLeft className="h-4 w-4" />
               Retour
-            </button>
-            <button
+            </Button>
+            <Button
+              size="lg"
               onClick={handleImport}
               disabled={!hasEmailMapping || importing}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium rounded-xl transition-colors cursor-pointer disabled:opacity-50"
             >
               {importing ? (
                 <>
@@ -296,7 +312,7 @@ export function CsvImport() {
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -308,16 +324,16 @@ export function CsvImport() {
             <Check className="h-7 w-7 text-emerald-500" />
           </div>
           <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-            Import termine !
+            Import terminé !
           </h2>
           <div className="flex justify-center gap-6 mt-4 mb-6">
             <div className="text-center">
               <div className="text-2xl font-mono font-bold text-emerald-500">{result.imported}</div>
-              <div className="text-xs text-zinc-500">importes</div>
+              <div className="text-xs text-zinc-500">importés</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-mono font-bold text-amber-500">{result.skipped}</div>
-              <div className="text-xs text-zinc-500">doublons ignores</div>
+              <div className="text-xs text-zinc-500">doublons ignorés</div>
             </div>
             {result.errors > 0 && (
               <div className="text-center">
@@ -326,12 +342,9 @@ export function CsvImport() {
               </div>
             )}
           </div>
-          <button
-            onClick={() => router.push("/dashboard/contacts")}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer"
-          >
+          <Button onClick={() => router.push("/dashboard/contacts")}>
             Voir les contacts
-          </button>
+          </Button>
         </div>
       )}
     </div>

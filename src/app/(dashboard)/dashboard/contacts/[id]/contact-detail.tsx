@@ -32,8 +32,23 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { PhoneNumberInput } from "@/components/dashboard/phone-number-input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toggleContactSubscription, triggerAutomation, updateContact, addTagToContact, removeTagFromContact } from "./actions";
 
 // ────────────────────────────────────────────────────────
@@ -161,7 +176,6 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
   const [isPending, startTransition] = useTransition();
   const [showUnsubConfirm, setShowUnsubConfirm] = useState(false);
   const [automationDropdown, setAutomationDropdown] = useState(false);
-  const [triggerResult, setTriggerResult] = useState<string | null>(null);
 
   // Edit mode state
   const [editing, setEditing] = useState(false);
@@ -260,11 +274,9 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
     startTransition(async () => {
       const result = await triggerAutomation(contact.id, automationId);
       if (result?.success) {
-        setTriggerResult("Automation declenchee");
-        setTimeout(() => setTriggerResult(null), 3000);
+        toast.success("Automation déclenchée");
       } else {
-        setTriggerResult(result?.error ?? "Erreur");
-        setTimeout(() => setTriggerResult(null), 3000);
+        toast.error(result?.error ?? "Erreur");
       }
     });
   }
@@ -277,35 +289,37 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-lg font-semibold text-zinc-300">
-            {contact.email[0].toUpperCase()}
-          </div>
+          <Avatar className="h-12 w-12">
+            <AvatarFallback className="bg-zinc-800 text-lg font-semibold text-zinc-300">
+              {contact.email[0].toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
               {contact.email}
             </h1>
-            <span
-              className={`inline-block mt-1 text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                contact.subscribed
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                  : "bg-red-500/10 text-red-400 border border-red-500/20"
+            <Badge
+              variant={contact.subscribed ? "success" : "destructive"}
+              className={`mt-1 px-2.5 text-xs ${
+                contact.subscribed ? "border-emerald-500/20" : "border-red-500/20"
               }`}
             >
-              {contact.subscribed ? "ABONNE" : "DESABONNE"}
-            </span>
+              {contact.subscribed ? "ABONNÉ" : "DÉSABONNÉ"}
+            </Badge>
           </div>
         </div>
-        <button
+        <Button
+          variant="outline"
           onClick={() => setShowUnsubConfirm(true)}
           disabled={isPending}
-          className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50 ${
+          className={
             contact.subscribed
-              ? "bg-red-600/10 text-red-400 border border-red-500/20 hover:bg-red-600/20"
-              : "bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/20"
-          }`}
+              ? "bg-red-600/10 text-red-500 shadow-[inset_0_0_0_1px_rgba(239,68,68,0.2)] hover:bg-red-600/20 hover:shadow-[inset_0_0_0_1px_rgba(239,68,68,0.3)] dark:bg-red-600/10 dark:text-red-400 dark:hover:bg-red-600/20"
+              : "bg-emerald-600/10 text-emerald-600 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.2)] hover:bg-emerald-600/20 hover:shadow-[inset_0_0_0_1px_rgba(16,185,129,0.3)] dark:bg-emerald-600/10 dark:text-emerald-400 dark:hover:bg-emerald-600/20"
+          }
         >
-          {contact.subscribed ? "Desabonner" : "Reabonner"}
-        </button>
+          {contact.subscribed ? "Désabonner" : "Réabonner"}
+        </Button>
       </div>
 
       {/* Stat cards */}
@@ -397,63 +411,72 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
               Informations
             </h2>
             {!editing ? (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setEditing(true)}
-                className="text-xs text-orange-500 hover:text-orange-400 cursor-pointer"
+                className="h-7 px-2 text-orange-500 hover:text-orange-400 dark:text-orange-500 dark:hover:text-orange-400"
               >
                 Modifier
-              </button>
+              </Button>
             ) : (
               <div className="flex gap-2">
-                <button onClick={() => setEditing(false)} className="text-xs text-zinc-500 hover:text-zinc-300 cursor-pointer">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditing(false)}
+                  className="h-7 px-2 text-zinc-500"
+                >
                   Annuler
-                </button>
-                <button
+                </Button>
+                <Button
+                  size="sm"
                   onClick={handleSave}
                   disabled={saving}
-                  className="text-xs text-orange-500 hover:text-orange-400 cursor-pointer disabled:opacity-50"
+                  className="h-7 px-3"
                 >
                   {saving ? "..." : "Enregistrer"}
-                </button>
+                </Button>
               </div>
             )}
           </div>
 
           {editing ? (
             <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-zinc-500 mb-1">Email</label>
-                <input disabled value={contact.email} className="w-full px-3 py-2 bg-zinc-800/30 border border-zinc-700 rounded-lg text-sm text-zinc-400 cursor-not-allowed" />
+              <div className="space-y-1">
+                <Label htmlFor="contact-email" className="text-xs font-normal text-zinc-500 dark:text-zinc-500">Email</Label>
+                <Input id="contact-email" disabled value={contact.email} className="h-10" />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-zinc-500 mb-1">Prenom</label>
-                  <input value={editData.firstName} onChange={(e) => setEditData({ ...editData, firstName: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30" />
+                <div className="space-y-1">
+                  <Label htmlFor="contact-first-name" className="text-xs font-normal text-zinc-500 dark:text-zinc-500">Prénom</Label>
+                  <Input id="contact-first-name" value={editData.firstName} onChange={(e) => setEditData({ ...editData, firstName: e.target.value })} className="h-10" />
                 </div>
-                <div>
-                  <label className="block text-xs text-zinc-500 mb-1">Nom</label>
-                  <input value={editData.lastName} onChange={(e) => setEditData({ ...editData, lastName: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30" />
+                <div className="space-y-1">
+                  <Label htmlFor="contact-last-name" className="text-xs font-normal text-zinc-500 dark:text-zinc-500">Nom</Label>
+                  <Input id="contact-last-name" value={editData.lastName} onChange={(e) => setEditData({ ...editData, lastName: e.target.value })} className="h-10" />
                 </div>
               </div>
               <PhoneNumberInput
                 id="contact-phone"
-                label="Telephone"
+                label="Téléphone"
                 value={editData.phone}
                 onChange={(phone) => setEditData({ ...editData, phone })}
               />
               {customFields.length > 0 && (
                 <>
                   <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                    <p className="text-xs text-zinc-500 mb-2">Champs personnalises</p>
+                    <p className="text-xs text-zinc-500 mb-2">Champs personnalisés</p>
                   </div>
                   {customFields.map((f) => (
-                    <div key={f.id}>
-                      <label className="block text-xs text-zinc-500 mb-1">{f.label}</label>
-                      <input
+                    <div key={f.id} className="space-y-1">
+                      <Label htmlFor={`custom-field-${f.id}`} className="text-xs font-normal text-zinc-500 dark:text-zinc-500">{f.label}</Label>
+                      <Input
+                        id={`custom-field-${f.id}`}
                         value={customFieldValues[f.name] || ""}
                         onChange={(e) => setCustomFieldValues({ ...customFieldValues, [f.name]: e.target.value })}
                         type={f.type === "number" ? "number" : f.type === "email" ? "email" : f.type === "url" ? "url" : f.type === "date" ? "date" : "text"}
-                        className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                        className="h-10"
                       />
                     </div>
                   ))}
@@ -465,7 +488,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InfoRow icon={Mail} label="Email" value={contact.email} />
                 <InfoRow icon={User} label="Nom complet" value={fullName} />
-                <InfoRow icon={Phone} label="Telephone" value={contact.phone ?? "—"} />
+                <InfoRow icon={Phone} label="Téléphone" value={contact.phone ?? "—"} />
                 <InfoRow icon={Globe} label="Source" value={contact.source ?? "—"} />
               </div>
               {customFields.length > 0 && (
@@ -488,45 +511,57 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
             </div>
             <div className="flex gap-1.5 flex-wrap">
               {contact.tags.map((tag) => (
-                <span
+                <Badge
                   key={tag.id}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border border-zinc-700 bg-zinc-800 text-zinc-300"
+                  variant="outline"
+                  className="gap-1 px-2.5 py-1 text-xs"
                   style={{ borderColor: tag.color + "40", backgroundColor: tag.color + "15", color: tag.color }}
                 >
                   {tag.name}
-                  <button onClick={() => handleRemoveTag(tag.id)} className="hover:opacity-60 cursor-pointer">×</button>
-                </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveTag(tag.id)}
+                    aria-label={`Retirer le tag ${tag.name}`}
+                    className="h-auto w-auto p-0 text-xs leading-none text-current hover:bg-transparent hover:text-current hover:opacity-60 dark:hover:bg-transparent dark:hover:text-current"
+                  >
+                    ×
+                  </Button>
+                </Badge>
               ))}
               <div className="relative">
-                <input
+                <Input
                   type="text"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddTag(); } }}
                   placeholder="Ajouter un tag..."
-                  className="w-40 px-2 py-1 text-xs bg-transparent border border-dashed border-zinc-700 rounded-lg text-zinc-400 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50"
+                  aria-label="Ajouter un tag"
+                  className="h-7 w-40 border border-dashed border-zinc-300 bg-transparent px-2 py-1 text-xs shadow-none placeholder:text-zinc-500 dark:border-zinc-700 dark:bg-transparent dark:shadow-none"
                 />
                 {newTag && (
                   <div className="absolute left-0 top-full mt-1 z-10 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg py-1 max-h-40 overflow-y-auto">
                     {availableTags
                       .filter((t) => t.toLowerCase().includes(newTag.toLowerCase()) && !contact.tags.some((ct) => ct.name === t))
                       .map((t) => (
-                        <button
+                        <Button
                           key={t}
+                          variant="ghost"
                           onClick={() => { setNewTag(""); addTagToContact(contact.id, t); }}
-                          className="w-full px-3 py-1.5 text-left text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer"
+                          className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-xs font-normal"
                         >
                           {t}
-                        </button>
+                        </Button>
                       ))}
                     {!availableTags.some((t) => t.toLowerCase() === newTag.toLowerCase()) && (
-                      <button
+                      <Button
+                        variant="ghost"
                         onClick={handleAddTag}
                         disabled={addingTag}
-                        className="w-full px-3 py-1.5 text-left text-xs text-orange-500 hover:bg-orange-500/5 cursor-pointer"
+                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-xs font-normal text-orange-500 hover:bg-orange-500/5 hover:text-orange-500 dark:text-orange-500 dark:hover:bg-orange-500/5 dark:hover:text-orange-500"
                       >
-                        + Creer &quot;{newTag}&quot;
-                      </button>
+                        + Créer &quot;{newTag}&quot;
+                      </Button>
                     )}
                   </div>
                 )}
@@ -535,7 +570,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-zinc-200 dark:border-zinc-800">
-            <InfoRow icon={Clock} label="Cree le" value={formatDate(contact.createdAt)} />
+            <InfoRow icon={Clock} label="Créé le" value={formatDate(contact.createdAt)} />
             <InfoRow
               icon={Clock}
               label="Dernier engagement"
@@ -549,12 +584,6 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             Automations actives
           </h2>
-
-          {triggerResult && (
-            <div className="text-xs px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              {triggerResult}
-            </div>
-          )}
 
           {activeAutomations.length > 0 ? (
             <div className="space-y-2">
@@ -586,36 +615,42 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                 href="/dashboard/automations"
                 className="text-xs text-orange-500 hover:text-orange-400"
               >
-                Aller aux automations pour en creer une.
+                Aller aux automations pour en créer une.
               </Link>
             </div>
           )}
 
           {/* Trigger automation dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setAutomationDropdown(!automationDropdown)}
-              disabled={activeAutomations.length === 0 || isPending}
-              className="w-full inline-flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+          <DropdownMenu
+            open={automationDropdown && activeAutomations.length > 0}
+            onOpenChange={setAutomationDropdown}
+          >
+            <DropdownMenuTrigger asChild>
+              <Button
+                disabled={activeAutomations.length === 0 || isPending}
+                className="w-full"
+              >
+                <Zap className="h-4 w-4" />
+                Déclencher une automation
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="top"
+              align="start"
+              className="max-h-48 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
             >
-              <Zap className="h-4 w-4" />
-              Declencher une automation
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-            {automationDropdown && activeAutomations.length > 0 && (
-              <div className="absolute z-20 bottom-full mb-1 left-0 right-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg py-1 max-h-48 overflow-y-auto">
-                {activeAutomations.map((auto) => (
-                  <button
-                    key={auto.id}
-                    onClick={() => handleTriggerAutomation(auto.id)}
-                    className="w-full text-left px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-orange-500/5 hover:text-orange-400 transition-colors cursor-pointer"
-                  >
-                    {auto.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+              {activeAutomations.map((auto) => (
+                <DropdownMenuItem
+                  key={auto.id}
+                  onSelect={() => handleTriggerAutomation(auto.id)}
+                  className="cursor-pointer text-zinc-600 focus:bg-orange-500/5 focus:text-orange-500 dark:text-zinc-300 dark:focus:bg-orange-500/5 dark:focus:text-orange-400"
+                >
+                  {auto.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -623,46 +658,40 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Activite
+            Activité
           </h2>
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
-              <input
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+              <Input
                 value={eventSearch}
                 onChange={(e) => setEventSearch(e.target.value)}
                 placeholder="Rechercher..."
-                className="pl-8 pr-3 py-1.5 w-36 text-xs bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                aria-label="Rechercher dans l'activité"
+                className="h-8 w-36 pl-8 pr-3 text-xs"
               />
             </div>
-            <div className="relative">
-              <button
-                onClick={() => setEventFilterOpen(!eventFilterOpen)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              >
-                <Filter className="h-3.5 w-3.5" />
-                {eventFilter === "ALL" ? "Tous les types" : EVENT_CONFIG[eventFilter]?.label ?? eventFilter}
-              </button>
-              {eventFilterOpen && (
-                <div className="absolute right-0 top-full mt-1 z-20 w-56 max-h-64 overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl py-1">
-                  <button
-                    onClick={() => { setEventFilter("ALL"); setEventFilterOpen(false); }}
-                    className={`w-full px-3 py-2 text-left text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer ${eventFilter === "ALL" ? "text-orange-500 bg-orange-500/5" : "text-zinc-600 dark:text-zinc-300"}`}
-                  >
+            <DropdownMenu open={eventFilterOpen} onOpenChange={setEventFilterOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 font-normal">
+                  <Filter className="h-3.5 w-3.5" />
+                  {eventFilter === "ALL" ? "Tous les types" : EVENT_CONFIG[eventFilter]?.label ?? eventFilter}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-64 w-56 overflow-y-auto">
+                <DropdownMenuRadioGroup value={eventFilter} onValueChange={setEventFilter}>
+                  <DropdownMenuRadioItem value="ALL" className="text-xs">
                     Tous les types
-                  </button>
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuSeparator />
                   {EVENT_FILTER_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => { setEventFilter(opt.value); setEventFilterOpen(false); }}
-                      className={`w-full px-3 py-2 text-left text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer ${eventFilter === opt.value ? "text-orange-500 bg-orange-500/5" : "text-zinc-600 dark:text-zinc-300"}`}
-                    >
+                    <DropdownMenuRadioItem key={opt.value} value={opt.value} className="text-xs">
                       {opt.label}
-                    </button>
+                    </DropdownMenuRadioItem>
                   ))}
-                </div>
-              )}
-            </div>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -717,7 +746,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
             </div>
           ) : (
             <div className="flex items-center justify-center h-20 text-sm text-zinc-500">
-              Aucun evenement {eventFilter !== "ALL" ? "de ce type" : ""}
+              Aucun événement {eventFilter !== "ALL" ? "de ce type" : ""}
             </div>
           );
         })()}
@@ -726,13 +755,13 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
       {/* Confirm dialog for subscription toggle */}
       <ConfirmDialog
         open={showUnsubConfirm}
-        title={contact.subscribed ? "Desabonner ce contact" : "Reabonner ce contact"}
+        title={contact.subscribed ? "Désabonner ce contact" : "Réabonner ce contact"}
         message={
           contact.subscribed
             ? "Ce contact ne recevra plus vos campagnes email."
-            : "Ce contact sera de nouveau eligible pour recevoir vos campagnes."
+            : "Ce contact sera de nouveau éligible pour recevoir vos campagnes."
         }
-        confirmLabel={contact.subscribed ? "Desabonner" : "Reabonner"}
+        confirmLabel={contact.subscribed ? "Désabonner" : "Réabonner"}
         cancelLabel="Annuler"
         destructive={contact.subscribed}
         onConfirm={handleToggleSubscription}

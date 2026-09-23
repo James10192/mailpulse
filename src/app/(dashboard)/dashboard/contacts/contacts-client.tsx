@@ -7,18 +7,32 @@ import { AddContactPanel } from "@/components/dashboard/add-contact-panel";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { deleteContact } from "./actions";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 type SubscriptionFilter = "ALL" | "SUBSCRIBED" | "UNSUBSCRIBED";
 type SortOption = "date-desc" | "date-asc" | "name-asc" | "name-za" | "score-desc";
 
 const subscriptionFilters: { label: string; value: SubscriptionFilter }[] = [
   { label: "Tous", value: "ALL" },
-  { label: "Abonnes", value: "SUBSCRIBED" },
-  { label: "Desabonnes", value: "UNSUBSCRIBED" },
+  { label: "Abonnés", value: "SUBSCRIBED" },
+  { label: "Désabonnés", value: "UNSUBSCRIBED" },
 ];
 
 const sortOptions: { label: string; value: SortOption }[] = [
-  { label: "Plus recents", value: "date-desc" },
+  { label: "Plus récents", value: "date-desc" },
   { label: "Plus anciens", value: "date-asc" },
   { label: "Nom A-Z", value: "name-asc" },
   { label: "Nom Z-A", value: "name-za" },
@@ -126,6 +140,11 @@ export function ContactsClient({
     }
   }
 
+  const deleteButtonClass =
+    "h-8 w-8 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-500 [&_svg]:size-3.5";
+  const filterActiveClass =
+    "border-orange-500/30 bg-orange-500/10 text-orange-600 shadow-none hover:bg-orange-500/15 dark:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/15";
+
   return (
     <>
       <div className="page-stack app-shell-safe">
@@ -135,7 +154,7 @@ export function ContactsClient({
             current={currentCount}
             limit={limit}
             planLabel={planLabel}
-            actionLabel="Vous ne pouvez plus en ajouter. Passez au Pro pour des contacts illimites."
+            actionLabel="Vous ne pouvez plus en ajouter. Passez au Pro pour des contacts illimités."
           />
         )}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -144,57 +163,52 @@ export function ContactsClient({
               Contacts
             </h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-              Gerez vos listes de contacts et segments
+              Gérez vos listes de contacts et segments
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
             {canCreate ? (
               <>
-                <Link
-                  href="/dashboard/contacts/import"
-                  className="inline-flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-300 px-4 py-2 rounded-lg text-sm transition-colors bg-white dark:bg-transparent"
-                >
-                  <Upload className="h-4 w-4" />
-                  Importer CSV
-                </Link>
-                <button
-                  onClick={() => setPanelOpen(true)}
-                  className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-                >
+                <Button asChild variant="outline">
+                  <Link href="/dashboard/contacts/import">
+                    <Upload className="h-4 w-4" />
+                    Importer CSV
+                  </Link>
+                </Button>
+                <Button onClick={() => setPanelOpen(true)}>
                   <Plus className="h-4 w-4" />
                   Ajouter
-                </button>
+                </Button>
               </>
             ) : (
               <div className="flex items-center gap-3">
                 <span className="text-xs text-zinc-500">
                   {currentCount}/{limit === -1 ? "\u221E" : limit} contacts
                 </span>
-                <Link
-                  href="/dashboard/settings/billing"
-                  className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Passer au Pro
-                </Link>
+                <Button asChild variant="outline" className={filterActiveClass}>
+                  <Link href="/dashboard/settings/billing">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Passer au Pro
+                  </Link>
+                </Button>
               </div>
             )}
           </div>
         </div>
 
-        <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
-          <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-          <p className="text-sm text-blue-300/80">
-            Gerez votre base de contacts. Ajoutez des contacts manuellement, via les pages de capture, ou par import CSV. Les tags permettent de segmenter votre audience.
-          </p>
-        </div>
+        <Alert className="flex items-start gap-3 rounded-xl p-4">
+          <Info className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+          <AlertDescription className="text-zinc-600 dark:text-zinc-400">
+            Gérez votre base de contacts. Ajoutez des contacts manuellement, via les pages de capture, ou par import CSV. Les tags permettent de segmenter votre audience.
+          </AlertDescription>
+        </Alert>
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { label: "Total contacts", value: stats.total },
-            { label: "Abonnes", value: stats.subscribed },
-            { label: "Desabonnes", value: stats.unsubscribed },
+            { label: "Abonnés", value: stats.subscribed },
+            { label: "Désabonnés", value: stats.unsubscribed },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -215,99 +229,109 @@ export function ContactsClient({
           <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 space-y-3">
             <div className="flex flex-col lg:flex-row gap-3">
               <div className="relative flex-1 lg:max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                <input
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <Input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Rechercher un contact..."
-                  className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+                  aria-label="Rechercher un contact"
+                  className="h-10 pl-10 pr-4"
                 />
               </div>
 
               {/* Tag filter dropdown */}
-              <div className="relative w-full sm:w-auto">
-                <button
-                  onClick={() => { setTagDropdownOpen(!tagDropdownOpen); setSortDropdownOpen(false); }}
-                  className={`inline-flex w-full sm:w-auto items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border transition-colors cursor-pointer ${
-                    tagFilter !== "ALL"
-                      ? "border-orange-500/30 bg-orange-500/10 text-orange-600 dark:text-orange-400"
-                      : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700"
-                  }`}
-                >
-                  <Tag className="h-3.5 w-3.5" />
-                  {tagFilter === "ALL" ? "Tags" : allTags.find((t) => t.id === tagFilter)?.name}
-                  <ChevronDown className="h-3 w-3" />
-                </button>
-                {tagDropdownOpen && (
-                  <div className="absolute z-20 top-full mt-1 left-0 min-w-[160px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg py-1">
-                    <button
-                      onClick={() => { setTagFilter("ALL"); setTagDropdownOpen(false); }}
-                      className={`w-full text-left px-3 py-1.5 text-xs transition-colors cursor-pointer ${
-                        tagFilter === "ALL" ? "text-orange-500 bg-orange-500/5" : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                      }`}
-                    >
+              <DropdownMenu
+                open={tagDropdownOpen}
+                onOpenChange={(next) => {
+                  setTagDropdownOpen(next);
+                  if (next) setSortDropdownOpen(false);
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`w-full sm:w-auto justify-between font-normal ${
+                      tagFilter !== "ALL" ? filterActiveClass : "text-zinc-500"
+                    }`}
+                  >
+                    <Tag className="h-3.5 w-3.5" />
+                    {tagFilter === "ALL" ? "Tags" : allTags.find((t) => t.id === tagFilter)?.name}
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-[160px]">
+                  <DropdownMenuRadioGroup value={tagFilter} onValueChange={setTagFilter}>
+                    <DropdownMenuRadioItem value="ALL" className="text-xs">
                       Tous les tags
-                    </button>
+                    </DropdownMenuRadioItem>
+                    {allTags.length > 0 && <DropdownMenuSeparator />}
                     {allTags.map((tag) => (
-                      <button
-                        key={tag.id}
-                        onClick={() => { setTagFilter(tag.id); setTagDropdownOpen(false); }}
-                        className={`w-full text-left px-3 py-1.5 text-xs transition-colors cursor-pointer ${
-                          tagFilter === tag.id ? "text-orange-500 bg-orange-500/5" : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                        }`}
-                      >
+                      <DropdownMenuRadioItem key={tag.id} value={tag.id} className="text-xs">
                         {tag.name}
-                      </button>
+                      </DropdownMenuRadioItem>
                     ))}
-                  </div>
-                )}
-              </div>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* Sort dropdown */}
-              <div className="relative w-full sm:w-auto">
-                <button
-                  onClick={() => { setSortDropdownOpen(!sortDropdownOpen); setTagDropdownOpen(false); }}
-                  className="inline-flex w-full sm:w-auto items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer"
-                >
-                  <ArrowUpDown className="h-3.5 w-3.5" />
-                  {sortOptions.find((s) => s.value === sortBy)?.label}
-                  <ChevronDown className="h-3 w-3" />
-                </button>
-                {sortDropdownOpen && (
-                  <div className="absolute z-20 top-full mt-1 right-0 min-w-[160px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg py-1">
+              <DropdownMenu
+                open={sortDropdownOpen}
+                onOpenChange={(next) => {
+                  setSortDropdownOpen(next);
+                  if (next) setTagDropdownOpen(false);
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto justify-between font-normal text-zinc-500"
+                  >
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    {sortOptions.find((s) => s.value === sortBy)?.label}
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[160px]">
+                  <DropdownMenuRadioGroup
+                    value={sortBy}
+                    onValueChange={(value) => setSortBy(value as SortOption)}
+                  >
                     {sortOptions.map((opt) => (
-                      <button
-                        key={opt.value}
-                        onClick={() => { setSortBy(opt.value); setSortDropdownOpen(false); }}
-                        className={`w-full text-left px-3 py-1.5 text-xs transition-colors cursor-pointer ${
-                          sortBy === opt.value ? "text-orange-500 bg-orange-500/5" : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                        }`}
-                      >
+                      <DropdownMenuRadioItem key={opt.value} value={opt.value} className="text-xs">
                         {opt.label}
-                      </button>
+                      </DropdownMenuRadioItem>
                     ))}
-                  </div>
-                )}
-              </div>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Subscription status filter buttons */}
-            <div className="flex gap-2 flex-wrap">
+            <ToggleGroup
+              type="single"
+              value={subscriptionFilter}
+              onValueChange={(value) => {
+                if (value) setSubscriptionFilter(value as SubscriptionFilter);
+              }}
+              aria-label="Filtrer par statut d'abonnement"
+              className="flex-wrap gap-2"
+            >
               {subscriptionFilters.map((opt) => (
-                <button
+                <ToggleGroupItem
                   key={opt.value}
-                  onClick={() => setSubscriptionFilter(opt.value)}
-                  className={`px-3 py-1.5 text-xs rounded-lg border transition-colors cursor-pointer ${
-                    subscriptionFilter === opt.value
-                      ? "border-orange-500/30 bg-orange-500/10 text-orange-600 dark:text-orange-400"
-                      : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700"
-                  }`}
+                  value={opt.value}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-lg px-3 text-xs font-normal text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 data-[state=on]:border-orange-500/30 data-[state=on]:bg-orange-500/10 data-[state=on]:text-orange-600 dark:data-[state=on]:text-orange-400"
                 >
                   {opt.label}
-                </button>
+                </ToggleGroupItem>
               ))}
-            </div>
+            </ToggleGroup>
           </div>
 
           {filtered.length > 0 ? (
@@ -330,15 +354,12 @@ export function ContactsClient({
                         {[contact.firstName, contact.lastName].filter(Boolean).join(" ") || "Sans nom"}
                       </div>
                     </div>
-                    <span
-                      className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${
-                        contact.subscribed
-                          ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                          : "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
-                      }`}
+                    <Badge
+                      variant={contact.subscribed ? "success" : "destructive"}
+                      className="shrink-0 text-xs"
                     >
-                      {contact.subscribed ? "Abonne" : "Desabonne"}
-                    </span>
+                      {contact.subscribed ? "Abonné" : "Désabonné"}
+                    </Badge>
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-zinc-500">
@@ -349,109 +370,106 @@ export function ContactsClient({
                   {contact.tags.length > 0 && (
                     <div className="flex gap-1 flex-wrap">
                       {contact.tags.map((tag) => (
-                        <span
+                        <Badge
                           key={tag.id}
-                          className="px-1.5 py-0.5 text-[10px] rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                          variant="secondary"
+                          className="rounded px-1.5 text-[10px] font-normal"
                         >
                           {tag.name}
-                        </span>
+                        </Badge>
                       ))}
                     </div>
                   )}
 
                   <div className="flex justify-end">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setConfirmDeleteId(contact.id)}
                       disabled={deleting === contact.id}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                      className={deleteButtonClass}
                       title="Supprimer"
+                      aria-label={`Supprimer ${contact.email}`}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                      <Trash2 />
+                    </Button>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                      Email
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                      Nom
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">
-                      Tags
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">
-                      Score
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                      Statut
-                    </th>
-                    <th className="text-right text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 w-12" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent dark:hover:bg-transparent">
+                    <TableHead className="px-4 py-3">Email</TableHead>
+                    <TableHead className="px-4 py-3">Nom</TableHead>
+                    <TableHead className="px-4 py-3 hidden md:table-cell">Tags</TableHead>
+                    <TableHead className="px-4 py-3 hidden sm:table-cell">Score</TableHead>
+                    <TableHead className="px-4 py-3">Statut</TableHead>
+                    <TableHead className="px-4 py-3 w-12 text-right">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filtered.map((contact) => (
-                    <tr
+                    <TableRow
                       key={contact.id}
-                      className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
+                      className="dark:hover:bg-zinc-800/30"
                     >
-                      <td className="px-4 py-3 text-sm font-mono text-zinc-900 dark:text-zinc-100">
+                      <TableCell className="px-4 py-3 text-sm font-mono text-zinc-900 dark:text-zinc-100">
                         <Link
                           href={`/dashboard/contacts/${contact.id}`}
                           className="hover:text-orange-500 transition-colors"
                         >
                           {contact.email}
                         </Link>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">
                         {contact.firstName} {contact.lastName}
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 hidden md:table-cell">
                         <div className="flex gap-1 flex-wrap">
                           {contact.tags.map((tag) => (
-                            <span
+                            <Badge
                               key={tag.id}
-                              className="px-1.5 py-0.5 text-[10px] rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                              variant="secondary"
+                              className="rounded px-1.5 text-[10px] font-normal"
                             >
                               {tag.name}
-                            </span>
+                            </Badge>
                           ))}
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm font-mono text-zinc-500 hidden sm:table-cell">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-sm font-mono text-zinc-500 hidden sm:table-cell">
                         {contact.engagementScore}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full ${
-                            contact.subscribed
-                              ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                              : "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
-                          }`}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Badge
+                          variant={contact.subscribed ? "success" : "destructive"}
+                          className="text-xs"
                         >
-                          {contact.subscribed ? "Abonne" : "Desabonne"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
+                          {contact.subscribed ? "Abonné" : "Désabonné"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setConfirmDeleteId(contact.id)}
                           disabled={deleting === contact.id}
-                          className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                          className={deleteButtonClass}
                           title="Supprimer"
+                          aria-label={`Supprimer ${contact.email}`}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
+                          <Trash2 />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
             </>
           ) : contacts.length === 0 ? (
@@ -460,16 +478,13 @@ export function ContactsClient({
               <p className="text-zinc-500 text-sm mb-4">
                 Aucun contact pour le moment.
               </p>
-              <button
-                onClick={() => setPanelOpen(true)}
-                className="text-orange-500 hover:text-orange-400 text-sm font-medium cursor-pointer"
-              >
+              <Button variant="link" onClick={() => setPanelOpen(true)}>
                 Ajouter votre premier contact
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="p-8 text-center text-sm text-zinc-500">
-              Aucun resultat pour &quot;{search}&quot;
+              Aucun résultat pour &quot;{search}&quot;
             </div>
           )}
         </div>
@@ -484,7 +499,7 @@ export function ContactsClient({
       <ConfirmDialog
         open={confirmDeleteId !== null}
         title="Supprimer ce contact"
-        message="Cette action est irreversible. Le contact sera definitivement supprime."
+        message="Cette action est irréversible. Le contact sera définitivement supprimé."
         confirmLabel="Supprimer"
         cancelLabel="Annuler"
         destructive

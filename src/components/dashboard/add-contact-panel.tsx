@@ -1,9 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { X, UserPlus, Loader2, Plus, Tag } from "lucide-react";
 import { createContact } from "@/app/(dashboard)/dashboard/contacts/actions";
 import { PhoneNumberInput } from "@/components/dashboard/phone-number-input";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { ActionState } from "@/types/action-state";
 
 export function AddContactPanel({
@@ -37,14 +42,6 @@ export function AddContactPanel({
     null
   );
 
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    if (open) window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [open, onClose]);
-
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -66,36 +63,36 @@ export function AddContactPanel({
   }
 
   return (
-    <>
-      {open && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"
-          onClick={onClose}
-        />
-      )}
-
-      <div
-        className={`fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl transform transition-transform duration-300 ease-in-out ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
+    <Sheet open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className="w-full gap-0 p-0 shadow-2xl sm:max-w-md"
       >
         <div className="h-14 flex items-center justify-between px-6 border-b border-zinc-200 dark:border-zinc-800">
           <div className="flex items-center gap-2">
             <UserPlus className="h-4 w-4 text-orange-500" />
-            <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Nouveau contact</h2>
+            <SheetTitle className="text-base text-zinc-900 dark:text-zinc-100">Nouveau contact</SheetTitle>
           </div>
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            aria-label="Fermer"
+            className="h-8 w-8 text-zinc-400"
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
+        <SheetDescription className="sr-only">
+          Ajouter un contact à votre liste.
+        </SheetDescription>
 
         <form ref={formRef} action={handleSubmit} className="p-6 space-y-4 overflow-y-auto h-[calc(100%-3.5rem)]">
           {showSuccess && (
             <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-sm text-emerald-700 dark:text-emerald-400">
-              Contact ajoute avec succes !
+              Contact ajouté avec succès !
             </div>
           )}
 
@@ -105,16 +102,15 @@ export function AddContactPanel({
             </div>
           )}
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+          <div className="space-y-1.5">
+            <Label htmlFor="email">
               Email <span className="text-red-500">*</span>
-            </label>
-            <input
+            </Label>
+            <Input
               id="email"
               name="email"
               type="email"
               required
-              className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 transition-all"
               placeholder="contact@exemple.com"
             />
             {state?.fieldErrors?.email && (
@@ -123,58 +119,43 @@ export function AddContactPanel({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="firstName" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-                Prenom
-              </label>
-              <input
-                id="firstName"
-                name="firstName"
-                type="text"
-                className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 transition-all"
-                placeholder="Jean"
-              />
+            <div className="space-y-1.5">
+              <Label htmlFor="firstName">Prénom</Label>
+              <Input id="firstName" name="firstName" type="text" placeholder="Jean" />
             </div>
-            <div>
-              <label htmlFor="lastName" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-                Nom
-              </label>
-              <input
-                id="lastName"
-                name="lastName"
-                type="text"
-                className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 transition-all"
-                placeholder="Dupont"
-              />
+            <div className="space-y-1.5">
+              <Label htmlFor="lastName">Nom</Label>
+              <Input id="lastName" name="lastName" type="text" placeholder="Dupont" />
             </div>
           </div>
 
-          <PhoneNumberInput id="phone" name="phone" label="Telephone" />
+          <PhoneNumberInput id="phone" name="phone" label="Téléphone" />
 
           {/* Tags multi-select */}
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-              Tags
-            </label>
+            <Label className="mb-1.5 block">Tags</Label>
 
             {/* Selected tags */}
             {selectedTags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {selectedTags.map((tag) => (
-                  <span
+                  <Badge
                     key={tag}
-                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20"
+                    className="gap-1 rounded-lg border-orange-500/20 px-2 py-1 text-xs"
                   >
                     <Tag className="h-3 w-3" />
                     {tag}
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => toggleTag(tag)}
-                      className="ml-0.5 hover:text-orange-200 cursor-pointer"
+                      aria-label={`Retirer le tag ${tag}`}
+                      className="ml-0.5 h-3.5 w-3.5 rounded-sm p-0 text-current hover:bg-transparent hover:text-orange-700 dark:hover:bg-transparent dark:hover:text-orange-200 [&_svg]:size-3"
                     >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
+                      <X />
+                    </Button>
+                  </Badge>
                 ))}
               </div>
             )}
@@ -185,14 +166,16 @@ export function AddContactPanel({
                 {availableTags
                   .filter((t) => !selectedTags.includes(t))
                   .map((tag) => (
-                    <button
+                    <Button
                       key={tag}
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={() => toggleTag(tag)}
-                      className="text-xs px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+                      className="h-7 px-2 text-xs font-normal text-zinc-500 dark:text-zinc-400"
                     >
                       + {tag}
-                    </button>
+                    </Button>
                   ))}
               </div>
             )}
@@ -200,7 +183,7 @@ export function AddContactPanel({
             {/* Create new tag inline */}
             {showTagInput ? (
               <div className="flex gap-2">
-                <input
+                <Input
                   type="text"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
@@ -209,49 +192,42 @@ export function AddContactPanel({
                     if (e.key === "Escape") setShowTagInput(false);
                   }}
                   autoFocus
-                  className="flex-1 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+                  aria-label="Nom du tag"
+                  className="h-9 flex-1"
                   placeholder="Nom du tag..."
                 />
-                <button
-                  type="button"
-                  onClick={addNewTag}
-                  className="px-3 py-1.5 text-xs bg-orange-600 hover:bg-orange-500 text-white rounded-lg cursor-pointer"
-                >
+                <Button type="button" size="sm" onClick={addNewTag}>
                   Ajouter
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setShowTagInput(false)}
-                  className="px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                  aria-label="Annuler la création du tag"
+                  className="h-9 w-9 text-zinc-400"
                 >
                   <X className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               </div>
             ) : (
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={() => setShowTagInput(true)}
-                className="inline-flex items-center gap-1 text-xs text-orange-500 hover:text-orange-400 cursor-pointer"
+                className="h-auto gap-1 p-0 text-xs no-underline hover:no-underline hover:text-orange-400"
               >
                 <Plus className="h-3 w-3" />
-                Creer un tag
-              </button>
+                Créer un tag
+              </Button>
             )}
           </div>
 
           <div className="pt-4 flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl text-sm border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-            >
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={pending}
-              className="flex-1 py-2.5 rounded-xl text-sm bg-orange-600 hover:bg-orange-500 text-white font-medium disabled:opacity-50 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-            >
+            </Button>
+            <Button type="submit" disabled={pending} className="flex-1">
               {pending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -260,10 +236,10 @@ export function AddContactPanel({
               ) : (
                 "Ajouter le contact"
               )}
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }
