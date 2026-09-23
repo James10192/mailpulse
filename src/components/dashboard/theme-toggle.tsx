@@ -4,7 +4,11 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { Sun, Moon, Monitor } from "lucide-react";
 
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { isOneOf } from "@/components/forms/one-of";
+import { SingleChoiceGroup } from "@/components/forms/single-choice-group";
+import { ToggleGroupItem } from "@/components/ui/toggle-group";
+
+const THEMES = ["light", "dark", "system"] as const;
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -22,16 +26,13 @@ export function ThemeToggle() {
   ] as const;
 
   return (
-    <ToggleGroup
-      type="single"
+    <SingleChoiceGroup
+      values={THEMES}
       // Rendered disabled until mounted (the theme is only known client-side), so the
       // placeholder has exactly the size of the final control.
-      value={mounted ? theme ?? "" : ""}
+      value={mounted && theme && isOneOf(THEMES, theme) ? theme : ""}
       disabled={!mounted}
-      // Radix emits "" when the active item is clicked again; keep the current theme in that case.
-      onValueChange={(next) => {
-        if (next) setTheme(next);
-      }}
+      onValueChange={setTheme}
       aria-label="Thème"
       className="gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100 p-0.5 dark:border-zinc-700/50 dark:bg-zinc-800/50"
     >
@@ -47,6 +48,6 @@ export function ThemeToggle() {
           <opt.icon className="h-3.5 w-3.5" />
         </ToggleGroupItem>
       ))}
-    </ToggleGroup>
+    </SingleChoiceGroup>
   );
 }

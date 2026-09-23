@@ -25,16 +25,15 @@ function ImageBubbleToolbar({ editor }: { editor: Editor }) {
     selector: ({ editor: e }) => {
       if (!e.isActive("image")) return null;
       const attrs = e.getAttributes("image");
-      const style = readString(attrs.style) ?? "";
+      const margin = /margin:([^;]+)/.exec(readString(attrs.style) ?? "")?.[1]?.trim();
       return {
         width: readWidth(attrs.width),
-        align: ALIGNMENTS.find((a) => style.includes(`margin:${a.margin}`))?.value ?? "",
+        align: ALIGNMENTS.find((a) => a.margin === margin)?.value ?? "",
       };
     },
   });
   if (!image) return null;
-  const sliderValue = image.width;
-  const preset = WIDTH_PRESETS.find((w) => w === sliderValue);
+  const preset = WIDTH_PRESETS.find((w) => w === image.width);
 
   function applyWidth(width: number) {
     editor.chain().updateAttributes("image", { width: `${width}%` }).run();
@@ -53,13 +52,12 @@ function ImageBubbleToolbar({ editor }: { editor: Editor }) {
             min={10}
             max={100}
             step={5}
-            value={[sliderValue]}
+            value={[image.width]}
             onValueChange={([value]) => { if (value !== undefined) applyWidth(value); }}
-            aria-label="Taille de l'image"
             thumbLabel="Taille de l'image"
             className="flex-1 cursor-pointer [&_[data-slot=slider-track]]:bg-zinc-700"
           />
-          <span className="w-10 text-right font-mono text-[11px]">{sliderValue}%</span>
+          <span className="w-10 text-right font-mono text-[11px]">{image.width}%</span>
         </div>
 
         <div className="flex flex-wrap items-center gap-1">

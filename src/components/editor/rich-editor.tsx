@@ -53,8 +53,8 @@ function CharacterCounter({ editor }: { editor: Editor }) {
   const { characters, words } = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
-      characters: e.storage.characterCount?.characters() ?? 0,
-      words: e.storage.characterCount?.words() ?? 0,
+      characters: e.storage.characterCount.characters(),
+      words: e.storage.characterCount.words(),
     }),
   });
   return (
@@ -91,7 +91,6 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
   if (!editor) {
     return <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"><div className="min-h-[200px] p-4" /></div>;
   }
-
 
   return (
     <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>

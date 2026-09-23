@@ -17,7 +17,8 @@ export function SingleChoiceGroup<T extends string>({
   ...props
 }: Omit<ToggleGroupSingleProps, "type" | "value" | "onValueChange" | "defaultValue"> & {
   values: readonly T[];
-  value: T;
+  /** "" while nothing is chosen yet (e.g. a value only known after mount). */
+  value: T | "";
   onValueChange: (value: T) => void;
 }) {
   return (

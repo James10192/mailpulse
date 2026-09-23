@@ -30,7 +30,7 @@ const MentionList = forwardRef<MentionListRef, { items: EditorVariable[]; comman
       <div className="z-50 max-h-48 w-56 overflow-y-auto rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
         {items.length === 0 ? <div className="px-3 py-2 text-xs text-zinc-500">Aucune variable</div> : items.map((it, i) => (
           <button key={it.name} type="button" onClick={() => command({ id: it.name, label: it.label })}
-            className={cn("flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm",
+            className={cn("flex min-h-11 w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm sm:min-h-0",
               i === sel ? "bg-orange-500/10 text-orange-600" : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800/80"
             )}>
             <span>{it.label}</span>
@@ -63,7 +63,8 @@ export const mentionSuggestion = {
     };
     return {
       onStart: (props: MentionSuggestionProps) => {
-        container = document.createElement("div"); container.style.position = "absolute"; container.style.zIndex = "9999";
+        container = document.createElement("div"); // clientRect is in viewport coordinates, hence a fixed container.
+        container.style.position = "fixed"; container.style.zIndex = "9999";
         document.body.appendChild(container);
         component = new ReactRenderer(MentionList, { props: { items: props.items, command: props.command }, editor: props.editor });
         container.appendChild(component.element);
