@@ -43,7 +43,7 @@ export async function createCampaign(
   try {
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) {
-      return { error: "Utilisateur non trouve." };
+      return { error: "Utilisateur non trouvé." };
     }
     if (result.data.channel === "WHATSAPP" && !canAccessFeature(org.plan, "whatsapp")) {
       return { error: getFeatureUpgradeMessage("whatsapp") };

@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
       // Skip incomplete campaigns
       await prisma.campaign.updateMany({
         where: { id: campaign.id, status: "SCHEDULED" },
-        data: { status: "DRAFT" },
+        data: { status: "DRAFT", scheduledAt: null },
       });
       continue;
     }

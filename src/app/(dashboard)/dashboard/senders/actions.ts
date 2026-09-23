@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
@@ -49,8 +50,8 @@ export async function createSender(
     revalidatePath("/dashboard/senders");
     return { success: true };
   } catch (e) {
-    if ((e as Record<string, unknown>).code === "P2002")
-      return { error: "Cet expediteur existe deja." };
+    if (isUniqueConstraintViolation(e))
+      return { error: "Cet expéditeur existe déjà." };
     return { error: "Erreur lors de la création." };
   }
 }
@@ -83,8 +84,8 @@ export async function updateSender(
     revalidatePath("/dashboard/senders");
     return { success: true };
   } catch (e) {
-    if ((e as Record<string, unknown>).code === "P2002")
-      return { error: "Cet expediteur existe deja." };
+    if (isUniqueConstraintViolation(e))
+      return { error: "Cet expéditeur existe déjà." };
     return { error: "Erreur lors de la mise à jour." };
   }
 }

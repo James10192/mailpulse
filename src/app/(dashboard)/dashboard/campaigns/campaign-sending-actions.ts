@@ -6,7 +6,7 @@ import type { ActionState } from "@/types/action-state";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { canManageOrganization } from "@/lib/access/roles";
-import { canAccessFeature, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plans";
+import { canAccessFeature, getFeatureUpgradeMessage } from "@/lib/plans";
 import { isOrangeSmsSenderAddress, orangeSmsSenderAddressFromEnvironment } from "@/lib/sms/orange-config";
 import {
   CampaignAlreadyClaimedError,
@@ -17,7 +17,6 @@ import {
   queueSmsForRecipients,
   sendEmailsToRecipients,
   sendWhatsAppToRecipients,
-  type CampaignChannel,
   validateCampaignForSending,
 } from "./campaign-sending-helpers";
 
@@ -71,12 +70,12 @@ export async function sendCampaign(
   audience: string,
 ): Promise<ActionState> {
   const { user, org, memberRole, isPlatformAdmin } = await getCurrentUserAndOrg();
-  if (!user || !org) return { error: "Non authentifie." };
+  if (!user || !org) return { error: "Non authentifié." };
 
   const validation = await validateCampaignForSending(campaignId, org.id);
   if ("error" in validation) return { error: validation.error };
   const { campaign } = validation;
-  if (campaign.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+  if (campaign.channel === "WHATSAPP" && !canAccessFeature(org.plan, "whatsapp")) {
     return { error: getFeatureUpgradeMessage("whatsapp") };
   }
   if (campaign.channel === "SMS") {
@@ -102,12 +101,12 @@ export async function sendCampaign(
     }
   }
 
-  const fetched = await fetchSenderAndContacts(senderId, audience, org.id, campaign.channel as CampaignChannel);
+  const fetched = await fetchSenderAndContacts(senderId, audience, org.id, campaign.channel);
   if ("error" in fetched) return { error: fetched.error };
   const { sender, contacts } = fetched;
 
   if (campaign.channel === "EMAIL") {
-    const quotaError = await checkSendingQuota(org.id, org.plan as PlanTier, contacts.length);
+    const quotaError = await checkSendingQuota(org.id, org.plan, contacts.length);
     if (quotaError) return quotaError;
   }
 
@@ -131,7 +130,7 @@ export async function sendCampaign(
       campaignId,
       contacts,
       sender ?? { name: "WhatsApp", email: "", replyTo: null },
-      campaign.channel as CampaignChannel,
+      campaign.channel,
     );
     const sentCount = campaign.channel === "WHATSAPP"
       ? await sendWhatsAppToRecipients(
@@ -152,7 +151,7 @@ export async function sendCampaign(
           recipientMap,
         );
 
-    await completeCampaignSending(campaignId, org.id, sentCount, user, campaign.name, campaign.channel as CampaignChannel);
+    await completeCampaignSending(campaignId, org.id, sentCount, user, campaign.name, campaign.channel);
     return { success: true };
   } catch (error) {
     if (error instanceof CampaignAlreadyClaimedError) {
