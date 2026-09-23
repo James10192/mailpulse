@@ -853,6 +853,7 @@ model CommunicationMessageEvent {
 
   @@unique([provider, providerEventId])
   @@index([messageId, occurredAt])
+  @@index([organizationId])
   @@map("communication_message_event")
 }
 

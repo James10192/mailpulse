@@ -21,6 +21,8 @@ CREATE UNIQUE INDEX "communication_message_event_provider_providerEventId_key"
   ON "communication_message_event"("provider", "providerEventId");
 CREATE INDEX "communication_message_event_messageId_occurredAt_idx"
   ON "communication_message_event"("messageId", "occurredAt");
+CREATE INDEX "communication_message_event_organizationId_idx"
+  ON "communication_message_event"("organizationId");
 
 ALTER TABLE "communication_message_event"
   ADD CONSTRAINT "communication_message_event_messageId_fkey"
@@ -30,4 +32,4 @@ ALTER TABLE "communication_message_event"
   FOREIGN KEY ("organizationId") REFERENCES "organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Campaign recipients get a SUPPRESSED event when the provider refuses to send.
-ALTER TYPE "EmailEventType" ADD VALUE IF NOT EXISTS 'SUPPRESSED';
+ALTER TYPE "EmailEventType" ADD VALUE IF NOT EXISTS 'SUPPRESSED' BEFORE 'UNSUBSCRIBED';
