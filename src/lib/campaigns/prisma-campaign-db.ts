@@ -6,7 +6,4 @@ export const prismaCampaignDb: CampaignScopedDb = {
   emailSender: {
     findFirst: (args) => prisma.emailSender.findFirst(args),
   },
-  contactList: {
-    findFirst: (args) => prisma.contactList.findFirst(args),
-  },
 };

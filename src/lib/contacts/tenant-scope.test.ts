@@ -35,6 +35,12 @@ function createDb() {
     { id: "segment-a", organizationId: "org-a" },
     { id: "segment-b", organizationId: "org-b" },
   ];
+  const campaigns = [
+    { organizationId: "org-a", contactListId: "segment-a", status: "DRAFT" },
+    { organizationId: "org-a", contactListId: "segment-busy", status: "SCHEDULED" },
+    { organizationId: "org-b", contactListId: "segment-b", status: "SENDING" },
+  ];
+  segments.push({ id: "segment-busy", organizationId: "org-a" });
   let nextTagId = 1;
 
   const orgOfContact = (contactId: string) => contacts.find((c) => c.id === contactId)?.organizationId;
@@ -77,6 +83,16 @@ function createDb() {
           if (matchesOrgRow(segments[i], where)) segments.splice(i, 1);
         }
         return { count: before - segments.length };
+      },
+    },
+    campaign: {
+      async count({ where }) {
+        return campaigns.filter(
+          (c) =>
+            c.contactListId === where.contactListId &&
+            (where.organizationId === undefined || c.organizationId === where.organizationId) &&
+            where.status.in.some((s) => s === c.status)
+        ).length;
       },
     },
   };
@@ -164,6 +180,18 @@ test("cannot delete another organization's segment, exactly like an unknown one"
   assert.deepEqual(unknown, foreign);
   assert.ok(segments.some((s) => s.id === "segment-b"));
 
+  assert.deepEqual(await deleteOrganizationSegment(db, "org-a", "segment-a"), { ok: true });
+  assert.equal(segments.some((s) => s.id === "segment-a"), false);
+});
+
+test("a segment used by a scheduled campaign cannot be deleted", async () => {
+  const { db, segments } = createDb();
+  assert.deepEqual(await deleteOrganizationSegment(db, "org-a", "segment-busy"), { ok: false, reason: "in_use" });
+  assert.ok(segments.some((s) => s.id === "segment-busy"));
+});
+
+test("a draft campaign does not block deleting its segment", async () => {
+  const { db, segments } = createDb();
   assert.deepEqual(await deleteOrganizationSegment(db, "org-a", "segment-a"), { ok: true });
   assert.equal(segments.some((s) => s.id === "segment-a"), false);
 });

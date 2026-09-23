@@ -54,6 +54,9 @@ export function SendCampaignClient({
   const [sendMode, setSendMode] = useState<"now" | "schedule">("now");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
+  // Scheduled sends target every contact: segments and tags are only sent immediately.
+  const canSchedule = audienceMode === "all";
+  const isScheduling = canSchedule && sendMode === "schedule";
 
   const selectedSender = senders.find((s) => s.id === senderId);
   const isWhatsApp = campaign.channel === "WHATSAPP";
@@ -86,7 +89,7 @@ export function SendCampaignClient({
     setError("");
 
     let result;
-    if (sendMode === "schedule" && scheduledDate && scheduledTime) {
+    if (isScheduling && scheduledDate && scheduledTime) {
       const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
       result = await scheduleCampaign(campaign.id, senderId, audience, scheduledAt);
     } else {
@@ -108,14 +111,14 @@ export function SendCampaignClient({
           <Check className="h-8 w-8 text-emerald-500" />
         </div>
         <h1 className="text-2xl font-semibold text-zinc-100 mb-2">
-          {sendMode === "schedule"
+          {isScheduling
             ? "Campagne planifiée !"
             : isSms
               ? "Campagne mise en file !"
               : "Campagne envoyée !"}
         </h1>
         <p className="text-zinc-500 mb-8">
-          {sendMode === "schedule"
+          {isScheduling
             ? `« ${campaign.name} » sera envoyée le ${scheduledDate} à ${scheduledTime}.`
             : isSms
               ? `« ${campaign.name} » attend la soumission à Orange CI. Les statuts apparaîtront au fil des accusés de réception.`
@@ -332,7 +335,7 @@ export function SendCampaignClient({
           <button
             onClick={() => setSendMode("now")}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
-              sendMode === "now"
+              !isScheduling
                 ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
                 : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
             }`}
@@ -342,8 +345,10 @@ export function SendCampaignClient({
           </button>
           <button
             onClick={() => setSendMode("schedule")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
-              sendMode === "schedule"
+            disabled={!canSchedule}
+            title={canSchedule ? undefined : "La planification est réservée à l’envoi à tous les contacts."}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+              isScheduling
                 ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
                 : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
             }`}
@@ -352,7 +357,12 @@ export function SendCampaignClient({
             Planifier
           </button>
         </div>
-        {sendMode === "schedule" && (
+        {!canSchedule && (
+          <p className="text-xs text-zinc-500">
+            La planification est réservée à l’envoi à tous les contacts. Pour un segment ou un tag, envoyez maintenant.
+          </p>
+        )}
+        {isScheduling && (
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div>
               <label className="block text-xs text-zinc-500 mb-1">Date</label>
@@ -395,15 +405,15 @@ export function SendCampaignClient({
         </p>
         <button
           onClick={handleSend}
-          disabled={!canSend || sending || (sendMode === "schedule" && (!scheduledDate || !scheduledTime))}
+          disabled={!canSend || sending || (isScheduling && (!scheduledDate || !scheduledTime))}
           className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-sm font-semibold transition-all hover:shadow-lg hover:shadow-orange-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {sending ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              {sendMode === "schedule" ? "Planification..." : "Envoi en cours..."}
+              {isScheduling ? "Planification..." : "Envoi en cours..."}
             </>
-          ) : sendMode === "schedule" ? (
+          ) : isScheduling ? (
             <>
               <CalendarDays className="h-4 w-4" />
               Planifier l&apos;envoi

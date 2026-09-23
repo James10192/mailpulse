@@ -16,6 +16,9 @@ export function createTenantDb(client: Prisma.TransactionClient): TenantScopedDb
     contactList: {
       deleteMany: (args) => client.contactList.deleteMany(args),
     },
+    campaign: {
+      count: (args) => client.campaign.count(args),
+    },
   };
 }
 

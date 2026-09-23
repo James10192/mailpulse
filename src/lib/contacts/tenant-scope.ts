@@ -32,9 +32,17 @@ export type TenantScopedDb = {
   contactList: {
     deleteMany(args: { where: OrgScopedId }): Promise<{ count: number }>;
   };
+  campaign: {
+    count(args: {
+      where: { contactListId: string; organizationId: string; status: { in: ActiveCampaignStatus[] } };
+    }): Promise<number>;
+  };
 };
 
-export type ScopedResult = { ok: true } | { ok: false; reason: "not_found" | "invalid" | "duplicate" };
+type ActiveCampaignStatus = "SCHEDULED" | "SENDING";
+const ACTIVE_CAMPAIGN_STATUSES: ActiveCampaignStatus[] = ["SCHEDULED", "SENDING"];
+
+export type ScopedResult = { ok: true } | { ok: false; reason: "not_found" | "invalid" | "duplicate" | "in_use" };
 
 export function normalizeContactTagName(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -113,12 +121,21 @@ export async function deleteOrganizationTag(
   return count > 0 ? { ok: true } : { ok: false, reason: "not_found" };
 }
 
+/**
+ * Deletes a segment of the organization, unless a scheduled or sending campaign
+ * still references it: deleting it would null the campaign's list, which means
+ * "every contact". Run it inside a transaction.
+ */
 export async function deleteOrganizationSegment(
   db: TenantScopedDb,
   organizationId: string,
   segmentId: string
 ): Promise<ScopedResult> {
   if (!segmentId) return { ok: false, reason: "not_found" };
+  const activeCampaigns = await db.campaign.count({
+    where: { contactListId: segmentId, organizationId, status: { in: ACTIVE_CAMPAIGN_STATUSES } },
+  });
+  if (activeCampaigns > 0) return { ok: false, reason: "in_use" };
   const { count } = await db.contactList.deleteMany({
     where: { id: segmentId, organizationId },
   });

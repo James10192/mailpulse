@@ -10,7 +10,7 @@ import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
 import { buildSegmentWhere, parseSegmentFilterJson } from "@/lib/contacts/segment-filter";
 import { deleteOrganizationSegment } from "@/lib/contacts/tenant-scope";
-import { prismaTenantDb } from "@/lib/contacts/prisma-tenant-db";
+import { createTenantDb } from "@/lib/contacts/prisma-tenant-db";
 
 const segmentSchema = z.object({
   name: z.string().min(1),
@@ -72,8 +72,14 @@ export async function deleteSegment(id: string): Promise<ActionState> {
   if (!user || !org) return { error: "Non authentifié." };
 
   try {
-    const result = await deleteOrganizationSegment(prismaTenantDb, org.id, id);
-    if (!result.ok) return { error: "Segment introuvable." };
+    const result = await prisma.$transaction((tx) => deleteOrganizationSegment(createTenantDb(tx), org.id, id));
+    if (!result.ok) {
+      return {
+        error: result.reason === "in_use"
+          ? "Ce segment est utilisé par une campagne planifiée ou en cours d’envoi. Annulez-la avant de le supprimer."
+          : "Segment introuvable.",
+      };
+    }
 
     trackServerEvent(user.id, EVENTS.SEGMENT_DELETED, { segment_id: id }, org.id);
     revalidatePath("/dashboard/segments");

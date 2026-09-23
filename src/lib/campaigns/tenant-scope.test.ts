@@ -13,10 +13,6 @@ function createDb(): CampaignScopedDb {
     { id: "sender-a", organizationId: "org-a", name: "Équipe A", email: "a@example.com", replyTo: null },
     { id: "sender-b", organizationId: "org-b", name: "Équipe B", email: "b@example.com", replyTo: "r@example.com" },
   ];
-  const lists = [
-    { id: "list-a", organizationId: "org-a" },
-    { id: "list-b", organizationId: "org-b" },
-  ];
   return {
     emailSender: {
       async findFirst({ where }) {
@@ -24,62 +20,43 @@ function createDb(): CampaignScopedDb {
         return found ? { name: found.name, email: found.email, replyTo: found.replyTo } : null;
       },
     },
-    contactList: {
-      async findFirst({ where }) {
-        const found = lists.find((l) => matches(l, where));
-        return found ? { id: found.id } : null;
-      },
-    },
   };
 }
 
-test("an email campaign is scheduled with the organization's own sender and list", async () => {
+test("an email campaign is scheduled to everyone with the organization's own sender", async () => {
   const targets = await resolveScheduleTargets(createDb(), "org-a", {
     channel: "EMAIL",
     senderId: "sender-a",
-    audience: "list:list-a",
+    audience: "all",
   });
-  assert.deepEqual(targets, {
-    ok: true,
-    sender: { name: "Équipe A", email: "a@example.com", replyTo: null },
-    contactListId: "list-a",
-  });
+  assert.deepEqual(targets, { ok: true, sender: { name: "Équipe A", email: "a@example.com", replyTo: null } });
 });
 
 test("another organization's sender is refused like an unknown one", async () => {
   const db = createDb();
   const foreign = await resolveScheduleTargets(db, "org-a", { channel: "EMAIL", senderId: "sender-b", audience: "all" });
   const unknown = await resolveScheduleTargets(db, "org-a", { channel: "EMAIL", senderId: "sender-zzz", audience: "all" });
+  const missing = await resolveScheduleTargets(db, "org-a", { channel: "EMAIL", senderId: "", audience: "all" });
   assert.deepEqual(foreign, { ok: false, reason: "sender_not_found" });
   assert.deepEqual(unknown, foreign);
+  assert.deepEqual(missing, foreign);
 });
 
-test("another organization's list is refused like an unknown one", async () => {
-  const db = createDb();
-  const foreign = await resolveScheduleTargets(db, "org-a", { channel: "EMAIL", senderId: "sender-a", audience: "list:list-b" });
-  const unknown = await resolveScheduleTargets(db, "org-a", { channel: "EMAIL", senderId: "sender-a", audience: "list:list-zzz" });
-  assert.deepEqual(foreign, { ok: false, reason: "list_not_found" });
-  assert.deepEqual(unknown, foreign);
-});
-
-test("a WhatsApp campaign needs no sender but its list is still checked", async () => {
-  const db = createDb();
+test("a WhatsApp campaign needs no sender", async () => {
   assert.deepEqual(
-    await resolveScheduleTargets(db, "org-a", { channel: "WHATSAPP", senderId: "", audience: "all" }),
-    { ok: true, sender: null, contactListId: null }
-  );
-  assert.deepEqual(
-    await resolveScheduleTargets(db, "org-a", { channel: "WHATSAPP", senderId: "", audience: "list:list-b" }),
-    { ok: false, reason: "list_not_found" }
+    await resolveScheduleTargets(createDb(), "org-a", { channel: "WHATSAPP", senderId: "", audience: "all" }),
+    { ok: true, sender: null }
   );
 });
 
-test("tag and malformed audiences cannot be scheduled", async () => {
+test("segment and tag audiences cannot be scheduled", async () => {
   const db = createDb();
-  assert.deepEqual(
-    await resolveScheduleTargets(db, "org-a", { channel: "EMAIL", senderId: "sender-a", audience: "tag:vip" }),
-    { ok: false, reason: "unsupported_audience" }
-  );
+  for (const audience of ["list:list-a", "tag:vip"]) {
+    assert.deepEqual(
+      await resolveScheduleTargets(db, "org-a", { channel: "EMAIL", senderId: "sender-a", audience }),
+      { ok: false, reason: "unsupported_audience" }
+    );
+  }
   assert.deepEqual(
     await resolveScheduleTargets(db, "org-a", { channel: "EMAIL", senderId: "sender-a", audience: "list-a" }),
     { ok: false, reason: "invalid_audience" }

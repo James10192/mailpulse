@@ -10,7 +10,7 @@ import {
   wrapLinksForTracking,
   generateUnsubscribeUrl,
 } from "@/lib/tracking";
-import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
+import { canAccessFeature } from "@/lib/plan-catalog";
 import { canReceiveChannel } from "@/lib/mailpulse/consent";
 
 type ScheduledContact = {
@@ -72,9 +72,19 @@ export async function GET(request: NextRequest) {
   let totalSent = 0;
 
   for (const campaign of campaigns) {
-    if (campaign.channel === "WHATSAPP" && !canAccessFeature(campaign.organization.plan as PlanTier, "whatsapp")) {
-      await prisma.campaign.update({
-        where: { id: campaign.id },
+    if (campaign.channel === "WHATSAPP" && !canAccessFeature(campaign.organization.plan, "whatsapp")) {
+      await prisma.campaign.updateMany({
+        where: { id: campaign.id, status: "SCHEDULED" },
+        data: { status: "DRAFT", scheduledAt: null },
+      });
+      continue;
+    }
+    // A scheduled campaign targets every contact (NULL list). A list here is not a
+    // supported scheduled audience: unschedule it rather than send to the wrong people.
+    if (campaign.contactListId) {
+      console.warn("[cron] Scheduled campaign with a contact list returned to draft", { campaignId: campaign.id });
+      await prisma.campaign.updateMany({
+        where: { id: campaign.id, status: "SCHEDULED" },
         data: { status: "DRAFT", scheduledAt: null },
       });
       continue;
@@ -83,47 +93,30 @@ export async function GET(request: NextRequest) {
     const incompleteWhatsApp = campaign.channel === "WHATSAPP" && !htmlToPlainText(campaign.htmlContent);
     if (incompleteEmail || incompleteWhatsApp) {
       // Skip incomplete campaigns
-      await prisma.campaign.update({
-        where: { id: campaign.id },
+      await prisma.campaign.updateMany({
+        where: { id: campaign.id, status: "SCHEDULED" },
         data: { status: "DRAFT" },
       });
       continue;
     }
 
-    // Update status to SENDING
-    await prisma.campaign.update({
-      where: { id: campaign.id },
+    // Claim the campaign: only one run may move it from SCHEDULED to SENDING.
+    const claim = await prisma.campaign.updateMany({
+      where: { id: campaign.id, status: "SCHEDULED" },
       data: { status: "SENDING", sentAt: now },
     });
+    if (claim.count !== 1) continue;
 
-    // Get contacts
-    let contacts: ScheduledContact[];
+    // Every subscribed contact of the campaign's organization
     const contactSelect = { id: true, email: true, phone: true, firstName: true, lastName: true, subscribed: true, metadata: true };
-    if (campaign.contactListId) {
-      const members = await prisma.contactListMember.findMany({
-        // Defence in depth: only members of a list of the campaign's organization, and only its contacts.
-        where: {
-          contactListId: campaign.contactListId,
-          contactList: { organizationId: campaign.organizationId },
-          contact: { organizationId: campaign.organizationId },
-        },
-        select: {
-          contact: { select: contactSelect },
-        },
-      });
-      contacts = members
-        .filter((m) => m.contact.subscribed && (campaign.channel !== "WHATSAPP" || !!m.contact.phone))
-        .map((m) => m.contact);
-    } else {
-      contacts = await prisma.contact.findMany({
-        where: {
-          organizationId: campaign.organizationId,
-          subscribed: true,
-          ...(campaign.channel === "WHATSAPP" ? { phone: { not: null } } : {}),
-        },
-        select: contactSelect,
-      });
-    }
+    let contacts: ScheduledContact[] = await prisma.contact.findMany({
+      where: {
+        organizationId: campaign.organizationId,
+        subscribed: true,
+        ...(campaign.channel === "WHATSAPP" ? { phone: { not: null } } : {}),
+      },
+      select: contactSelect,
+    });
     contacts = contacts.filter((contact) => canReceiveChannel(contact, campaign.channel));
 
     if (contacts.length === 0) {

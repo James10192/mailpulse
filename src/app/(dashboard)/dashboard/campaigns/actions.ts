@@ -15,9 +15,8 @@ import { prismaCampaignDb } from "@/lib/campaigns/prisma-campaign-db";
 
 const SCHEDULE_TARGET_ERRORS: Record<Extract<ScheduleTargets, { ok: false }>["reason"], string> = {
   sender_not_found: "Expéditeur introuvable.",
-  list_not_found: "Segment introuvable.",
   invalid_audience: "Audience invalide.",
-  unsupported_audience: "La planification n’est possible que vers tous les contacts ou un segment.",
+  unsupported_audience: "La planification n’est possible que vers tous les contacts. Pour un segment ou un tag, envoyez la campagne maintenant.",
 };
 
 const campaignCreateSchema = z.object({
@@ -149,7 +148,7 @@ export async function scheduleCampaign(
     audience,
   });
   if (!targets.ok) return { error: SCHEDULE_TARGET_ERRORS[targets.reason] };
-  const { sender, contactListId } = targets;
+  const { sender } = targets;
 
   const scheduledDate = new Date(scheduledAt);
   if (isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
@@ -165,7 +164,8 @@ export async function scheduleCampaign(
         fromName: sender?.name ?? null,
         fromEmail: sender?.email ?? null,
         replyTo: sender?.replyTo ?? null,
-        contactListId,
+        // A NULL list means every subscribed contact of the organization.
+        contactListId: null,
       },
     });
     if (count === 0) return { error: "Seules les campagnes en brouillon peuvent être planifiées." };
@@ -247,15 +247,18 @@ export async function cancelCampaign(campaignId: string): Promise<ActionState> {
       select: { status: true, name: true },
     });
     if (!campaign) return { error: "Campagne introuvable." };
-    if (!["SCHEDULED", "SENDING"].includes(campaign.status)) {
-      return { error: "Seules les campagnes planifiées ou en cours peuvent être annulées." };
+    if (campaign.status === "SENDING") {
+      return { error: "L’envoi a déjà commencé, la campagne ne peut plus être annulée." };
+    }
+    if (campaign.status !== "SCHEDULED") {
+      return { error: "Seules les campagnes planifiées peuvent être annulées." };
     }
 
     const { count } = await prisma.campaign.updateMany({
-      where: { id: campaignId, organizationId: org.id, status: { in: ["SCHEDULED", "SENDING"] } },
+      where: { id: campaignId, organizationId: org.id, status: "SCHEDULED" },
       data: { status: "DRAFT", scheduledAt: null },
     });
-    if (count === 0) return { error: "Seules les campagnes planifiées ou en cours peuvent être annulées." };
+    if (count === 0) return { error: "Seules les campagnes planifiées peuvent être annulées." };
 
     trackServerEvent(user.id, "campaign_cancelled", {
       campaign_id: campaignId,
@@ -269,7 +272,7 @@ export async function cancelCampaign(campaignId: string): Promise<ActionState> {
       action: "deleted",
       resourceType: "campaign",
       resourceId: campaignId,
-      resourceName: `${campaign.name} (annulee)`,
+      resourceName: `${campaign.name} (annulée)`,
     });
 
     revalidatePath("/dashboard/campaigns");
