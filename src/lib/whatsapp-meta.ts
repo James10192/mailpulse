@@ -1,7 +1,8 @@
 // Meta WhatsApp Cloud API client (Graph API)
 // Docs: https://developers.facebook.com/docs/whatsapp/cloud-api
 
-import { isRejectedStatus, isTimeoutError, type IWhatsAppProvider, type WhatsAppFailureReason, type WhatsAppSendResult } from "@/lib/whatsapp/types";
+import { retryAfterSeconds } from "@/lib/http-status";
+import { isTimeoutError, statusFailureReason, type IWhatsAppProvider, type WhatsAppFailureReason, type WhatsAppSendResult } from "@/lib/whatsapp/types";
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 
@@ -11,19 +12,25 @@ const META_RECIPIENT_UNREACHABLE = 131026;
 class MetaApiError extends Error {
   readonly statusCode: number;
   readonly code: number | null;
+  readonly retryAfterSeconds: number | null;
 
-  constructor(message: string, statusCode: number, code: number | null = null) {
+  constructor(message: string, statusCode: number, code: number | null = null, retryAfterSeconds: number | null = null) {
     super(message);
     this.name = "MetaApiError";
     this.statusCode = statusCode;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
+// Graph API throughput limit, answered with a 400 rather than a 429.
+const META_RATE_LIMITED = 130429;
+
 function metaFailureReason(error: unknown): WhatsAppFailureReason {
   if (error instanceof MetaApiError && error.code === META_RECIPIENT_UNREACHABLE) return "recipient_unreachable";
+  if (error instanceof MetaApiError && error.code === META_RATE_LIMITED) return "rate_limited";
   if (isTimeoutError(error)) return "timeout";
-  if (error instanceof MetaApiError && isRejectedStatus(error.statusCode)) return "rejected";
+  if (error instanceof MetaApiError) return statusFailureReason(error.statusCode) ?? "transport";
   return "transport";
 }
 
@@ -60,7 +67,7 @@ async function metaFetch<T = unknown>(
     const graphError = isGraphErrorBody(body) ? body.error : null;
     const error = typeof graphError?.message === "string" && graphError.message ? graphError.message : `HTTP ${res.status}`;
     const code = typeof graphError?.code === "number" ? graphError.code : null;
-    throw new MetaApiError(`Meta API: ${error}`, res.status, code);
+    throw new MetaApiError(`Meta API: ${error}`, res.status, code, retryAfterSeconds(res.headers));
   }
 
   return res.json() as Promise<T>;
@@ -228,6 +235,7 @@ export class MetaProvider implements IWhatsAppProvider {
         error: err instanceof Error ? err.message : "Unknown Meta API error",
         statusCode: err instanceof MetaApiError ? err.statusCode : undefined,
         reason: metaFailureReason(err),
+        ...(err instanceof MetaApiError && err.retryAfterSeconds ? { retryAfterSeconds: err.retryAfterSeconds } : {}),
       };
     }
   }
@@ -257,6 +265,7 @@ export class MetaProvider implements IWhatsAppProvider {
         error: err instanceof Error ? err.message : "Unknown Meta API error",
         statusCode: err instanceof MetaApiError ? err.statusCode : undefined,
         reason: metaFailureReason(err),
+        ...(err instanceof MetaApiError && err.retryAfterSeconds ? { retryAfterSeconds: err.retryAfterSeconds } : {}),
       };
     }
   }
@@ -280,6 +289,7 @@ export class MetaProvider implements IWhatsAppProvider {
         error: err instanceof Error ? err.message : "Unknown Meta API error",
         statusCode: err instanceof MetaApiError ? err.statusCode : undefined,
         reason: metaFailureReason(err),
+        ...(err instanceof MetaApiError && err.retryAfterSeconds ? { retryAfterSeconds: err.retryAfterSeconds } : {}),
       };
     }
   }

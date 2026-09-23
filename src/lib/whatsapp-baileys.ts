@@ -1,7 +1,8 @@
 // Evolution API client — REST wrapper for Baileys WhatsApp sessions
 // Docs: https://doc.evolution-api.com
 
-import { isRejectedStatus, isTimeoutError, type IWhatsAppProvider, type WhatsAppFailureReason, type WhatsAppSendResult } from "@/lib/whatsapp/types";
+import { retryAfterSeconds } from "@/lib/http-status";
+import { isTimeoutError, statusFailureReason, type IWhatsAppProvider, type WhatsAppFailureReason, type WhatsAppSendResult } from "@/lib/whatsapp/types";
 
 const EVO_URL = process.env.EVOLUTION_API_URL || "";
 const EVO_KEY = process.env.EVOLUTION_API_KEY || "";
@@ -27,12 +28,14 @@ type EvolutionErrorBody = {
 export class EvolutionApiError extends Error {
   readonly status: number;
   readonly recipientUnreachable: boolean;
+  readonly retryAfterSeconds: number | null;
 
-  constructor(message: string, status: number, recipientUnreachable: boolean) {
+  constructor(message: string, status: number, recipientUnreachable: boolean, retryAfterSeconds: number | null = null) {
     super(message);
     this.name = "EvolutionApiError";
     this.status = status;
     this.recipientUnreachable = recipientUnreachable;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 
   /**
@@ -125,6 +128,7 @@ async function evoFetch<T = unknown>(
       getEvolutionErrorMessage(res.status, body),
       res.status,
       isRecipientUnreachable(body),
+      retryAfterSeconds(res.headers),
     );
   }
 
@@ -331,11 +335,26 @@ export function isConfigured() {
   return !!(EVO_URL && EVO_KEY);
 }
 
+/**
+ * `reason` says whether anything was sent, nothing more. A rejection can come
+ * from a session that was briefly disconnected and a rate limit lifts: it must
+ * never be reused as a "do not retry" signal. Retry decisions stay with
+ * `EvolutionApiError.deterministic`.
+ */
 function evolutionFailureReason(error: unknown): WhatsAppFailureReason {
   if (error instanceof EvolutionApiError && error.recipientUnreachable) return "recipient_unreachable";
   if (isTimeoutError(error)) return "timeout";
-  if (error instanceof EvolutionApiError && isRejectedStatus(error.status)) return "rejected";
+  if (error instanceof EvolutionApiError) return statusFailureReason(error.status) ?? "transport";
   return "transport";
+}
+
+function evolutionFailure(error: unknown) {
+  return {
+    success: false as const,
+    error: error instanceof Error ? error.message : "Unknown Baileys error",
+    reason: evolutionFailureReason(error),
+    ...(error instanceof EvolutionApiError && error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
+  };
 }
 
 export class BaileysProvider implements IWhatsAppProvider {
@@ -353,11 +372,7 @@ export class BaileysProvider implements IWhatsAppProvider {
         messageId: result.key.id,
       };
     } catch (err) {
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : "Unknown Baileys error",
-        reason: evolutionFailureReason(err),
-      };
+      return evolutionFailure(err);
     }
   }
 
@@ -377,11 +392,7 @@ export class BaileysProvider implements IWhatsAppProvider {
         messageId: result.key.id,
       };
     } catch (err) {
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : "Unknown Baileys error",
-        reason: evolutionFailureReason(err),
-      };
+      return evolutionFailure(err);
     }
   }
 }

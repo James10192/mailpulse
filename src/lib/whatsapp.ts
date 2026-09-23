@@ -15,11 +15,14 @@ import { getWhatsAppPhoneCandidates } from "@/lib/phone-numbers";
  */
 export class WhatsAppSendError extends Error {
   readonly reason: WhatsAppFailureReason;
+  /** The provider's own Retry-After, when it gave one. */
+  readonly retryAfterSeconds: number | null;
 
-  constructor(message: string, reason: WhatsAppFailureReason) {
+  constructor(message: string, reason: WhatsAppFailureReason, retryAfterSeconds: number | null = null) {
     super(message);
     this.name = "WhatsAppSendError";
     this.reason = reason;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -95,7 +98,7 @@ export async function sendWhatsApp(
   }
 
   if (!result.success) {
-    throw new WhatsAppSendError(result.error ?? "Echec de l'envoi WhatsApp.", result.reason ?? "transport");
+    throw new WhatsAppSendError(result.error, result.reason, result.retryAfterSeconds ?? null);
   }
 
   return result;
