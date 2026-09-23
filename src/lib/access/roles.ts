@@ -21,6 +21,18 @@ export function isPlatformAdminEmail(email: string | null | undefined, allowlist
   return parseAdminAllowlist(allowlistRaw).has(email.trim().toLowerCase());
 }
 
+/**
+ * Platform administrator: an allowlisted address the user has proven to own.
+ * An unverified email is never trusted, or anyone could sign up with an
+ * allowlisted address that has no account yet.
+ */
+export function isPlatformAdmin(
+  user: { email: string | null | undefined; emailVerified: boolean },
+  allowlistRaw: string | undefined
+): boolean {
+  return user.emailVerified === true && isPlatformAdminEmail(user.email, allowlistRaw);
+}
+
 export function isOrganizationManagerRole(memberRole: string | null | undefined): boolean {
   return ORGANIZATION_MANAGER_ROLES.some((role) => role === memberRole);
 }

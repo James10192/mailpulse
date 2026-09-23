@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canManageOrganization, isOrganizationManagerRole, isPlatformAdminEmail } from "./roles";
+import { canManageOrganization, isOrganizationManagerRole, isPlatformAdmin, isPlatformAdminEmail } from "./roles";
 
 test("platform administration comes from the allowlist only", () => {
   const allowlist = " Ops@Example.com , second@example.com ";
@@ -25,4 +25,11 @@ test("a plain member manages nothing unless platform admin", () => {
   assert.equal(canManageOrganization({ memberRole: "member", isPlatformAdmin: false }), false);
   assert.equal(canManageOrganization({ memberRole: null, isPlatformAdmin: false }), false);
   assert.equal(canManageOrganization({ memberRole: "member", isPlatformAdmin: true }), true);
+});
+
+test("an allowlisted address is not a platform admin until it is verified", () => {
+  const allowlist = "ops@example.com";
+  assert.equal(isPlatformAdmin({ email: "ops@example.com", emailVerified: false }, allowlist), false);
+  assert.equal(isPlatformAdmin({ email: "ops@example.com", emailVerified: true }, allowlist), true);
+  assert.equal(isPlatformAdmin({ email: "someone@example.com", emailVerified: true }, allowlist), false);
 });

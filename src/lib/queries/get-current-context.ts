@@ -4,7 +4,7 @@ import type { Prisma } from "@/generated/prisma";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
-import { isPlatformAdminEmail } from "@/lib/access/roles";
+import { isPlatformAdmin } from "@/lib/access/roles";
 import { ensureUserOrganization, type OrganizationProvisioningDb } from "@/lib/organizations/provisioning";
 
 const ORG_SELECT = {
@@ -73,10 +73,10 @@ export const getCurrentUserAndOrg = cache(async () => {
         const membership = await ensureUserOrganization(provisioningDb, user);
         if (membership.created) await createDefaultSender(membership.org);
 
-        // Platform administration comes from ADMIN_EMAILS only, never from an organization role.
-        const isPlatformAdmin = isPlatformAdminEmail(user.email, process.env.ADMIN_EMAILS);
+        // Platform administration: a verified ADMIN_EMAILS address, never an organization role.
+        const isPlatformAdminUser = isPlatformAdmin(user, process.env.ADMIN_EMAILS);
 
-        return { user, org: membership.org, memberRole: membership.role, isPlatformAdmin };
+        return { user, org: membership.org, memberRole: membership.role, isPlatformAdmin: isPlatformAdminUser };
       }
     }
   } catch (error) {
