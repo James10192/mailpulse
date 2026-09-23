@@ -14,6 +14,10 @@ type Contact = { id: string; organizationId: string };
 type Tag = { id: string; name: string; contactId: string };
 type Segment = { id: string; organizationId: string };
 
+const matchesOrgRow = (row: { id: string; organizationId: string }, where: { id?: string; organizationId?: string }) =>
+  (where.id === undefined || row.id === where.id) &&
+  (where.organizationId === undefined || row.organizationId === where.organizationId);
+
 /**
  * In-memory stand-in that applies the `where` filters the helpers send, the way
  * Prisma would. A filter the code forgets to send is a filter that does not apply.
@@ -44,7 +48,7 @@ function createDb() {
   const db: TenantScopedDb = {
     contact: {
       async findFirst({ where }) {
-        const found = contacts.find((c) => c.id === where.id && c.organizationId === where.organizationId);
+        const found = contacts.find((c) => matchesOrgRow(c, where));
         return found ? { id: found.id } : null;
       },
     },
@@ -70,7 +74,7 @@ function createDb() {
       async deleteMany({ where }) {
         const before = segments.length;
         for (let i = segments.length - 1; i >= 0; i--) {
-          if (segments[i].id === where.id && segments[i].organizationId === where.organizationId) segments.splice(i, 1);
+          if (matchesOrgRow(segments[i], where)) segments.splice(i, 1);
         }
         return { count: before - segments.length };
       },
