@@ -9,6 +9,7 @@ export function createAutomationDb(client: Prisma.TransactionClient): Automation
       findFirst: (args) => client.automation.findFirst(args),
       updateMany: (args) => client.automation.updateMany(args),
       deleteMany: (args) => client.automation.deleteMany(args),
+      count: (args) => client.automation.count(args),
     },
     automationStep: {
       deleteMany: (args) => client.automationStep.deleteMany(args),

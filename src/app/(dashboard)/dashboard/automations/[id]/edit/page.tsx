@@ -61,12 +61,12 @@ export default async function EditAutomationPage({
   } else {
     // Default: create a trigger node from the automation's trigger
     const triggerLabels: Record<string, string> = {
-      SUBSCRIBER_ADDED: "Nouvel abonne",
-      TAG_ADDED: "Tag ajoute",
+      SUBSCRIBER_ADDED: "Nouvel abonné",
+      TAG_ADDED: "Tag ajouté",
       CAMPAIGN_OPENED: "Campagne ouverte",
-      LINK_CLICKED: "Lien clique",
-      DATE_BASED: "Base sur la date",
-      CUSTOM_EVENT: "Evenement personnalise",
+      LINK_CLICKED: "Lien cliqué",
+      DATE_BASED: "Basé sur la date",
+      CUSTOM_EVENT: "Événement personnalisé",
     };
 
     initialNodes = [
@@ -76,7 +76,7 @@ export default async function EditAutomationPage({
         position: { x: 300, y: 100 },
         data: {
           type: "trigger",
-          label: "Declencheur",
+          label: "Déclencheur",
           config: { triggerType: automation.trigger },
         },
       },

@@ -95,6 +95,9 @@ export type AutomationScopedDb = {
     }): Promise<{ name: string; status: AutomationStatus; userId: string } | null>;
     updateMany(args: { where: OrgScopedId; data: { status: AutomationStatus } }): Promise<{ count: number }>;
     deleteMany(args: { where: OrgScopedId }): Promise<{ count: number }>;
+    count(args: {
+      where: { organizationId: string; status: AutomationStatus | { not: AutomationStatus } };
+    }): Promise<number>;
   };
   automationStep: {
     deleteMany(args: { where: { automationId: string } }): Promise<{ count: number }>;
@@ -165,4 +168,45 @@ export async function deleteOrganizationAutomation(
   if (!automation) return null;
   const { count } = await db.automation.deleteMany({ where: { id: automationId, organizationId } });
   return count > 0 ? automation : null;
+}
+
+export type StatusChangeResult =
+  | { ok: true }
+  | { ok: false; reason: "not_found" }
+  | { ok: false; reason: "limit_reached"; limit: number }
+  | { ok: false; reason: "active_limit_reached"; limit: number; activeCount: number };
+
+/**
+ * Changes the status of an automation of the organization, enforcing the plan
+ * limit on activation. The read, the counts and the write must run in one
+ * serializable transaction so two activations cannot both pass the limit.
+ *
+ * `automationLimit` is the plan's automation limit, -1 for unlimited.
+ */
+export async function changeOrganizationAutomationStatus(
+  db: AutomationScopedDb,
+  organizationId: string,
+  automationId: string,
+  status: AutomationStatus,
+  automationLimit: number
+): Promise<StatusChangeResult> {
+  const current = await findOrganizationAutomation(db, organizationId, automationId);
+  if (!current) return { ok: false, reason: "not_found" };
+
+  if (status === "ACTIVE" && automationLimit !== -1) {
+    // Reviving an archived automation counts against the plan again.
+    if (current.status === "ARCHIVED") {
+      const counted = await db.automation.count({ where: { organizationId, status: { not: "ARCHIVED" } } });
+      if (counted >= automationLimit) return { ok: false, reason: "limit_reached", limit: automationLimit };
+    }
+    if (current.status !== "ACTIVE") {
+      const activeCount = await db.automation.count({ where: { organizationId, status: "ACTIVE" } });
+      if (activeCount >= automationLimit) {
+        return { ok: false, reason: "active_limit_reached", limit: automationLimit, activeCount };
+      }
+    }
+  }
+
+  const updated = await setOrganizationAutomationStatus(db, organizationId, automationId, status);
+  return updated ? { ok: true } : { ok: false, reason: "not_found" };
 }

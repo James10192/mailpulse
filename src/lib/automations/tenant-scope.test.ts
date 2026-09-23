@@ -9,6 +9,7 @@ import {
   parseWorkflowPayload,
   replaceOrganizationWorkflow,
   setOrganizationAutomationStatus,
+  changeOrganizationAutomationStatus,
   type AutomationScopedDb,
 } from "./tenant-scope";
 
@@ -48,6 +49,13 @@ function createDb() {
           if (matches(automations[i], where)) automations.splice(i, 1);
         }
         return { count: before - automations.length };
+      },
+      async count({ where }) {
+        return automations.filter(
+          (a) =>
+            (where.organizationId === undefined || a.organizationId === where.organizationId) &&
+            (typeof where.status === "string" ? a.status === where.status : a.status !== where.status.not)
+        ).length;
       },
     },
     automationStep: {
@@ -150,4 +158,40 @@ test("deletes the caller's automation, never another organization's", async () =
 
   assert.equal((await deleteOrganizationAutomation(db, "org-a", "auto-a"))?.name, "Bienvenue A");
   assert.equal(automations.some((a) => a.id === "auto-a"), false);
+});
+
+test("activation respects the plan limit on active automations", async () => {
+  const { db, automations } = createDb();
+  automations.push({ id: "auto-a2", organizationId: "org-a", name: "Relance", status: "ACTIVE", userId: "user-a" });
+  assert.deepEqual(await changeOrganizationAutomationStatus(db, "org-a", "auto-a", "ACTIVE", 1), {
+    ok: false,
+    reason: "active_limit_reached",
+    limit: 1,
+    activeCount: 1,
+  });
+  assert.equal(automations.find((a) => a.id === "auto-a")?.status, "DRAFT");
+  assert.deepEqual(await changeOrganizationAutomationStatus(db, "org-a", "auto-a", "ACTIVE", -1), { ok: true });
+});
+
+test("the limit only counts the caller's organization", async () => {
+  const { db, automations } = createDb();
+  // auto-b is ACTIVE in org-b: it must not use up org-a's single slot.
+  assert.deepEqual(await changeOrganizationAutomationStatus(db, "org-a", "auto-a", "ACTIVE", 1), { ok: true });
+  assert.equal(automations.find((a) => a.id === "auto-a")?.status, "ACTIVE");
+});
+
+test("reviving an archived automation counts against the plan", async () => {
+  const { db, automations } = createDb();
+  automations.push({ id: "auto-old", organizationId: "org-a", name: "Ancienne", status: "ARCHIVED", userId: "user-a" });
+  assert.deepEqual(await changeOrganizationAutomationStatus(db, "org-a", "auto-old", "ACTIVE", 1), {
+    ok: false,
+    reason: "limit_reached",
+    limit: 1,
+  });
+});
+
+test("another organization's automation status cannot be changed", async () => {
+  const { db, automations } = createDb();
+  assert.deepEqual(await changeOrganizationAutomationStatus(db, "org-a", "auto-b", "PAUSED", -1), { ok: false, reason: "not_found" });
+  assert.equal(automations.find((a) => a.id === "auto-b")?.status, "ACTIVE");
 });

@@ -6,19 +6,19 @@ import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { checkAutomationLimit, type PlanTier } from "@/lib/plans";
+import { PLAN_LIMITS, checkAutomationLimit } from "@/lib/plans";
+import { retryOnSerializationFailure } from "@/lib/prisma-errors";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
 import {
   deleteOrganizationAutomation,
-  findOrganizationAutomation,
   parseAutomationStatus,
   parseWorkflowPayload,
   replaceOrganizationWorkflow,
-  setOrganizationAutomationStatus,
+  changeOrganizationAutomationStatus,
 } from "@/lib/automations/tenant-scope";
-import { createAutomationDb, prismaAutomationDb } from "@/lib/automations/prisma-automation-db";
+import { createAutomationDb } from "@/lib/automations/prisma-automation-db";
 
 const NOT_AUTHENTICATED = "Non authentifié.";
 const AUTOMATION_NOT_FOUND = "Automation introuvable.";
@@ -47,7 +47,7 @@ export async function createAutomation(
   });
 
   if (!result.success) {
-    return { error: "Donnees invalides. Verifiez le nom et le declencheur." };
+    return { error: "Données invalides. Vérifiez le nom et le déclencheur." };
   }
 
   let automationId: string;
@@ -55,12 +55,12 @@ export async function createAutomation(
   try {
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) {
-      return { error: "Utilisateur non trouve." };
+      return { error: NOT_AUTHENTICATED };
     }
 
-    const autoCheck = await checkAutomationLimit(org.id, org.plan as PlanTier);
+    const autoCheck = await checkAutomationLimit(org.id, org.plan);
     if (!autoCheck.allowed) {
-      return { error: `Limite d'automations atteinte (${autoCheck.limit}). Passez au plan Pro.` };
+      return { error: `Limite d’automations atteinte (${autoCheck.limit}). Passez au plan Pro.` };
     }
 
     const automation = await prisma.automation.create({
@@ -93,7 +93,7 @@ export async function createAutomation(
 
     revalidatePath("/dashboard/automations");
   } catch {
-    return { error: "Erreur lors de la creation de l'automation." };
+    return { error: "Erreur lors de la création de l’automation." };
   }
 
   redirect(`/dashboard/automations/${automationId}/edit`);
@@ -140,30 +140,22 @@ export async function updateAutomationStatus(
   if (!user || !org) return { error: NOT_AUTHENTICATED };
 
   try {
-    const current = await findOrganizationAutomation(prismaAutomationDb, org.id, automationId);
-    if (!current) return { error: AUTOMATION_NOT_FOUND };
-
-    // Block activating if on FREE plan and already at limit
-    if (status === "ACTIVE") {
-      const check = await checkAutomationLimit(org.id, org.plan as PlanTier);
-      // Only block if it's a new activation (not already active) and limit reached
-      const isAlreadyCounted = current.status !== "ARCHIVED";
-      if (!isAlreadyCounted && !check.allowed) {
-        return { error: `Limite d'automations atteinte (${check.limit}). Passez au plan Pro pour activer plus d'automations.` };
+    const automationLimit = PLAN_LIMITS[org.plan].automations;
+    const result = await retryOnSerializationFailure(() =>
+      prisma.$transaction(
+        (tx) => changeOrganizationAutomationStatus(createAutomationDb(tx), org.id, automationId, status, automationLimit),
+        { isolationLevel: "Serializable" }
+      )
+    );
+    if (!result.ok) {
+      if (result.reason === "limit_reached") {
+        return { error: `Limite d’automations atteinte (${result.limit}). Passez au plan Pro pour activer plus d’automations.` };
       }
-      // If limit is 1 and there's already 1 active (not this one), block
-      if (check.limit > 0 && current.status !== "ACTIVE") {
-        const activeCount = await prisma.automation.count({
-          where: { organizationId: org.id, status: "ACTIVE" },
-        });
-        if (activeCount >= check.limit) {
-          return { error: `Vous avez déjà ${activeCount} automation(s) active(s). Le plan ${org.plan === "FREE" ? "Starter" : org.plan} permet ${check.limit} automation(s). Passez au Pro.` };
-        }
+      if (result.reason === "active_limit_reached") {
+        return { error: `Vous avez déjà ${result.activeCount} automation(s) active(s). Le plan ${org.plan === "FREE" ? "Starter" : org.plan} permet ${result.limit} automation(s). Passez au Pro.` };
       }
+      return { error: AUTOMATION_NOT_FOUND };
     }
-
-    const updated = await setOrganizationAutomationStatus(prismaAutomationDb, org.id, automationId, status);
-    if (!updated) return { error: AUTOMATION_NOT_FOUND };
 
     trackServerEvent(user.id, EVENTS.AUTOMATION_STATUS_CHANGED, {
       automation_id: automationId,
