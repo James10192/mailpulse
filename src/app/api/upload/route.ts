@@ -20,9 +20,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Fichier trop volumineux (max 5MB)" }, { status: 400 });
     }
 
-    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+    // SVG is refused on purpose: the bucket is public and an SVG can carry script.
+    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowed.includes(file.type)) {
-      return NextResponse.json({ error: "Type de fichier non supporte" }, { status: 400 });
+      return NextResponse.json({ error: "Type de fichier non supporté (JPEG, PNG, GIF ou WebP)." }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
