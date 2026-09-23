@@ -648,6 +648,13 @@ enum PhoneVerificationChannel {
   WHATSAPP
 }
 
+// Why a code could not be sent, from the provider's structured signals.
+enum PhoneVerificationError {
+  RECIPIENT_UNREACHABLE
+  TIMEOUT
+  TRANSPORT
+}
+
 enum PhoneVerificationStatus {
   PENDING
   APPROVED
@@ -676,7 +683,7 @@ model PhoneVerification {
   provider          String?
   providerMessageId String?
   // Classified cause of a failed send, never the provider text (it carries the number).
-  errorCode         String?
+  errorCode         PhoneVerificationError?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
 

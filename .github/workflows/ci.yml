@@ -56,6 +56,7 @@ jobs:
       CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
       EXTERNAL_APPLICATION_KEK: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       CRON_SECRET: ci-cron-secret-not-used-outside-tests
+      VERIFICATION_CODE_SECRET: ci-verification-secret-not-used-outside-tests
 
     steps:
       - name: Checkout

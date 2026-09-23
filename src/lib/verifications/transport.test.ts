@@ -5,8 +5,8 @@ import { afterEach, test } from "node:test";
 process.env.EVOLUTION_API_URL = "https://evolution.test";
 process.env.EVOLUTION_API_KEY = "test-key";
 
-const { whatsAppVerificationTransport } = await import("./transport");
-const { sendWhatsApp } = await import("../whatsapp");
+const { canSendVerificationCodes, whatsAppVerificationTransport } = await import("./transport");
+const { sendWhatsApp, WhatsAppSendError } = await import("@/lib/whatsapp");
 
 const ORG = {
   whatsappEnabled: true,
@@ -57,4 +57,27 @@ test("a successful send resolves with the provider message id", async () => {
   const transport = whatsAppVerificationTransport(ORG);
   assert.equal(transport.provider, "EVOLUTION_API");
   assert.deepEqual(await transport.send(EXACT, "code"), { messageId: "3EB0ABC" });
+});
+
+test("an unknown recipient fails with a structured reason, whatever the wording", async () => {
+  stubEvolution(notOnWhatsApp);
+
+  const error = await whatsAppVerificationTransport(ORG).send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "recipient_unreachable");
+});
+
+test("any other provider error is a transport failure", async () => {
+  stubEvolution(() => new Response("upstream down", { status: 500 }));
+
+  const error = await whatsAppVerificationTransport(ORG).send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "transport");
+});
+
+test("codes are refused on WhatsApp Cloud API and on a disconnected Evolution session", () => {
+  assert.equal(canSendVerificationCodes(ORG), true);
+  assert.equal(canSendVerificationCodes({ ...ORG, whatsappMode: "META" as const, metaPhoneNumberId: "123", metaAccessToken: "token" }), false);
+  assert.equal(canSendVerificationCodes({ ...ORG, evoInstanceStatus: "connecting" }), false);
+  assert.equal(canSendVerificationCodes({ ...ORG, whatsappEnabled: false }), false);
 });

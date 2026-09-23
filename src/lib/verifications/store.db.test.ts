@@ -9,11 +9,25 @@ import { after, before, test } from "node:test";
  * it at a shared or production database.
  */
 const url = process.env.VERIFICATION_TEST_DATABASE_URL?.trim();
-const skip = !url
-  ? "VERIFICATION_TEST_DATABASE_URL is not set"
-  : url === process.env.DATABASE_URL?.trim()
-    ? "VERIFICATION_TEST_DATABASE_URL must not be the application database"
-    : false;
+
+/**
+ * A positive signal that the database is disposable: a local server, or a
+ * database whose name ends in `_test`. Differing from DATABASE_URL is not one.
+ */
+function looksDisposable(value: string) {
+  try {
+    const parsed = new URL(value);
+    const local = ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
+    return local || decodeURIComponent(parsed.pathname.slice(1)).endsWith("_test");
+  } catch {
+    return false;
+  }
+}
+
+const skip = !url ? "VERIFICATION_TEST_DATABASE_URL is not set" : false;
+if (url && !looksDisposable(url)) {
+  throw new Error("VERIFICATION_TEST_DATABASE_URL must point at localhost or a database named *_test.");
+}
 
 const suffix = Date.now().toString(36);
 const ORG = `verification_test_org_${suffix}`;
@@ -73,4 +87,21 @@ test("concurrent wrong codes never spend more than five attempts", { skip }, asy
   const row = await store.find(ORG, id);
   assert.equal(row?.attempts, 5);
   assert.equal(row?.status, "MAX_ATTEMPTS");
+});
+
+test("a right fourth code racing a wrong fifth one always approves", { skip }, async () => {
+  for (let round = 0; round < 5; round += 1) {
+    const started = await start(`+22507000001${round}0`);
+    const id = started.type === "sent" ? started.verification.id : "";
+    const code = lastCode;
+    const wrong = code === "000000" ? "111111" : "000000";
+    for (let attempt = 1; attempt <= 3; attempt += 1) await service.checkVerification(deps(), { organizationId: ORG, id, code: wrong });
+
+    const [right] = await Promise.all([
+      service.checkVerification(deps(), { organizationId: ORG, id, code }),
+      service.checkVerification(deps(), { organizationId: ORG, id, code: wrong }),
+    ]);
+    assert.deepEqual(right, { type: "approved", id });
+    assert.equal((await store.find(ORG, id))?.status, "APPROVED");
+  }
 });

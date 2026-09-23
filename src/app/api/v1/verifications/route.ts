@@ -2,10 +2,9 @@ import { authenticateApiRequest } from "@/lib/mailpulse/api-keys";
 import { validationError } from "@/lib/mailpulse/schemas";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, serializeVerification, startVerificationSchema, verificationSecretOrResponse } from "@/lib/verifications/api";
-import { resolveVerificationLocale } from "@/lib/verifications/policy";
 import { startVerification } from "@/lib/verifications/service";
 import { createPrismaVerificationStore } from "@/lib/verifications/store";
-import { isWhatsAppOperational, whatsAppVerificationTransport } from "@/lib/verifications/transport";
+import { canSendVerificationCodes, whatsAppVerificationTransport } from "@/lib/verifications/transport";
 
 const store = createPrismaVerificationStore(prisma);
 
@@ -19,14 +18,14 @@ export async function POST(request: Request) {
 
   const secret = verificationSecretOrResponse();
   if (secret instanceof Response) return secret;
-  if (!isWhatsAppOperational(auth.organization)) return errorResponse("whatsapp_indisponible", 409);
+  if (!canSendVerificationCodes(auth.organization)) return errorResponse("whatsapp_indisponible", 409);
 
   try {
     const result = await startVerification({ store, now: () => new Date(), secret }, {
       organizationId: auth.organizationId,
       apiKeyId: auth.id,
       phoneNumber: parsed.data.to,
-      locale: resolveVerificationLocale(parsed.data.locale),
+      locale: parsed.data.locale ?? "fr",
       reference: parsed.data.reference ?? null,
       transport: whatsAppVerificationTransport(auth.organization),
     });

@@ -1,5 +1,5 @@
-import { directProvider } from "../mailpulse/direct-provider";
-import { baileys, sendWhatsApp, type WhatsAppMode } from "../whatsapp";
+import { directProvider } from "@/lib/mailpulse/direct-provider";
+import { baileys, sendWhatsApp, type WhatsAppMode } from "@/lib/whatsapp";
 
 export type OrganizationWhatsApp = {
   whatsappEnabled: boolean;
@@ -19,13 +19,18 @@ export interface VerificationTransport {
 }
 
 /**
- * Whether the organization can send a WhatsApp text right now, judged from its
- * stored configuration only: no provider call, so a refusal costs nothing and
- * never reaches the recipient.
+ * Whether the organization can deliver a code right now, judged from its stored
+ * configuration only: no provider call, so a refusal costs nothing and never
+ * reaches the recipient.
+ *
+ * WhatsApp Cloud API is refused: outside the 24-hour window opened by the user,
+ * Meta accepts a free-text message and then never delivers it. Codes need an
+ * approved authentication template there, which verifications do not support
+ * yet, so a Meta organization gets an explicit refusal rather than a code that
+ * silently never arrives.
  */
-export function isWhatsAppOperational(org: OrganizationWhatsApp) {
-  if (!org.whatsappEnabled) return false;
-  if (org.whatsappMode === "META") return Boolean(org.metaPhoneNumberId && org.metaAccessToken);
+export function canSendVerificationCodes(org: OrganizationWhatsApp) {
+  if (!org.whatsappEnabled || org.whatsappMode !== "BAILEYS") return false;
   return Boolean(org.evoInstanceName && org.evoInstanceStatus === "open" && baileys.isConfigured());
 }
 

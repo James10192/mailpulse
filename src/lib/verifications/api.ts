@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { PhoneVerification, PhoneVerificationStatus } from "@/generated/prisma";
-import { maskE164, parseStrictE164 } from "../phone-numbers";
+import { maskE164, parseStrictE164 } from "@/lib/phone-numbers";
 import { VERIFICATION_CODE_LENGTH, readVerificationSecret } from "./code";
-import { checkErrorCode, effectiveStatus, publicStatus } from "./policy";
+import { VERIFICATION_LOCALES, checkErrorCode, effectiveStatus, publicStatus } from "./policy";
 
 /** HTTP surface of /api/v1/verifications: bodies, responses, configuration guard. */
 
@@ -16,7 +16,7 @@ export const startVerificationSchema = z.object({
     }
     return parsed.e164;
   }),
-  locale: z.string().min(2).max(10).optional(),
+  locale: z.enum(VERIFICATION_LOCALES).optional(),
   reference: z.string().trim().min(1).max(191).optional(),
 });
 

@@ -19,6 +19,10 @@ export type VerificationServiceDeps = {
   secret: string;
 };
 
+// A concurrent request holds the organization's send lock: it lasts a few
+// milliseconds, so the caller can retry almost at once.
+const LOCK_BUSY_RETRY_SECONDS = 1;
+
 // ─── Start ──────────────────────────────────────────────
 
 export type StartVerificationInput = {
@@ -35,6 +39,17 @@ export type StartVerificationResult =
   | { type: "sent"; verification: PhoneVerification }
   | { type: "failed"; verification: PhoneVerification };
 
+async function recordSend(deps: VerificationServiceDeps, verification: PhoneVerification, provider: string, messageId: string | null): Promise<StartVerificationResult> {
+  try {
+    return { type: "sent", verification: await deps.store.markSent(verification.id, { provider, providerMessageId: messageId }) };
+  } catch (error) {
+    // The code is on its way: the verification stays usable, only the provider
+    // reference is missing.
+    console.error("[verifications] sent but not recorded", { id: verification.id, error: error instanceof Error ? error.message : error });
+    return { type: "sent", verification };
+  }
+}
+
 /**
  * Creates a verification and sends its code. Limits, cancellation of the
  * previous pending code and creation happen under the organization's lock; the
@@ -44,7 +59,7 @@ export async function startVerification(deps: VerificationServiceDeps, input: St
   const now = deps.now();
   const since = new Date(now.getTime() - SEND_LIMIT_LOOKBACK_MS);
 
-  const claim = await deps.store.withOrganizationLock(input.organizationId, async (tx) => {
+  const lock = await deps.store.withOrganizationLock(input.organizationId, async (tx) => {
     const [organizationSends, whatsAppMessageTimes] = await Promise.all([
       tx.recentSends(input.organizationId, since),
       tx.whatsAppMessageTimes(input.organizationId, since),
@@ -67,17 +82,22 @@ export async function startVerification(deps: VerificationServiceDeps, input: St
     });
     return { type: "created" as const, verification, code };
   });
+  if (!lock.acquired) return { type: "rate_limited", retryAfterSeconds: LOCK_BUSY_RETRY_SECONDS };
+  const claim = lock.value;
   if (claim.type === "rate_limited") return claim;
 
   const { verification, code } = claim;
   const { provider } = input.transport;
+  let messageId: string | null;
   try {
-    const { messageId } = await input.transport.send(verification.phoneNumber, buildVerificationMessage(input.locale, code));
-    return { type: "sent", verification: await deps.store.markSent(verification.id, { provider, providerMessageId: messageId }) };
+    ({ messageId } = await input.transport.send(verification.phoneNumber, buildVerificationMessage(input.locale, code)));
   } catch (error) {
-    const failed = await deps.store.markFailed(verification.id, { provider, errorCode: classifySendError(error), failedAt: deps.now() });
-    return { type: "failed", verification: failed };
+    const current = await deps.store.markFailed(verification.id, { provider, errorCode: classifySendError(error), failedAt: deps.now() });
+    // A late failure never undoes a code that was received and approved meanwhile.
+    if (current && current.status !== "FAILED") return { type: "sent", verification: current };
+    return { type: "failed", verification: current ?? verification };
   }
+  return recordSend(deps, verification, provider, messageId);
 }
 
 // ─── Check ──────────────────────────────────────────────
@@ -87,11 +107,14 @@ export type CheckVerificationResult =
   | { type: "approved"; id: string }
   | { type: "refused"; id: string; status: PhoneVerificationStatus };
 
+/** Answers with the current state, recording an expiry or a lock a read discovers. */
 async function refuseWithCurrentState(deps: VerificationServiceDeps, organizationId: string, id: string): Promise<CheckVerificationResult> {
   const verification = await deps.store.find(organizationId, id);
   if (!verification) return { type: "not_found" };
   const status = effectiveStatus(verification, deps.now());
-  if (status === "EXPIRED" && verification.status === "PENDING") await deps.store.expire(verification.id);
+  if (verification.status === "PENDING" && (status === "EXPIRED" || status === "MAX_ATTEMPTS")) {
+    await deps.store.settle(verification.id, status, deps.now());
+  }
   return { type: "refused", id: verification.id, status };
 }
 
@@ -110,7 +133,7 @@ export async function checkVerification(
 
   if (verificationCodeMatches(deps.secret, input.code, verification.codeHash)) {
     const approved = await deps.store.settle(verification.id, "APPROVED", now);
-    // Lost only to a concurrent approval or a newer code: never approve twice.
+    // Lost only to a previous approval or a newer code: never approve twice.
     return approved ? { type: "approved", id: verification.id } : refuseWithCurrentState(deps, input.organizationId, input.id);
   }
 

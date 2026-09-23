@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { checkVerificationSchema, refusedCheckBody, startVerificationSchema, verificationSecretOrResponse } from "./api";
 import { generateVerificationCode, hashVerificationCode, verificationCodeMatches } from "./code";
-import { classifySendError, effectiveStatus, evaluateSendLimits, resolveVerificationLocale, buildVerificationMessage } from "./policy";
+import { buildVerificationMessage, classifySendError, effectiveStatus, evaluateSendLimits } from "./policy";
 
 const SECRET = "s".repeat(32);
 const NOW = new Date("2026-09-23T10:00:00.000Z");
@@ -46,6 +46,11 @@ test("the start schema normalizes the number and rejects a doubtful one on the `
   assert.equal(startVerificationSchema.safeParse({ channel: "sms", to: "+2250700000000" }).success, false);
 });
 
+test("the locale is fr or en, nothing else", () => {
+  assert.equal(startVerificationSchema.safeParse({ channel: "whatsapp", to: "+2250700000000", locale: "en" }).success, true);
+  assert.equal(startVerificationSchema.safeParse({ channel: "whatsapp", to: "+2250700000000", locale: "en-US" }).success, false);
+});
+
 test("the check schema only accepts six digits", () => {
   assert.equal(checkVerificationSchema.safeParse({ code: "012345" }).success, true);
   for (const code of ["12345", "1234567", "12a456", 123456]) assert.equal(checkVerificationSchema.safeParse({ code }).success, false);
@@ -84,17 +89,20 @@ test("refusals speak the public vocabulary", () => {
 });
 
 test("the message follows the requested language", () => {
-  assert.match(buildVerificationMessage(resolveVerificationLocale(undefined), "123456"), /^Votre code de vérification est 123456\./);
+  assert.match(buildVerificationMessage("fr", "123456"), /^Votre code de vérification est 123456\./);
   assert.equal(
-    buildVerificationMessage(resolveVerificationLocale("en-US"), "123456"),
+    buildVerificationMessage("en", "123456"),
     "Your verification code is 123456. It expires in 10 minutes. Do not share it with anyone.",
   );
 });
 
-test("provider errors are reduced to codes", () => {
-  assert.equal(classifySendError(new Error("Le numéro 2250700000000 n'est pas enregistré sur WhatsApp.")), "numero_non_whatsapp");
-  assert.equal(classifySendError(new Error("Meta API: (#131026) Message undeliverable")), "numero_non_whatsapp");
-  assert.equal(classifySendError(new Error("The operation was aborted due to timeout")), "delai_depasse");
-  assert.equal(classifySendError(new Error("Evolution API 500")), "transport_erreur");
-  assert.equal(classifySendError("boom"), "transport_erreur");
+test("send failures are classified from their structured reason, not their text", () => {
+  const failure = (reason: unknown) => Object.assign(new Error("any provider text"), { reason });
+  assert.equal(classifySendError(failure("recipient_unreachable")), "RECIPIENT_UNREACHABLE");
+  assert.equal(classifySendError(failure("timeout")), "TIMEOUT");
+  assert.equal(classifySendError(failure("transport")), "TRANSPORT");
+  assert.equal(classifySendError(failure("something else")), "TRANSPORT");
+  // The text alone decides nothing, however explicit it looks.
+  assert.equal(classifySendError(new Error("Le numéro n'est pas enregistré sur WhatsApp.")), "TRANSPORT");
+  assert.equal(classifySendError("boom"), "TRANSPORT");
 });

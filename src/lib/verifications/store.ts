@@ -1,9 +1,9 @@
-import type { PhoneVerification, Prisma, PrismaClient } from "@/generated/prisma";
+import type { PhoneVerification, PhoneVerificationError, Prisma, PrismaClient } from "@/generated/prisma";
 import type { RecentSend } from "./policy";
 
 /**
  * Persistence of verifications. Built from a client rather than importing the
- * app singleton, so the atomicity tests can run it against a dedicated database.
+ * app singleton, so the atomicity tests can run it against a test database.
  */
 
 export type NewVerification = Pick<
@@ -19,20 +19,32 @@ export interface VerificationSendTx {
   create(data: NewVerification): Promise<PhoneVerification>;
 }
 
+export type LockResult<T> = { acquired: true; value: T } | { acquired: false };
+
+/** States a still-open verification can be closed into by a check or a read. */
+export type ClosingStatus = "APPROVED" | "MAX_ATTEMPTS" | "EXPIRED";
+
 export interface VerificationStore {
-  /** Serializes the sends of one organization, so two requests cannot both pass a limit. */
-  withOrganizationLock<T>(organizationId: string, fn: (tx: VerificationSendTx) => Promise<T>): Promise<T>;
+  /**
+   * Runs `fn` holding the organization's send lock, without waiting for it:
+   * a request that finds it taken is told so and answered with a retry.
+   */
+  withOrganizationLock<T>(organizationId: string, fn: (tx: VerificationSendTx) => Promise<T>): Promise<LockResult<T>>;
   find(organizationId: string, id: string): Promise<PhoneVerification | null>;
   markSent(id: string, sent: { provider: string; providerMessageId: string | null }): Promise<PhoneVerification>;
-  markFailed(id: string, failure: { provider: string; errorCode: string; failedAt: Date }): Promise<PhoneVerification>;
-  expire(id: string): Promise<void>;
+  /** Records a failed send only while the verification is still pending, then returns its current state. */
+  markFailed(id: string, failure: { provider: string; errorCode: PhoneVerificationError; failedAt: Date }): Promise<PhoneVerification | null>;
   /**
    * Spends one attempt, atomically, only while the code is pending, unexpired
    * and under the attempt cap. Null when nothing was spent.
    */
   consumeAttempt(input: { organizationId: string; id: string; now: Date; maxAttempts: number }): Promise<PhoneVerification | null>;
-  /** Moves a still-pending verification to a final state. False if something else settled it first. */
-  settle(id: string, status: "APPROVED" | "MAX_ATTEMPTS", now: Date): Promise<boolean>;
+  /**
+   * Closes a verification. Approval also wins over a lock or an expiry recorded
+   * after the right attempt was spent, but never over a previous approval, a
+   * newer code or a failed send. False when nothing changed.
+   */
+  settle(id: string, status: ClosingStatus, now: Date): Promise<boolean>;
 }
 
 const LOCK_NAMESPACE = "phone_verification:org:";
@@ -41,13 +53,13 @@ function sendTx(tx: Prisma.TransactionClient): VerificationSendTx {
   return {
     recentSends(organizationId, since) {
       return tx.phoneVerification.findMany({
-        where: { organizationId, createdAt: { gt: since } },
+        where: { organizationId, createdAt: { gte: since } },
         select: { createdAt: true, phoneNumber: true, apiKeyId: true },
       });
     },
     async whatsAppMessageTimes(organizationId, since) {
       const rows = await tx.communicationMessage.findMany({
-        where: { organizationId, channel: "WHATSAPP", origin: "API", createdAt: { gt: since } },
+        where: { organizationId, channel: "WHATSAPP", origin: "API", createdAt: { gte: since } },
         select: { createdAt: true },
       });
       return rows.map((row) => row.createdAt);
@@ -64,15 +76,20 @@ function sendTx(tx: Prisma.TransactionClient): VerificationSendTx {
   };
 }
 
+function settleWhere(id: string, status: ClosingStatus): Prisma.PhoneVerificationWhereInput {
+  if (status === "APPROVED") return { id, approvedAt: null, status: { in: ["PENDING", "MAX_ATTEMPTS", "EXPIRED"] } };
+  return { id, status: "PENDING" };
+}
+
 export function createPrismaVerificationStore(client: PrismaClient): VerificationStore {
   return {
-    withOrganizationLock(organizationId, fn) {
+    async withOrganizationLock(organizationId, fn) {
       return client.$transaction(async (tx) => {
         // Transaction-scoped: released on commit or rollback, a crash never
-        // leaves an organization locked. $executeRaw because the function
-        // returns `void`, a type the query path cannot deserialize.
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${LOCK_NAMESPACE + organizationId}, 0))`;
-        return fn(sendTx(tx));
+        // leaves an organization locked.
+        const [row] = await tx.$queryRaw<Array<{ locked: boolean }>>`SELECT pg_try_advisory_xact_lock(hashtextextended(${LOCK_NAMESPACE + organizationId}, 0)) AS locked`;
+        if (!row?.locked) return { acquired: false } as const;
+        return { acquired: true, value: await fn(sendTx(tx)) } as const;
       });
     },
     find(organizationId, id) {
@@ -81,11 +98,9 @@ export function createPrismaVerificationStore(client: PrismaClient): Verificatio
     markSent(id, sent) {
       return client.phoneVerification.update({ where: { id }, data: sent });
     },
-    markFailed(id, failure) {
-      return client.phoneVerification.update({ where: { id }, data: { ...failure, status: "FAILED" } });
-    },
-    async expire(id) {
-      await client.phoneVerification.updateMany({ where: { id, status: "PENDING" }, data: { status: "EXPIRED" } });
+    async markFailed(id, failure) {
+      await client.phoneVerification.updateMany({ where: { id, status: "PENDING" }, data: { ...failure, status: "FAILED" } });
+      return client.phoneVerification.findUnique({ where: { id } });
     },
     async consumeAttempt({ organizationId, id, now, maxAttempts }) {
       const [row] = await client.phoneVerification.updateManyAndReturn({
@@ -96,7 +111,7 @@ export function createPrismaVerificationStore(client: PrismaClient): Verificatio
     },
     async settle(id, status, now) {
       const result = await client.phoneVerification.updateMany({
-        where: { id, status: "PENDING" },
+        where: settleWhere(id, status),
         data: { status, ...(status === "APPROVED" ? { approvedAt: now } : {}) },
       });
       return result.count === 1;

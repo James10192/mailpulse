@@ -1,25 +1,25 @@
 import type { PhoneVerification } from "@/generated/prisma";
-import type { VerificationSendTx, VerificationStore } from "./store";
+import type { ClosingStatus, VerificationSendTx, VerificationStore } from "./store";
 
 /**
  * In-memory store for the tests, honouring the same contract as the Prisma
- * store: a serialized organization lock and single-step conditional writes
- * (no await between the condition and the write, as a SQL UPDATE … WHERE).
+ * store: a try-lock per organization and single-step conditional writes (no
+ * await between the condition and the write, as a SQL UPDATE … WHERE).
  */
 export function createMemoryStore() {
   const rows: PhoneVerification[] = [];
   const whatsAppMessages: Array<{ organizationId: string; createdAt: Date }> = [];
   let sequence = 0;
-  let queue: Promise<unknown> = Promise.resolve();
+  const heldLocks = new Set<string>();
 
   const tx: VerificationSendTx = {
     async recentSends(organizationId, since) {
       return rows
-        .filter((row) => row.organizationId === organizationId && row.createdAt > since)
+        .filter((row) => row.organizationId === organizationId && row.createdAt >= since)
         .map(({ createdAt, phoneNumber, apiKeyId }) => ({ createdAt, phoneNumber, apiKeyId }));
     },
     async whatsAppMessageTimes(organizationId, since) {
-      return whatsAppMessages.filter((item) => item.organizationId === organizationId && item.createdAt > since).map((item) => item.createdAt);
+      return whatsAppMessages.filter((item) => item.organizationId === organizationId && item.createdAt >= since).map((item) => item.createdAt);
     },
     async cancelPending(organizationId, phoneNumber, at) {
       for (const row of rows) {
@@ -56,10 +56,14 @@ export function createMemoryStore() {
   }
 
   const store: VerificationStore = {
-    withOrganizationLock(_organizationId, fn) {
-      const run = queue.then(() => fn(tx));
-      queue = run.catch(() => undefined);
-      return run;
+    async withOrganizationLock(organizationId, fn) {
+      if (heldLocks.has(organizationId)) return { acquired: false };
+      heldLocks.add(organizationId);
+      try {
+        return { acquired: true, value: await fn(tx) };
+      } finally {
+        heldLocks.delete(organizationId);
+      }
     },
     async find(organizationId, id) {
       const row = rows.find((item) => item.id === id && item.organizationId === organizationId);
@@ -69,11 +73,9 @@ export function createMemoryStore() {
       return { ...Object.assign(byId(id), sent) };
     },
     async markFailed(id, failure) {
-      return { ...Object.assign(byId(id), failure, { status: "FAILED" }) };
-    },
-    async expire(id) {
       const row = byId(id);
-      if (row.status === "PENDING") row.status = "EXPIRED";
+      if (row.status === "PENDING") Object.assign(row, failure, { status: "FAILED" });
+      return { ...row };
     },
     async consumeAttempt({ organizationId, id, now, maxAttempts }) {
       const row = rows.find((item) => item.id === id && item.organizationId === organizationId);
@@ -81,9 +83,12 @@ export function createMemoryStore() {
       row.attempts += 1;
       return { ...row };
     },
-    async settle(id, status, now) {
+    async settle(id, status: ClosingStatus, now) {
       const row = byId(id);
-      if (row.status !== "PENDING") return false;
+      const open = status === "APPROVED"
+        ? row.approvedAt === null && ["PENDING", "MAX_ATTEMPTS", "EXPIRED"].includes(row.status)
+        : row.status === "PENDING";
+      if (!open) return false;
       row.status = status;
       if (status === "APPROVED") row.approvedAt = now;
       return true;

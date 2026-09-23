@@ -1,5 +1,6 @@
-import type { PhoneVerificationStatus } from "@/generated/prisma";
-import { API_RATE_LIMITS, API_RATE_WINDOW_MS } from "../mailpulse/api-rate-limits";
+import type { PhoneVerificationError, PhoneVerificationStatus } from "@/generated/prisma";
+import { API_RATE_LIMITS, API_RATE_WINDOW_MS } from "@/lib/mailpulse/api-rate-limits";
+import type { WhatsAppFailureReason } from "@/lib/whatsapp/types";
 
 /**
  * The rules of a verification: lifetime, attempts, send limits, the message,
@@ -34,7 +35,7 @@ export type SendLimitDecision = { allowed: true } | { allowed: false; retryAfter
 
 function retryAfter(sends: readonly Date[], limit: Window, now: Date) {
   const since = now.getTime() - limit.windowMs;
-  const inWindow = sends.map((date) => date.getTime()).filter((time) => time > since).sort((a, b) => a - b);
+  const inWindow = sends.map((date) => date.getTime()).filter((time) => time >= since).sort((a, b) => a - b);
   if (inWindow.length < limit.max) return 0;
   // The window frees a slot when the oldest send that still fills it ages out.
   const freeingSend = inWindow[inWindow.length - limit.max];
@@ -106,11 +107,8 @@ export function checkErrorCode(status: PhoneVerificationStatus) {
 
 // ─── Message ────────────────────────────────────────────
 
-export type VerificationLocale = "fr" | "en";
-
-export function resolveVerificationLocale(value: string | undefined | null): VerificationLocale {
-  return value?.trim().toLowerCase().startsWith("en") ? "en" : "fr";
-}
+export const VERIFICATION_LOCALES = ["fr", "en"] as const;
+export type VerificationLocale = (typeof VERIFICATION_LOCALES)[number];
 
 /** Sober on purpose: no link, nothing to click. */
 export function buildVerificationMessage(locale: VerificationLocale, code: string) {
@@ -123,18 +121,22 @@ export function buildVerificationMessage(locale: VerificationLocale, code: strin
 
 // ─── Send failures ──────────────────────────────────────
 
-export type SendErrorCode = "numero_non_whatsapp" | "delai_depasse" | "transport_erreur";
+const ERROR_BY_REASON = {
+  recipient_unreachable: "RECIPIENT_UNREACHABLE",
+  timeout: "TIMEOUT",
+  transport: "TRANSPORT",
+} as const satisfies Record<WhatsAppFailureReason, PhoneVerificationError>;
 
-const NOT_ON_WHATSAPP = [/n'est pas enregistré sur whatsapp/i, /not on whatsapp/i, /not a whatsapp user/i, /\b131026\b/];
-const TIMEOUT = [/timeout/i, /timed out/i, /aborted/i];
+function failureReason(error: unknown): WhatsAppFailureReason {
+  if (typeof error !== "object" || error === null || !("reason" in error)) return "transport";
+  const { reason } = error;
+  return reason === "recipient_unreachable" || reason === "timeout" ? reason : "transport";
+}
 
 /**
- * Provider error texts carry the recipient's number in clear, so they are
- * reduced to a code before anything is stored.
+ * Reduces a send failure to the structured reason the provider client
+ * attached. Provider texts are never stored: they carry the number in clear.
  */
-export function classifySendError(error: unknown): SendErrorCode {
-  const text = error instanceof Error ? `${error.name} ${error.message}` : String(error);
-  if (NOT_ON_WHATSAPP.some((pattern) => pattern.test(text))) return "numero_non_whatsapp";
-  if (TIMEOUT.some((pattern) => pattern.test(text))) return "delai_depasse";
-  return "transport_erreur";
+export function classifySendError(error: unknown): PhoneVerificationError {
+  return ERROR_BY_REASON[failureReason(error)];
 }

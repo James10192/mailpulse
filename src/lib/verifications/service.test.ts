@@ -2,14 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createMemoryStore } from "./memory-store.fixture";
 import { checkVerification, startVerification, type VerificationServiceDeps } from "./service";
+import type { VerificationStore } from "./store";
 import type { VerificationTransport } from "./transport";
 
 const SECRET = "k".repeat(32);
 const PHONE = "+2250700000000";
 
 /** Production service, in-memory store, controllable clock, recording transport. */
-function harness(send: VerificationTransport["send"] = async () => ({ messageId: "wamid.1" })) {
-  const { store, rows, whatsAppMessages } = createMemoryStore();
+function harness(
+  send: VerificationTransport["send"] = async () => ({ messageId: "wamid.1" }),
+  wrapStore: (store: VerificationStore) => VerificationStore = (store) => store,
+) {
+  const memory = createMemoryStore();
+  const { rows, whatsAppMessages } = memory;
+  const store = wrapStore(memory.store);
   let now = new Date("2026-09-23T10:00:00.000Z");
   const sent: Array<{ to: string; text: string }> = [];
   const deps: VerificationServiceDeps = { store, now: () => now, secret: SECRET };
@@ -176,12 +182,12 @@ test("codes share the WhatsApp API rate with messages sent from the same number"
 });
 
 test("a provider failure is stored as a classified code, never as the provider text", async () => {
-  const h = harness(async () => { throw new Error("Le numéro 2250700000000 n'est pas enregistré sur WhatsApp."); });
+  const h = harness(async () => { throw Object.assign(new Error("Le numéro 2250700000000 n'est pas enregistré sur WhatsApp."), { reason: "recipient_unreachable" }); });
   const result = await h.start();
 
   assert.equal(result.type, "failed");
   assert.equal(h.rows[0].status, "FAILED");
-  assert.equal(h.rows[0].errorCode, "numero_non_whatsapp");
+  assert.equal(h.rows[0].errorCode, "RECIPIENT_UNREACHABLE");
   const storedTexts = Object.values(h.rows[0]).filter((value) => typeof value === "string");
   assert.equal(storedTexts.some((value) => value.includes("enregistré")), false);
 });
@@ -189,5 +195,63 @@ test("a provider failure is stored as a classified code, never as the provider t
 test("any other provider failure is recorded as a transport error", async () => {
   const h = harness(async () => { throw new Error("Evolution API 500"); });
   await h.start();
-  assert.equal(h.rows[0].errorCode, "transport_erreur");
+  assert.equal(h.rows[0].errorCode, "TRANSPORT");
+});
+
+test("a late transport failure never undoes a code already approved", async () => {
+  let approve: () => Promise<unknown> = async () => undefined;
+  const h = harness(async () => {
+    await approve();
+    throw Object.assign(new Error("socket hang up"), { reason: "timeout" });
+  });
+  approve = () => h.check("ver_1", h.lastCode());
+
+  const result = await h.start();
+  assert.equal(result.type, "sent");
+  assert.equal(h.rows[0].status, "APPROVED");
+  assert.equal(h.rows[0].errorCode, null);
+});
+
+test("a send whose bookkeeping fails still answers with a usable pending verification", async () => {
+  const h = harness(undefined, (store) => ({ ...store, markSent: async () => { throw new Error("connection reset"); } }));
+  const original = console.error;
+  console.error = () => undefined;
+  try {
+    const result = await h.start();
+    assert.equal(result.type, "sent");
+    assert.equal(result.type === "sent" && result.verification.status, "PENDING");
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(await h.check("ver_1", h.lastCode()), { type: "approved", id: "ver_1" });
+});
+
+test("a send finding the organization lock taken is told to retry, without waiting", async () => {
+  const h = harness(undefined, (store) => ({ ...store, withOrganizationLock: async () => ({ acquired: false }) }));
+  assert.deepEqual(await h.start(), { type: "rate_limited", retryAfterSeconds: 1 });
+  assert.equal(h.sent.length, 0);
+});
+
+test("the right fourth code approves even if a wrong fifth one locks first", async () => {
+  // Hold the approval of the right code until the wrong one has locked the verification.
+  let releaseApproval = () => {};
+  const approvalGate = new Promise<void>((resolve) => { releaseApproval = resolve; });
+  const h = harness(undefined, (store) => ({
+    ...store,
+    async settle(id, status, now) {
+      if (status === "APPROVED") await approvalGate;
+      const settled = await store.settle(id, status, now);
+      if (status === "MAX_ATTEMPTS") releaseApproval();
+      return settled;
+    },
+  }));
+  const id = await h.startedId();
+  const code = h.lastCode();
+  for (let attempt = 1; attempt <= 3; attempt += 1) await h.check(id, wrong(code));
+
+  const [right, wrongFifth] = await Promise.all([h.check(id, code), h.check(id, wrong(code))]);
+  assert.deepEqual(wrongFifth, { type: "refused", id, status: "MAX_ATTEMPTS" });
+  assert.deepEqual(right, { type: "approved", id });
+  assert.equal(h.rows[0].status, "APPROVED");
+  assert.deepEqual(await h.check(id, code), { type: "refused", id, status: "APPROVED" });
 });
