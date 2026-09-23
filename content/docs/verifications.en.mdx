@@ -1,0 +1,100 @@
+---
+title: Phone verification
+description: Confirm that a phone number belongs to your user with a one-time code sent on WhatsApp.
+---
+
+The verification API sends a 6-digit code on WhatsApp, then tells you whether the
+code your user typed is the right one. MailPulse generates the code, sends it
+through your organization's WhatsApp transport, counts attempts and handles
+expiry: your application never sees the code.
+
+Authentication is the same as `POST /api/v1/messages` (`Authorization: Bearer mp_live_xxx`).
+The organization needs a connected Evolution instance, otherwise the API answers
+`409`. WhatsApp Cloud API is not supported for codes yet (see below).
+
+## Send a code
+
+```bash
+curl -X POST $MAILPULSE_URL/api/v1/verifications \
+  -H "Authorization: Bearer $MAILPULSE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"whatsapp","to":"+2250700000000","locale":"en","reference":"signup_42"}'
+```
+
+`to` must be international (`+…` or `00…`). `locale` is `fr` (default) or `en`;
+any other value is rejected.
+`reference` is optional and echoed back. Response `201`:
+
+```json
+{
+  "id": "cmf8x2k0p0000abcd1234efgh",
+  "status": "pending",
+  "channel": "whatsapp",
+  "to_masked": "+225 07 ** ** ** 00",
+  "reference": "signup_42",
+  "expires_at": "2026-09-23T10:10:00.000Z",
+  "created_at": "2026-09-23T10:00:00.000Z",
+  "approved_at": null
+}
+```
+
+If the provider does not confirm the send (timeout, transport error), the answer
+is still `201` and the verification stays `pending`: the message may have gone
+out, and a code that arrives late works.
+
+## Check the code
+
+```bash
+curl -X POST $MAILPULSE_URL/api/v1/verifications/cmf8x2k0p0000abcd1234efgh/check \
+  -H "Authorization: Bearer $MAILPULSE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"code":"123456"}'
+```
+
+Right code: `200 {"id":"…","status":"approved"}`. Otherwise `422` with `status` and
+`error`: `pending` + `code_invalide` (wrong code, retry), `max_attempts` +
+`trop_de_tentatives` (5 wrong codes), `expired`, `canceled` (a newer code was sent),
+`approved` (already used) or `failed` (never sent), all with `expire`.
+
+## Read a verification
+
+```bash
+curl $MAILPULSE_URL/api/v1/verifications/cmf8x2k0p0000abcd1234efgh \
+  -H "Authorization: Bearer $MAILPULSE_API_KEY"
+```
+
+Returns the current state. Another organization's verification answers `404`.
+
+## Resend and limits
+
+Resending is a new `POST` for the same number: the previous pending code is
+canceled. Limits: 1 send per minute and 5 per hour per number and organization,
+20 per hour per API key, 100 per hour per organization, and 30 per minute per
+organization shared with API WhatsApp messages (same sending number). Beyond
+that: `429 {"error":"trop_de_demandes","retry_after":42}` with a `Retry-After`
+header. Two simultaneous sends for one organization do not wait for each other:
+the second one also gets a `429`, with `retry_after` set to 1 second.
+
+Other errors: `409 whatsapp_indisponible`, `422 Validation failed` (a doubtful
+number is reported under `field_errors.to`),
+`502 envoi_echoue` (definite provider refusal: no WhatsApp account or an HTTP 4xx
+other than 408 and 429; nothing was sent and the verification is stored as
+`failed`), `503 whatsapp_sature` (the provider is rate limiting; nothing was sent,
+the verification is `failed`, retry later, with `retry_after` and a `Retry-After`
+header when the provider gives a delay),
+`503 verification_indisponible` (service not configured).
+
+Codes come from a cryptographic generator, are stored only as a salted HMAC and
+compared in constant time. They expire after 10 minutes, allow 5 attempts and
+approve once. The code goes to the exact number only, never to a legacy variant,
+and a failed send stores a classified cause (no WhatsApp account, timeout or
+provider error), never the provider text. A refusal reported late never undoes a
+code already approved.
+
+## WhatsApp Cloud API
+
+Outside the 24-hour window opened by the user, Meta accepts a free-form message
+and never delivers it. A code then needs an approved authentication template,
+which verifications do not support yet. Until they do, an organization on
+WhatsApp Cloud API gets `409 whatsapp_indisponible` instead of a code that
+would never arrive.

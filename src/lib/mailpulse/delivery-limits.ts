@@ -1,13 +1,23 @@
 import type { CommunicationChannel } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { checkEmailLimit, type PlanTier } from "@/lib/plans";
+import { API_RATE_LIMITS, API_RATE_WINDOW_MS } from "./api-rate-limits";
 
-const API_RATE_WINDOW_MS = 60_000;
-const API_RATE_LIMITS: Record<CommunicationChannel, number> = {
-  EMAIL: 60,
-  SMS: 30,
-  WHATSAPP: 30,
-};
+/**
+ * Verification codes leave from the same WhatsApp number as API messages, so
+ * they count against the same rate: a burst of either puts that number at risk.
+ */
+async function countApiSends(organizationId: string, channel: CommunicationChannel, since: Date) {
+  const [messages, verifications] = await Promise.all([
+    prisma.communicationMessage.count({
+      where: { organizationId, channel, origin: "API", createdAt: { gte: since } },
+    }),
+    channel === "WHATSAPP"
+      ? prisma.phoneVerification.count({ where: { organizationId, createdAt: { gte: since } } })
+      : Promise.resolve(0),
+  ]);
+  return messages + verifications;
+}
 
 export async function enforceApiMessageLimits(params: {
   organizationId: string;
@@ -20,14 +30,7 @@ export async function enforceApiMessageLimits(params: {
   }
 
   const since = new Date(Date.now() - API_RATE_WINDOW_MS);
-  const sentInWindow = await prisma.communicationMessage.count({
-    where: {
-      organizationId: params.organizationId,
-      channel: params.channel,
-      origin: "API",
-      createdAt: { gte: since },
-    },
-  });
+  const sentInWindow = await countApiSends(params.organizationId, params.channel, since);
   if (sentInWindow >= API_RATE_LIMITS[params.channel]) {
     return { allowed: false as const, reason: "rate_limit" as const, retryAfter: 60 };
   }

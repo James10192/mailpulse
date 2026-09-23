@@ -10,6 +10,7 @@ import {
 import { hasActiveExternalWhatsAppConversationWindow } from "@/lib/external-applications/conversation-window";
 import { isProviderConfirmedOperationStatus, isProviderRejectedOperationStatus } from "@/lib/external-applications/message-status";
 import { renderWhatsAppTextTemplate, requiresWhatsAppServiceWindow } from "@/lib/external-applications/whatsapp-transport-policy";
+import { isDeterministicRejection } from "@/lib/http-status";
 import { prisma } from "@/lib/prisma";
 import { EvolutionApiError, isConfigured as isEvolutionConfigured, sendText } from "@/lib/whatsapp-baileys";
 
@@ -275,10 +276,6 @@ function parseCommandPayload(value: string) {
     return parsed as unknown as ExternalCommand;
   }
   throw new Error("Invalid external application operation payload.");
-}
-
-function isDeterministicRejection(statusCode: number) {
-  return statusCode >= 400 && statusCode < 500 && statusCode !== 408 && statusCode !== 429;
 }
 
 function finalizeOperation(id: string, leaseToken: string, status: "REJECTED") {
