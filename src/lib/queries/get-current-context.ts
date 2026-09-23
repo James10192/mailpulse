@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
+import { isPlatformAdminEmail } from "@/lib/access/roles";
 
 const ORG_SELECT = {
   id: true,
@@ -14,15 +15,6 @@ const ORG_SELECT = {
   logo: true,
   metadata: true,
 } as const;
-
-function adminAllowlist() {
-  return new Set(
-    (process.env.ADMIN_EMAILS ?? "")
-      .split(",")
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean)
-  );
-}
 
 /**
  * Get the current authenticated user and their organization.
@@ -71,9 +63,10 @@ export async function getCurrentUserAndOrg() {
           }).catch(() => {});
         }
 
-        const isAdmin = member?.role === "admin" || adminAllowlist().has(user.email.toLowerCase());
+        // Platform administration comes from ADMIN_EMAILS only, never from an organization role.
+        const isPlatformAdmin = isPlatformAdminEmail(user.email, process.env.ADMIN_EMAILS);
 
-        return { user, org, memberRole: member?.role ?? null, isAdmin };
+        return { user, org, memberRole: member?.role ?? null, isPlatformAdmin };
       }
     }
   } catch (error) {
@@ -83,5 +76,5 @@ export async function getCurrentUserAndOrg() {
     throw error;
   }
 
-  return { user: null, org: null, memberRole: null, isAdmin: false };
+  return { user: null, org: null, memberRole: null, isPlatformAdmin: false };
 }

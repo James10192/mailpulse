@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { canManageOrganization } from "@/lib/access/roles";
 import { canAccessFeature, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plans";
 import { isOrangeSmsSenderAddress, orangeSmsSenderAddressFromEnvironment } from "@/lib/sms/orange-config";
 import {
@@ -25,10 +26,6 @@ const orangeSmsConfigurationSchema = z.object({
   senderName: z.string().trim().min(1).max(11).regex(/^[A-Za-z0-9 ]+$/, "Le nom d'expéditeur accepte uniquement lettres, chiffres et espaces."),
 });
 
-function isSmsManager(memberRole: string | null, isAdmin: boolean) {
-  return isAdmin || memberRole === "owner";
-}
-
 export async function updateOrangeSmsConfiguration(
   _prevState: ActionState,
   formData: FormData,
@@ -39,9 +36,9 @@ export async function updateOrangeSmsConfiguration(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Configuration Orange CI invalide." };
 
-  const { org, memberRole, isAdmin } = await getCurrentUserAndOrg();
+  const { org, memberRole, isPlatformAdmin } = await getCurrentUserAndOrg();
   if (!org) return { error: "Non authentifié." };
-  if (!isSmsManager(memberRole, isAdmin)) {
+  if (!canManageOrganization({ memberRole, isPlatformAdmin })) {
     return { error: "Seuls les administrateurs et le propriétaire peuvent configurer Orange CI." };
   }
   if (parsed.data.enabled === "true" && process.env.ORANGE_SMS_OWNER_ORGANIZATION_ID !== org.id) {
@@ -73,7 +70,7 @@ export async function sendCampaign(
   senderId: string,
   audience: string,
 ): Promise<ActionState> {
-  const { user, org, memberRole, isAdmin } = await getCurrentUserAndOrg();
+  const { user, org, memberRole, isPlatformAdmin } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifie." };
 
   const validation = await validateCampaignForSending(campaignId, org.id);
@@ -83,7 +80,7 @@ export async function sendCampaign(
     return { error: getFeatureUpgradeMessage("whatsapp") };
   }
   if (campaign.channel === "SMS") {
-    if (!isSmsManager(memberRole, isAdmin)) {
+    if (!canManageOrganization({ memberRole, isPlatformAdmin })) {
       return { error: "Seuls les administrateurs et le propriétaire peuvent lancer une campagne SMS." };
     }
     const smsConfiguration = await prisma.organization.findUnique({
