@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { unstable_rethrow } from "next/navigation";
 
 const ORG_SELECT = {
   id: true,
@@ -25,7 +26,9 @@ function adminAllowlist() {
 
 /**
  * Get the current authenticated user and their organization.
- * Tries Better Auth session first, falls back to findFirst for dev/transition.
+ * Returns nulls only when there is no valid session. A database or auth
+ * failure is logged and rethrown, so it surfaces as an error instead of
+ * looking like a signed-out user.
  */
 export async function getCurrentUserAndOrg() {
   // 1. Try Better Auth session
@@ -73,8 +76,11 @@ export async function getCurrentUserAndOrg() {
         return { user, org, memberRole: member?.role ?? null, isAdmin };
       }
     }
-  } catch {
-    // Session failed — no fallback, return null
+  } catch (error) {
+    // Next.js request-time and navigation signals must reach the framework untouched.
+    unstable_rethrow(error);
+    console.error("[auth] Failed to resolve the current user and organization", error);
+    throw error;
   }
 
   return { user: null, org: null, memberRole: null, isAdmin: false };
