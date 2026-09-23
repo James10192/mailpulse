@@ -1,21 +1,16 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Plus, Globe, CheckCircle, Clock, Trash2, Info, RefreshCw, Copy, Check, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { Plus, Globe, CheckCircle, Clock, Trash2, RefreshCw, Copy, Check, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { createDomain, deleteDomain, verifyDomain } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { HelpModal, HelpButton, StepList, LinkOut } from "@/components/dashboard/help-modal";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormDialog } from "@/components/dashboard/form-dialog";
+import { DomainHelpModal } from "./domain-help-modal";
+import { PageHint } from "@/components/dashboard/page-hint";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ActionState } from "@/types/action-state";
@@ -73,15 +68,9 @@ export function DomainsClient({ domains }: { domains: DomainData[] }) {
         </Button>
       </div>
 
-      <Alert className="flex items-start justify-between gap-3 p-4">
-        <div className="flex items-start gap-3">
-          <Info className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-          <AlertDescription className="text-zinc-600 dark:text-zinc-400">
-            Ajoutez votre domaine puis configurez les enregistrements DNS chez votre fournisseur. Cliquez sur &laquo; Comment configurer ? &raquo; pour un guide détaillé pas-à-pas.
-          </AlertDescription>
-        </div>
-        <HelpButton onClick={() => setHelpOpen(true)} />
-      </Alert>
+      <PageHint onHelp={() => setHelpOpen(true)}>
+        Ajoutez votre domaine puis configurez les enregistrements DNS chez votre fournisseur. Cliquez sur &laquo; Comment configurer ? &raquo; pour un guide détaillé pas-à-pas.
+      </PageHint>
 
       <DomainHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
@@ -102,41 +91,33 @@ export function DomainsClient({ domains }: { domains: DomainData[] }) {
           <p className="text-zinc-500 text-sm mb-4">
             Aucun domaine configuré pour le moment.
           </p>
-          <Button variant="link" onClick={() => setOpen(true)} className="h-auto p-0">
+          <Button variant="link" size="inline" onClick={() => setOpen(true)}>
             Ajouter votre premier domaine
           </Button>
         </div>
       )}
 
       {/* Create modal */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Ajouter un domaine</DialogTitle>
-          </DialogHeader>
-          <form action={formAction} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="domain-name">Domaine</Label>
-              <Input
-                id="domain-name"
-                name="domain"
-                required
-                className="h-10 font-mono"
-                placeholder="ex: mail.mondomaine.com"
-              />
-            </div>
-            {state?.error && <p className="text-sm text-red-500">{state.error}</p>}
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={pending}>
-                {pending ? "Ajout..." : "Ajouter"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Ajouter un domaine"
+        action={formAction}
+        error={state?.error}
+        pending={pending}
+        submit={{ label: "Ajouter", pendingLabel: "Ajout..." }}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="domain-name">Domaine</Label>
+          <Input
+            id="domain-name"
+            name="domain"
+            required
+            className="font-mono"
+            placeholder="ex: mail.mondomaine.com"
+          />
+        </div>
+      </FormDialog>
 
       <ConfirmDialog
         open={!!confirmDeleteId}
@@ -160,7 +141,6 @@ function DomainCard({
   onDelete: () => void;
   deleting: boolean;
 }) {
-  const [expanded, setExpanded] = useState(!domain.verified);
   const [verifying, setVerifying] = useState(false);
   const dnsRecords = buildDnsRecords(domain);
 
@@ -192,60 +172,48 @@ function DomainCard({
     </Badge>
   );
 
-  function toggleExpanded() {
-    setExpanded(!expanded);
-  }
-
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
-      {/* The header is a div, not a button: it contains the verify/delete buttons. */}
-      <div
-        role="button"
-        tabIndex={0}
-        aria-expanded={expanded}
-        className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500/35"
-        onClick={toggleExpanded}
-        onKeyDown={(e) => {
-          if (e.target !== e.currentTarget) return;
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            toggleExpanded();
-          }
-        }}
-      >
-        <div className="flex items-center gap-3">
-          {expanded ? <ChevronDown className="h-4 w-4 text-zinc-400" /> : <ChevronRight className="h-4 w-4 text-zinc-400" />}
-          <span className="text-sm font-mono font-medium text-zinc-900 dark:text-zinc-100">{domain.domain}</span>
-          {statusBadge}
-        </div>
-        <div className="flex items-center gap-2">
+    <Accordion
+      type="single"
+      collapsible
+      defaultValue={domain.verified ? undefined : "dns"}
+      className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden"
+    >
+      <AccordionItem value="dns">
+        {/* The actions sit next to the trigger, never inside it: a button cannot contain buttons. */}
+        <div className="flex items-center gap-2 pr-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/30">
+          <div className="min-w-0 flex-1">
+            <AccordionTrigger className="items-center rounded-none px-5 py-4 hover:no-underline focus-visible:ring-inset">
+              <span className="flex min-w-0 flex-wrap items-center gap-3">
+                <span className="truncate font-mono text-sm font-medium text-zinc-900 dark:text-zinc-100">{domain.domain}</span>
+                {statusBadge}
+              </span>
+            </AccordionTrigger>
+          </div>
           {!domain.verified && (
             <Button
               variant="outline"
               size="sm"
-              onClick={(e) => { e.stopPropagation(); handleVerify(); }}
+              onClick={handleVerify}
               disabled={verifying}
-              className="h-8 gap-1.5 text-orange-500 hover:text-orange-500 dark:text-orange-500 dark:hover:text-orange-500 [&_svg]:size-3"
+              className="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
             >
               <RefreshCw className={verifying ? "animate-spin" : ""} />
               Vérifier
             </Button>
           )}
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            variant="ghost-destructive"
+            size="icon-sm"
+            onClick={onDelete}
             disabled={deleting}
             aria-label={`Supprimer le domaine ${domain.domain}`}
-            className="h-8 w-8 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 dark:hover:text-red-500 [&_svg]:size-3.5"
           >
             <Trash2 />
           </Button>
         </div>
-      </div>
 
-      {expanded && dnsRecords.length > 0 && (
-        <div className="px-5 pb-5 border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-4">
+        <AccordionContent className="space-y-4 border-t border-zinc-200 px-5 pt-4 pb-5 dark:border-zinc-800">
           <p className="text-xs text-zinc-500">
             Ajoutez ces enregistrements DNS chez votre fournisseur, puis cliquez sur Vérifier. Dans cPanel, utilisez le champ Nom tel qu&apos;affiché ici.
           </p>
@@ -253,9 +221,9 @@ function DomainCard({
           {dnsRecords.map((record) => (
             <DnsRecord key={`${record.label}-${record.type}-${record.name}`} {...record} />
           ))}
-        </div>
-      )}
-    </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 }
 
@@ -372,10 +340,10 @@ function DnsRecord({
               <code className="flex-1 text-xs font-mono text-zinc-300 bg-zinc-900 px-2 py-1 rounded truncate">{row.text}</code>
               <Button
                 variant="ghost"
-                size="icon"
+                size="icon-xs"
                 onClick={() => copy(row.text, field)}
                 aria-label={row.copyLabel}
-                className="h-6 w-6 text-zinc-400 [&_svg]:size-3"
+                className="text-zinc-500 dark:text-zinc-400"
               >
                 {copied === field ? <Check className="text-emerald-500" /> : <Copy />}
               </Button>
@@ -384,147 +352,5 @@ function DnsRecord({
         })}
       </div>
     </div>
-  );
-}
-
-/* ─── Domain Help Modal ─── */
-
-function DomainHelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
-    <HelpModal
-      open={open}
-      onClose={onClose}
-      title="Configurer votre domaine"
-      subtitle="Guide complet pas-à-pas"
-      sections={[
-        {
-          title: "Pourquoi configurer un domaine ?",
-          defaultOpen: true,
-          content: (
-            <div className="space-y-3">
-              <p>
-                Par defaut, vos emails sont envoyes depuis <strong className="text-zinc-200">onboarding@resend.dev</strong> — un domaine partage. Vos emails risquent d&apos;arriver en spam car Gmail et les autres fournisseurs ne font pas confiance a ce domaine.
-              </p>
-              <p>
-                En configurant <strong className="text-zinc-200">votre propre domaine</strong> (ex: <code className="text-orange-400">newsletter.votresite.com</code>), vous :
-              </p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Ameliorez votre <strong className="text-zinc-200">delivrabilite</strong> (moins de spam)</li>
-                <li>Renforcez votre <strong className="text-zinc-200">image de marque</strong> (emails de contact@votresite.com)</li>
-                <li>Protegez votre <strong className="text-zinc-200">reputation</strong> d&apos;expediteur</li>
-                <li>Respectez les exigences de Google/Yahoo (SPF + DKIM obligatoires depuis 2024)</li>
-              </ul>
-            </div>
-          ),
-        },
-        {
-          title: "Etape 1 : Choisir votre domaine ou sous-domaine",
-          content: (
-            <div className="space-y-3">
-              <p>
-                Vous pouvez utiliser votre domaine principal (<code className="text-orange-400">votresite.com</code>) ou un sous-domaine dedie (<code className="text-orange-400">mail.votresite.com</code> ou <code className="text-orange-400">newsletter.votresite.com</code>).
-              </p>
-              <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
-                <p className="text-amber-400 text-xs font-medium mb-1">Recommandation</p>
-                <p className="text-xs">
-                  Utilisez un <strong>sous-domaine</strong> (ex: <code>mail.votresite.com</code>) pour isoler la reputation de vos emails marketing de votre domaine principal. Si votre domaine principal a deja des DNS complexes, un sous-domaine est plus simple a configurer.
-                </p>
-              </div>
-              <StepList steps={[
-                "Decidez du domaine ou sous-domaine a utiliser",
-                "Cliquez sur « Ajouter un domaine » en haut de cette page",
-                "Entrez le domaine complet (ex: mail.votresite.com)",
-                "MailPulse va generer les enregistrements DNS a configurer",
-              ]} />
-            </div>
-          ),
-        },
-        {
-          title: "Etape 2 : Configurer les DNS chez votre fournisseur",
-          content: (
-            <div className="space-y-3">
-              <p>
-                Apres avoir ajoute votre domaine, MailPulse affiche des <strong className="text-zinc-200">enregistrements DNS</strong> (SPF et DKIM) a ajouter chez votre <strong className="text-zinc-200">registrar</strong> (la ou vous avez achete votre domaine).
-              </p>
-
-              <div className="rounded-lg bg-zinc-800/50 border border-zinc-700 p-3 space-y-2">
-                <p className="text-xs font-medium text-zinc-300">Qu&apos;est-ce que SPF et DKIM ?</p>
-                <ul className="text-xs space-y-1">
-                  <li><strong className="text-zinc-200">SPF</strong> (Sender Policy Framework) : dit aux serveurs email &laquo; ces serveurs ont le droit d&apos;envoyer des emails pour mon domaine &raquo;</li>
-                  <li><strong className="text-zinc-200">DKIM</strong> (DomainKeys Identified Mail) : ajoute une signature cryptographique a vos emails pour prouver qu&apos;ils n&apos;ont pas ete modifies</li>
-                </ul>
-              </div>
-
-              <p className="text-xs font-medium text-zinc-300">Ou ajouter les DNS selon votre fournisseur :</p>
-              <ul className="text-xs space-y-2">
-                <li><LinkOut href="https://dash.cloudflare.com">Cloudflare</LinkOut> → DNS → Ajouter un enregistrement → Type TXT ou CNAME</li>
-                <li><LinkOut href="https://www.namecheap.com/myaccount/login">Namecheap</LinkOut> → Domain List → Manage → Advanced DNS → Add Record</li>
-                <li><LinkOut href="https://www.ovh.com/manager/">OVH</LinkOut> → Domaines → Zone DNS → Ajouter une entree</li>
-                <li><LinkOut href="https://domains.google.com">Google Domains</LinkOut> → DNS → Enregistrements personnalises</li>
-                <li><LinkOut href="https://www.gandi.net/fr">Gandi</LinkOut> → Domaines → DNS Records → Ajouter</li>
-              </ul>
-
-              <StepList steps={[
-                "Connectez-vous a votre registrar (Cloudflare, Namecheap, OVH...)",
-                "Allez dans la section DNS / Zone DNS de votre domaine",
-                "Ajoutez le record MX : type MX, nom send, valeur feedback-smtp, priorité 10",
-                "Ajoutez le record SPF : type TXT, nom send, valeur v=spf1 include:amazonses.com ~all",
-                "Ajoutez le record DKIM : type TXT, nom resend._domainkey, valeur qui commence par p=",
-                "Sauvegardez les changements. La propagation peut prendre 5 minutes a 48 heures",
-              ]} />
-            </div>
-          ),
-        },
-        {
-          title: "Etape 3 : Verifier votre domaine",
-          content: (
-            <div className="space-y-3">
-              <p>
-                Une fois les DNS configures, revenez sur cette page et cliquez sur le bouton <strong className="text-zinc-200">Verifier</strong> a cote de votre domaine. MailPulse va verifier que les enregistrements sont corrects.
-              </p>
-              <div className="rounded-lg bg-zinc-800/50 border border-zinc-700 p-3 space-y-1">
-                <p className="text-xs"><strong className="text-emerald-400">Vérifié (vert)</strong> — Tout est bon, vous pouvez envoyer des emails !</p>
-                <p className="text-xs"><strong className="text-zinc-300">Vérification en cours (gris)</strong> — Les DNS ne sont pas encore propages, reessayez dans quelques minutes</p>
-                <p className="text-xs"><strong className="text-red-400">Échoué (rouge)</strong> — Les enregistrements sont incorrects ou manquants, verifiez vos DNS</p>
-              </div>
-              <p>
-                Si la verification echoue apres 48h, verifiez que vous avez copie les valeurs <strong className="text-zinc-200">exactement</strong> comme affichees (pas d&apos;espace en trop, pas de guillemets autour de la valeur TXT).
-              </p>
-            </div>
-          ),
-        },
-        {
-          title: "FAQ",
-          content: (
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-medium text-zinc-300">Je n&apos;ai pas de domaine, comment en obtenir un ?</p>
-                <p className="text-xs mt-1">
-                  Achetez un domaine chez un registrar comme <LinkOut href="https://www.namecheap.com">Namecheap</LinkOut>, <LinkOut href="https://www.ovh.com">OVH</LinkOut>, ou <LinkOut href="https://www.cloudflare.com/products/registrar/">Cloudflare</LinkOut> (a partir de ~5 000 FCFA/an). Utilisez ensuite un sous-domaine dedie pour l&apos;email marketing.
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-zinc-300">Puis-je utiliser un domaine gratuit (Gmail, Yahoo) ?</p>
-                <p className="text-xs mt-1">
-                  Non. Les fournisseurs gratuits ne permettent pas de configurer les DNS. Vous devez posseder votre propre domaine.
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-zinc-300">Combien de temps prend la propagation DNS ?</p>
-                <p className="text-xs mt-1">
-                  Generalement 5 a 30 minutes. Dans de rares cas, cela peut prendre jusqu&apos;a 48 heures. Cloudflare est souvent le plus rapide (quelques minutes).
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-zinc-300">Je peux envoyer sans domaine verifie ?</p>
-                <p className="text-xs mt-1">
-                  Oui, mais uniquement depuis <code className="text-orange-400">onboarding@resend.dev</code>. Vos emails auront moins de chances d&apos;arriver en boite de reception. C&apos;est acceptable pour tester, pas pour envoyer en production.
-                </p>
-              </div>
-            </div>
-          ),
-        },
-      ]}
-    />
   );
 }

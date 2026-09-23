@@ -1,20 +1,15 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Plus, Globe, Trash2, ExternalLink, Eye, EyeOff, Info } from "lucide-react";
+import { Plus, Globe } from "lucide-react";
 import Link from "next/link";
 import { createCapturePage, deleteCapturePage, toggleCapturePagePublished } from "./actions";
+import { CapturePageRowActions } from "./capture-page-row-actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormDialog } from "@/components/dashboard/form-dialog";
+import { PageHint } from "@/components/dashboard/page-hint";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ActionState } from "@/types/action-state";
@@ -25,6 +20,10 @@ interface CapturePageData {
   slug: string;
   published: boolean;
   createdAt: string;
+}
+
+function PublishedBadge({ published }: { published: boolean }) {
+  return published ? <Badge variant="success">Publiée</Badge> : <Badge variant="secondary">Brouillon</Badge>;
 }
 
 export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
@@ -55,6 +54,18 @@ export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
     setToggling(null);
   }
 
+  function rowActions(page: CapturePageData) {
+    return (
+      <CapturePageRowActions
+        page={page}
+        toggling={toggling === page.id}
+        deleting={deleting === page.id}
+        onToggle={() => handleToggle(page.id, page.published)}
+        onDelete={() => setConfirmDeleteId(page.id)}
+      />
+    );
+  }
+
   return (
     <>
       <div className="page-stack app-shell-safe">
@@ -73,12 +84,9 @@ export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
           </Button>
         </div>
 
-        <Alert role="note" className="flex items-start gap-3 rounded-xl p-4">
-          <Info className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-          <AlertDescription className="text-zinc-600 dark:text-zinc-400">
-            Créez des formulaires d&apos;inscription publics pour collecter des abonnés. Partagez le lien de votre page ou intégrez-la sur votre site web.
-          </AlertDescription>
-        </Alert>
+        <PageHint>
+          Créez des formulaires d&apos;inscription publics pour collecter des abonnés. Partagez le lien de votre page ou intégrez-la sur votre site web.
+        </PageHint>
 
         {pages.length > 0 ? (
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
@@ -96,158 +104,66 @@ export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
                       <Globe className="h-4 w-4 text-zinc-400 shrink-0" />
                       <span className="truncate">{page.name}</span>
                     </Link>
-                    {page.published ? (
-                      <Badge variant="success">Publiée</Badge>
-                    ) : (
-                      <Badge variant="secondary">Brouillon</Badge>
-                    )}
+                    <PublishedBadge published={page.published} />
                   </div>
                   <div className="text-xs font-mono text-zinc-500 break-all">/capture/{page.slug}</div>
                   <div className="text-xs text-zinc-500">
                     Créée le {new Date(page.createdAt).toLocaleDateString("fr-FR")}
                   </div>
-                  <div className="flex items-center justify-end gap-1">
-                    {page.published && (
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-zinc-400 hover:bg-orange-50 hover:text-orange-500 dark:hover:bg-orange-500/10 [&_svg]:size-3.5"
-                      >
-                        <a
-                          href={`/capture/${page.slug}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Voir la page"
-                          aria-label="Voir la page"
-                        >
-                          <ExternalLink />
-                        </a>
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleToggle(page.id, page.published)}
-                      disabled={toggling === page.id}
-                      className="h-8 w-8 text-zinc-400 [&_svg]:size-3.5"
-                      title={page.published ? "Dépublier" : "Publier"}
-                      aria-label={page.published ? "Dépublier" : "Publier"}
-                    >
-                      {page.published ? <EyeOff /> : <Eye />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setConfirmDeleteId(page.id)}
-                      disabled={deleting === page.id}
-                      className="h-8 w-8 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 [&_svg]:size-3.5"
-                      title="Supprimer"
-                      aria-label="Supprimer"
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
+                  {rowActions(page)}
                 </div>
               ))}
             </div>
             <div className="hidden md:block">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                  <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                    Nom
-                  </th>
-                  <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">
-                    URL
-                  </th>
-                  <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                    Statut
-                  </th>
-                  <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">
-                    Date
-                  </th>
-                  <th className="text-right text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 w-24" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {pages.map((page) => (
-                  <tr
-                    key={page.id}
-                    className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/dashboard/capture-pages/${page.id}`}
-                        className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors"
-                      >
-                        <Globe className="h-4 w-4 text-zinc-400" />
-                        {page.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-xs font-mono text-zinc-500 hidden md:table-cell">
-                      <span className="truncate max-w-xs block">
-                        /capture/{page.slug}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {page.published ? (
-                      <Badge variant="success">Publiée</Badge>
-                    ) : (
-                      <Badge variant="secondary">Brouillon</Badge>
-                    )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-zinc-500 font-mono hidden md:table-cell">
-                      {new Date(page.createdAt).toLocaleDateString("fr-FR")}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {page.published && (
-                          <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-zinc-400 hover:bg-orange-50 hover:text-orange-500 dark:hover:bg-orange-500/10 [&_svg]:size-3.5"
-                      >
-                        <a
-                          href={`/capture/${page.slug}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Voir la page"
-                          aria-label="Voir la page"
-                        >
-                          <ExternalLink />
-                        </a>
-                      </Button>
-                        )}
-                        <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleToggle(page.id, page.published)}
-                      disabled={toggling === page.id}
-                      className="h-8 w-8 text-zinc-400 [&_svg]:size-3.5"
-                      title={page.published ? "Dépublier" : "Publier"}
-                      aria-label={page.published ? "Dépublier" : "Publier"}
-                    >
-                          {page.published ? <EyeOff /> : <Eye />}
-                        </Button>
-                        <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setConfirmDeleteId(page.id)}
-                      disabled={deleting === page.id}
-                      className="h-8 w-8 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 [&_svg]:size-3.5"
-                      title="Supprimer"
-                      aria-label="Supprimer"
-                    >
-                      <Trash2 />
-                    </Button>
-                      </div>
-                    </td>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
+                      Nom
+                    </th>
+                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
+                      URL
+                    </th>
+                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
+                      Statut
+                    </th>
+                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
+                      Date
+                    </th>
+                    <th className="text-right text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 w-24" />
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                  {pages.map((page) => (
+                    <tr
+                      key={page.id}
+                      className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/dashboard/capture-pages/${page.id}`}
+                          className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors"
+                        >
+                          <Globe className="h-4 w-4 text-zinc-400" />
+                          {page.name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-mono text-zinc-500">
+                        <span className="truncate max-w-xs block">
+                          /capture/{page.slug}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <PublishedBadge published={page.published} />
+                      </td>
+                      <td className="px-4 py-3 text-xs text-zinc-500 font-mono">
+                        {new Date(page.createdAt).toLocaleDateString("fr-FR")}
+                      </td>
+                      <td className="px-4 py-3 text-right">{rowActions(page)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         ) : (
@@ -260,40 +176,26 @@ export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
         )}
       </div>
 
-      {/* Create modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nouvelle page de capture</DialogTitle>
-          </DialogHeader>
-
-          <form action={formAction} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="page-name">Nom de la page *</Label>
-              <Input
-                id="page-name"
-                name="name"
-                type="text"
-                required
-                placeholder="Newsletter inscription"
-              />
-            </div>
-
-            {state?.error && (
-              <p className="text-sm text-red-500">{state.error}</p>
-            )}
-
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? "Création..." : "Créer"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDialog
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        title="Nouvelle page de capture"
+        action={formAction}
+        error={state?.error}
+        pending={isPending}
+        submit={{ label: "Créer", pendingLabel: "Création..." }}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="page-name">Nom de la page *</Label>
+          <Input
+            id="page-name"
+            name="name"
+            type="text"
+            required
+            placeholder="Newsletter inscription"
+          />
+        </div>
+      </FormDialog>
 
       <ConfirmDialog
         open={!!confirmDeleteId}

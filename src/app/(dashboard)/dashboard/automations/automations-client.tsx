@@ -1,24 +1,17 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Plus, Zap, Trash2, PauseCircle, Info } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Plus, Zap, Trash2, PauseCircle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { createAutomation, deleteAutomation, updateAutomationStatus } from "./actions";
 import { cn } from "@/lib/utils";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormDialog } from "@/components/dashboard/form-dialog";
+import { PageHint } from "@/components/dashboard/page-hint";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -91,7 +84,6 @@ export function AutomationsClient({
   planLabel: string;
   overLimit: boolean;
 }) {
-  const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [presetName, setPresetName] = useState("");
   const [presetTrigger, setPresetTrigger] = useState("SUBSCRIBER_ADDED");
@@ -172,22 +164,17 @@ export function AutomationsClient({
           )}
         </div>
 
-        <Alert role="note" className="flex items-start gap-3 rounded-xl p-4">
-          <Info className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-          <AlertDescription className="text-zinc-600 dark:text-zinc-400">
-            Les automations déclenchent des séquences d&apos;emails automatiques en réponse à des événements (nouvel abonné, tag ajouté, date). Créez un workflow visuel pour définir les étapes.
-          </AlertDescription>
-        </Alert>
+        <PageHint>
+          Les automations déclenchent des séquences d&apos;emails automatiques en réponse à des événements (nouvel abonné, tag ajouté, date). Créez un workflow visuel pour définir les étapes.
+        </PageHint>
 
         {/* Preset cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {presets.map((preset) => (
-            <Button
+            <button
               key={preset.name}
               type="button"
-              variant="ghost"
               onClick={() => {
-                if (!canCreate) return;
                 setPresetName(preset.name);
                 setPresetTrigger(preset.triggerValue);
                 setPresetDesc(preset.desc);
@@ -195,13 +182,13 @@ export function AutomationsClient({
               }}
               disabled={!canCreate}
               className={cn(
-                "group h-auto flex-col items-start justify-start gap-0 whitespace-normal rounded-xl border border-dashed bg-white p-5 text-left font-normal hover:bg-white active:scale-100 dark:bg-transparent dark:hover:bg-transparent [&_svg]:size-5",
+                "group flex flex-col items-start rounded-xl border border-dashed bg-white p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35 disabled:opacity-50 dark:bg-transparent",
                 canCreate
-                  ? "border-zinc-300 dark:border-zinc-700 hover:border-orange-500/50"
+                  ? "border-zinc-300 hover:border-orange-500/50 dark:border-zinc-700"
                   : "border-zinc-200 dark:border-zinc-800"
               )}
             >
-              <Zap className="text-zinc-400 dark:text-zinc-500 group-hover:text-orange-500 mb-3 transition-colors" />
+              <Zap className="mb-3 size-5 text-zinc-400 transition-colors group-hover:group-enabled:text-orange-500 dark:text-zinc-500" />
               <h3 className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
                 {preset.name}
               </h3>
@@ -209,7 +196,7 @@ export function AutomationsClient({
               <Badge variant="secondary" className="mt-3">
                 {preset.triggerLabel}
               </Badge>
-            </Button>
+            </button>
           ))}
         </div>
 
@@ -246,7 +233,7 @@ export function AutomationsClient({
                         <td className="px-4 py-3">
                           <Link
                             href={`/dashboard/automations/${auto.id}/edit`}
-                            className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors cursor-pointer"
+                            className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors"
                           >
                             {auto.name}
                           </Link>
@@ -272,10 +259,10 @@ export function AutomationsClient({
                             {overLimit && (auto.status === "ACTIVE" || auto.status === "DRAFT") && (
                               <Button
                                 variant="ghost"
-                                size="icon"
+                                size="icon-sm"
                                 onClick={() => handlePause(auto.id)}
                                 disabled={pausing === auto.id}
-                                className="h-8 w-8 text-amber-500 hover:bg-amber-50 hover:text-amber-400 dark:text-amber-500 dark:hover:bg-amber-500/10 [&_svg]:size-3.5"
+                                className="text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-500 dark:hover:bg-amber-500/10 dark:hover:text-amber-400"
                                 title="Désactiver"
                                 aria-label="Désactiver"
                               >
@@ -283,11 +270,10 @@ export function AutomationsClient({
                               </Button>
                             )}
                             <Button
-                              variant="ghost"
-                              size="icon"
+                              variant="ghost-destructive"
+                              size="icon-sm"
                               onClick={() => setConfirmDeleteId(auto.id)}
                               disabled={deleting === auto.id}
-                              className="h-8 w-8 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 [&_svg]:size-3.5"
                               title="Supprimer"
                               aria-label="Supprimer"
                             >
@@ -313,72 +299,59 @@ export function AutomationsClient({
       </div>
 
       {/* Create modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nouvelle automation</DialogTitle>
-          </DialogHeader>
-
-          <form action={formAction} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="automation-name">Nom *</Label>
-              <Input
-                id="automation-name"
-                name="name"
-                type="text"
-                required
-                defaultValue={presetName}
-                key={`name-${presetName}`}
-                placeholder="Série de bienvenue"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="automation-description">Description</Label>
-              <Input
-                id="automation-description"
-                name="description"
-                type="text"
-                defaultValue={presetDesc}
-                key={`desc-${presetDesc}`}
-                placeholder="Description optionnelle"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="automation-trigger">Déclencheur *</Label>
-              <Select
-                name="trigger"
-                required
-                defaultValue={presetTrigger}
-                key={`trigger-${presetTrigger}`}
-              >
-                <SelectTrigger id="automation-trigger">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(triggerLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {state?.error && (
-              <p className="text-sm text-red-500">{state.error}</p>
-            )}
-
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? "Création..." : "Créer"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDialog
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        title="Nouvelle automation"
+        action={formAction}
+        error={state?.error}
+        pending={isPending}
+        submit={{ label: "Créer", pendingLabel: "Création..." }}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="automation-name">Nom *</Label>
+          <Input
+            id="automation-name"
+            name="name"
+            type="text"
+            required
+            defaultValue={presetName}
+            key={`name-${presetName}`}
+            placeholder="Série de bienvenue"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="automation-description">Description</Label>
+          <Input
+            id="automation-description"
+            name="description"
+            type="text"
+            defaultValue={presetDesc}
+            key={`desc-${presetDesc}`}
+            placeholder="Description optionnelle"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="automation-trigger">Déclencheur *</Label>
+          <Select
+            name="trigger"
+            required
+            defaultValue={presetTrigger}
+            key={`trigger-${presetTrigger}`}
+          >
+            <SelectTrigger id="automation-trigger">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(triggerLabels).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </FormDialog>
 
       {/* Confirm delete dialog */}
       <ConfirmDialog

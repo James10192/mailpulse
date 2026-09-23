@@ -1,23 +1,17 @@
 "use client";
 
 import { useActionState, useState, useMemo } from "react";
-import { Plus, Tag, Trash2, Info, Search, ArrowUpDown, Users } from "lucide-react";
+import { Plus, Tag, Trash2, Search, ArrowUpDown, Users } from "lucide-react";
 import { createTag, deleteTag } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormDialog } from "@/components/dashboard/form-dialog";
+import { PageHint } from "@/components/dashboard/page-hint";
+import { TypedSelect } from "@/components/forms/typed-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -35,7 +29,8 @@ import type { ActionState } from "@/types/action-state";
 
 type TagData = { name: string; count: number };
 
-type SortKey = "name-asc" | "name-desc" | "count-desc" | "count-asc";
+const SORT_KEYS = ["name-asc", "name-desc", "count-desc", "count-asc"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
 
 export function TagsClient({ tags }: { tags: TagData[] }) {
   const [open, setOpen] = useState(false);
@@ -95,13 +90,9 @@ export function TagsClient({ tags }: { tags: TagData[] }) {
         </Button>
       </div>
 
-      {/* Info banner */}
-      <Alert className="flex items-start gap-3 p-4">
-        <Info className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-        <AlertDescription className="text-zinc-600 dark:text-zinc-400">
-          Les tags catégorisent vos contacts. Ajoutez des tags lors de la création de contacts ou via les pages de capture pour faciliter le ciblage.
-        </AlertDescription>
-      </Alert>
+      <PageHint>
+        Les tags catégorisent vos contacts. Ajoutez des tags lors de la création de contacts ou via les pages de capture pour faciliter le ciblage.
+      </PageHint>
 
       {/* Search and sort controls */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -116,7 +107,7 @@ export function TagsClient({ tags }: { tags: TagData[] }) {
             className="h-10 pl-9"
           />
         </div>
-        <Select value={sort} onValueChange={(value) => setSort(value as SortKey)}>
+        <TypedSelect values={SORT_KEYS} value={sort} onValueChange={setSort}>
           <SelectTrigger className="sm:w-52" aria-label="Trier les tags">
             {/* A div, not a span: the trigger line-clamps its direct span children. */}
             <div className="flex min-w-0 items-center gap-2">
@@ -130,14 +121,14 @@ export function TagsClient({ tags }: { tags: TagData[] }) {
             <SelectItem value="count-desc">Plus de contacts</SelectItem>
             <SelectItem value="count-asc">Moins de contacts</SelectItem>
           </SelectContent>
-        </Select>
+        </TypedSelect>
       </div>
 
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
         {filtered.length > 0 ? (
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent dark:hover:bg-transparent">
+              <TableRow>
                 <TableHead className="px-4">Nom du tag</TableHead>
                 <TableHead className="px-4">Contacts</TableHead>
                 <TableHead className="px-4 text-right">Actions</TableHead>
@@ -170,46 +161,35 @@ export function TagsClient({ tags }: { tags: TagData[] }) {
       </div>
 
       {/* Create modal */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nouveau tag</DialogTitle>
-          </DialogHeader>
-          <form action={formAction} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="tag-name">Nom</Label>
-              <Input
-                id="tag-name"
-                name="name"
-                required
-                className="h-10"
-                placeholder="ex: VIP, Newsletter..."
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="tag-color">Couleur</Label>
-              <Input
-                id="tag-color"
-                name="color"
-                type="color"
-                defaultValue="#f97316"
-                className="h-10 w-16 cursor-pointer p-1"
-              />
-            </div>
-            {state?.error && (
-              <p className="text-sm text-red-500">{state.error}</p>
-            )}
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={pending}>
-                {pending ? "Création..." : "Créer"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Nouveau tag"
+        action={formAction}
+        error={state?.error}
+        pending={pending}
+        submit={{ label: "Créer", pendingLabel: "Création..." }}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="tag-name">Nom</Label>
+          <Input
+            id="tag-name"
+            name="name"
+            required
+            placeholder="ex: VIP, Newsletter..."
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="tag-color">Couleur</Label>
+          <Input
+            id="tag-color"
+            name="color"
+            type="color"
+            defaultValue="#f97316"
+            className="w-16 cursor-pointer p-1"
+          />
+        </div>
+      </FormDialog>
     </div>
   );
 }
@@ -253,13 +233,12 @@ function TagRow({ tag }: { tag: TagData }) {
         </TableCell>
         <TableCell className="px-4 text-right">
           <Button
-            variant="ghost"
+            variant="ghost-destructive"
             size="sm"
             onClick={() => setConfirmOpen(true)}
             disabled={deleting}
-            className="h-8 gap-1 text-red-500 hover:bg-red-500/10 hover:text-red-400 dark:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 />
             {deleting ? "..." : "Supprimer"}
           </Button>
         </TableCell>

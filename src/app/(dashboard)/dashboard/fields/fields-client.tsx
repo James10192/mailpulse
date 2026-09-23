@@ -1,20 +1,14 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Plus, FormInput, Trash2, Info } from "lucide-react";
+import { Plus, FormInput, Trash2 } from "lucide-react";
 import { createField, deleteField } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormDialog } from "@/components/dashboard/form-dialog";
+import { PageHint } from "@/components/dashboard/page-hint";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -92,18 +86,15 @@ export function FieldsClient({ fields }: { fields: FieldData[] }) {
           </Button>
         </div>
 
-        <Alert className="flex items-start gap-3 p-4">
-          <Info className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-          <AlertDescription className="text-zinc-600 dark:text-zinc-400">
-            Les champs personnalisés stockent des données supplémentaires sur vos contacts (entreprise, ville, etc.). Utilisez-les dans vos campagnes avec {"{{nom_du_champ}}"}.
-          </AlertDescription>
-        </Alert>
+        <PageHint>
+          Les champs personnalisés stockent des données supplémentaires sur vos contacts (entreprise, ville, etc.). Utilisez-les dans vos campagnes avec {"{{nom_du_champ}}"}.
+        </PageHint>
 
         {fields.length > 0 ? (
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="hover:bg-transparent dark:hover:bg-transparent">
+                <TableRow>
                   <TableHead className="px-4">Label</TableHead>
                   <TableHead className="px-4">Nom (variable)</TableHead>
                   <TableHead className="px-4">Type</TableHead>
@@ -135,12 +126,11 @@ export function FieldsClient({ fields }: { fields: FieldData[] }) {
                     </TableCell>
                     <TableCell className="px-4 text-right">
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="ghost-destructive"
+                        size="icon-sm"
                         onClick={() => setConfirmDeleteId(field.id)}
                         disabled={deleting === field.id}
                         aria-label={`Supprimer le champ ${field.label}`}
-                        className="h-8 w-8 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 dark:hover:text-red-500 [&_svg]:size-3.5"
                       >
                         <Trash2 />
                       </Button>
@@ -161,68 +151,56 @@ export function FieldsClient({ fields }: { fields: FieldData[] }) {
       </div>
 
       {/* Create modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader className="mb-2">
-            <DialogTitle>Nouveau champ</DialogTitle>
-          </DialogHeader>
-
-          <form action={formAction} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="field-label">Label (affiché) *</Label>
-              <Input
-                id="field-label"
-                name="label"
-                type="text"
-                required
-                placeholder="Nom de l'entreprise"
-                className="h-10"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="field-name">Nom technique (variable) *</Label>
-              <Input
-                id="field-name"
-                name="name"
-                type="text"
-                required
-                placeholder="company_name"
-                pattern="[a-zA-Z_][a-zA-Z0-9_]*"
-                className="h-10 font-mono"
-              />
-              <p className="text-xs text-zinc-500 mt-1">Utilisable dans les emails : {"{{company_name}}"}</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="field-type">Type</Label>
-              <Select name="type" defaultValue={FIELD_TYPES[0].value}>
-                <SelectTrigger id="field-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FIELD_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox id="field-required" name="required" value="on" />
-              <Label htmlFor="field-required" className="font-normal">Obligatoire</Label>
-            </div>
-
-            {state?.error && <p className="text-sm text-red-500">{state.error}</p>}
-
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? "Création..." : "Créer"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDialog
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        title="Nouveau champ"
+        action={formAction}
+        error={state?.error}
+        pending={isPending}
+        submit={{ label: "Créer", pendingLabel: "Création..." }}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="field-label">Label (affiché) *</Label>
+          <Input
+            id="field-label"
+            name="label"
+            type="text"
+            required
+            placeholder="Nom de l'entreprise"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="field-name">Nom technique (variable) *</Label>
+          <Input
+            id="field-name"
+            name="name"
+            type="text"
+            required
+            placeholder="company_name"
+            pattern="[a-zA-Z_][a-zA-Z0-9_]*"
+            className="font-mono"
+          />
+          <p className="text-xs text-zinc-500 mt-1">Utilisable dans les emails : {"{{company_name}}"}</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="field-type">Type</Label>
+          <Select name="type" defaultValue={FIELD_TYPES[0].value}>
+            <SelectTrigger id="field-type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FIELD_TYPES.map((t) => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox id="field-required" name="required" value="on" />
+          <Label htmlFor="field-required" className="font-normal">Obligatoire</Label>
+        </div>
+      </FormDialog>
 
       <ConfirmDialog
         open={!!confirmDeleteId}

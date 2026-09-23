@@ -1,25 +1,19 @@
 "use client";
 
 import { useActionState, useState, useMemo } from "react";
-import { Plus, Filter, Trash2, Sparkles, Search, ArrowUpDown, Info, Users } from "lucide-react";
+import { Plus, Filter, Trash2, Sparkles, Search, ArrowUpDown, Users } from "lucide-react";
 import Link from "next/link";
 import { createSegment, deleteSegment } from "./actions";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormDialog } from "@/components/dashboard/form-dialog";
+import { PageHint } from "@/components/dashboard/page-hint";
+import { TypedSelect } from "@/components/forms/typed-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -44,7 +38,11 @@ type SegmentData = {
   createdAt: string;
 };
 
-type SortKey = "recent" | "oldest" | "name-asc" | "name-desc";
+const SORT_KEYS = ["recent", "oldest", "name-asc", "name-desc"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+
+const SUBSCRIPTION_FILTERS = ["all", "true", "false"] as const;
+type SubscriptionFilter = (typeof SUBSCRIPTION_FILTERS)[number];
 
 export function SegmentsClient({
   segments,
@@ -62,7 +60,7 @@ export function SegmentsClient({
   overLimit: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [filterSubscribed, setFilterSubscribed] = useState<"all" | "true" | "false">("all");
+  const [filterSubscribed, setFilterSubscribed] = useState<SubscriptionFilter>("all");
   const [filterTags, setFilterTags] = useState("");
   const [filterEngagementMin, setFilterEngagementMin] = useState("");
   const [filterCreatedAfter, setFilterCreatedAfter] = useState("");
@@ -150,7 +148,7 @@ export function SegmentsClient({
             </span>
             <Link
               href="/dashboard/settings/billing"
-              className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
+              className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-orange-600/30"
             >
               <Sparkles className="h-3.5 w-3.5" />
               Passer au Pro
@@ -159,13 +157,9 @@ export function SegmentsClient({
         )}
       </div>
 
-      {/* Info banner */}
-      <Alert className="flex items-start gap-3 p-4">
-        <Info className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-        <AlertDescription className="text-zinc-600 dark:text-zinc-400">
-          Les segments regroupent dynamiquement vos contacts selon des critères. Utilisez-les pour cibler vos campagnes vers une audience spécifique.
-        </AlertDescription>
-      </Alert>
+      <PageHint>
+        Les segments regroupent dynamiquement vos contacts selon des critères. Utilisez-les pour cibler vos campagnes vers une audience spécifique.
+      </PageHint>
 
       {/* Search and sort controls */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -180,7 +174,7 @@ export function SegmentsClient({
             className="h-10 pl-9"
           />
         </div>
-        <Select value={sort} onValueChange={(value) => setSort(value as SortKey)}>
+        <TypedSelect values={SORT_KEYS} value={sort} onValueChange={setSort}>
           <SelectTrigger className="sm:w-48" aria-label="Trier les segments">
             {/* A div, not a span: the trigger line-clamps its direct span children. */}
             <div className="flex min-w-0 items-center gap-2">
@@ -194,14 +188,14 @@ export function SegmentsClient({
             <SelectItem value="name-asc">Nom A-Z</SelectItem>
             <SelectItem value="name-desc">Nom Z-A</SelectItem>
           </SelectContent>
-        </Select>
+        </TypedSelect>
       </div>
 
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
         {filtered.length > 0 ? (
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent dark:hover:bg-transparent">
+              <TableRow>
                 <TableHead className="px-4">Nom du segment</TableHead>
                 <TableHead className="px-4">Description</TableHead>
                 <TableHead className="px-4">Contacts</TableHead>
@@ -237,78 +231,67 @@ export function SegmentsClient({
       </div>
 
       {/* Create modal */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nouveau segment</DialogTitle>
-          </DialogHeader>
-          <form action={formAction} className="space-y-4">
+      <FormDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Nouveau segment"
+        action={formAction}
+        error={state?.error}
+        pending={pending}
+        submit={{ label: "Créer", pendingLabel: "Création..." }}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="segment-name">Nom</Label>
+          <Input
+            id="segment-name"
+            name="name"
+            required
+            placeholder="ex: Clients actifs, Prospects..."
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="segment-description">Description</Label>
+          <Textarea
+            id="segment-description"
+            name="description"
+            rows={3}
+            className="min-h-0 resize-none"
+            placeholder="Description optionnelle..."
+          />
+        </div>
+        {/* Dynamic filters */}
+        <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-3">
+          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Filtres dynamiques</p>
+          <div className="space-y-1.5">
+            <Label htmlFor="segment-filter-subscribed" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Statut abonnement</Label>
+            <TypedSelect values={SUBSCRIPTION_FILTERS} value={filterSubscribed} onValueChange={setFilterSubscribed}>
+              <SelectTrigger id="segment-filter-subscribed">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous</SelectItem>
+                <SelectItem value="true">Abonnés uniquement</SelectItem>
+                <SelectItem value="false">Désabonnés uniquement</SelectItem>
+              </SelectContent>
+            </TypedSelect>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="segment-filter-tags" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Tags (séparés par des virgules)</Label>
+            <Input id="segment-filter-tags" value={filterTags} onChange={(e) => setFilterTags(e.target.value)} placeholder="vip, client" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="segment-name">Nom</Label>
-              <Input
-                id="segment-name"
-                name="name"
-                required
-                className="h-10"
-                placeholder="ex: Clients actifs, Prospects..."
-              />
+              <Label htmlFor="segment-filter-engagement" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Score engagement min</Label>
+              <Input id="segment-filter-engagement" type="number" value={filterEngagementMin} onChange={(e) => setFilterEngagementMin(e.target.value)} placeholder="0" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="segment-description">Description</Label>
-              <Textarea
-                id="segment-description"
-                name="description"
-                rows={3}
-                className="min-h-0 resize-none"
-                placeholder="Description optionnelle..."
-              />
+              <Label htmlFor="segment-filter-created-after" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Créés après</Label>
+              <Input id="segment-filter-created-after" type="date" value={filterCreatedAfter} onChange={(e) => setFilterCreatedAfter(e.target.value)} className="cursor-pointer" />
             </div>
-            {/* Dynamic filters */}
-            <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-3">
-              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Filtres dynamiques</p>
-              <div className="space-y-1.5">
-                <Label htmlFor="segment-filter-subscribed" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Statut abonnement</Label>
-                <Select value={filterSubscribed} onValueChange={(value) => setFilterSubscribed(value as "all" | "true" | "false")}>
-                  <SelectTrigger id="segment-filter-subscribed">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous</SelectItem>
-                    <SelectItem value="true">Abonnés uniquement</SelectItem>
-                    <SelectItem value="false">Désabonnés uniquement</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="segment-filter-tags" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Tags (séparés par des virgules)</Label>
-                <Input id="segment-filter-tags" value={filterTags} onChange={(e) => setFilterTags(e.target.value)} className="h-10" placeholder="vip, client" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="segment-filter-engagement" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Score engagement min</Label>
-                  <Input id="segment-filter-engagement" type="number" value={filterEngagementMin} onChange={(e) => setFilterEngagementMin(e.target.value)} className="h-10" placeholder="0" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="segment-filter-created-after" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Créés après</Label>
-                  <Input id="segment-filter-created-after" type="date" value={filterCreatedAfter} onChange={(e) => setFilterCreatedAfter(e.target.value)} className="h-10 cursor-pointer" />
-                </div>
-              </div>
-            </div>
-            <input type="hidden" name="filters" value={getFiltersJson()} />
-            {state?.error && (
-              <p className="text-sm text-red-500">{state.error}</p>
-            )}
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={pending}>
-                {pending ? "Création..." : "Créer"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+        <input type="hidden" name="filters" value={getFiltersJson()} />
+      </FormDialog>
     </div>
   );
 }
@@ -353,13 +336,12 @@ function SegmentRow({ segment }: { segment: SegmentData }) {
         <TableCell className="px-4 text-sm text-zinc-500">{formattedDate}</TableCell>
         <TableCell className="px-4 text-right">
           <Button
-            variant="ghost"
+            variant="ghost-destructive"
             size="sm"
             onClick={() => setConfirmOpen(true)}
             disabled={deleting}
-            className="h-8 gap-1 text-red-500 hover:bg-red-500/10 hover:text-red-400 dark:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 />
             {deleting ? "..." : "Supprimer"}
           </Button>
         </TableCell>
