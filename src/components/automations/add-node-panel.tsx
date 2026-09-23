@@ -25,11 +25,11 @@ export function AddNodePanel({
         <h3 className="text-sm font-medium text-zinc-100">Ajouter un nœud</h3>
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-xs"
           onClick={onClose}
           aria-label="Fermer"
           title="Fermer"
-          className="h-7 w-7 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 [&_svg]:size-3.5"
+          className="text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
         >
           <X />
         </Button>

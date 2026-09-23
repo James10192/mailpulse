@@ -39,7 +39,6 @@ export default async function CapturePageEditPage({
       />
       <FormBuilder
         pageId={page.id}
-        slug={page.slug}
         initialFields={page.fields as Array<{ name: string; type: string; required: boolean; label: string }>}
         initialButtonLabel={page.buttonLabel}
         initialSuccessMessage={page.successMessage}

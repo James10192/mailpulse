@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, GripVertical, Save, Eye, Check, Loader2 } from "lucide-react";
 import { MailPulseLogo } from "@/components/mailpulse-logo";
+import { CaptureForm } from "@/app/capture/[slug]/capture-form";
 import { updateCapturePageFields } from "../../actions";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 
 interface Field {
   name: string;
@@ -36,13 +36,11 @@ const FIELD_TYPES = [
 
 export function FormBuilder({
   pageId,
-  slug,
   initialFields,
   initialButtonLabel,
   initialSuccessMessage,
 }: {
   pageId: string;
-  slug: string;
   initialFields: Field[];
   initialButtonLabel: string;
   initialSuccessMessage: string;
@@ -171,17 +169,16 @@ export function FormBuilder({
                         />
                         <Label
                           htmlFor={`required-${field.name}`}
-                          className="cursor-pointer text-xs font-normal text-zinc-500"
+                          className="text-xs font-normal text-zinc-500"
                         >
                           Obligatoire
                         </Label>
                       </div>
                       {field.type !== "email" && (
                         <Button
-                          variant="ghost"
-                          size="icon"
+                          variant="ghost-destructive"
+                          size="icon-sm"
                           onClick={() => removeField(index)}
-                          className="h-7 w-7 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 [&_svg]:size-3.5"
                           aria-label="Supprimer le champ"
                           title="Supprimer le champ"
                         >
@@ -196,7 +193,7 @@ export function FormBuilder({
             <Button
               variant="ghost"
               onClick={addField}
-              className="mt-3 w-full border border-dashed border-zinc-300 text-zinc-500 hover:border-orange-500/50 hover:bg-transparent hover:text-orange-500 dark:border-zinc-700 dark:hover:bg-transparent"
+              className="mt-3 w-full border border-dashed border-zinc-300 text-zinc-500 hover:border-orange-500/50 hover:text-orange-600 dark:border-zinc-700 dark:hover:text-orange-400"
             >
               <Plus />
               Ajouter un champ
@@ -239,7 +236,8 @@ export function FormBuilder({
               Aperçu en direct
             </span>
           </div>
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+          {/* The real public form in preview mode: what visitors will see, never submitted. */}
+          <div className="dark rounded-xl border border-zinc-800 bg-zinc-900 p-6">
             <div className="text-center mb-6">
               <div className="inline-flex items-center gap-2 mb-3">
                 <MailPulseLogo className="h-6 w-10" sizes="40px" />
@@ -248,50 +246,13 @@ export function FormBuilder({
                 </span>
               </div>
             </div>
-            <div className="space-y-3">
-              {fields.map((field) => (
-                <div key={field.name}>
-                  <Label
-                    htmlFor={`preview-${field.name}`}
-                    className="mb-1 block text-sm font-medium text-zinc-300"
-                  >
-                    {field.label} {field.required && "*"}
-                  </Label>
-                  {field.type === "textarea" ? (
-                    <Textarea
-                      id={`preview-${field.name}`}
-                      disabled
-                      placeholder={`Entrez ${field.label.toLowerCase()}`}
-                      className="h-20 min-h-20 resize-none rounded-xl border-zinc-700 bg-zinc-800/50 text-zinc-400 disabled:cursor-default disabled:opacity-100 dark:border-zinc-700 dark:bg-zinc-800/50"
-                    />
-                  ) : field.type === "select" ? (
-                    <Select disabled>
-                      <SelectTrigger
-                        id={`preview-${field.name}`}
-                        className="rounded-xl border-zinc-700 bg-zinc-800/50 text-zinc-400 disabled:cursor-default disabled:opacity-100"
-                      >
-                        <SelectValue placeholder="Choisir..." />
-                      </SelectTrigger>
-                      <SelectContent />
-                    </Select>
-                  ) : (
-                    <Input
-                      id={`preview-${field.name}`}
-                      disabled
-                      type={field.type}
-                      placeholder={field.type === "email" ? "vous@exemple.com" : field.type === "tel" ? "+225 XX XX XX XX" : ""}
-                      className="h-auto rounded-xl bg-zinc-800/50 text-zinc-400 shadow-[inset_0_0_0_1px_rgb(63,63,70)] disabled:cursor-default disabled:opacity-100 dark:bg-zinc-800/50 dark:shadow-[inset_0_0_0_1px_rgb(63,63,70)]"
-                    />
-                  )}
-                </div>
-              ))}
-              <Button
-                disabled
-                className="mt-2 h-auto w-full rounded-xl py-2.5 font-semibold shadow-none disabled:cursor-default disabled:opacity-100"
-              >
-                {buttonLabel}
-              </Button>
-            </div>
+            <CaptureForm
+              pageId={pageId}
+              fields={fields}
+              buttonLabel={buttonLabel}
+              successMessage={successMessage}
+              preview
+            />
           </div>
         </div>
       </div>

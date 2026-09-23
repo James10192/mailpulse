@@ -77,12 +77,12 @@ export function AddContactPanel({
           <Button
             type="button"
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             onClick={onClose}
             aria-label="Fermer"
-            className="h-8 w-8 text-zinc-400"
+            className="text-zinc-500 dark:text-zinc-400"
           >
-            <X className="h-4 w-4" />
+            <X />
           </Button>
         </div>
         <SheetDescription className="sr-only">
@@ -145,16 +145,14 @@ export function AddContactPanel({
                   >
                     <Tag className="h-3 w-3" />
                     {tag}
-                    <Button
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="icon"
                       onClick={() => toggleTag(tag)}
                       aria-label={`Retirer le tag ${tag}`}
-                      className="ml-0.5 h-3.5 w-3.5 rounded-sm p-0 text-current hover:bg-transparent hover:text-orange-700 dark:hover:bg-transparent dark:hover:text-orange-200 [&_svg]:size-3"
+                      className="ml-0.5 rounded-sm transition-colors hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35 dark:hover:text-orange-200"
                     >
-                      <X />
-                    </Button>
+                      <X className="size-3" />
+                    </button>
                   </Badge>
                 ))}
               </div>
@@ -215,7 +213,8 @@ export function AddContactPanel({
                 type="button"
                 variant="link"
                 onClick={() => setShowTagInput(true)}
-                className="h-auto gap-1 p-0 text-xs no-underline hover:no-underline hover:text-orange-400"
+                size="inline"
+                className="gap-1 text-xs hover:no-underline hover:text-orange-400"
               >
                 <Plus className="h-3 w-3" />
                 Créer un tag

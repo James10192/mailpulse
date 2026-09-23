@@ -23,9 +23,6 @@ import type {
   TriggerConfig,
 } from "./workflow-types";
 
-// Dark field styling for the docked panel over the canvas.
-const FIELD_CLASS =
-  "h-9 bg-zinc-800/50 text-zinc-100 shadow-[inset_0_0_0_1px_rgb(63,63,70)] placeholder:text-zinc-600 dark:bg-zinc-800/50 dark:shadow-[inset_0_0_0_1px_rgb(63,63,70)]";
 
 function TextField({
   label,
@@ -52,7 +49,7 @@ function TextField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={FIELD_CLASS}
+        className="h-9"
       />
     </div>
   );
@@ -77,10 +74,7 @@ function SelectField({
       </Label>
       <Select value={value} onValueChange={onChange}>
         {/* "nokey": React Flow must not treat Backspace/Delete here as a node deletion. */}
-        <SelectTrigger
-          id={id}
-          className="nokey h-9 border-zinc-700 bg-zinc-800/50 text-zinc-100"
-        >
+        <SelectTrigger id={id} className="nokey h-9">
           <SelectValue />
         </SelectTrigger>
         <SelectContent className="nokey">
@@ -116,17 +110,18 @@ export function NodeConfigPanel({
   }
 
   return (
-    <div className="absolute top-0 right-0 h-full w-80 border-l border-zinc-800 bg-zinc-900/95 backdrop-blur-xl z-50 flex flex-col overflow-hidden">
+    // The panel sits on the always-dark canvas: the `dark` scope gives every field its dark styles.
+    <div className="dark absolute top-0 right-0 h-full w-80 border-l border-zinc-800 bg-zinc-900/95 backdrop-blur-xl z-50 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between shrink-0">
         <h3 className="text-sm font-medium text-zinc-100">{data.label}</h3>
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-xs"
           onClick={onClose}
           aria-label="Fermer"
           title="Fermer"
-          className="h-7 w-7 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 [&_svg]:size-3.5"
+          className="text-zinc-400"
         >
           <X />
         </Button>
@@ -185,12 +180,12 @@ export function NodeConfigPanel({
       {data.type !== "trigger" && (
         <div className="p-4 border-t border-zinc-800 shrink-0">
           <Button
-            variant="ghost"
+            variant="ghost-destructive"
             onClick={() => {
               onDelete(node.id);
               onClose();
             }}
-            className="h-9 w-full border border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-400 dark:text-red-400 dark:hover:bg-red-500/10 dark:hover:text-red-400 [&_svg]:size-3.5"
+            className="w-full border border-red-500/20"
           >
             <Trash2 />
             Supprimer ce nœud

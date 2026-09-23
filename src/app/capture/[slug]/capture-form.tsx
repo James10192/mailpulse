@@ -16,11 +16,14 @@ export function CaptureForm({
   fields,
   buttonLabel,
   successMessage,
+  preview = false,
 }: {
   pageId: string;
   fields: Field[];
   buttonLabel: string;
   successMessage: string;
+  /** Form builder preview: renders the exact public form but never submits it. */
+  preview?: boolean;
 }) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -28,6 +31,7 @@ export function CaptureForm({
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (preview) return;
     setError("");
     setLoading(true);
 
@@ -56,17 +60,17 @@ export function CaptureForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} noValidate={preview} aria-label={preview ? "Aperçu du formulaire" : undefined} className="space-y-4">
       {fields.map((field) => (
         <div key={field.name}>
           <label
-            htmlFor={`field-${field.name}`}
+            htmlFor={`${preview ? "preview" : "field"}-${field.name}`}
             className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
           >
             {field.label} {field.required && "*"}
           </label>
           <input
-            id={`field-${field.name}`}
+            id={`${preview ? "preview" : "field"}-${field.name}`}
             name={field.name}
             type={field.type}
             required={field.required}

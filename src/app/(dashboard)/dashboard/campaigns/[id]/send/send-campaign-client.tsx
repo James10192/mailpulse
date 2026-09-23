@@ -9,13 +9,11 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { cn } from "@/lib/utils";
+import { SingleChoiceGroup } from "@/components/forms/single-choice-group";
+import { ToggleGroupItem } from "@/components/ui/toggle-group";
 
-// Selectable option pill: orange when pressed, neutral outline otherwise.
-const PILL_CLASS =
-  "h-auto min-w-0 whitespace-normal rounded-lg border border-zinc-200 px-3 py-2 font-normal text-zinc-500 hover:border-zinc-400 hover:bg-transparent hover:text-zinc-500 dark:border-zinc-700 data-[state=on]:border-orange-500/50 data-[state=on]:bg-orange-500/10 data-[state=on]:text-orange-500";
-const SUB_PILL_CLASS = cn(PILL_CLASS, "py-1.5 text-xs dark:border-zinc-800 data-[state=on]:text-orange-400");
+const AUDIENCE_MODES = ["all", "segment", "tag"] as const;
+const SEND_MODES = ["now", "schedule"] as const;
 
 interface CampaignData {
   id: string;
@@ -40,7 +38,8 @@ interface ContactListData {
   contactCount: number;
 }
 
-type AudienceMode = "all" | "segment" | "tag";
+type AudienceMode = (typeof AUDIENCE_MODES)[number];
+type SendMode = (typeof SEND_MODES)[number];
 
 export function SendCampaignClient({
   campaign,
@@ -62,7 +61,7 @@ export function SendCampaignClient({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-  const [sendMode, setSendMode] = useState<"now" | "schedule">("now");
+  const [sendMode, setSendMode] = useState<SendMode>("now");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
 
@@ -204,21 +203,19 @@ export function SendCampaignClient({
           Expéditeur
         </h2>
         {senders.length > 0 ? (
-          <ToggleGroup
-            type="single"
+          <SingleChoiceGroup
+            values={senders.map((s) => s.id)}
             value={senderId}
-            onValueChange={(value) => {
-              if (value) setSenderId(value);
-            }}
+            onValueChange={setSenderId}
             aria-label="Expéditeur"
             className="flex-wrap gap-2"
           >
             {senders.map((s) => (
-              <ToggleGroupItem key={s.id} value={s.id} className={PILL_CLASS}>
+              <ToggleGroupItem key={s.id} value={s.id} variant="choice" size="choice">
                 {s.name} &lt;{s.email}&gt;
               </ToggleGroupItem>
             ))}
-          </ToggleGroup>
+          </SingleChoiceGroup>
         ) : (
           <div className="p-4 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 text-center">
             <p className="text-sm text-amber-400 mb-2">Aucun expéditeur configuré.</p>
@@ -241,67 +238,61 @@ export function SendCampaignClient({
         </h2>
 
         {/* Mode pills */}
-        <ToggleGroup
-          type="single"
+        <SingleChoiceGroup
+          values={AUDIENCE_MODES}
           value={audienceMode}
-          onValueChange={(value) => {
-            if (value) setAudienceMode(value as AudienceMode);
-          }}
+          onValueChange={setAudienceMode}
           aria-label="Audience"
-          className="gap-2"
+          className="flex-wrap gap-2"
         >
-          <ToggleGroupItem value="all" className={PILL_CLASS}>
+          <ToggleGroupItem value="all" variant="choice" size="choice">
             {isSms ? "Contacts SMS" : isWhatsApp ? "Contacts WhatsApp" : "Tous les abonnés"} ({subscribedCount})
           </ToggleGroupItem>
           {availableSegments.length > 0 && (
-            <ToggleGroupItem value="segment" className={PILL_CLASS}>
+            <ToggleGroupItem value="segment" variant="choice" size="choice">
               Par segment
             </ToggleGroupItem>
           )}
-          <ToggleGroupItem value="tag" className={cn(PILL_CLASS, "gap-1.5 [&_svg:not([class*='size-'])]:size-3")}>
-            <Tag />
+          <ToggleGroupItem value="tag" variant="choice" size="choice" className="gap-1.5">
+            <Tag className="size-3" />
             Par tag
           </ToggleGroupItem>
-        </ToggleGroup>
+        </SingleChoiceGroup>
 
         {/* Segment sub-selection */}
         {audienceMode === "segment" && (
-          <ToggleGroup
-            type="single"
+          <SingleChoiceGroup
+            values={availableSegments.map((seg) => seg.id)}
             value={selectedSegment}
-            onValueChange={(value) => {
-              if (value) setSelectedSegment(value);
-            }}
+            onValueChange={setSelectedSegment}
             aria-label="Segment"
             className="flex-wrap gap-2 pt-1"
           >
             {availableSegments.map((seg) => (
-              <ToggleGroupItem key={seg.id} value={seg.id} className={SUB_PILL_CLASS}>
+              <ToggleGroupItem key={seg.id} value={seg.id} variant="choice" size="choice-sm">
                 {seg.name} ({seg.contactCount})
               </ToggleGroupItem>
             ))}
-          </ToggleGroup>
+          </SingleChoiceGroup>
         )}
 
         {/* Tag sub-selection */}
         {audienceMode === "tag" && (
           <div className="flex flex-wrap gap-2 pt-1">
             {availableTags.length > 0 ? (
-              <ToggleGroup
-                type="single"
+              <SingleChoiceGroup
+                values={availableTags}
                 value={selectedTag}
-                onValueChange={(value) => {
-                  if (value) setSelectedTag(value);
-                }}
+                onValueChange={setSelectedTag}
                 aria-label="Tag"
                 className="flex-wrap gap-2"
               >
                 {availableTags.map((tag) => (
-                  <ToggleGroupItem key={tag} value={tag} className={SUB_PILL_CLASS}>
+                  <ToggleGroupItem key={tag} value={tag} variant="choice" size="choice-sm">
                     {tag}
                   </ToggleGroupItem>
                 ))}
-              </ToggleGroup>
+              </SingleChoiceGroup>
             ) : (
               <p className="text-xs text-zinc-500 italic">Aucun tag. Ajoutez des tags à vos contacts pour filtrer par tag.</p>
             )}
@@ -322,24 +313,22 @@ export function SendCampaignClient({
           <Clock className="h-4 w-4" />
           Quand envoyer
         </h2>
-        <ToggleGroup
-          type="single"
+        <SingleChoiceGroup
+          values={SEND_MODES}
           value={sendMode}
-          onValueChange={(value) => {
-            if (value) setSendMode(value as "now" | "schedule");
-          }}
+          onValueChange={setSendMode}
           aria-label="Quand envoyer"
           className="w-full gap-2"
         >
-          <ToggleGroupItem value="now" className={cn(PILL_CLASS, "flex-1 gap-2 px-4 py-3 font-medium")}>
+          <ToggleGroupItem value="now" variant="choice" size="choice" className="flex-1 gap-2 px-4 py-3 font-medium">
             <Send />
             Envoyer maintenant
           </ToggleGroupItem>
-          <ToggleGroupItem value="schedule" className={cn(PILL_CLASS, "flex-1 gap-2 px-4 py-3 font-medium")}>
+          <ToggleGroupItem value="schedule" variant="choice" size="choice" className="flex-1 gap-2 px-4 py-3 font-medium">
             <CalendarDays />
             Planifier
           </ToggleGroupItem>
-        </ToggleGroup>
+        </SingleChoiceGroup>
         {sendMode === "schedule" && (
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="space-y-1">

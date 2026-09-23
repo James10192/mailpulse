@@ -12,9 +12,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
+import { toggleVariants } from "@/components/ui/toggle";
 
-const CHANNEL_CARD_CLASS =
-  "flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40 has-[[data-state=checked]]:border-orange-500/40 has-[[data-state=checked]]:bg-orange-500/5";
+// A <label> wrapping a radio: the toggle "choice" style reacts to the checked radio inside it.
+const CHANNEL_CARD_CLASS = toggleVariants({ variant: "choice", size: "card" });
 
 export default function NewCampaignPage() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(

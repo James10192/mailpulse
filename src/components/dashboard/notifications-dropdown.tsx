@@ -65,14 +65,14 @@ export function NotificationsDropdown() {
           {unread > 0 && (
             <Button
               type="button"
-              variant="link"
+              variant="ghost"
               size="sm"
               onClick={() => {
                 if (userId) markAllAsRead({ userId });
               }}
-              className="h-auto gap-1 p-0 text-xs hover:text-orange-400 hover:no-underline"
+              className="-mr-2 gap-1 text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
             >
-              <CheckCheck className="h-3 w-3" />
+              <CheckCheck />
               Tout lire
             </Button>
           )}
@@ -87,15 +87,14 @@ export function NotificationsDropdown() {
               };
               const Icon = typeInfo.icon;
               return (
-                <Button
+                <button
                   key={notif._id}
                   type="button"
-                  variant="ghost"
                   onClick={() => {
                     if (!notif.read) markAsRead({ notificationId: notif._id });
                   }}
                   className={cn(
-                    "block h-auto w-full whitespace-normal rounded-none border-b border-zinc-100 px-4 py-3 text-left font-normal last:border-0 hover:bg-zinc-50 active:scale-100 dark:border-zinc-800 dark:hover:bg-zinc-800/50",
+                    "block w-full border-b border-zinc-100 px-4 py-3 text-left transition-colors last:border-0 hover:bg-zinc-50 focus-visible:bg-zinc-50 focus-visible:outline-none dark:border-zinc-800 dark:hover:bg-zinc-800/50 dark:focus-visible:bg-zinc-800/50",
                     !notif.read && "bg-orange-500/5",
                   )}
                 >
@@ -121,7 +120,7 @@ export function NotificationsDropdown() {
                       <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-orange-500" />
                     )}
                   </div>
-                </Button>
+                </button>
               );
             })
           ) : (

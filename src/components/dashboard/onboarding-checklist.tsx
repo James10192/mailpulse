@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
-  ChevronDown, ChevronUp, X,
+  X,
   Users, Send, AtSign, Globe, FileEdit, Zap, Rocket,
 } from "lucide-react";
 
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -101,7 +102,6 @@ function saveCompletedTasks(completed: Set<string>) {
 
 export function OnboardingChecklist() {
   const [completed, setCompleted] = useState<Set<string>>(new Set());
-  const [expanded, setExpanded] = useState(true);
   const [dismissed, setDismissed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
@@ -164,52 +164,52 @@ export function OnboardingChecklist() {
   if (allDone) return null;
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/20">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => setExpanded(!expanded)}
-          aria-expanded={expanded}
-          className="h-auto min-h-11 flex-1 justify-start gap-3 whitespace-normal p-0 text-left font-normal hover:bg-transparent active:scale-[0.99] dark:hover:bg-transparent"
-        >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
-            <Rocket className="h-4 w-4 text-orange-500" />
+    <Accordion
+      type="single"
+      collapsible
+      defaultValue="tasks"
+      className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden"
+    >
+      <AccordionItem value="tasks">
+        {/* Header: the dismiss button is a sibling of the trigger, never inside it. */}
+        <div className="flex items-center gap-2 pr-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/20">
+          <div className="min-w-0 flex-1">
+            <AccordionTrigger className="min-h-11 items-center gap-3 rounded-none p-4 font-normal hover:no-underline focus-visible:ring-inset">
+              <span className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
+                  <Rocket className="h-4 w-4 text-orange-500" />
+                </span>
+                <span>
+                  <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Premiers pas avec MailPulse</span>
+                  <span className="block text-xs text-zinc-500">{completedCount}/{totalCount} étapes complétées</span>
+                </span>
+              </span>
+            </AccordionTrigger>
           </div>
-          <div>
-            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Premiers pas avec MailPulse</p>
-            <p className="text-xs text-zinc-500">{completedCount}/{totalCount} étapes complétées</p>
-          </div>
-        </Button>
-        <div className="flex items-center gap-2">
           <Button
             type="button"
             variant="ghost"
-            size="icon"
-            onClick={(e) => { e.stopPropagation(); handleDismiss(); }}
-            className="size-8 text-zinc-400 hover:bg-transparent hover:text-zinc-600 active:scale-[0.96] dark:hover:bg-transparent dark:hover:text-zinc-300"
+            size="icon-sm"
+            onClick={handleDismiss}
+            className="text-zinc-500 dark:text-zinc-400"
             title="Masquer"
             aria-label="Masquer la checklist"
           >
-            <X className="h-3.5 w-3.5" />
+            <X />
           </Button>
-          {expanded ? <ChevronUp className="h-4 w-4 text-zinc-400" /> : <ChevronDown className="h-4 w-4 text-zinc-400" />}
         </div>
-      </div>
 
-      {/* Progress bar */}
-      <div className="px-4 pb-2">
-        <Progress
-          value={progress}
-          aria-label={`Progression : ${progress} %`}
-          className="h-1.5 bg-zinc-100 dark:bg-zinc-800"
-        />
-      </div>
+        {/* Progress bar */}
+        <div className="px-4 pb-2">
+          <Progress
+            value={progress}
+            aria-label={`Progression : ${progress} %`}
+            className="h-1.5 bg-zinc-100 dark:bg-zinc-800"
+          />
+        </div>
 
-      {/* Tasks */}
-      {expanded && (
-        <div className="px-4 pb-4 space-y-1">
+        {/* Tasks */}
+        <AccordionContent className="px-4 pb-4 space-y-1">
           {tasks.map((task) => {
             const done = completed.has(task.id);
             const Icon = task.icon;
@@ -225,7 +225,7 @@ export function OnboardingChecklist() {
                   checked={done}
                   onCheckedChange={() => toggleTask(task.id)}
                   aria-label={done ? `Marquer « ${task.label} » comme à faire` : `Marquer « ${task.label} » comme fait`}
-                  className="size-5 cursor-pointer rounded-full"
+                  className="size-5 rounded-full"
                 />
                 <Icon className={cn("h-4 w-4 shrink-0", done ? "text-zinc-400" : "text-zinc-500")} />
                 <div className="flex-1 min-w-0">
@@ -247,9 +247,9 @@ export function OnboardingChecklist() {
               </div>
             );
           })}
-        </div>
-      )}
-    </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 }
 
