@@ -5,11 +5,19 @@ import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { canAccessFeature, checkCampaignLimit, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plans";
+import { canAccessFeature, checkCampaignLimit, getFeatureUpgradeMessage } from "@/lib/plans";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
+import { resolveScheduleTargets, type ScheduleTargets } from "@/lib/campaigns/tenant-scope";
+import { prismaCampaignDb } from "@/lib/campaigns/prisma-campaign-db";
+
+const SCHEDULE_TARGET_ERRORS: Record<Extract<ScheduleTargets, { ok: false }>["reason"], string> = {
+  sender_not_found: "Expéditeur introuvable.",
+  invalid_audience: "Audience invalide.",
+  unsupported_audience: "La planification n’est possible que vers tous les contacts. Pour un segment ou un tag, envoyez la campagne maintenant.",
+};
 
 const campaignCreateSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -35,13 +43,13 @@ export async function createCampaign(
   try {
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) {
-      return { error: "Utilisateur non trouve." };
+      return { error: "Utilisateur non trouvé." };
     }
-    if (result.data.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+    if (result.data.channel === "WHATSAPP" && !canAccessFeature(org.plan, "whatsapp")) {
       return { error: getFeatureUpgradeMessage("whatsapp") };
     }
 
-    const campaignCheck = await checkCampaignLimit(org.id, org.plan as PlanTier);
+    const campaignCheck = await checkCampaignLimit(org.id, org.plan);
     if (!campaignCheck.allowed) {
       return { error: `Limite de campagnes actives atteinte (${campaignCheck.limit}). Passez au plan Pro.` };
     }
@@ -86,27 +94,26 @@ export async function createCampaign(
 export async function deleteCampaign(campaignId: string): Promise<ActionState> {
   try {
     const { user, org } = await getCurrentUserAndOrg();
-    if (!user || !org) return { error: "Non authentifie." };
+    if (!user || !org) return { error: "Non authentifié." };
 
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaignId, organizationId: org.id },
       select: { name: true, organizationId: true, userId: true },
     });
     if (!campaign) return { error: "Campagne introuvable." };
-    await prisma.campaign.delete({ where: { id: campaignId } });
+    const { count } = await prisma.campaign.deleteMany({ where: { id: campaignId, organizationId: org.id } });
+    if (count === 0) return { error: "Campagne introuvable." };
 
-    if (campaign) {
-      trackServerEvent(campaign.userId, EVENTS.CAMPAIGN_DELETED, { campaign_name: campaign.name }, campaign.organizationId);
-      convexServer.mutation(api.dashboard.logActivity, {
-        organizationId: campaign.organizationId,
-        userId: campaign.userId,
-        userName: "System",
-        action: "deleted",
-        resourceType: "campaign",
-        resourceId: campaignId,
-        resourceName: campaign.name,
-      });
-    }
+    trackServerEvent(campaign.userId, EVENTS.CAMPAIGN_DELETED, { campaign_name: campaign.name }, campaign.organizationId);
+    convexServer.mutation(api.dashboard.logActivity, {
+      organizationId: campaign.organizationId,
+      userId: campaign.userId,
+      userName: "System",
+      action: "deleted",
+      resourceType: "campaign",
+      resourceId: campaignId,
+      resourceName: campaign.name,
+    });
 
     revalidatePath("/dashboard/campaigns");
     revalidatePath("/dashboard");
@@ -123,22 +130,25 @@ export async function scheduleCampaign(
   scheduledAt: string
 ): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
-  if (!user || !org) return { error: "Non authentifie." };
+  if (!user || !org) return { error: "Non authentifié." };
 
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId, organizationId: org.id },
   });
   if (!campaign) return { error: "Campagne introuvable." };
   if (campaign.channel === "SMS") return { error: "La planification SMS n’est pas encore disponible. Envoyez la campagne maintenant." };
-  if (campaign.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+  if (campaign.channel === "WHATSAPP" && !canAccessFeature(org.plan, "whatsapp")) {
     return { error: getFeatureUpgradeMessage("whatsapp") };
   }
   if (campaign.status !== "DRAFT") return { error: "Seules les campagnes en brouillon peuvent être planifiées." };
 
-  const sender = campaign.channel === "EMAIL"
-    ? await prisma.emailSender.findUnique({ where: { id: senderId } })
-    : null;
-  if (campaign.channel === "EMAIL" && !sender) return { error: "Expéditeur introuvable." };
+  const targets = await resolveScheduleTargets(prismaCampaignDb, org.id, {
+    channel: campaign.channel,
+    senderId,
+    audience,
+  });
+  if (!targets.ok) return { error: SCHEDULE_TARGET_ERRORS[targets.reason] };
+  const { sender } = targets;
 
   const scheduledDate = new Date(scheduledAt);
   if (isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
@@ -146,17 +156,19 @@ export async function scheduleCampaign(
   }
 
   try {
-    await prisma.campaign.update({
-      where: { id: campaignId },
+    const { count } = await prisma.campaign.updateMany({
+      where: { id: campaignId, organizationId: org.id, status: "DRAFT" },
       data: {
         status: "SCHEDULED",
         scheduledAt: scheduledDate,
         fromName: sender?.name ?? null,
         fromEmail: sender?.email ?? null,
         replyTo: sender?.replyTo ?? null,
-        contactListId: audience === "all" ? null : audience,
+        // A NULL list means every subscribed contact of the organization.
+        contactListId: null,
       },
     });
+    if (count === 0) return { error: "Seules les campagnes en brouillon peuvent être planifiées." };
 
     trackServerEvent(user.id, "campaign_scheduled", {
       campaign_id: campaignId,
@@ -196,8 +208,8 @@ export async function updateCampaign(
 ): Promise<ActionState> {
   try {
     const { user, org } = await getCurrentUserAndOrg();
-    if (!user || !org) return { error: "Non authentifie." };
-    if (data.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+    if (!user || !org) return { error: "Non authentifié." };
+    if (data.channel === "WHATSAPP" && !canAccessFeature(org.plan, "whatsapp")) {
       return { error: getFeatureUpgradeMessage("whatsapp") };
     }
 
@@ -228,21 +240,25 @@ export async function updateCampaign(
 export async function cancelCampaign(campaignId: string): Promise<ActionState> {
   try {
     const { user, org } = await getCurrentUserAndOrg();
-    if (!user || !org) return { error: "Non authentifie." };
+    if (!user || !org) return { error: "Non authentifié." };
 
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaignId, organizationId: org.id },
       select: { status: true, name: true },
     });
     if (!campaign) return { error: "Campagne introuvable." };
-    if (!["SCHEDULED", "SENDING"].includes(campaign.status)) {
-      return { error: "Seules les campagnes planifiées ou en cours peuvent être annulées." };
+    if (campaign.status === "SENDING") {
+      return { error: "L’envoi a déjà commencé, la campagne ne peut plus être annulée." };
+    }
+    if (campaign.status !== "SCHEDULED") {
+      return { error: "Seules les campagnes planifiées peuvent être annulées." };
     }
 
-    await prisma.campaign.update({
-      where: { id: campaignId },
+    const { count } = await prisma.campaign.updateMany({
+      where: { id: campaignId, organizationId: org.id, status: "SCHEDULED" },
       data: { status: "DRAFT", scheduledAt: null },
     });
+    if (count === 0) return { error: "Seules les campagnes planifiées peuvent être annulées." };
 
     trackServerEvent(user.id, "campaign_cancelled", {
       campaign_id: campaignId,
@@ -256,13 +272,13 @@ export async function cancelCampaign(campaignId: string): Promise<ActionState> {
       action: "deleted",
       resourceType: "campaign",
       resourceId: campaignId,
-      resourceName: `${campaign.name} (annulee)`,
+      resourceName: `${campaign.name} (annulée)`,
     });
 
     revalidatePath("/dashboard/campaigns");
     return { success: true };
   } catch {
-    return { error: "Erreur lors de l'annulation." };
+    return { error: "Erreur lors de l’annulation." };
   }
 }
 

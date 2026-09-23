@@ -273,11 +273,11 @@ function SidebarReadOnlyBadge() {
   );
 }
 
-function AppSidebar({ isAdmin, plan }: { isAdmin: boolean; plan: PlanTier }) {
+function AppSidebar({ isPlatformAdmin, plan }: { isPlatformAdmin: boolean; plan: PlanTier }) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const visibleNavigation = navigation.filter((item) => !item.adminOnly || isAdmin);
+  const visibleNavigation = navigation.filter((item) => !item.adminOnly || isPlatformAdmin);
 
   return (
     <Sidebar data-tour="sidebar" collapsible="icon" style={{ viewTransitionName: "persistent-sidebar" }}>
@@ -324,7 +324,7 @@ function AppSidebar({ isAdmin, plan }: { isAdmin: boolean; plan: PlanTier }) {
   );
 }
 
-function DashboardNavbar({ isAdmin }: { isAdmin: boolean }) {
+function DashboardNavbar({ isPlatformAdmin }: { isPlatformAdmin: boolean }) {
   return (
     <NavigationMenu viewport={false} className="hidden lg:flex">
       <NavigationMenuList>
@@ -333,7 +333,7 @@ function DashboardNavbar({ isAdmin }: { isAdmin: boolean }) {
             <NavigationMenuTrigger className="h-9 bg-transparent px-3">{group.label}</NavigationMenuTrigger>
             <NavigationMenuContent>
               <ul className="grid w-64 gap-1 p-1">
-                {group.items.filter((item) => !item.adminOnly || isAdmin).map((item) => {
+                {group.items.filter((item) => !item.adminOnly || isPlatformAdmin).map((item) => {
                   const Icon = item.icon;
 
                   return (
@@ -464,17 +464,17 @@ function HeaderFeedbackButton() {
   );
 }
 
-function DashboardRoutePrefetcher({ isAdmin }: { isAdmin: boolean }) {
+function DashboardRoutePrefetcher({ isPlatformAdmin }: { isPlatformAdmin: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const hrefs = useMemo(
     () =>
       dashboardPrefetchHrefs.filter((href) => {
         if (href === pathname) return false;
-        if (!isAdmin && href === "/dashboard/admin") return false;
+        if (!isPlatformAdmin && href === "/dashboard/admin") return false;
         return true;
       }),
-    [isAdmin, pathname]
+    [isPlatformAdmin, pathname]
   );
 
   useEffect(() => {
@@ -514,12 +514,12 @@ function DashboardRoutePrefetcher({ isAdmin }: { isAdmin: boolean }) {
   return null;
 }
 
-function DashboardContent({ children, isAdmin, plan }: { children: React.ReactNode; isAdmin: boolean; plan: PlanTier }) {
+function DashboardContent({ children, isPlatformAdmin, plan }: { children: React.ReactNode; isPlatformAdmin: boolean; plan: PlanTier }) {
   return (
     <SidebarProvider>
-      <DashboardRoutePrefetcher isAdmin={isAdmin} />
+      <DashboardRoutePrefetcher isPlatformAdmin={isPlatformAdmin} />
       <PresenceHeartbeat />
-      <AppSidebar isAdmin={isAdmin} plan={plan} />
+      <AppSidebar isPlatformAdmin={isPlatformAdmin} plan={plan} />
       <SidebarInset className="h-svh min-w-0 overflow-hidden bg-zinc-50 dark:bg-zinc-950">
         <header
           style={{ viewTransitionName: "persistent-header" }}
@@ -528,7 +528,7 @@ function DashboardContent({ children, isAdmin, plan }: { children: React.ReactNo
           <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger className="size-10 shrink-0" />
             <SearchTrigger />
-            <DashboardNavbar isAdmin={isAdmin} />
+            <DashboardNavbar isPlatformAdmin={isPlatformAdmin} />
           </div>
           <div className="flex min-w-0 items-center gap-1.5 md:gap-2">
             <HeaderFeedbackButton />
@@ -557,6 +557,6 @@ function DashboardContent({ children, isAdmin, plan }: { children: React.ReactNo
   );
 }
 
-export function DashboardShell({ children, isAdmin, plan }: { children: React.ReactNode; isAdmin: boolean; plan: PlanTier }) {
-  return <DashboardContent isAdmin={isAdmin} plan={plan}>{children}</DashboardContent>;
+export function DashboardShell({ children, isPlatformAdmin, plan }: { children: React.ReactNode; isPlatformAdmin: boolean; plan: PlanTier }) {
+  return <DashboardContent isPlatformAdmin={isPlatformAdmin} plan={plan}>{children}</DashboardContent>;
 }

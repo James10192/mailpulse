@@ -9,6 +9,7 @@ import { sendWhatsApp, sendWhatsAppImage } from "@/lib/whatsapp";
 import { htmlToPlainText } from "@/lib/message-content";
 import { personalizeHtml } from "@/lib/email-utils";
 import { canReceiveChannel } from "@/lib/mailpulse/consent";
+import { parseCampaignAudience } from "@/lib/campaigns/audience";
 import {
   generateTrackingToken,
   injectTrackingPixel,
@@ -32,23 +33,6 @@ type ContactRow = {
   subscribed: boolean;
   metadata: unknown;
 };
-function parseCampaignAudience(audience: string):
-  | { kind: "all" }
-  | { kind: "list"; id: string }
-  | { kind: "tag"; name: string }
-  | { error: string } {
-  if (audience === "all") return { kind: "all" };
-  if (audience.startsWith("list:")) {
-    const id = audience.slice("list:".length);
-    return id ? { kind: "list", id } : { error: "Segment invalide." };
-  }
-  if (audience.startsWith("tag:")) {
-    const name = audience.slice("tag:".length).trim();
-    return name && name.length <= 100 ? { kind: "tag", name } : { error: "Tag invalide." };
-  }
-  return { error: "Audience invalide." };
-}
-
 export async function validateCampaignForSending(campaignId: string, orgId: string) {
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId, organizationId: orgId },

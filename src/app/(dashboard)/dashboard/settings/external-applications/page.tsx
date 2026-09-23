@@ -2,17 +2,18 @@ import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { canManageOrganization } from "@/lib/access/roles";
 import { SettingsPageFrame } from "../settings-page-frame";
 import { ExternalApplicationsClient } from "./external-applications-client";
 import { BAILEYS_PROVIDER, META_PROVIDER } from "./guards";
 import type { ApplicationView, CredentialView, ProviderAccountView } from "./types";
 
 export default async function ExternalApplicationsPage() {
-  const { user, org, isAdmin, memberRole } = await getCurrentUserAndOrg();
+  const { user, org, isPlatformAdmin, memberRole } = await getCurrentUserAndOrg();
   if (!user) redirect("/login");
   if (!org) redirect("/dashboard");
 
-  const canManage = isAdmin || memberRole === "owner";
+  const canManage = canManageOrganization({ memberRole, isPlatformAdmin });
   const now = new Date();
 
   const applications = await prisma.externalApplication.findMany({

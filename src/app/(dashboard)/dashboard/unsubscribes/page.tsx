@@ -8,14 +8,16 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { notFound } from "next/navigation";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { DateRangeButton } from "@/components/dashboard/date-range-button";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 
-async function getUnsubscribeStats() {
+async function getUnsubscribeStats(organizationId: string) {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const dateFilter = { createdAt: { gte: thirtyDaysAgo } };
+  const eventFilter = { createdAt: { gte: thirtyDaysAgo }, contact: { organizationId } };
 
   const [
     totalContacts,
@@ -25,13 +27,13 @@ async function getUnsubscribeStats() {
     totalSent,
     campaignsWithUnsubs,
   ] = await Promise.all([
-    prisma.contact.count(),
-    prisma.contact.count({ where: { subscribed: true } }),
-    prisma.contact.count({ where: { subscribed: false } }),
-    prisma.emailEvent.count({ where: { type: "UNSUBSCRIBED", ...dateFilter } }),
-    prisma.emailEvent.count({ where: { type: "SENT", ...dateFilter } }),
+    prisma.contact.count({ where: { organizationId } }),
+    prisma.contact.count({ where: { organizationId, subscribed: true } }),
+    prisma.contact.count({ where: { organizationId, subscribed: false } }),
+    prisma.emailEvent.count({ where: { type: "UNSUBSCRIBED", ...eventFilter } }),
+    prisma.emailEvent.count({ where: { type: "SENT", ...eventFilter } }),
     prisma.emailEvent.findMany({
-      where: { type: "UNSUBSCRIBED", ...dateFilter },
+      where: { type: "UNSUBSCRIBED", ...eventFilter },
       include: {
         recipient: {
           include: { campaign: { select: { id: true, name: true } } },
@@ -121,7 +123,10 @@ function StatLine({ label, value, color }: { label: string; value: string | numb
 }
 
 export default async function UnsubscribesPage() {
-  const stats = await getUnsubscribeStats();
+  const { org } = await getCurrentUserAndOrg();
+  if (!org) notFound();
+
+  const stats = await getUnsubscribeStats(org.id);
 
   return (
     <div className="space-y-6">

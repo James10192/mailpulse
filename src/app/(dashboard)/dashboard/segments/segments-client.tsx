@@ -3,6 +3,7 @@
 import { useActionState, useState, useMemo, useRef } from "react";
 import { Plus, Filter, Trash2, X, Sparkles, Search, ArrowUpDown, Info, Users, ChevronDown } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { createSegment, deleteSegment } from "./actions";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
@@ -321,8 +322,15 @@ function SegmentRow({ segment }: { segment: SegmentData }) {
   async function handleDelete() {
     setConfirmOpen(false);
     setDeleting(true);
-    await deleteSegment(segment.id);
-    setDeleting(false);
+    try {
+      const result = await deleteSegment(segment.id);
+      if (result?.error) toast.error(result.error);
+      else toast.success("Segment supprimé.");
+    } catch {
+      toast.error("Impossible de supprimer le segment.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   const formattedDate = new Intl.DateTimeFormat("fr-FR", {

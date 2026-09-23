@@ -2,11 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { SegmentsClient } from "./segments-client";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { PLAN_LIMITS, type PlanTier } from "@/lib/plans";
+import { notFound } from "next/navigation";
+import { PLAN_LIMITS } from "@/lib/plans";
 
-async function getSegments() {
+async function getSegments(organizationId: string) {
   const segments = await prisma.contactList.findMany({
-    where: { type: "dynamic" },
+    where: { organizationId, type: "dynamic" },
     select: {
       id: true,
       name: true,
@@ -24,12 +25,12 @@ async function getSegments() {
 }
 
 export default async function SegmentsPage() {
-  const [segments, ctx] = await Promise.all([
-    getSegments(),
-    getCurrentUserAndOrg(),
-  ]);
+  const { org } = await getCurrentUserAndOrg();
+  if (!org) notFound();
 
-  const plan = (ctx.org?.plan ?? "FREE") as PlanTier;
+  const segments = await getSegments(org.id);
+
+  const plan = org.plan;
   const limits = PLAN_LIMITS[plan];
   const currentCount = segments.length;
   const canCreate = limits.segments === -1 || currentCount < limits.segments;

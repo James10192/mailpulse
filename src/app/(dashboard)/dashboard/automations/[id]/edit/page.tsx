@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { WorkflowEditor } from "@/components/automations/workflow-editor";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import type { Node, Edge, MarkerType } from "@xyflow/react";
@@ -10,9 +11,11 @@ export default async function EditAutomationPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { org } = await getCurrentUserAndOrg();
+  if (!org) notFound();
 
-  const automation = await prisma.automation.findUnique({
-    where: { id },
+  const automation = await prisma.automation.findFirst({
+    where: { id, organizationId: org.id },
     include: {
       steps: { orderBy: { position: "asc" } },
     },
@@ -58,12 +61,12 @@ export default async function EditAutomationPage({
   } else {
     // Default: create a trigger node from the automation's trigger
     const triggerLabels: Record<string, string> = {
-      SUBSCRIBER_ADDED: "Nouvel abonne",
-      TAG_ADDED: "Tag ajoute",
+      SUBSCRIBER_ADDED: "Nouvel abonné",
+      TAG_ADDED: "Tag ajouté",
       CAMPAIGN_OPENED: "Campagne ouverte",
-      LINK_CLICKED: "Lien clique",
-      DATE_BASED: "Base sur la date",
-      CUSTOM_EVENT: "Evenement personnalise",
+      LINK_CLICKED: "Lien cliqué",
+      DATE_BASED: "Basé sur la date",
+      CUSTOM_EVENT: "Événement personnalisé",
     };
 
     initialNodes = [
@@ -73,7 +76,7 @@ export default async function EditAutomationPage({
         position: { x: 300, y: 100 },
         data: {
           type: "trigger",
-          label: "Declencheur",
+          label: "Déclencheur",
           config: { triggerType: automation.trigger },
         },
       },
