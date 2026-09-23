@@ -4,8 +4,7 @@ import { test } from "node:test";
 import {
   renderWhatsAppTextTemplate,
   requiresWhatsAppServiceWindow,
-  // @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-} from "./whatsapp-transport-policy.ts";
+} from "./whatsapp-transport-policy";
 
 const MISSING = { ok: false, reason: "missing_parameter", rejectionCode: "whatsapp_template_parameter_missing" };
 const UNUSED = { ok: false, reason: "unused_parameter", rejectionCode: "whatsapp_template_parameter_unused" };

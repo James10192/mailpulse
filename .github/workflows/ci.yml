@@ -91,6 +91,9 @@ jobs:
       - name: Platform tests
         run: pnpm test:platform
 
+      - name: Delivery tests
+        run: pnpm test:delivery
+
       - name: Build
         run: pnpm build
 

@@ -132,6 +132,8 @@ const EVENT_CONFIG: Record<string, { icon: typeof Send; label: string; color: st
   BOUNCED_SOFT: { icon: AlertTriangle, label: "Bounce soft", color: "text-amber-400" },
   BOUNCED_HARD: { icon: AlertTriangle, label: "Bounce hard", color: "text-red-400" },
   COMPLAINED: { icon: AlertOctagon, label: "Spam", color: "text-red-500" },
+  FAILED: { icon: AlertTriangle, label: "Échec d'envoi", color: "text-red-400" },
+  SUPPRESSED: { icon: AlertOctagon, label: "Adresse en liste de suppression", color: "text-amber-500" },
   UNSUBSCRIBED: { icon: UserMinus, label: "Desabonne", color: "text-zinc-400" },
   TAG_ADDED: { icon: Tag, label: "Tag ajoute", color: "text-purple-400" },
   TAG_REMOVED: { icon: Tag, label: "Tag retire", color: "text-zinc-400" },

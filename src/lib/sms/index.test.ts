@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { isSmsReconciliationTerminalStatus, smsMetrics } from "./metrics.ts";
+import { isSmsReconciliationTerminalStatus, smsMetrics } from "./metrics";
 
 test("counts GSM-7 basic and extension-table characters in septets", () => {
   assert.deepEqual(smsMetrics("Café à Abidjan"), { encoding: "GSM-7", units: 14, segmentCount: 1 });
