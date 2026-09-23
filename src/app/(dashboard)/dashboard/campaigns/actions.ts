@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../../../convex/_generated/api";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { canAccessFeature, checkCampaignLimit, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plans";
+import { canAccessFeature, checkCampaignLimit, getFeatureUpgradeMessage } from "@/lib/plans";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
@@ -45,11 +45,11 @@ export async function createCampaign(
     if (!user || !org) {
       return { error: "Utilisateur non trouve." };
     }
-    if (result.data.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+    if (result.data.channel === "WHATSAPP" && !canAccessFeature(org.plan, "whatsapp")) {
       return { error: getFeatureUpgradeMessage("whatsapp") };
     }
 
-    const campaignCheck = await checkCampaignLimit(org.id, org.plan as PlanTier);
+    const campaignCheck = await checkCampaignLimit(org.id, org.plan);
     if (!campaignCheck.allowed) {
       return { error: `Limite de campagnes actives atteinte (${campaignCheck.limit}). Passez au plan Pro.` };
     }
@@ -137,7 +137,7 @@ export async function scheduleCampaign(
   });
   if (!campaign) return { error: "Campagne introuvable." };
   if (campaign.channel === "SMS") return { error: "La planification SMS n’est pas encore disponible. Envoyez la campagne maintenant." };
-  if (campaign.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+  if (campaign.channel === "WHATSAPP" && !canAccessFeature(org.plan, "whatsapp")) {
     return { error: getFeatureUpgradeMessage("whatsapp") };
   }
   if (campaign.status !== "DRAFT") return { error: "Seules les campagnes en brouillon peuvent être planifiées." };
@@ -209,7 +209,7 @@ export async function updateCampaign(
   try {
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) return { error: "Non authentifié." };
-    if (data.channel === "WHATSAPP" && !canAccessFeature(org.plan as PlanTier, "whatsapp")) {
+    if (data.channel === "WHATSAPP" && !canAccessFeature(org.plan, "whatsapp")) {
       return { error: getFeatureUpgradeMessage("whatsapp") };
     }
 
@@ -278,7 +278,7 @@ export async function cancelCampaign(campaignId: string): Promise<ActionState> {
     revalidatePath("/dashboard/campaigns");
     return { success: true };
   } catch {
-    return { error: "Erreur lors de l'annulation." };
+    return { error: "Erreur lors de l’annulation." };
   }
 }
 

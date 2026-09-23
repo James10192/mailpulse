@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { PLAN_LIMITS, type PlanTier } from "@/lib/plans";
+import { PLAN_LIMITS } from "@/lib/plans";
 import { enforcePlanLimits } from "@/lib/plan-enforcement";
 import { AutomationsClient } from "./automations-client";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
@@ -30,7 +30,7 @@ export default async function AutomationsPage() {
   if (!org) notFound();
 
   const automations = await getAutomations(org.id);
-  const plan = org.plan as PlanTier;
+  const plan = org.plan;
   const limits = PLAN_LIMITS[plan];
 
   // Auto-enforce: pause excess automations on page load if over limit

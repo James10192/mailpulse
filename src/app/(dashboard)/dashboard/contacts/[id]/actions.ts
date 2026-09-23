@@ -152,7 +152,7 @@ export async function addTagToContact(
     return { success: true };
   } catch (error) {
     console.error("[contacts] Failed to add tag", { organizationId: org.id, contactId, error });
-    return { error: "Impossible d'ajouter le tag." };
+    return { error: "Impossible d’ajouter le tag." };
   }
 }
 
@@ -223,6 +223,6 @@ export async function triggerAutomation(
     return { success: true };
   } catch (error) {
     console.error("[contacts] Failed to trigger automation", { contactId, automationId, error });
-    return { error: "Erreur lors du déclenchement de l'automation." };
+    return { error: "Erreur lors du déclenchement de l’automation." };
   }
 }

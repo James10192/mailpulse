@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
-import { checkSegmentLimit, type PlanTier } from "@/lib/plans";
+import { checkSegmentLimit } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
@@ -32,7 +32,7 @@ export async function createSegment(
   const { user, org } = await getCurrentUserAndOrg();
   if (!user || !org) return { error: "Non authentifié." };
 
-  const segmentCheck = await checkSegmentLimit(org.id, org.plan as PlanTier);
+  const segmentCheck = await checkSegmentLimit(org.id, org.plan);
   if (!segmentCheck.allowed) {
     return { error: `Limite de segments atteinte (${segmentCheck.limit}). Passez au plan Pro pour en créer davantage.` };
   }
@@ -62,7 +62,8 @@ export async function createSegment(
 
     revalidatePath("/dashboard/segments");
     return { success: true };
-  } catch {
+  } catch (error) {
+    console.error("[segments] Failed to create segment", { organizationId: org.id, error });
     return { error: "Erreur lors de la création du segment." };
   }
 }
