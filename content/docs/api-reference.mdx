@@ -57,6 +57,17 @@ Exemple :
 Statuts possibles : `queued`, `retrying`, `sent`, `delivered`, `read`, `failed`,
 `cancelled`, `template_required`.
 
+## Vérification de numéro
+
+```txt
+POST /api/v1/verifications
+POST /api/v1/verifications/{id}/check
+GET /api/v1/verifications/{id}
+```
+
+Code à usage unique envoyé sur WhatsApp. Détails, limites et erreurs dans
+[Vérification de numéro](/docs/verifications).
+
 ## Templates
 
 ```txt
