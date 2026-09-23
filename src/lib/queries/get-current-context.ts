@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
@@ -18,11 +19,7 @@ const ORG_SELECT = {
   metadata: true,
 } as const;
 
-async function selectOrganization(id: string) {
-  return prisma.organization.findUniqueOrThrow({ where: { id }, select: ORG_SELECT });
-}
-
-type CurrentOrganization = Awaited<ReturnType<typeof selectOrganization>>;
+type CurrentOrganization = Prisma.OrganizationGetPayload<{ select: typeof ORG_SELECT }>;
 
 const provisioningDb: OrganizationProvisioningDb<CurrentOrganization> = {
   async findMembership(userId) {
