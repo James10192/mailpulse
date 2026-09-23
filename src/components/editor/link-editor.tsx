@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { readString } from "./editor-attributes";
 import { ToolbarButton, useEditorFocusReturn } from "./toolbar-primitives";
 
 /**
@@ -54,7 +55,12 @@ export function LinkPopover({ editor, link, active }: { editor: Editor; link: Li
           <LinkIcon />
         </ToolbarButton>
       </PopoverAnchor>
-      <PopoverContent align="start" className="w-72 p-2" onCloseAutoFocus={focus.onCloseAutoFocus}>
+      <PopoverContent
+        align="start"
+        className="w-72 p-2"
+        onEscapeKeyDown={focus.returnOnClose}
+        onCloseAutoFocus={focus.onCloseAutoFocus}
+      >
         <Label className="block text-[10px] font-normal uppercase tracking-wider text-zinc-500 dark:text-zinc-500" htmlFor="rich-editor-link-url">
           URL du lien
         </Label>
@@ -63,7 +69,7 @@ export function LinkPopover({ editor, link, active }: { editor: Editor; link: Li
           value={link.url}
           onChange={(event) => link.setUrl(event.target.value)}
           placeholder="https://..."
-          className="mt-1 h-10 rounded-md px-2"
+          className="mt-1 h-11 rounded-md px-2 sm:h-10"
         />
         <div className="mt-2 flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={() => focus.run(link.clear)} className="text-zinc-500">
@@ -82,7 +88,7 @@ export function LinkPopover({ editor, link, active }: { editor: Editor; link: Li
 export function LinkBubbleMenu({ editor, onEdit }: { editor: Editor; onEdit: () => void }) {
   const href = useEditorState({
     editor,
-    selector: ({ editor: e }) => (e.getAttributes("link").href as string | undefined) ?? "",
+    selector: ({ editor: e }) => readString(e.getAttributes("link").href) ?? "",
   });
   return (
     <BubbleMenu editor={editor} shouldShow={({ editor: ed }) => ed.isActive("link") && !ed.isActive("image")}>

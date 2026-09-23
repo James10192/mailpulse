@@ -13,8 +13,8 @@ export const TOOLTIP_DELAY_MS = 300;
  * Radix returns focus to the trigger when a menu or popover closes. After an action
  * that edited the document, the text cursor must go back to the editor instead.
  * `run` flags the action before it executes; `onCloseAutoFocus` then cancels Radix's
- * focus return and focuses the editor. Closing without an action (Escape, click
- * outside) leaves Radix's default behaviour untouched.
+ * focus return and focuses the editor. Closing without an action (click outside)
+ * leaves Radix's default behaviour untouched unless `returnOnClose` was called.
  */
 export function useEditorFocusReturn(editor: Editor) {
   const actedRef = useRef(false);
@@ -23,6 +23,10 @@ export function useEditorFocusReturn(editor: Editor) {
     run(action: () => void) {
       actedRef.current = true;
       action();
+    },
+    /** Send focus back to the editor when the menu closes without an action (Escape in the link editor). */
+    returnOnClose() {
+      actedRef.current = true;
     },
     onCloseAutoFocus(event: Event) {
       if (!actedRef.current) return;

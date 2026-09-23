@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { useEditor, useEditorState, EditorContent, type Editor } from "@tiptap/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { SnippetOption } from "./editor-config";
 import { createEditorExtensions } from "./editor-extensions";
@@ -48,6 +48,23 @@ function useImageUpload(editor: Editor | null) {
   return { error, upload };
 }
 
+/** Live character and word counts, re-rendered on each document change. */
+function CharacterCounter({ editor }: { editor: Editor }) {
+  const { characters, words } = useEditorState({
+    editor,
+    selector: ({ editor: e }) => ({
+      characters: e.storage.characterCount?.characters() ?? 0,
+      words: e.storage.characterCount?.words() ?? 0,
+    }),
+  });
+  return (
+    <>
+      <span>{characters} caractère{characters !== 1 ? "s" : ""}</span>
+      <span>{words} mot{words !== 1 ? "s" : ""}</span>
+    </>
+  );
+}
+
 export function RichEditor({ content, onChange, placeholder, snippets }: RichEditorProps) {
   const onChangeRef = useRef(onChange);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,8 +92,6 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
     return <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"><div className="min-h-[200px] p-4" /></div>;
   }
 
-  const charCount = editor.storage.characterCount?.characters() ?? 0;
-  const wordCount = editor.storage.characterCount?.words() ?? 0;
 
   return (
     <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>
@@ -93,8 +108,7 @@ export function RichEditor({ content, onChange, placeholder, snippets }: RichEdi
         <EditorContent editor={editor} />
 
         <div className="flex items-center justify-end gap-3 border-t border-zinc-200 px-3 py-1.5 font-mono text-[11px] text-zinc-400 dark:border-zinc-800">
-          <span>{charCount} caractère{charCount !== 1 ? "s" : ""}</span>
-          <span>{wordCount} mot{wordCount !== 1 ? "s" : ""}</span>
+          <CharacterCounter editor={editor} />
         </div>
       </div>
     </TooltipProvider>

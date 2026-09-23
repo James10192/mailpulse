@@ -31,7 +31,7 @@ function TableGridSelector({ onSelect }: { onSelect: (rows: number, cols: number
   const [hover, setHover] = useState({ r: 0, c: 0 });
 
   return (
-    <div className="w-48 p-2">
+    <div className="w-auto p-2 sm:w-48">
       <PopoverCaption>Insérer un tableau</PopoverCaption>
       <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)` }}>
         {Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, i) => {
@@ -44,7 +44,7 @@ function TableGridSelector({ onSelect }: { onSelect: (rows: number, cols: number
                 type="button"
                 aria-label={`Tableau ${r} x ${c}`}
                 className={cn(
-                  "size-6 rounded-sm border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35",
+                  "size-11 rounded-sm border sm:size-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35",
                   active ? "border-orange-500 bg-orange-500/30" : "border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800",
                 )}
                 onMouseEnter={() => setHover({ r, c })}

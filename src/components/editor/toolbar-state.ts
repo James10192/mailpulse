@@ -1,6 +1,7 @@
 "use client";
 
 import { useEditorState, type Editor } from "@tiptap/react";
+import { readString } from "./editor-attributes";
 
 /**
  * Everything the toolbar displays about the current selection. Tiptap v3's
@@ -26,8 +27,8 @@ export function useToolbarState(editor: Editor) {
       table: e.isActive("table"),
       canUndo: e.can().undo(),
       canRedo: e.can().redo(),
-      fontSize: (e.getAttributes("textStyle").fontSize as string | undefined) ?? null,
-      textColor: (e.getAttributes("textStyle").color as string | undefined) ?? null,
+      fontSize: readString(e.getAttributes("textStyle").fontSize),
+      textColor: readString(e.getAttributes("textStyle").color),
     }),
   });
 }

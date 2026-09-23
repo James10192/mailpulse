@@ -3,9 +3,10 @@
 import { useEditorState, type Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { AlignCenter, AlignLeft, AlignRight, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { readString, readWidth } from "./editor-attributes";
 import { ToolbarButton } from "./toolbar-primitives";
 
 const WIDTH_PRESETS = [25, 50, 75, 100];
@@ -16,21 +17,24 @@ const ALIGNMENTS = [
   { value: "right", label: "Droite", icon: AlignRight, margin: "0 0 0 auto" },
 ] as const;
 
-/** Width in percent of an image node, 100 when unset. */
-function readWidth(width: unknown): number {
-  const parsed = Number.parseInt(String(width ?? "").replace(/%|px/g, ""), 10);
-  return Number.isFinite(parsed) ? parsed : 100;
-}
-
 /** Size slider, width presets, alignment and delete for the selected image. Always rendered on a dark surface. */
 function ImageBubbleToolbar({ editor }: { editor: Editor }) {
   // The width comes from the document itself, so the slider follows undo/redo and a change of image.
   const image = useEditorState({
     editor,
-    selector: ({ editor: e }) => (e.isActive("image") ? { width: readWidth(e.getAttributes("image").width) } : null),
+    selector: ({ editor: e }) => {
+      if (!e.isActive("image")) return null;
+      const attrs = e.getAttributes("image");
+      const style = readString(attrs.style) ?? "";
+      return {
+        width: readWidth(attrs.width),
+        align: ALIGNMENTS.find((a) => style.includes(`margin:${a.margin}`))?.value ?? "",
+      };
+    },
   });
   if (!image) return null;
   const sliderValue = image.width;
+  const preset = WIDTH_PRESETS.find((w) => w === sliderValue);
 
   function applyWidth(width: number) {
     editor.chain().updateAttributes("image", { width: `${width}%` }).run();
@@ -52,33 +56,60 @@ function ImageBubbleToolbar({ editor }: { editor: Editor }) {
             value={[sliderValue]}
             onValueChange={([value]) => { if (value !== undefined) applyWidth(value); }}
             aria-label="Taille de l'image"
+            thumbLabel="Taille de l'image"
             className="flex-1 cursor-pointer [&_[data-slot=slider-track]]:bg-zinc-700"
           />
           <span className="w-10 text-right font-mono text-[11px]">{sliderValue}%</span>
         </div>
 
         <div className="flex flex-wrap items-center gap-1">
-          {WIDTH_PRESETS.map((width) => (
-            <Button
-              key={width}
-              type="button"
-              variant="toolbar"
-              size="toolbar"
-              aria-label={`Largeur ${width}%`}
-              aria-pressed={sliderValue === width}
-              data-active={sliderValue === width ? "true" : undefined}
-              onClick={() => applyWidth(width)}
-              className="font-mono text-[10px] font-normal sm:h-7"
-            >
-              {width}%
-            </Button>
-          ))}
+          <ToggleGroup
+            type="single"
+            value={preset === undefined ? "" : String(preset)}
+            onValueChange={(next) => {
+              const width = WIDTH_PRESETS.find((w) => String(w) === next);
+              if (width !== undefined) applyWidth(width);
+            }}
+            aria-label="Largeur de l'image"
+            className="gap-1"
+          >
+            {WIDTH_PRESETS.map((width) => (
+              <ToggleGroupItem
+                key={width}
+                value={String(width)}
+                variant="toolbar"
+                size="icon-xs"
+                aria-label={`Largeur ${width}%`}
+                className="font-mono text-[10px] font-normal"
+              >
+                {width}%
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
           <Separator orientation="vertical" className="mx-1 h-4 w-px bg-zinc-700" />
-          {ALIGNMENTS.map(({ value, label, icon: Icon, margin }) => (
-            <ToolbarButton key={value} label={`Aligner l'image : ${label}`} size="icon-xs" onClick={() => applyAlign(margin)}>
-              <Icon />
-            </ToolbarButton>
-          ))}
+          <ToggleGroup
+            type="single"
+            value={image.align}
+            onValueChange={(next) => {
+              const alignment = ALIGNMENTS.find((a) => a.value === next);
+              if (alignment) applyAlign(alignment.margin);
+            }}
+            aria-label="Alignement de l'image"
+            className="gap-1"
+          >
+            {ALIGNMENTS.map(({ value, label, icon: Icon }) => (
+              <ToggleGroupItem
+                key={value}
+                value={value}
+                variant="toolbar"
+                size="icon-xs"
+                aria-label={`Aligner l'image : ${label}`}
+                title={label}
+              >
+                <Icon className="size-3.5" />
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
           <Separator orientation="vertical" className="mx-1 h-4 w-px bg-zinc-700" />
           <ToolbarButton
             label="Supprimer l'image"

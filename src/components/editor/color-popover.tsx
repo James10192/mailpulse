@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import { COLORS } from "./editor-config";
 import { PopoverCaption, ToolbarButton, useEditorFocusReturn } from "./toolbar-primitives";
 
-const SWATCH_CLASS = "size-6 rounded-md border transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35";
+// 44px swatches on touch screens (the popover widens to fit), 24px from `sm` up.
+const SWATCH_CLASS = "size-11 rounded-md sm:size-6 border transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35";
 
 const MODES = {
   text: {
@@ -44,7 +45,7 @@ export function ColorPopover({ editor, mode, currentColor }: { editor: Editor; m
           ) : null}
         </ToolbarButton>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-48 p-2" onCloseAutoFocus={focus.onCloseAutoFocus}>
+      <PopoverContent align="start" className="w-auto p-2 sm:w-48" onCloseAutoFocus={focus.onCloseAutoFocus}>
         <PopoverCaption>{config.label}</PopoverCaption>
         <div className="grid grid-cols-6 gap-1">
           {COLORS.map((color) => (
