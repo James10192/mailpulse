@@ -1,7 +1,7 @@
 import type { EmailEventType, Prisma } from "@/generated/prisma";
 
-import { recordDeliveryDelay } from "./message-delivery-delays";
-import { classifyResendEvent } from "./resend-message-status";
+import { recordDeliveryDelay, type DelayNotice } from "./message-delivery-delays";
+import { classifyResendEvent, type ResendClassification, type StatusChange } from "./resend-message-status";
 import {
   resendEventReason,
   resendEventTag,
@@ -17,10 +17,55 @@ export type ResendDelivery = {
   receivedAt: Date;
 };
 
-type CampaignEffect = {
-  eventType: EmailEventType;
-  timestamp?: "deliveredAt" | "openedAt" | "clickedAt" | "bouncedAt" | "complainedAt";
+const MESSAGE_SELECT = {
+  id: true,
+  status: true,
+  contactId: true,
+  organizationId: true,
+  providerMessageId: true,
+  deliveredAt: true,
+  readAt: true,
+} as const satisfies Prisma.CommunicationMessageSelect;
+
+type ReconcilableMessage = Prisma.CommunicationMessageGetPayload<{ select: typeof MESSAGE_SELECT }>;
+type RecipientTimestamp = "deliveredAt" | "openedAt" | "clickedAt" | "bouncedAt" | "complainedAt";
+
+/** The slice of a Prisma transaction this processing needs. */
+export type ResendWebhookStore = {
+  communicationMessage: {
+    findFirst(args: { where: Prisma.CommunicationMessageWhereInput; select: typeof MESSAGE_SELECT }): PromiseLike<ReconcilableMessage | null>;
+    updateMany(args: {
+      where: Prisma.CommunicationMessageWhereInput;
+      data: Prisma.CommunicationMessageUpdateManyMutationInput;
+    }): PromiseLike<{ count: number }>;
+  };
+  campaignRecipient: {
+    findFirst(args: { where: Prisma.CampaignRecipientWhereInput; select: { contactId: true } }): PromiseLike<{ contactId: string } | null>;
+    updateMany(args: {
+      where: Prisma.CampaignRecipientWhereInput;
+      data: Partial<Record<RecipientTimestamp, Date>>;
+    }): PromiseLike<{ count: number }>;
+  };
+  contact: {
+    findUnique(args: {
+      where: { id: string };
+      select: { id: true; organizationId: true };
+    }): PromiseLike<{ id: string; organizationId: string } | null>;
+    update(args: { where: { id: string }; data: Prisma.ContactUpdateInput }): PromiseLike<unknown>;
+  };
+  emailEvent: {
+    findFirst(args: { where: Prisma.EmailEventWhereInput; select: { id: true } }): PromiseLike<{ id: string } | null>;
+    create(args: { data: Prisma.EmailEventUncheckedCreateInput }): PromiseLike<unknown>;
+  };
+  communicationMessageEvent: {
+    createMany(args: {
+      data: Prisma.CommunicationMessageEventCreateManyInput[];
+      skipDuplicates: boolean;
+    }): PromiseLike<{ count: number }>;
+  };
 };
+
+type CampaignEffect = { eventType: EmailEventType; timestamp?: RecipientTimestamp };
 
 // Resend excludes suppressions from the bounce rate, so a suppression is
 // recorded as its own event without stamping bouncedAt.
@@ -40,32 +85,34 @@ const CONTACT_EFFECTS: Partial<Record<ResendEventType, Prisma.ContactUpdateInput
   "email.complained": { subscribed: false },
 };
 
-export async function processResendDelivery(tx: Prisma.TransactionClient, delivery: ResendDelivery) {
+export async function processResendDelivery(store: ResendWebhookStore, delivery: ResendDelivery) {
   const { event } = delivery;
   const recipientId = resendEventTag(event, "recipient_id");
   const campaignId = resendEventTag(event, "campaign_id");
-  const communication = await reconcileCommunicationMessage(tx, delivery);
+  const communication = await reconcileCommunicationMessage(store, delivery);
   const recipient = recipientId
-    ? await tx.campaignRecipient.findFirst({
+    ? await store.campaignRecipient.findFirst({
         where: { id: recipientId, ...(campaignId ? { campaignId } : {}) },
         select: { contactId: true },
       })
     : null;
   const contactId = communication.contactId ?? recipient?.contactId ?? null;
-  const contact = contactId ? await tx.contact.findUnique({ where: { id: contactId }, select: { id: true, organizationId: true } }) : null;
+  const contact = contactId
+    ? await store.contact.findUnique({ where: { id: contactId }, select: { id: true, organizationId: true } })
+    : null;
   if (!contact) return { changed: communication.changed, organizationId: communication.organizationId, campaignId };
 
-  const campaignChanged = recipientId ? await applyCampaignEffect(tx, delivery, contact.id, recipientId) : false;
+  const campaignChanged = recipientId ? await applyCampaignEffect(store, delivery, contact.id, recipientId) : false;
   const contactUpdate = CONTACT_EFFECTS[event.type];
-  if (contactUpdate) await tx.contact.update({ where: { id: contact.id }, data: contactUpdate });
+  if (contactUpdate) await store.contact.update({ where: { id: contact.id }, data: contactUpdate });
   return { changed: communication.changed || campaignChanged, organizationId: contact.organizationId, campaignId };
 }
 
-async function reconcileCommunicationMessage(tx: Prisma.TransactionClient, delivery: ResendDelivery) {
+async function reconcileCommunicationMessage(store: ResendWebhookStore, delivery: ResendDelivery) {
   const { event } = delivery;
   const emailId = event.data.email_id;
   const messageId = resendEventTag(event, "message_id");
-  const message = await tx.communicationMessage.findFirst({
+  const message = await store.communicationMessage.findFirst({
     where: messageId
       ? {
           id: messageId,
@@ -74,60 +121,68 @@ async function reconcileCommunicationMessage(tx: Prisma.TransactionClient, deliv
           OR: [{ providerMessageId: null }, { providerMessageId: emailId }],
         }
       : { channel: "EMAIL", provider: "RESEND", providerMessageId: emailId },
-    select: { id: true, status: true, contactId: true, organizationId: true, providerMessageId: true, deliveredAt: true, readAt: true },
+    select: MESSAGE_SELECT,
   });
   if (!message) return { changed: false, contactId: null, organizationId: null };
 
   const occurredAt = resendEventTime(event, delivery.receivedAt);
   const classification = classifyResendEvent(event.type, message, occurredAt, resendEventReason(event));
-  let statusChange = {};
-  switch (classification?.kind) {
-    case "status":
-      statusChange = classification.data;
-      break;
-    case "delay":
-      // Resend documents no reason for a delay; the column stays for providers that give one.
-      await recordDeliveryDelay(tx, {
-        organizationId: message.organizationId,
-        messageId: message.id,
-        provider: "RESEND",
-        providerEventId: delivery.deliveryId,
-        occurredAt,
-        reason: null,
-      });
-      break;
-  }
+  const statusChange = await applyClassification(store, classification, {
+    organizationId: message.organizationId,
+    messageId: message.id,
+    provider: "RESEND",
+    providerEventId: delivery.deliveryId,
+    occurredAt,
+    // Resend documents no reason for a delay; the column serves providers that give one.
+    reason: null,
+  });
 
-  const update = await tx.communicationMessage.updateMany({
+  const update = await store.communicationMessage.updateMany({
     where: { id: message.id, status: message.status },
     data: { provider: "RESEND", providerMessageId: emailId, ...statusChange },
   });
   return {
-    changed: update.count === 1 && (classification?.kind === "status" || message.providerMessageId !== emailId),
+    changed: update.count === 1 && (statusChange !== null || message.providerMessageId !== emailId),
     contactId: message.contactId,
     organizationId: message.organizationId,
   };
 }
 
+async function applyClassification(
+  store: ResendWebhookStore,
+  classification: ResendClassification,
+  delay: DelayNotice,
+): Promise<StatusChange | null> {
+  switch (classification?.kind) {
+    case "status":
+      return classification.data;
+    case "delay":
+      await recordDeliveryDelay(store, delay);
+      return null;
+    default:
+      return null;
+  }
+}
+
 async function applyCampaignEffect(
-  tx: Prisma.TransactionClient,
+  store: ResendWebhookStore,
   delivery: ResendDelivery,
   contactId: string,
   recipientId: string,
 ) {
   const effect = CAMPAIGN_EFFECTS[delivery.event.type];
   if (!effect) return false;
-  const existing = await tx.emailEvent.findFirst({
+  const existing = await store.emailEvent.findFirst({
     where: { type: effect.eventType, recipientId, contactId },
     select: { id: true },
   });
   if (!existing) {
-    await tx.emailEvent.create({
+    await store.emailEvent.create({
       data: { type: effect.eventType, contactId, recipientId, metadata: { emailId: delivery.event.data.email_id } },
     });
   }
   if (effect.timestamp) {
-    await tx.campaignRecipient.updateMany({
+    await store.campaignRecipient.updateMany({
       where: { id: recipientId },
       data: { [effect.timestamp]: resendEventTime(delivery.event, delivery.receivedAt) },
     });

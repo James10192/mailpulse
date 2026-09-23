@@ -50,6 +50,8 @@ const resendWebhookEventSchema = z.discriminatedUnion("type", [
   event("email.failed", { failed: z.object({ reason: z.string().optional() }).optional() }),
 ]);
 
+const eventEnvelopeSchema = z.object({ type: z.string() });
+
 export type ResendWebhookEvent = z.infer<typeof resendWebhookEventSchema>;
 
 export type ParsedResendPayload =
@@ -59,10 +61,9 @@ export type ParsedResendPayload =
 
 /** Event types the platform does not handle are acknowledged, not rejected. */
 export function parseResendWebhookPayload(payload: unknown): ParsedResendPayload {
-  const type = typeof payload === "object" && payload !== null ? (payload as { type?: unknown }).type : undefined;
-  if (typeof type !== "string" || !isResendEventType(type)) {
-    return typeof type === "string" ? { kind: "unsupported", type } : { kind: "invalid", issues: "missing type" };
-  }
+  const envelope = eventEnvelopeSchema.safeParse(payload);
+  if (!envelope.success) return { kind: "invalid", issues: "type" };
+  if (!isResendEventType(envelope.data.type)) return { kind: "unsupported", type: envelope.data.type };
   const result = resendWebhookEventSchema.safeParse(payload);
   if (!result.success) {
     return { kind: "invalid", issues: result.error.issues.map((issue) => issue.path.join(".")).join(", ") };

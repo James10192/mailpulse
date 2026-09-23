@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@/generated/prisma";
+import type { CommunicationMessageEvent, Prisma } from "@/generated/prisma";
 
 /**
  * Delivery delays are provider notices, not status changes: the message stays
@@ -14,35 +14,27 @@ export type DelayNotice = {
   reason: string | null;
 };
 
-const MAX_LISTED_DELAYS = 20;
+export type DeliveryDelay = Pick<CommunicationMessageEvent, "occurredAt" | "reason">;
 
-export function deliveryDelayRow(notice: DelayNotice): Prisma.CommunicationMessageEventCreateManyInput {
-  return {
-    type: "DELIVERY_DELAYED",
-    organizationId: notice.organizationId,
-    messageId: notice.messageId,
-    provider: notice.provider,
-    providerEventId: notice.providerEventId,
-    occurredAt: notice.occurredAt,
-    reason: notice.reason,
+type EventWriter = {
+  communicationMessageEvent: {
+    createMany(args: { data: Prisma.CommunicationMessageEventCreateManyInput[]; skipDuplicates: boolean }): PromiseLike<unknown>;
   };
-}
+};
 
-export async function recordDeliveryDelay(tx: Prisma.TransactionClient, notice: DelayNotice) {
-  const result = await tx.communicationMessageEvent.createMany({
-    data: [deliveryDelayRow(notice)],
+/** Loads a message's latest delays in the same query as the message itself. */
+export const DELIVERY_DELAYS_INCLUDE = {
+  events: {
+    where: { type: "DELIVERY_DELAYED" },
+    orderBy: { occurredAt: "desc" },
+    take: 20,
+    select: { occurredAt: true, reason: true },
+  },
+} satisfies Prisma.CommunicationMessageInclude;
+
+export async function recordDeliveryDelay(tx: EventWriter, notice: DelayNotice) {
+  await tx.communicationMessageEvent.createMany({
+    data: [{ type: "DELIVERY_DELAYED", ...notice }],
     skipDuplicates: true,
   });
-  return result.count === 1;
 }
-
-export function listDeliveryDelays(db: Pick<PrismaClient, "communicationMessageEvent">, messageId: string) {
-  return db.communicationMessageEvent.findMany({
-    where: { messageId, type: "DELIVERY_DELAYED" },
-    orderBy: { occurredAt: "desc" },
-    take: MAX_LISTED_DELAYS,
-    select: { occurredAt: true, reason: true },
-  });
-}
-
-export type DeliveryDelay = Awaited<ReturnType<typeof listDeliveryDelays>>[number];
