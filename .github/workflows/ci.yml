@@ -97,8 +97,8 @@ jobs:
       - name: Verification tests
         run: pnpm test:verifications
         env:
-          # Disposable CI database: the atomicity tests create, migrate and drop
-          # their own schema in it.
+          # Disposable CI database, schema pushed above: the atomicity tests work
+          # in their own organization and delete it afterwards.
           VERIFICATION_TEST_DATABASE_URL: postgresql://mailpulse:mailpulse@localhost:5432/mailpulse
 
       - name: Build
