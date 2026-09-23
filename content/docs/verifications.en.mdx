@@ -38,6 +38,10 @@ any other value is rejected.
 }
 ```
 
+If the provider does not confirm the send (timeout, transport error), the answer
+is still `201` and the verification stays `pending`: the message may have gone
+out, and a code that arrives late works.
+
 ## Check the code
 
 ```bash
@@ -73,14 +77,15 @@ the second one also gets a `429`, with `retry_after` set to 1 second.
 
 Other errors: `409 whatsapp_indisponible`, `422 Validation failed` (a doubtful
 number is reported under `field_errors.to`),
-`502 envoi_echoue` (provider refused, verification stored as `failed`),
+`502 envoi_echoue` (definite provider refusal: no WhatsApp account or an HTTP 4xx;
+nothing was sent and the verification is stored as `failed`),
 `503 verification_indisponible` (service not configured).
 
 Codes come from a cryptographic generator, are stored only as a salted HMAC and
 compared in constant time. They expire after 10 minutes, allow 5 attempts and
 approve once. The code goes to the exact number only, never to a legacy variant,
 and a failed send stores a classified cause (no WhatsApp account, timeout or
-provider error), never the provider text. A failure reported late never undoes a
+provider error), never the provider text. A refusal reported late never undoes a
 code already approved.
 
 ## WhatsApp Cloud API

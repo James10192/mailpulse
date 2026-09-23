@@ -60,6 +60,11 @@ Réponse `201` :
 L'utilisateur reçoit : « Votre code de vérification est 123456. Il expire dans
 10 minutes. Ne le partagez avec personne. »
 
+Si le fournisseur ne confirme pas l'envoi (délai dépassé, erreur de transport),
+la réponse reste `201` et la vérification reste `pending` : le message a pu
+partir, et un code qui arrive en retard fonctionne. Seul un refus certain du
+fournisseur donne `502`.
+
 ## Vérifier le code saisi
 
 ```txt
@@ -150,8 +155,15 @@ minute, pour ne pas exposer ce numéro à un blocage.
 | `422` | `Validation failed` | Numéro absent, non international ou de longueur impossible : `field_errors.to`. |
 | `422` | `Validation failed` | Autre champ invalide, détail dans `field_errors`. |
 | `429` | `trop_de_demandes` | Limite atteinte, attendre `retry_after` secondes. |
-| `502` | `envoi_echoue` | Le fournisseur WhatsApp a refusé l'envoi. La vérification est enregistrée en `failed`. |
+| `502` | `envoi_echoue` | Refus certain du fournisseur : numéro sans compte WhatsApp ou requête refusée (HTTP 4xx). Rien n'est parti, la vérification est enregistrée en `failed`. |
 | `503` | `verification_indisponible` | Service non configuré côté MailPulse. |
+
+## Suivi dans le tableau de bord
+
+Les vérifications apparaissent dans **Plateforme › Vérifications**, avec le
+numéro masqué, la clé qui les a demandées, le statut, le nombre de tentatives et,
+le cas échéant, la cause d'un envoi refusé ou non confirmé. Le code n'y figure
+jamais.
 
 ## Sécurité
 
@@ -164,7 +176,7 @@ minute, pour ne pas exposer ce numéro à un blocage.
   d'échec d'envoi, seule une cause classée est conservée (numéro sans compte
   WhatsApp, délai dépassé ou erreur du fournisseur), jamais le texte du
   fournisseur.
-- Un échec d'envoi signalé après coup ne défait jamais un code déjà validé.
+- Un refus signalé après coup ne défait jamais un code déjà validé.
 
 ## Limites de WhatsApp Cloud API
 
@@ -174,7 +186,3 @@ alors passer par un modèle d'authentification approuvé, que les vérifications
 prennent pas encore en charge. Tant que c'est le cas, une organisation sur
 WhatsApp Cloud API reçoit `409 whatsapp_indisponible` plutôt qu'un code qui
 n'arriverait pas.
-
-Les vérifications apparaissent dans **Plateforme › Vérifications**, avec le
-numéro masqué, la clé qui les a demandées, le statut et le nombre de tentatives.
-Le code n'y figure jamais.
