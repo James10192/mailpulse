@@ -77,8 +77,11 @@ the second one also gets a `429`, with `retry_after` set to 1 second.
 
 Other errors: `409 whatsapp_indisponible`, `422 Validation failed` (a doubtful
 number is reported under `field_errors.to`),
-`502 envoi_echoue` (definite provider refusal: no WhatsApp account or an HTTP 4xx;
-nothing was sent and the verification is stored as `failed`),
+`502 envoi_echoue` (definite provider refusal: no WhatsApp account or an HTTP 4xx
+other than 408 and 429; nothing was sent and the verification is stored as
+`failed`), `503 whatsapp_sature` (the provider is rate limiting; nothing was sent,
+the verification is `failed`, retry later, with `retry_after` and a `Retry-After`
+header when the provider gives a delay),
 `503 verification_indisponible` (service not configured).
 
 Codes come from a cryptographic generator, are stored only as a salted HMAC and

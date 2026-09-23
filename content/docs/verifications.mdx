@@ -63,7 +63,7 @@ L'utilisateur reçoit : « Votre code de vérification est 123456. Il expire dan
 Si le fournisseur ne confirme pas l'envoi (délai dépassé, erreur de transport),
 la réponse reste `201` et la vérification reste `pending` : le message a pu
 partir, et un code qui arrive en retard fonctionne. Seul un refus certain du
-fournisseur donne `502`.
+fournisseur donne `502`, ou `503 whatsapp_sature` s'il limite les envois.
 
 ## Vérifier le code saisi
 
@@ -155,7 +155,8 @@ minute, pour ne pas exposer ce numéro à un blocage.
 | `422` | `Validation failed` | Numéro absent, non international ou de longueur impossible : `field_errors.to`. |
 | `422` | `Validation failed` | Autre champ invalide, détail dans `field_errors`. |
 | `429` | `trop_de_demandes` | Limite atteinte, attendre `retry_after` secondes. |
-| `502` | `envoi_echoue` | Refus certain du fournisseur : numéro sans compte WhatsApp ou requête refusée (HTTP 4xx). Rien n'est parti, la vérification est enregistrée en `failed`. |
+| `502` | `envoi_echoue` | Refus certain du fournisseur : numéro sans compte WhatsApp ou requête refusée (HTTP 4xx, hors 408 et 429). Rien n'est parti, la vérification est enregistrée en `failed`. |
+| `503` | `whatsapp_sature` | Le fournisseur WhatsApp limite les envois (HTTP 429). Rien n'est parti, la vérification est enregistrée en `failed`. Réessayez plus tard ; `retry_after` et l'en-tête `Retry-After` sont présents quand le fournisseur donne un délai. |
 | `503` | `verification_indisponible` | Service non configuré côté MailPulse. |
 
 ## Suivi dans le tableau de bord
