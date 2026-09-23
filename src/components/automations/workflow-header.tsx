@@ -3,8 +3,9 @@
 import { Maximize, Power, PowerOff, Redo2, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { AutomationStatus } from "@/generated/prisma";
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS: Record<AutomationStatus, string> = {
   DRAFT: "Brouillon",
   ACTIVE: "Actif",
   PAUSED: "En pause",
@@ -27,7 +28,7 @@ export function WorkflowHeader({
   actions,
 }: {
   name: string;
-  status: string;
+  status: AutomationStatus;
   saving: boolean;
   counts: { nodes: number; edges: number };
   actions: WorkflowHeaderActions;
@@ -45,7 +46,7 @@ export function WorkflowHeader({
             variant={isActive ? "success" : "secondary"}
             className="text-[10px]"
           >
-            {STATUS_LABELS[status] ?? status}
+            {STATUS_LABELS[status]}
           </Badge>
           <span className="text-[10px] text-zinc-600 font-mono">
             {counts.nodes} nœud{counts.nodes !== 1 ? "s" : ""} · {counts.edges}{" "}

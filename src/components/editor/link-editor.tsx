@@ -12,7 +12,7 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "@/components/ui/popover";
-import { readString } from "./editor-attributes";
+import { readString } from "@/lib/guards";
 import { ToolbarButton, useEditorFocusReturn } from "./toolbar-primitives";
 
 /**
@@ -25,7 +25,7 @@ export function useLinkEditor(editor: Editor | null) {
 
   function start() {
     if (!editor) return;
-    setUrl(editor.getAttributes("link").href || "");
+    setUrl(readString(editor.getAttributes("link").href) ?? "");
     setOpen(true);
   }
 

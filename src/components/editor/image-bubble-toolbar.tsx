@@ -6,7 +6,8 @@ import { AlignCenter, AlignLeft, AlignRight, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { readString, readWidth } from "./editor-attributes";
+import { readString } from "@/lib/guards";
+import { readWidth } from "./editor-attributes";
 import { ToolbarButton } from "./toolbar-primitives";
 
 const WIDTH_PRESETS = [25, 50, 75, 100];

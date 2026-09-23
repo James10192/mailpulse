@@ -1,7 +1,7 @@
 "use client";
 
 import { useEditorState, type Editor } from "@tiptap/react";
-import { readString } from "./editor-attributes";
+import { readString } from "@/lib/guards";
 
 /**
  * Everything the toolbar displays about the current selection. Tiptap v3's

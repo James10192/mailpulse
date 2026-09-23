@@ -6,9 +6,10 @@ import { isOneOf } from "@/components/forms/one-of";
 type ToggleGroupSingleProps = Extract<React.ComponentProps<typeof ToggleGroup>, { type: "single" }>;
 
 /**
- * Single-choice toggle group that always keeps one option selected. Radix emits ""
- * when the active item is clicked again; that event is ignored here, and values
- * outside `values` never reach `onValueChange`.
+ * Single-choice toggle group. `value` is one of `values`, or "" while nothing is
+ * selected yet (e.g. a value only known after mount). Once an option is chosen it
+ * stays chosen: Radix emits "" when the active item is clicked again, and that
+ * event is ignored here. Values outside `values` never reach `onValueChange`.
  */
 export function SingleChoiceGroup<T extends string>({
   values,

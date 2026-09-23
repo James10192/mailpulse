@@ -119,22 +119,22 @@ export default async function CalendarPage({ searchParams }: PageProps) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline" className="h-10">
+          <Button asChild variant="outline">
             <Link href={`/dashboard/calendar?month=${previousMonth}`} aria-label="Mois précédent">
               <ChevronLeft className="h-4 w-4" />
               Précédent
             </Link>
           </Button>
-          <Button asChild variant="outline" className="h-10">
+          <Button asChild variant="outline">
             <Link href={`/dashboard/calendar?month=${todayMonth}`}>Aujourd’hui</Link>
           </Button>
-          <Button asChild variant="outline" className="h-10">
+          <Button asChild variant="outline">
             <Link href={`/dashboard/calendar?month=${nextMonth}`} aria-label="Mois suivant">
               Suivant
               <ChevronRight className="h-4 w-4" />
             </Link>
           </Button>
-          <Button asChild className="h-10">
+          <Button asChild>
             <Link href="/dashboard/campaigns/new">
               <Send className="h-4 w-4" />
               Nouvelle campagne

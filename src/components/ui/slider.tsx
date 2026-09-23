@@ -30,8 +30,9 @@ function Slider({
       min={min}
       max={max}
       className={cn(
-        // py-3: a 24px-tall hit area around the 6px track.
-        "relative flex w-full touch-none items-center py-3 select-none data-[disabled]:opacity-50",
+        // Vertical padding widens the hit area around the 6px track: 44px tall on mobile
+        // (19px + 6px + 19px), 30px from `sm` up.
+        "relative flex w-full touch-none items-center py-[19px] select-none sm:py-3 data-[disabled]:opacity-50",
         className
       )}
       {...props}

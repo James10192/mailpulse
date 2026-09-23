@@ -1,8 +1,3 @@
-// Node and mark attributes come back from Tiptap loosely typed: read them through
-// guards instead of casting.
-
-export { readString } from "@/lib/guards";
-
 /** Width in percent of an image node, 100 when unset. */
 export function readWidth(width: unknown): number {
   const parsed = Number.parseInt(String(width ?? "").replace(/%|px/g, ""), 10);

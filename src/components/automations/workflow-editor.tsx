@@ -31,6 +31,7 @@ import {
   type WorkflowNodeData,
 } from "./workflow-types";
 import { saveWorkflow, updateAutomationStatus } from "@/app/(dashboard)/dashboard/automations/actions";
+import type { AutomationStatus } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
 
 const EDGE_COLOR = "#71717a";
@@ -70,7 +71,7 @@ interface HistoryEntry {
 interface WorkflowEditorProps {
   automationId: string;
   automationName: string;
-  automationStatus: string;
+  automationStatus: AutomationStatus;
   automationTrigger: string;
   initialNodes: Node[];
   initialEdges: Edge[];
@@ -97,7 +98,7 @@ function WorkflowEditorInner({
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [connectFromNodeId, setConnectFromNodeId] = useState<string | null>(null);
-  const [status, setStatus] = useState(automationStatus);
+  const [status, setStatus] = useState<AutomationStatus>(automationStatus);
   const [saving, setSaving] = useState(false);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reactFlowInstance = useReactFlow();

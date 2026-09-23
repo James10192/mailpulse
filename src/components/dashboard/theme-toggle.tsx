@@ -8,7 +8,13 @@ import { isOneOf } from "@/components/forms/one-of";
 import { SingleChoiceGroup } from "@/components/forms/single-choice-group";
 import { ToggleGroupItem } from "@/components/ui/toggle-group";
 
-const THEMES = ["light", "dark", "system"] as const;
+const OPTIONS = [
+  { value: "light", icon: Sun, label: "Clair" },
+  { value: "dark", icon: Moon, label: "Sombre" },
+  { value: "system", icon: Monitor, label: "Système" },
+] as const;
+
+const THEMES = OPTIONS.map((option) => option.value);
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -18,12 +24,6 @@ export function ThemeToggle() {
     const timer = window.setTimeout(() => setMounted(true), 0);
     return () => window.clearTimeout(timer);
   }, []);
-
-  const options = [
-    { value: "light", icon: Sun, label: "Clair" },
-    { value: "dark", icon: Moon, label: "Sombre" },
-    { value: "system", icon: Monitor, label: "Système" },
-  ] as const;
 
   return (
     <SingleChoiceGroup
@@ -36,7 +36,7 @@ export function ThemeToggle() {
       aria-label="Thème"
       className="gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100 p-0.5 dark:border-zinc-700/50 dark:bg-zinc-800/50"
     >
-      {options.map((opt) => (
+      {OPTIONS.map((opt) => (
         <ToggleGroupItem
           key={opt.value}
           value={opt.value}
