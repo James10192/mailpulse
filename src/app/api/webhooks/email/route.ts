@@ -4,7 +4,12 @@ import { NextRequest } from "next/server";
 import type { Prisma } from "@/generated/prisma";
 import { recalculateCampaignAnalytics } from "@/lib/campaign-analytics";
 import { convexServer } from "@/lib/convex-server";
-import { resendMessageTransition } from "@/lib/mailpulse/resend-message-status";
+import { recordDeliveryDelay } from "@/lib/mailpulse/message-delivery-delays";
+import {
+  resendEventReason,
+  resendMessageTransition,
+  shouldRecordDeliveryDelay,
+} from "@/lib/mailpulse/resend-message-status";
 import { prisma } from "@/lib/prisma";
 import { resend } from "@/lib/resend";
 import { api } from "../../../../../convex/_generated/api";
@@ -19,6 +24,9 @@ interface ResendWebhookEvent {
     subject: string;
     headers?: { name: string; value: string }[];
     tags?: Record<string, string> | { name: string; value: string }[];
+    bounce?: { message?: string };
+    failed?: { reason?: string };
+    suppressed?: { message?: string; type?: string };
   };
 }
 
@@ -144,12 +152,19 @@ async function reconcileCommunicationMessage(
   });
   if (!message) return { changed: false, contactId: null, organizationId: null };
 
-  const occurredAt = new Date(event.created_at);
-  const transition = resendMessageTransition(
-    event.type,
-    Number.isNaN(occurredAt.getTime()) ? new Date() : occurredAt,
-    message,
-  );
+  const occurredAt = eventTime(event);
+  const reason = resendEventReason(event.type, event.data);
+  if (shouldRecordDeliveryDelay(event.type, message.status)) {
+    await recordDeliveryDelay(tx, {
+      organizationId: message.organizationId,
+      messageId: message.id,
+      provider: "RESEND",
+      providerMessageId: event.data.email_id,
+      occurredAt,
+      reason,
+    });
+  }
+  const transition = resendMessageTransition(event.type, occurredAt, message, { reason });
   const update = await tx.communicationMessage.updateMany({
     where: { id: message.id, status: message.status },
     data: { provider: "RESEND", providerMessageId: event.data.email_id, ...(transition ?? {}) },
@@ -181,10 +196,9 @@ async function applyCampaignEvent(
 
   const timestampField = campaignRecipientTimestamp[event.type];
   if (timestampField) {
-    const occurredAt = new Date(event.created_at);
     await tx.campaignRecipient.updateMany({
       where: { id: recipientId },
-      data: { [timestampField]: Number.isNaN(occurredAt.getTime()) ? new Date() : occurredAt },
+      data: { [timestampField]: eventTime(event) },
     });
   }
   return !existing;
@@ -199,6 +213,12 @@ async function applyContactPreferenceEvent(
     await tx.contact.update({
       where: { id: contactId },
       data: { subscribed: false, bounceType: "hard" },
+    });
+  } else if (eventType === "email.suppressed") {
+    // Resend only suppresses an address after a hard bounce or a complaint.
+    await tx.contact.update({
+      where: { id: contactId },
+      data: { subscribed: false, bounceType: "suppressed" },
     });
   } else if (eventType === "email.complained") {
     await tx.contact.update({ where: { id: contactId }, data: { subscribed: false } });
@@ -231,6 +251,11 @@ async function updateCampaignAnalytics(campaignId: string) {
     );
   }
   revalidatePath("/dashboard/campaigns");
+}
+
+function eventTime(event: ResendWebhookEvent) {
+  const occurredAt = new Date(event.created_at);
+  return Number.isNaN(occurredAt.getTime()) ? new Date() : occurredAt;
 }
 
 function eventTags(tags: ResendWebhookEvent["data"]["tags"]): EventTagSet {
