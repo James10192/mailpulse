@@ -101,7 +101,12 @@ export async function GET(request: NextRequest) {
     const contactSelect = { id: true, email: true, phone: true, firstName: true, lastName: true, subscribed: true, metadata: true };
     if (campaign.contactListId) {
       const members = await prisma.contactListMember.findMany({
-        where: { contactListId: campaign.contactListId },
+        // Defence in depth: only members of a list of the campaign's organization, and only its contacts.
+        where: {
+          contactListId: campaign.contactListId,
+          contactList: { organizationId: campaign.organizationId },
+          contact: { organizationId: campaign.organizationId },
+        },
         select: {
           contact: { select: contactSelect },
         },

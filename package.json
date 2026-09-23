@@ -13,6 +13,7 @@
     "test:external-applications": "node --experimental-strip-types --import ./scripts/test-hooks/register.mjs --test src/lib/external-applications/*.test.ts",
     "test:contacts": "node --experimental-strip-types --import ./scripts/test-hooks/register.mjs --test src/lib/contacts/*.test.ts",
     "test:automations": "node --experimental-strip-types --import ./scripts/test-hooks/register.mjs --test src/lib/automations/*.test.ts",
+    "test:campaigns": "node --experimental-strip-types --import ./scripts/test-hooks/register.mjs --test src/lib/campaigns/*.test.ts",
     "provision:external-application": "node --experimental-strip-types scripts/provision-external-application.ts",
     "validate:orange-sms": "node scripts/validate-orange-sms-config.mjs",
     "preflight:config": "node scripts/validate-production-config.mjs",
