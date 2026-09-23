@@ -6,6 +6,8 @@ import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
+import { deleteOrganizationTag } from "@/lib/contacts/tenant-scope";
+import { prismaTenantDb } from "@/lib/contacts/prisma-tenant-db";
 
 const tagSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -23,7 +25,7 @@ export async function createTag(
   if (!result.success) return { error: "Nom requis" };
 
   const { user, org } = await getCurrentUserAndOrg();
-  if (!user || !org) return { error: "Non authentifie." };
+  if (!user || !org) return { error: "Non authentifié." };
 
   try {
     // Find any contact to attach the tag to (tags require a contactId)
@@ -33,7 +35,7 @@ export async function createTag(
     });
 
     if (!contact) {
-      return { error: "Ajoutez d'abord un contact avant de creer des tags." };
+      return { error: "Ajoutez d'abord un contact avant de créer des tags." };
     }
 
     // Check if tag already exists on this contact
@@ -56,17 +58,23 @@ export async function createTag(
     revalidatePath("/dashboard/tags");
     return { success: true };
   } catch {
-    return { error: "Erreur lors de la creation du tag." };
+    return { error: "Erreur lors de la création du tag." };
   }
 }
 
 export async function deleteTag(tagName: string): Promise<ActionState> {
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: "Non authentifié." };
+
   try {
-    await prisma.contactTag.deleteMany({ where: { name: tagName } });
-    trackServerEvent("system", EVENTS.TAG_DELETED, { tag_name: tagName });
+    const result = await deleteOrganizationTag(prismaTenantDb, org.id, tagName);
+    if (!result.ok) return { error: "Tag introuvable." };
+
+    trackServerEvent(user.id, EVENTS.TAG_DELETED, { tag_name: tagName }, org.id);
     revalidatePath("/dashboard/tags");
     return { success: true };
-  } catch {
+  } catch (error) {
+    console.error("[tags] Failed to delete tag", { organizationId: org.id, error });
     return { error: "Erreur lors de la suppression." };
   }
 }

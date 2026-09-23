@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { notFound } from "next/navigation";
 import { Breadcrumb } from "@/components/dashboard/breadcrumb";
-import { resolveSegmentContacts } from "../actions";
+import { resolveSegmentContacts } from "@/lib/queries/segment-contacts";
 import { Users, Filter, CheckCircle, XCircle, Tag, Calendar, BarChart3 } from "lucide-react";
 import Link from "next/link";
 
@@ -22,7 +22,7 @@ export default async function SegmentDetailPage({
 
   if (!segment) notFound();
 
-  const contacts = await resolveSegmentContacts(id);
+  const contacts = await resolveSegmentContacts(org.id, segment.id);
   const filters = segment.dynamicFilter as Record<string, unknown> | null;
 
   return (

@@ -7,6 +7,9 @@ import { checkSegmentLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
+import { buildSegmentWhere } from "@/lib/queries/segment-contacts";
+import { deleteOrganizationSegment } from "@/lib/contacts/tenant-scope";
+import { prismaTenantDb } from "@/lib/contacts/prisma-tenant-db";
 
 const segmentSchema = z.object({
   name: z.string().min(1),
@@ -26,11 +29,11 @@ export async function createSegment(
   if (!result.success) return { error: "Nom requis" };
 
   const { user, org } = await getCurrentUserAndOrg();
-  if (!user || !org) return { error: "Non authentifie." };
+  if (!user || !org) return { error: "Non authentifié." };
 
   const segmentCheck = await checkSegmentLimit(org.id, org.plan as PlanTier);
   if (!segmentCheck.allowed) {
-    return { error: `Limite de segments atteinte (${segmentCheck.limit}). Passez au plan Pro pour en creer davantage.` };
+    return { error: `Limite de segments atteinte (${segmentCheck.limit}). Passez au plan Pro pour en créer davantage.` };
   }
 
   let dynamicFilter = null;
@@ -60,64 +63,23 @@ export async function createSegment(
     revalidatePath("/dashboard/segments");
     return { success: true };
   } catch {
-    return { error: "Erreur lors de la creation du segment." };
+    return { error: "Erreur lors de la création du segment." };
   }
-}
-
-// Build Prisma where clause from dynamic filter JSON
-function buildSegmentWhere(orgId: string, filters: Record<string, unknown> | null) {
-  const where: Record<string, unknown> = { organizationId: orgId };
-
-  if (!filters) return where;
-
-  if (filters.subscribed === true) where.subscribed = true;
-  else if (filters.subscribed === false) where.subscribed = false;
-
-  if (typeof filters.engagementMin === "number") {
-    where.engagementScore = { ...(where.engagementScore as object || {}), gte: filters.engagementMin };
-  }
-  if (typeof filters.engagementMax === "number") {
-    where.engagementScore = { ...(where.engagementScore as object || {}), lte: filters.engagementMax };
-  }
-
-  if (filters.createdAfter) {
-    where.createdAt = { ...(where.createdAt as object || {}), gte: new Date(filters.createdAfter as string) };
-  }
-  if (filters.createdBefore) {
-    where.createdAt = { ...(where.createdAt as object || {}), lte: new Date(filters.createdBefore as string) };
-  }
-
-  if (Array.isArray(filters.includeTags) && filters.includeTags.length > 0) {
-    where.tags = { some: { name: { in: filters.includeTags } } };
-  }
-
-  return where;
-}
-
-export async function resolveSegmentContacts(segmentId: string) {
-  const segment = await prisma.contactList.findUnique({
-    where: { id: segmentId },
-    select: { organizationId: true, dynamicFilter: true },
-  });
-  if (!segment) return [];
-
-  const where = buildSegmentWhere(segment.organizationId, segment.dynamicFilter as Record<string, unknown> | null);
-
-  return prisma.contact.findMany({
-    where,
-    select: { id: true, email: true, firstName: true, lastName: true, subscribed: true, engagementScore: true, createdAt: true },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
 }
 
 export async function deleteSegment(id: string): Promise<ActionState> {
+  const { user, org } = await getCurrentUserAndOrg();
+  if (!user || !org) return { error: "Non authentifié." };
+
   try {
-    await prisma.contactList.delete({ where: { id } });
-    trackServerEvent("system", EVENTS.SEGMENT_DELETED, { segment_id: id });
+    const result = await deleteOrganizationSegment(prismaTenantDb, org.id, id);
+    if (!result.ok) return { error: "Segment introuvable." };
+
+    trackServerEvent(user.id, EVENTS.SEGMENT_DELETED, { segment_id: id }, org.id);
     revalidatePath("/dashboard/segments");
     return { success: true };
-  } catch {
+  } catch (error) {
+    console.error("[segments] Failed to delete segment", { organizationId: org.id, segmentId: id, error });
     return { error: "Erreur lors de la suppression." };
   }
 }
