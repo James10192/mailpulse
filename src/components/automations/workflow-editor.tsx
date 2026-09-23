@@ -18,11 +18,12 @@ import {
   MarkerType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Plus, Power, PowerOff, Maximize, Undo2, Redo2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { WorkflowNode } from "./workflow-node";
 import { WorkflowEdge } from "./workflow-edge";
 import { AddNodePanel } from "./add-node-panel";
 import { NodeConfigPanel } from "./node-config-panel";
+import { WorkflowHeader } from "./workflow-header";
 import {
   getNodeLabel,
   getDefaultConfig,
@@ -30,7 +31,6 @@ import {
   type WorkflowNodeData,
 } from "./workflow-types";
 import { saveWorkflow, updateAutomationStatus } from "@/app/(dashboard)/dashboard/automations/actions";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 const EDGE_COLOR = "#71717a";
@@ -444,84 +444,17 @@ function WorkflowEditorInner({
     ? (nodes.find((n) => n.id === selectedNodeId) as (Node & { data: WorkflowNodeData }) | undefined) ?? null
     : null;
 
-  const isActive = status === "ACTIVE";
   const isEmpty = nodes.length === 0;
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-            {automationName}
-          </h1>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge variant={isActive ? "success" : "secondary"} className="text-[10px]">
-              {isActive ? "ACTIF" : status}
-            </Badge>
-            {/* Node count display */}
-            <span className="text-[10px] text-zinc-600 font-mono">
-              {nodes.length} nœud{nodes.length !== 1 ? "s" : ""} · {edges.length} connexion{edges.length !== 1 ? "s" : ""}
-            </span>
-            {saving && (
-              <span className="text-[10px] text-zinc-500 font-mono">
-                Sauvegarde...
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Undo */}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={undo}
-            title="Annuler (Ctrl+Z)"
-            aria-label="Annuler (Ctrl+Z)"
-            className="text-zinc-500"
-          >
-            <Undo2 />
-          </Button>
-          {/* Redo */}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={redo}
-            title="Rétablir (Ctrl+Shift+Z)"
-            aria-label="Rétablir (Ctrl+Shift+Z)"
-            className="text-zinc-500"
-          >
-            <Redo2 />
-          </Button>
-          {/* Fit View */}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={handleFitView}
-            title="Ajuster la vue"
-            aria-label="Ajuster la vue"
-            className="text-zinc-500"
-          >
-            <Maximize />
-          </Button>
-          {/* Toggle status */}
-          {isActive ? (
-            <Button
-              variant="outline"
-              onClick={handleToggleStatus}
-              className="text-red-600 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-500/10"
-            >
-              <PowerOff />
-              Désactiver
-            </Button>
-          ) : (
-            <Button onClick={handleToggleStatus}>
-              <Power />
-              Activer le workflow
-            </Button>
-          )}
-        </div>
-      </div>
+      <WorkflowHeader
+        name={automationName}
+        status={status}
+        saving={saving}
+        counts={{ nodes: nodes.length, edges: edges.length }}
+        actions={{ undo, redo, fitView: handleFitView, toggleStatus: handleToggleStatus }}
+      />
 
       {/* Canvas */}
       <div className="relative w-full h-[calc(100vh-220px)] rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">

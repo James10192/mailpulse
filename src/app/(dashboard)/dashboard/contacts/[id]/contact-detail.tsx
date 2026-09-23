@@ -3,14 +3,9 @@
 import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import {
-  Send,
-  CheckCircle,
   Eye,
   MousePointerClick,
   AlertTriangle,
-  AlertOctagon,
-  UserMinus,
-  UserPlus,
   Mail,
   BarChart3,
   Zap,
@@ -19,9 +14,6 @@ import {
   User,
   Phone,
   Globe,
-  Tag,
-  Search,
-  Filter,
 } from "lucide-react";
 import {
   AreaChart,
@@ -42,15 +34,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
-import { toggleContactSubscription, triggerAutomation, updateContact, addTagToContact, removeTagFromContact } from "./actions";
+import { toggleContactSubscription, triggerAutomation, updateContact } from "./actions";
+import { ContactActivityTimeline } from "./contact-activity-timeline";
+import { ContactTagEditor } from "./contact-tag-editor";
 
 // ────────────────────────────────────────────────────────
 // Types
@@ -129,39 +119,6 @@ function formatDate(iso: string) {
   });
 }
 
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-const EVENT_CONFIG: Record<string, { icon: typeof Send; label: string; color: string }> = {
-  SUBSCRIBED: { icon: UserPlus, label: "Abonné", color: "text-emerald-500" },
-  SENT: { icon: Send, label: "Email envoyé", color: "text-blue-400" },
-  DELIVERED: { icon: CheckCircle, label: "Email délivré", color: "text-emerald-400" },
-  OPENED: { icon: Eye, label: "Email ouvert", color: "text-sky-400" },
-  CLICKED: { icon: MousePointerClick, label: "Email cliqué", color: "text-orange-400" },
-  BOUNCED_SOFT: { icon: AlertTriangle, label: "Bounce soft", color: "text-amber-400" },
-  BOUNCED_HARD: { icon: AlertTriangle, label: "Bounce hard", color: "text-red-400" },
-  COMPLAINED: { icon: AlertOctagon, label: "Spam", color: "text-red-500" },
-  FAILED: { icon: AlertTriangle, label: "Échec d'envoi", color: "text-red-400" },
-  SUPPRESSED: { icon: AlertOctagon, label: "Adresse en liste de suppression", color: "text-amber-500" },
-  UNSUBSCRIBED: { icon: UserMinus, label: "Désabonné", color: "text-zinc-400" },
-  TAG_ADDED: { icon: Tag, label: "Tag ajouté", color: "text-purple-400" },
-  TAG_REMOVED: { icon: Tag, label: "Tag retiré", color: "text-zinc-400" },
-  WORKFLOW_STARTED: { icon: Zap, label: "Automation démarrée", color: "text-orange-500" },
-  WORKFLOW_COMPLETED: { icon: CheckCircle, label: "Automation terminée", color: "text-emerald-500" },
-};
-
-const EVENT_FILTER_OPTIONS = Object.entries(EVENT_CONFIG).map(([value, cfg]) => ({
-  value,
-  label: cfg.label,
-}));
-
 const TRIGGER_LABELS: Record<string, string> = {
   SUBSCRIBER_ADDED: "Nouvel abonné",
   TAG_ADDED: "Tag ajouté",
@@ -170,9 +127,6 @@ const TRIGGER_LABELS: Record<string, string> = {
   DATE_BASED: "Date",
   CUSTOM_EVENT: "Événement personnalisé",
 };
-
-// One row of the tag suggestion list under the "Ajouter un tag" field.
-const TAG_OPTION_CLASS = "block w-full px-3 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:bg-zinc-100 disabled:opacity-50 dark:focus-visible:bg-zinc-800";
 
 // ────────────────────────────────────────────────────────
 // Component
@@ -198,10 +152,6 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
     return vals;
   });
   const [saving, setSaving] = useState(false);
-  const [newTag, setNewTag] = useState("");
-  const [addingTag, setAddingTag] = useState(false);
-  const [eventFilter, setEventFilter] = useState<string>("ALL");
-  const [eventSearch, setEventSearch] = useState("");
 
   async function handleSave() {
     setSaving(true);
@@ -218,18 +168,6 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
     });
     setSaving(false);
     setEditing(false);
-  }
-
-  async function handleAddTag() {
-    if (!newTag.trim()) return;
-    setAddingTag(true);
-    await addTagToContact(contact.id, newTag.trim());
-    setNewTag("");
-    setAddingTag(false);
-  }
-
-  async function handleRemoveTag(tagId: string) {
-    await removeTagFromContact(contact.id, tagId);
   }
 
   // Build chart data from campaign recipients (last 30 days)
@@ -303,9 +241,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
             </h1>
             <Badge
               variant={contact.subscribed ? "success" : "destructive"}
-              className={`mt-1 px-2.5 text-xs ${
-                contact.subscribed ? "border-emerald-500/20" : "border-red-500/20"
-              }`}
+              className="mt-1 px-2.5 text-xs"
             >
               {contact.subscribed ? "ABONNÉ" : "DÉSABONNÉ"}
             </Badge>
@@ -442,16 +378,16 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
             <div className="space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="contact-email" className="text-xs font-normal text-zinc-500 dark:text-zinc-500">Email</Label>
-                <Input id="contact-email" disabled value={contact.email} className="h-10" />
+                <Input id="contact-email" disabled value={contact.email} className="h-11 sm:h-10" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="contact-first-name" className="text-xs font-normal text-zinc-500 dark:text-zinc-500">Prénom</Label>
-                  <Input id="contact-first-name" value={editData.firstName} onChange={(e) => setEditData({ ...editData, firstName: e.target.value })} className="h-10" />
+                  <Input id="contact-first-name" value={editData.firstName} onChange={(e) => setEditData({ ...editData, firstName: e.target.value })} className="h-11 sm:h-10" />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="contact-last-name" className="text-xs font-normal text-zinc-500 dark:text-zinc-500">Nom</Label>
-                  <Input id="contact-last-name" value={editData.lastName} onChange={(e) => setEditData({ ...editData, lastName: e.target.value })} className="h-10" />
+                  <Input id="contact-last-name" value={editData.lastName} onChange={(e) => setEditData({ ...editData, lastName: e.target.value })} className="h-11 sm:h-10" />
                 </div>
               </div>
               <PhoneNumberInput
@@ -473,7 +409,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                         value={customFieldValues[f.name] || ""}
                         onChange={(e) => setCustomFieldValues({ ...customFieldValues, [f.name]: e.target.value })}
                         type={f.type === "number" ? "number" : f.type === "email" ? "email" : f.type === "url" ? "url" : f.type === "date" ? "date" : "text"}
-                        className="h-10"
+                        className="h-11 sm:h-10"
                       />
                     </div>
                   ))}
@@ -500,70 +436,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
             </>
           )}
 
-          {/* Tags */}
-          <div>
-            <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mb-2">
-              <Tag className="h-3.5 w-3.5" />
-              Tags
-            </div>
-            <div className="flex gap-1.5 flex-wrap">
-              {contact.tags.map((tag) => (
-                <Badge
-                  key={tag.id}
-                  variant="outline"
-                  className="gap-1 px-2.5 py-1 text-xs"
-                  style={{ borderColor: tag.color + "40", backgroundColor: tag.color + "15", color: tag.color }}
-                >
-                  {tag.name}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveTag(tag.id)}
-                    aria-label={`Retirer le tag ${tag.name}`}
-                    className="rounded-sm text-xs leading-none transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35"
-                  >
-                    ×
-                  </button>
-                </Badge>
-              ))}
-              <div className="relative">
-                <Input
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddTag(); } }}
-                  placeholder="Ajouter un tag..."
-                  aria-label="Ajouter un tag"
-                  className="h-11 w-40 border border-dashed sm:h-8 border-zinc-300 bg-transparent px-2 py-1 text-xs shadow-none placeholder:text-zinc-500 dark:border-zinc-700 dark:bg-transparent dark:shadow-none"
-                />
-                {newTag && (
-                  <div className="absolute left-0 top-full mt-1 z-10 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg py-1 max-h-40 overflow-y-auto">
-                    {availableTags
-                      .filter((t) => t.toLowerCase().includes(newTag.toLowerCase()) && !contact.tags.some((ct) => ct.name === t))
-                      .map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => { setNewTag(""); addTagToContact(contact.id, t); }}
-                          className={cn(TAG_OPTION_CLASS, "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800")}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    {!availableTags.some((t) => t.toLowerCase() === newTag.toLowerCase()) && (
-                      <button
-                        type="button"
-                        onClick={handleAddTag}
-                        disabled={addingTag}
-                        className={cn(TAG_OPTION_CLASS, "text-orange-600 hover:bg-orange-500/5 dark:text-orange-400")}
-                      >
-                        + Créer &quot;{newTag}&quot;
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <ContactTagEditor contactId={contact.id} tags={contact.tags} availableTags={availableTags} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-zinc-200 dark:border-zinc-800">
             <InfoRow icon={Clock} label="Créé le" value={formatDate(contact.createdAt)} />
@@ -647,103 +520,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
         </div>
       </div>
 
-      {/* Activity Timeline */}
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Activité
-          </h2>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
-              <Input
-                value={eventSearch}
-                onChange={(e) => setEventSearch(e.target.value)}
-                placeholder="Rechercher..."
-                aria-label="Rechercher dans l'activité"
-                className="h-11 w-36 pl-8 pr-3 text-xs sm:h-9"
-              />
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5 font-normal">
-                  <Filter />
-                  {eventFilter === "ALL" ? "Tous les types" : EVENT_CONFIG[eventFilter]?.label ?? eventFilter}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-64 w-56 overflow-y-auto">
-                <DropdownMenuRadioGroup value={eventFilter} onValueChange={setEventFilter}>
-                  <DropdownMenuRadioItem value="ALL" className="text-xs">
-                    Tous les types
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuSeparator />
-                  {EVENT_FILTER_OPTIONS.map((opt) => (
-                    <DropdownMenuRadioItem key={opt.value} value={opt.value} className="text-xs">
-                      {opt.label}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        {(() => {
-          // Build timeline: real events + "Subscribed" pseudo-event from createdAt
-          const allEvents = [
-            ...contact.emailEvents,
-            { id: "subscribed-event", type: "SUBSCRIBED", metadata: null, createdAt: contact.createdAt },
-          ]
-            .filter((e) => eventFilter === "ALL" || e.type === eventFilter)
-            .filter((e) => {
-              if (!eventSearch) return true;
-              const cfg = EVENT_CONFIG[e.type];
-              return cfg?.label.toLowerCase().includes(eventSearch.toLowerCase());
-            })
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-          return allEvents.length > 0 ? (
-            <div className="space-y-1">
-              {allEvents.map((event) => {
-                const config = EVENT_CONFIG[event.type] ?? {
-                  icon: Mail,
-                  label: event.type,
-                  color: "text-zinc-400",
-                };
-                const Icon = config.icon;
-                const meta = event.metadata as Record<string, string> | null;
-                const campaignName = meta?.campaignName ?? null;
-
-                return (
-                  <div
-                    key={event.id}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
-                  >
-                    <div className={`shrink-0 ${config.color}`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                        {config.label}
-                      </span>
-                      {campaignName && (
-                        <span className="text-sm text-zinc-500"> · {campaignName}</span>
-                      )}
-                    </div>
-                    <span className="text-xs text-zinc-500 shrink-0">
-                      {formatDateTime(event.createdAt)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-20 text-sm text-zinc-500">
-              Aucun événement {eventFilter !== "ALL" ? "de ce type" : ""}
-            </div>
-          );
-        })()}
-      </div>
+      <ContactActivityTimeline events={contact.emailEvents} subscribedAt={contact.createdAt} />
 
       {/* Confirm dialog for subscription toggle */}
       <ConfirmDialog
