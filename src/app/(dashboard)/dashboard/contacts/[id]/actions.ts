@@ -13,6 +13,12 @@ import {
   removeTagFromOrganizationContact,
 } from "@/lib/contacts/tenant-scope";
 import { createTenantDb, prismaTenantDb } from "@/lib/contacts/prisma-tenant-db";
+import { retryOnSerializationFailure } from "@/lib/prisma-errors";
+import {
+  contactMetadataInputSchema,
+  mergeContactMetadata,
+  type ContactMetadataInput,
+} from "@/lib/contacts/contact-metadata";
 
 const NOT_AUTHENTICATED = "Non authentifié.";
 const CONTACT_NOT_FOUND = "Contact introuvable.";
@@ -79,16 +85,38 @@ export async function updateContact(
     const { user, org } = await getCurrentUserAndOrg();
     if (!user || !org) return { error: NOT_AUTHENTICATED };
 
-    const { count } = await prisma.contact.updateMany({
-      where: { id: contactId, organizationId: org.id },
-      data: {
-        ...(data.firstName !== undefined && { firstName: data.firstName || null }),
-        ...(data.lastName !== undefined && { lastName: data.lastName || null }),
-        ...(data.phone !== undefined && { phone: normalizeContactPhone(data.phone) || null }),
-        ...(data.metadata !== undefined && { metadata: data.metadata as object }),
-      },
-    });
-    if (count === 0) return { error: CONTACT_NOT_FOUND };
+    let submittedMetadata: ContactMetadataInput | undefined;
+    if (data.metadata !== undefined) {
+      const parsed = contactMetadataInputSchema.safeParse(data.metadata);
+      if (!parsed.success) return { error: "Champs personnalisés invalides." };
+      submittedMetadata = parsed.data;
+    }
+
+    // Read and write in one serializable transaction so a consent change (STOP)
+    // landing meanwhile is never overwritten by the merged metadata.
+    const updated = await retryOnSerializationFailure(() =>
+      prisma.$transaction(
+        async (tx) => {
+          const current = await tx.contact.findFirst({
+            where: { id: contactId, organizationId: org.id },
+            select: { metadata: true },
+          });
+          if (!current) return false;
+          const { count } = await tx.contact.updateMany({
+            where: { id: contactId, organizationId: org.id },
+            data: {
+              ...(data.firstName !== undefined && { firstName: data.firstName || null }),
+              ...(data.lastName !== undefined && { lastName: data.lastName || null }),
+              ...(data.phone !== undefined && { phone: normalizeContactPhone(data.phone) || null }),
+              ...(submittedMetadata !== undefined && { metadata: mergeContactMetadata(current.metadata, submittedMetadata) }),
+            },
+          });
+          return count > 0;
+        },
+        { isolationLevel: "Serializable" }
+      )
+    );
+    if (!updated) return { error: CONTACT_NOT_FOUND };
 
     revalidatePath(`/dashboard/contacts/${contactId}`);
     revalidatePath("/dashboard/contacts");
@@ -108,9 +136,11 @@ export async function addTagToContact(
 
   try {
     // Duplicate check and insert run in one serializable transaction: see addTagToOrganizationContact.
-    const result = await prisma.$transaction(
-      (tx) => addTagToOrganizationContact(createTenantDb(tx), org.id, contactId, tagName),
-      { isolationLevel: "Serializable" }
+    const result = await retryOnSerializationFailure(() =>
+      prisma.$transaction(
+        (tx) => addTagToOrganizationContact(createTenantDb(tx), org.id, contactId, tagName),
+        { isolationLevel: "Serializable" }
+      )
     );
     if (!result.ok) {
       if (result.reason === "duplicate") return { error: "Ce tag existe déjà." };
