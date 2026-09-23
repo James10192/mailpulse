@@ -1,7 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { X, HelpCircle, ChevronDown, ChevronUp, ExternalLink, Copy, CheckCheck } from "lucide-react";
+import { CheckCheck, Copy, ExternalLink, HelpCircle } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface HelpSection {
   title: string;
@@ -22,95 +32,74 @@ export function HelpModal({
   subtitle: string;
   sections: HelpSection[];
 }) {
-  if (!open) return null;
+  const initiallyOpen = sections
+    .map((section, index) => ((section.defaultOpen ?? index === 0) ? `section-${index}` : null))
+    .filter((value): value is string => value !== null);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
-              <HelpCircle className="h-5 w-5 text-blue-400" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
-              <p className="text-xs text-zinc-500">{subtitle}</p>
-            </div>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent className="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-2xl">
+        <DialogHeader className="flex-row items-center gap-3 border-b p-5 text-left">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400" aria-hidden="true">
+            <HelpCircle className="size-5" />
+          </span>
+          <div className="grid gap-1">
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription className="text-xs">{subtitle}</DialogDescription>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            <X className="h-4 w-4" />
-          </button>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5">
+          <Accordion type="multiple" defaultValue={initiallyOpen}>
+            {sections.map((section, index) => (
+              <AccordionItem key={section.title} value={`section-${index}`}>
+                <AccordionTrigger>{section.title}</AccordionTrigger>
+                <AccordionContent className="space-y-3 leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  {section.content}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-2">
-          {sections.map((section, i) => (
-            <AccordionSection key={i} title={section.title} defaultOpen={section.defaultOpen ?? i === 0}>
-              {section.content}
-            </AccordionSection>
-          ))}
-        </div>
-
-        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0">
-          <button
-            onClick={onClose}
-            className="w-full py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer"
-          >
-            J&apos;ai compris
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AccordionSection({ title, defaultOpen, children }: { title: string; defaultOpen: boolean; children: React.ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-3.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer"
-      >
-        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{title}</span>
-        {open ? <ChevronUp className="h-4 w-4 text-zinc-400" /> : <ChevronDown className="h-4 w-4 text-zinc-400" />}
-      </button>
-      {open && (
-        <div className="px-3.5 pb-3.5 text-sm text-zinc-600 dark:text-zinc-400 space-y-3 leading-relaxed">
-          {children}
-        </div>
-      )}
-    </div>
+        <DialogFooter className="border-t p-4">
+          <Button type="button" className="w-full" onClick={onClose}>J&apos;ai compris</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 export function HelpButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-500/30 bg-blue-500/5 text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
-    >
-      <HelpCircle className="h-3.5 w-3.5" />
+    <Button type="button" variant="outline" size="sm" onClick={onClick}>
+      <HelpCircle aria-hidden="true" />
       Comment configurer ?
-    </button>
+    </Button>
   );
 }
 
 export function CopyBlock({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   return (
-    <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 p-3">
-      {label && <p className="text-[11px] text-zinc-500 uppercase tracking-wider mb-1">{label}</p>}
+    <div className="rounded-lg border bg-muted/40 p-3">
+      {label ? <p className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p> : null}
       <div className="flex items-center gap-2">
-        <code className="flex-1 text-xs font-mono text-zinc-900 dark:text-zinc-200 break-all">{value}</code>
-        <button
-          onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-          className="shrink-0 p-1 rounded text-zinc-400 hover:text-zinc-200 cursor-pointer"
-        >
-          {copied ? <CheckCheck className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-        </button>
+        <code className="flex-1 break-all font-mono text-xs text-foreground">{value}</code>
+        <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" onClick={copy} aria-label={`Copier ${label || "la valeur"}`}>
+          {copied ? <CheckCheck className="size-3.5 text-emerald-500" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
+        </Button>
       </div>
     </div>
   );
