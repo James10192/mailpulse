@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Copy, KeyRound, RotateCcw } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import Link from "next/link";
+import { KeyRound, ListFilter, MoreHorizontal, Pencil, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,16 +13,30 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { generateMailPulseApiKey, revokeMailPulseApiKey, updateMailPulseApiKeySender } from "./actions";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { CreateKeyDialog } from "@/components/dashboard/api-keys/create-key-dialog";
+import { KeyNameEditor } from "@/components/dashboard/api-keys/key-name-editor";
+import { NewKeySecretDialog } from "@/components/dashboard/api-keys/new-key-secret-dialog";
+import { formatDate, formatRelativeTime } from "@/lib/utils";
+import { generateMailPulseApiKey, renameMailPulseApiKey, revokeMailPulseApiKey, updateMailPulseApiKeySender } from "./actions";
 
-type ApiKeyRow = {
+export type ApiKeyRow = {
   id: string;
   name: string;
   keyPrefix: string;
@@ -30,79 +45,253 @@ type ApiKeyRow = {
   lastUsedAt: string | null;
   createdAt: string;
   revokedAt: string | null;
+  recentMessages: number;
 };
 
-type EmailSenderOption = { id: string; name: string; email: string; isDefault: boolean };
-type Feedback = { tone: "success" | "error"; message: string } | null;
+type EmailSenderOption = { id: string; name: string; email: string; isDefault: boolean; verified: boolean };
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
+const INHERIT = "inherit";
+
+function SenderItem({ sender }: { sender: EmailSenderOption }) {
+  return (
+    <SelectItem value={sender.id} disabled={!sender.verified}>
+      {sender.name} · {sender.email}{sender.verified ? "" : " (domaine non vérifié)"}
+    </SelectItem>
+  );
+}
+
+function Moment({ value, empty }: { value: string | null; empty: string }) {
+  if (!value) return <span className="text-muted-foreground">{empty}</span>;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="cursor-default whitespace-nowrap" suppressHydrationWarning>{formatRelativeTime(value)}</span>
+      </TooltipTrigger>
+      <TooltipContent>{formatDate(value)}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 export function ApiKeysPanel({ apiKeys, emailSenders, canManage = true }: { apiKeys: ApiKeyRow[]; emailSenders: EmailSenderOption[]; canManage?: boolean }) {
-  const [revealedKey, setRevealedKey] = useState("");
-  const [feedback, setFeedback] = useState<Feedback>(null);
-  const [selectedSenderId, setSelectedSenderId] = useState(emailSenders.find((sender) => sender.isDefault)?.id ?? emailSenders[0]?.id ?? "inherit");
+  const [secret, setSecret] = useState<{ value: string; name: string } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState<ApiKeyRow | null>(null);
+  const [showRevoked, setShowRevoked] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  function generate(environment: "LIVE" | "TEST") {
-    const data = new FormData();
-    data.set("environment", environment);
-    data.set("defaultEmailSenderId", selectedSenderId);
-    startTransition(async () => {
-      const result = await generateMailPulseApiKey(data);
-      if ("key" in result && result.key) {
-        setRevealedKey(result.key);
-        setFeedback({ tone: "success", message: "Clé créée. Copiez-la maintenant : elle ne sera plus affichée ensuite." });
-      } else if ("error" in result && result.error) {
-        setFeedback({ tone: "error", message: result.error });
-      }
-    });
+  const activeKeys = apiKeys.filter((key) => !key.revokedAt);
+  const revokedCount = apiKeys.length - activeKeys.length;
+  const visibleKeys = showRevoked ? apiKeys : activeKeys;
+  const defaultSenderId = emailSenders.find((sender) => sender.isDefault && sender.verified)?.id ?? INHERIT;
+
+  async function create(data: FormData) {
+    const result = await generateMailPulseApiKey(data);
+    if ("key" in result && result.key) {
+      setSecret({ value: result.key, name: String(data.get("name") ?? "").trim() });
+      return {};
+    }
+    return { error: "error" in result ? result.error : "La clé n'a pas pu être créée." };
   }
 
-  function revoke(keyId: string) {
+  async function rename(keyId: string, name: string) {
     const data = new FormData();
     data.set("keyId", keyId);
+    data.set("name", name);
+    const result = await renameMailPulseApiKey(data);
+    if ("error" in result && result.error) return result.error;
+    toast.success("Clé renommée.");
+    return null;
+  }
+
+  function revoke(key: ApiKeyRow) {
+    const data = new FormData();
+    data.set("keyId", key.id);
     startTransition(async () => {
       const result = await revokeMailPulseApiKey(data);
-      setFeedback("error" in result && result.error ? { tone: "error", message: result.error } : { tone: "success", message: "Clé API révoquée." });
+      if ("error" in result && result.error) toast.error(result.error);
+      else toast.success(`Clé « ${key.name} » révoquée.`);
+      setRevoking(null);
     });
   }
 
-  function updateSender(keyId: string, defaultEmailSenderId: string) {
+  function updateSender(keyId: string, senderId: string) {
     const data = new FormData();
     data.set("keyId", keyId);
-    data.set("defaultEmailSenderId", defaultEmailSenderId);
+    data.set("defaultEmailSenderId", senderId);
     startTransition(async () => {
       const result = await updateMailPulseApiKeySender(data);
-      setFeedback("error" in result && result.error ? { tone: "error", message: result.error } : { tone: "success", message: "Expéditeur API mis à jour." });
+      if ("error" in result && result.error) toast.error(result.error);
+      else toast.success("Expéditeur de la clé mis à jour.");
     });
-  }
-
-  async function copy(value: string) {
-    try {
-      await navigator.clipboard.writeText(value);
-      setFeedback({ tone: "success", message: "Clé copiée." });
-    } catch {
-      setFeedback({ tone: "error", message: "La copie a échoué. Réessayez depuis un contexte sécurisé." });
-    }
   }
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="gap-4 border-b">
+      <CardHeader className="border-b">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-          <div><CardTitle>Clés API</CardTitle><CardDescription>Clés par organisation pour l’API publique MailPulse.</CardDescription></div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" className="h-10" onClick={() => generate("TEST")} disabled={!canManage || isPending} title={!canManage ? "Disponible avec le plan Pro" : undefined}><KeyRound aria-hidden="true" />Créer une clé test</Button>
-            <Button type="button" className="h-10" onClick={() => generate("LIVE")} disabled={!canManage || isPending} title={!canManage ? "Disponible avec le plan Pro" : undefined}><KeyRound aria-hidden="true" />Créer une clé production</Button>
+          <div>
+            <CardTitle>Clés API</CardTitle>
+            <CardDescription>Une clé par application qui envoie des messages : son nom vous permet de suivre son trafic.</CardDescription>
           </div>
+          <CreateKeyDialog
+            title="Nouvelle clé API"
+            description="La clé ne sera affichée qu'une fois, juste après sa création."
+            triggerLabel="Nouvelle clé"
+            namePlaceholder="Ex. KLASSCI Abidjan, site vitrine"
+            disabled={!canManage}
+            disabledReason="Disponible avec le plan Pro"
+            onCreate={create}
+          >
+            <fieldset className="grid gap-2">
+              <legend className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Environnement</legend>
+              <RadioGroup name="environment" defaultValue="LIVE" className="grid gap-2 sm:grid-cols-2">
+                {([
+                  ["LIVE", "Production", "Envoie de vrais messages."],
+                  ["TEST", "Test", "Pour développer sans toucher vos contacts."],
+                ] as const).map(([value, label, hint]) => (
+                  <Label key={value} htmlFor={`env-${value}`} className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 font-normal has-[[data-state=checked]]:border-orange-500/60 has-[[data-state=checked]]:bg-orange-500/5">
+                    <RadioGroupItem id={`env-${value}`} value={value} className="mt-0.5" />
+                    <span className="grid gap-1">
+                      <span className="font-medium">{label}</span>
+                      <span className="text-xs text-muted-foreground">{hint}</span>
+                    </span>
+                  </Label>
+                ))}
+              </RadioGroup>
+            </fieldset>
+            <div className="grid gap-2">
+              <Label htmlFor="key-sender">Expéditeur des e-mails</Label>
+              <Select name="defaultEmailSenderId" defaultValue={defaultSenderId}>
+                <SelectTrigger id="key-sender" className="h-10"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={INHERIT}>Expéditeur par défaut de l&apos;organisation</SelectItem>
+                  {emailSenders.map((sender) => <SenderItem key={sender.id} sender={sender} />)}
+                </SelectContent>
+              </Select>
+            </div>
+          </CreateKeyDialog>
         </div>
-        <div className="max-w-md"><Select value={selectedSenderId} onValueChange={setSelectedSenderId} disabled={isPending || emailSenders.length === 0}><SelectTrigger className="h-10"><SelectValue placeholder="Expéditeur API par défaut" /></SelectTrigger><SelectContent>{emailSenders.length === 0 ? <SelectItem value="inherit">Aucun expéditeur vérifié</SelectItem> : emailSenders.map((sender) => <SelectItem key={sender.id} value={sender.id}>{sender.name} · {sender.email}</SelectItem>)}</SelectContent></Select></div>
       </CardHeader>
-      <CardContent className="space-y-4 p-0">
-        {feedback ? <Alert variant={feedback.tone === "error" ? "destructive" : "default"} className="mx-5 mt-5"><AlertDescription>{feedback.message}</AlertDescription></Alert> : null}
-        {revealedKey ? <div className="mx-5 rounded-lg border border-orange-500/20 bg-orange-500/5 p-4"><p className="text-sm font-medium">Nouvelle clé</p><div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center"><code className="min-w-0 flex-1 overflow-x-auto rounded-md bg-background px-3 py-2 font-mono text-xs shadow-[inset_0_0_0_1px_rgba(24,24,27,0.1)]">{revealedKey}</code><Button type="button" variant="outline" className="h-10" onClick={() => copy(revealedKey)}><Copy aria-hidden="true" />Copier</Button></div></div> : null}
-        <div className="overflow-x-auto border-t"><Table className="min-w-[760px]"><TableHeader><TableRow><TableHead>Nom</TableHead><TableHead>Clé</TableHead><TableHead>Environnement</TableHead><TableHead>Expéditeur</TableHead><TableHead>Dernier usage</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader><TableBody>{apiKeys.length === 0 ? <TableRow><TableCell colSpan={6} className="h-32 text-center text-sm text-muted-foreground">Aucune clé API créée.</TableCell></TableRow> : apiKeys.map((key) => <TableRow key={key.id}><TableCell className="font-medium">{key.name}</TableCell><TableCell className="font-mono text-xs">{key.keyPrefix}</TableCell><TableCell><Badge variant={key.environment === "LIVE" ? "default" : "secondary"}>{key.environment === "LIVE" ? "Production" : "Test"}</Badge></TableCell><TableCell className="min-w-56"><Select value={key.defaultEmailSenderId ?? "inherit"} onValueChange={(value) => updateSender(key.id, value)} disabled={isPending || Boolean(key.revokedAt)}><SelectTrigger className="h-10"><SelectValue placeholder="Expéditeur par défaut" /></SelectTrigger><SelectContent><SelectItem value="inherit">Expéditeur par défaut</SelectItem>{emailSenders.map((sender) => <SelectItem key={sender.id} value={sender.id}>{sender.name} · {sender.email}</SelectItem>)}</SelectContent></Select></TableCell><TableCell className="text-sm text-muted-foreground">{key.lastUsedAt ? dateFormatter.format(new Date(key.lastUsedAt)) : "Jamais"}</TableCell><TableCell className="text-right">{key.revokedAt ? <Badge variant="secondary">Révoquée</Badge> : <AlertDialog><AlertDialogTrigger asChild><Button type="button" variant="outline" className="h-10" disabled={isPending}><RotateCcw aria-hidden="true" />Révoquer</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Révoquer cette clé ?</AlertDialogTitle><AlertDialogDescription>Les intégrations qui l’utilisent ne pourront plus appeler l’API. Cette action ne peut pas être annulée.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => revoke(key.id)}>Révoquer la clé</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}</TableCell></TableRow>)}</TableBody></Table></div>
+      <CardContent className="p-0">
+        {visibleKeys.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+            <KeyRound className="size-6 text-muted-foreground" aria-hidden="true" />
+            <p className="font-medium">Aucune clé active</p>
+            <p className="max-w-sm text-sm text-muted-foreground">Créez une clé pour chaque application qui enverra des messages par l&apos;API. Nommez-la d&apos;après cette application.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table className="min-w-[860px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nom</TableHead>
+                  <TableHead>Clé</TableHead>
+                  <TableHead className="text-right">Messages, 30 j</TableHead>
+                  <TableHead>Expéditeur</TableHead>
+                  <TableHead>Dernier usage</TableHead>
+                  <TableHead>Créée</TableHead>
+                  <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleKeys.map((key) => {
+                  const revoked = Boolean(key.revokedAt);
+                  return (
+                    <TableRow key={key.id} className={revoked ? "opacity-60" : undefined}>
+                      <TableCell className="max-w-72">
+                        <KeyNameEditor
+                          name={key.name}
+                          editing={editingId === key.id}
+                          onEditingChange={(editing) => setEditingId(editing ? key.id : null)}
+                          onRename={(name) => rename(key.id, name)}
+                          disabled={!canManage}
+                        />
+                        <div className="mt-1 flex gap-1">
+                          <Badge variant={key.environment === "LIVE" ? "default" : "secondary"}>{key.environment === "LIVE" ? "Production" : "Test"}</Badge>
+                          {revoked ? <Badge variant="outline">Révoquée</Badge> : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{key.keyPrefix}</TableCell>
+                      <TableCell className="text-right">
+                        <Link
+                          href={`/dashboard/platform?tab=messages&key=${key.id}`}
+                          className="font-mono tabular-nums underline-offset-4 hover:text-orange-600 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35"
+                          aria-label={`Voir les ${key.recentMessages} messages de la clé ${key.name}`}
+                        >
+                          {key.recentMessages.toLocaleString("fr-FR")}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="min-w-56">
+                        <Select value={key.defaultEmailSenderId ?? INHERIT} onValueChange={(value) => updateSender(key.id, value)} disabled={!canManage || isPending || revoked}>
+                          <SelectTrigger className="h-9" aria-label={`Expéditeur de la clé ${key.name}`}><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={INHERIT}>Expéditeur par défaut</SelectItem>
+                            {emailSenders.map((sender) => <SenderItem key={sender.id} sender={sender} />)}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-sm"><Moment value={key.lastUsedAt} empty="Jamais" /></TableCell>
+                      <TableCell className="text-sm"><Moment value={key.createdAt} empty="—" /></TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button type="button" variant="ghost" size="icon" className="size-9" aria-label={`Actions sur la clé ${key.name}`}>
+                              <MoreHorizontal aria-hidden="true" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => setEditingId(key.id)} disabled={!canManage}>
+                              <Pencil aria-hidden="true" />Renommer
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/dashboard/platform?tab=messages&key=${key.id}`}><ListFilter aria-hidden="true" />Voir ses messages</Link>
+                            </DropdownMenuItem>
+                            {revoked ? null : (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setRevoking(key)} disabled={!canManage}>
+                                  <RotateCcw aria-hidden="true" />Révoquer
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        {revokedCount > 0 ? (
+          <div className="flex items-center gap-2 border-t px-5 py-3">
+            <Switch id="show-revoked" checked={showRevoked} onCheckedChange={setShowRevoked} />
+            <Label htmlFor="show-revoked" className="font-normal text-muted-foreground">
+              Afficher les clés révoquées ({revokedCount})
+            </Label>
+          </div>
+        ) : null}
       </CardContent>
+
+      <AlertDialog open={revoking !== null} onOpenChange={(open) => { if (!open) setRevoking(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Révoquer « {revoking?.name} » ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              L&apos;application qui utilise cette clé ne pourra plus envoyer de messages. Ses messages passés restent dans le registre. Cette action est définitive.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" disabled={isPending} onClick={(event) => { event.preventDefault(); if (revoking) revoke(revoking); }}>
+              Révoquer la clé
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <NewKeySecretDialog secret={secret?.value ?? null} keyName={secret?.name ?? ""} onClose={() => setSecret(null)} />
     </Card>
   );
 }

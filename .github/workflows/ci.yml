@@ -88,6 +88,9 @@ jobs:
       - name: External application tests
         run: pnpm test:external-applications
 
+      - name: Platform tests
+        run: pnpm test:platform
+
       - name: Build
         run: pnpm build
 

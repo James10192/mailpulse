@@ -24,14 +24,7 @@ type CreateMessageInput = z.infer<typeof createMessageSchema>;
 const WHATSAPP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const IDEMPOTENCY_TRANSACTION_MAX_RETRIES = 3;
 
-export async function createCommunicationMessage(params: {
-  organizationId: string;
-  origin: "API" | "PLATFORM" | "CAMPAIGN";
-  organization?: MailPulseMessageOrganization;
-  input: CreateMessageInput;
-  idempotencyKey?: string | null;
-  defaultEmailSenderId?: string | null;
-}) {
+export async function createCommunicationMessage(params: CreateCommunicationMessageParams) {
   const message = await createMessageRecord(prisma, params);
   return dispatchAndPublishMessage(message.id, params.organization, params.defaultEmailSenderId ?? null);
 }
@@ -43,6 +36,8 @@ type CreateCommunicationMessageParams = {
   input: CreateMessageInput;
   idempotencyKey?: string | null;
   defaultEmailSenderId?: string | null;
+  /** The API key that submitted the message; absent outside the public API. */
+  apiKeyId?: string | null;
 };
 
 type MessageDatabase = Pick<Prisma.TransactionClient,
@@ -209,6 +204,7 @@ async function createMessageRecord(db: MessageDatabase, params: CreateCommunicat
     data: {
       organizationId: params.organizationId,
       origin: params.origin,
+      apiKeyId: params.apiKeyId ?? null,
       contactId: contact?.id ?? null,
       conversationId: conversation.id,
       templateId: template?.id ?? null,

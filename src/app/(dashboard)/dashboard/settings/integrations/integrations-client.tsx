@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import {
   CheckCircle2,
   Copy,
@@ -10,16 +10,30 @@ import {
   ShieldCheck,
   TriangleAlert,
 } from "lucide-react";
+import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { generateFilonIntegrationKey, revokeFilonIntegrationKey } from "./actions";
+import { CreateKeyDialog } from "@/components/dashboard/api-keys/create-key-dialog";
+import { KeyNameEditor } from "@/components/dashboard/api-keys/key-name-editor";
+import { NewKeySecretDialog } from "@/components/dashboard/api-keys/new-key-secret-dialog";
+import { generateFilonIntegrationKey, renameFilonIntegrationKey, revokeFilonIntegrationKey } from "./actions";
 
 type IntegrationKey = {
   id: string;
+  name: string;
   keyPrefix: string;
   lastUsedAt: string | null;
   createdAt: string;
@@ -81,25 +95,46 @@ export function IntegrationsClient({
   endpointUrl: string;
   resourceStatus: ResourceStatus;
 }) {
-  const [revealedKey, setRevealedKey] = useState("");
-  const [pending, setPending] = useState(false);
+  const [secret, setSecret] = useState<{ value: string; name: string } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState<IntegrationKey | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-  async function generate() {
-    setPending(true);
-    const result = await generateFilonIntegrationKey();
-    setPending(false);
-    if ("key" in result && result.key) setRevealedKey(result.key);
+  async function create(data: FormData) {
+    const result = await generateFilonIntegrationKey(data);
+    if ("key" in result && result.key) {
+      setSecret({ value: result.key, name: String(data.get("name") ?? "").trim() });
+      return {};
+    }
+    return { error: "error" in result ? result.error : "La clé n'a pas pu être créée." };
   }
 
-  async function revoke(id: string) {
-    setPending(true);
-    await revokeFilonIntegrationKey(id);
-    setPending(false);
-    if (revealedKey) setRevealedKey("");
+  async function rename(keyId: string, name: string) {
+    const data = new FormData();
+    data.set("keyId", keyId);
+    data.set("name", name);
+    const result = await renameFilonIntegrationKey(data);
+    if ("error" in result && result.error) return result.error;
+    toast.success("Clé renommée.");
+    return null;
+  }
+
+  function revoke(key: IntegrationKey) {
+    startTransition(async () => {
+      const result = await revokeFilonIntegrationKey(key.id);
+      if ("error" in result && result.error) toast.error(result.error);
+      else toast.success(`Clé « ${key.name} » révoquée.`);
+      setRevoking(null);
+    });
   }
 
   async function copy(value: string) {
-    await navigator.clipboard.writeText(value);
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success("Copié.");
+    } catch {
+      toast.error("La copie a échoué.");
+    }
   }
 
   return (
@@ -159,22 +194,6 @@ export function IntegrationsClient({
             </div>
           </div>
 
-          {revealedKey && (
-            <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-4">
-              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Nouvelle clé créée</p>
-              <p className="mt-1 text-xs text-zinc-500">Copiez-la maintenant. MailPulse ne l&apos;affichera plus ensuite.</p>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-orange-500/20 bg-white px-3 py-2 text-xs text-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
-                  {revealedKey}
-                </code>
-                <Button size="sm" onClick={() => copy(revealedKey)}>
-                  <Copy className="h-3.5 w-3.5" />
-                  Copier
-                </Button>
-              </div>
-            </div>
-          )}
-
           <div className="rounded-lg border border-zinc-200 dark:border-zinc-800">
             {keys.length === 0 ? (
               <div className="p-8 text-center">
@@ -185,6 +204,7 @@ export function IntegrationsClient({
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Nom</TableHead>
                     <TableHead>Clé</TableHead>
                     <TableHead>Créée</TableHead>
                     <TableHead>Dernier usage</TableHead>
@@ -194,13 +214,21 @@ export function IntegrationsClient({
                 <TableBody>
                   {keys.map((key) => (
                     <TableRow key={key.id}>
-                      <TableCell className="font-mono text-sm">{key.keyPrefix}</TableCell>
+                      <TableCell className="max-w-64">
+                        <KeyNameEditor
+                          name={key.name}
+                          editing={editingId === key.id}
+                          onEditingChange={(editing) => setEditingId(editing ? key.id : null)}
+                          onRename={(name) => rename(key.id, name)}
+                        />
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{key.keyPrefix}</TableCell>
                       <TableCell>{new Date(key.createdAt).toLocaleDateString("fr-FR")}</TableCell>
                       <TableCell>
                         {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString("fr-FR") : "Jamais"}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="outline" size="sm" onClick={() => revoke(key.id)} disabled={pending}>
+                        <Button variant="outline" size="sm" onClick={() => setRevoking(key)} disabled={isPending}>
                           <RotateCcw className="h-3.5 w-3.5" />
                           Révoquer
                         </Button>
@@ -212,10 +240,28 @@ export function IntegrationsClient({
             )}
           </div>
 
-          <Button onClick={generate} disabled={pending}>
-            <KeyRound className="h-4 w-4" />
-            Générer une clé Filon
-          </Button>
+          <CreateKeyDialog
+            title="Nouvelle clé Filon"
+            description="Collez-la dans Filon. Elle ne sera affichée qu'une fois."
+            triggerLabel="Générer une clé Filon"
+            namePlaceholder="Ex. Filon production"
+            onCreate={create}
+          />
+          <NewKeySecretDialog secret={secret?.value ?? null} keyName={secret?.name ?? ""} onClose={() => setSecret(null)} />
+          <AlertDialog open={revoking !== null} onOpenChange={(open) => { if (!open) setRevoking(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Révoquer « {revoking?.name} » ?</AlertDialogTitle>
+                <AlertDialogDescription>Filon ne pourra plus appeler MailPulse avec cette clé. Cette action est définitive.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
+                <AlertDialogAction className="bg-destructive hover:bg-destructive/90" disabled={isPending} onClick={(event) => { event.preventDefault(); if (revoking) revoke(revoking); }}>
+                  Révoquer la clé
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
 
@@ -269,7 +315,6 @@ export function IntegrationsClient({
         </CardContent>
       </Card>
 
-      <Separator />
     </div>
   );
 }

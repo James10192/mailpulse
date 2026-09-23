@@ -10,7 +10,7 @@ export default async function IntegrationsPage() {
         prisma.integrationApiKey.findMany({
           where: { organizationId: org.id, provider: "FILON", revokedAt: null },
           orderBy: { createdAt: "desc" },
-          select: { id: true, keyPrefix: true, lastUsedAt: true, createdAt: true },
+          select: { id: true, name: true, keyPrefix: true, lastUsedAt: true, createdAt: true },
         }),
         prisma.sendingDomain.count({
           where: { organizationId: org.id, verified: true },

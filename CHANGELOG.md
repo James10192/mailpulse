@@ -2,6 +2,24 @@
 
 All notable changes to MailPulse will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Named API keys**: a key gets a name at creation (the application that will use it) and can be renamed in place from the list. The secret is shown once, in a dialog that only closes on an explicit click.
+- **Messages linked to their API key**: every message sent through `POST /api/v1/messages` records the key that submitted it (`communication_message.apiKeyId`, migration `20260923120000_link_communication_message_to_api_key`). The key list shows each key's traffic over 30 days, linked to the registry filtered on that key.
+- **Message registry**: outcome counters (delivered, sent, in progress, failed, cancelled) that filter on click, period and API key filters, statuses in French, failure reason under the status, relative dates, and a delivery timeline in the message sheet.
+- shadcn/ui components: Sonner (toasts), Toggle, ToggleGroup, Accordion.
+
+### Changed
+- `ConfirmDialog`, `ContactDialog` and `HelpModal` are built on the shadcn Dialog/AlertDialog: focus trap, Escape to close, screen-reader roles. Their props are unchanged.
+- The platform tab is kept in the URL (`?tab=`), so links and reloads land on the right tab.
+
+### Fixed
+- Creating an API key failed with "Expéditeur invalide" when the default sender's domain was not verified; unverified senders are now shown disabled and never preselected.
+- The Filon key revoke action could revoke any key of the organization, MailPulse keys included; it is now limited to active Filon keys.
+- `truncate` never truncated a `<p>` or a heading: the global `text-wrap` rules were unlayered and reset the wrap mode. They now live in `@layer base`.
+- A bare `border` rendered black (Tailwind v4 uses `currentColor`); the theme border color is now the default, as in shadcn's base styles.
+
 ## [0.2.0] - 2026-03-28
 
 ### Added

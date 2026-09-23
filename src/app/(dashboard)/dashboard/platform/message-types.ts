@@ -1,6 +1,8 @@
 export type ApiMessageDetail = {
   id: string;
   origin: "api" | "platform" | "legacy";
+  /** The named key that submitted the message, when it came through the API. */
+  api_key: { id: string; name: string; environment: "LIVE" | "TEST"; revoked: boolean } | null;
   channel: string;
   direction: string;
   recipient: { type: string; value: string };
