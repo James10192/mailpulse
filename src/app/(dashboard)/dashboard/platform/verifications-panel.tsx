@@ -22,6 +22,7 @@ const STATUS: Record<PhoneVerificationStatus, { label: string; variant: "success
 const SEND_ERRORS: Record<PhoneVerificationError, string> = {
   RECIPIENT_UNREACHABLE: "Numéro sans compte WhatsApp",
   REJECTED: "Envoi refusé par le fournisseur",
+  PROVIDER_RATE_LIMITED: "Fournisseur saturé, rien n'a été envoyé",
   TIMEOUT: "Envoi non confirmé : délai dépassé",
   TRANSPORT: "Envoi non confirmé : erreur du fournisseur",
 };
@@ -80,7 +81,10 @@ export async function VerificationsPanel({ organizationId }: { organizationId: s
                     </TableCell>
                   </TableRow>
                 ) : result.rows.map((row) => {
-                  const status = STATUS[effectiveStatus(row, now)];
+                  const current = effectiveStatus(row, now);
+                  const status = STATUS[current];
+                  // The cause only matters while the send is unconfirmed or failed.
+                  const cause = row.errorCode && (current === "PENDING" || current === "FAILED") ? SEND_ERRORS[row.errorCode] : null;
                   return (
                     <TableRow key={row.id}>
                       <TableCell className="font-mono text-sm">{maskE164(row.phoneNumber)}</TableCell>
@@ -94,7 +98,7 @@ export async function VerificationsPanel({ organizationId }: { organizationId: s
                       </TableCell>
                       <TableCell>
                         <Badge variant={status.variant}>{status.label}</Badge>
-                        {row.errorCode ? <p className="mt-1 max-w-56 truncate text-xs text-destructive">{SEND_ERRORS[row.errorCode]}</p> : null}
+                        {cause ? <p className="mt-1 max-w-56 truncate text-xs text-destructive">{cause}</p> : null}
                       </TableCell>
                       <TableCell className="font-mono text-sm tabular-nums">{row.attempts}/{VERIFICATION_MAX_ATTEMPTS}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{dateFormatter.format(row.createdAt)}</TableCell>
