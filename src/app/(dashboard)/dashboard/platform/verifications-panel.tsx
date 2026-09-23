@@ -4,8 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { prisma } from "@/lib/prisma";
 import { maskE164 } from "@/lib/phone-numbers";
-import type { PhoneVerificationStatus } from "@/generated/prisma";
-import { effectiveStatus, VERIFICATION_MAX_ATTEMPTS, type SendErrorCode } from "@/lib/verifications/policy";
+import type { PhoneVerificationError, PhoneVerificationStatus } from "@/generated/prisma";
+import { effectiveStatus, VERIFICATION_MAX_ATTEMPTS } from "@/lib/verifications/policy";
 
 const RECENT_LIMIT = 50;
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
@@ -19,15 +19,11 @@ const STATUS: Record<PhoneVerificationStatus, { label: string; variant: "success
   FAILED: { label: "Échec d'envoi", variant: "destructive" },
 };
 
-const SEND_ERRORS: Record<SendErrorCode, string> = {
-  numero_non_whatsapp: "Numéro sans compte WhatsApp",
-  delai_depasse: "Délai dépassé chez le fournisseur",
-  transport_erreur: "Erreur du fournisseur WhatsApp",
+const SEND_ERRORS: Record<PhoneVerificationError, string> = {
+  RECIPIENT_UNREACHABLE: "Numéro sans compte WhatsApp",
+  TIMEOUT: "Délai dépassé chez le fournisseur",
+  TRANSPORT: "Erreur du fournisseur WhatsApp",
 };
-
-function sendErrorLabel(code: string) {
-  return SEND_ERRORS[code as SendErrorCode] ?? SEND_ERRORS.transport_erreur;
-}
 
 async function loadVerifications(organizationId: string) {
   try {
@@ -97,7 +93,7 @@ export async function VerificationsPanel({ organizationId }: { organizationId: s
                       </TableCell>
                       <TableCell>
                         <Badge variant={status.variant}>{status.label}</Badge>
-                        {row.errorCode ? <p className="mt-1 max-w-56 truncate text-xs text-destructive">{sendErrorLabel(row.errorCode)}</p> : null}
+                        {row.errorCode ? <p className="mt-1 max-w-56 truncate text-xs text-destructive">{SEND_ERRORS[row.errorCode]}</p> : null}
                       </TableCell>
                       <TableCell className="font-mono text-sm tabular-nums">{row.attempts}/{VERIFICATION_MAX_ATTEMPTS}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{dateFormatter.format(row.createdAt)}</TableCell>
