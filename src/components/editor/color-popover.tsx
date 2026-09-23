@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { COLORS } from "./editor-config";
-import { keepEditorFocus, PopoverCaption, ToolbarButton } from "./toolbar-primitives";
+import { PopoverCaption, ToolbarButton, useEditorFocusReturn } from "./toolbar-primitives";
 
 const SWATCH_CLASS = "size-6 rounded-md border transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35";
 
@@ -28,10 +28,11 @@ const MODES = {
 } as const;
 
 /** Colour palette popover for the text colour or the highlight. Each swatch closes it through PopoverClose. */
-export function ColorPopover({ editor, mode }: { editor: Editor; mode: keyof typeof MODES }) {
+export function ColorPopover({ editor, mode, currentColor }: { editor: Editor; mode: keyof typeof MODES; currentColor?: string | null }) {
   const config = MODES[mode];
   const Icon = config.icon;
-  const currentTextColor = mode === "text" ? (editor.getAttributes("textStyle")?.color as string | undefined) : undefined;
+  const focus = useEditorFocusReturn(editor);
+  const currentTextColor = mode === "text" ? currentColor : null;
 
   return (
     <Popover>
@@ -43,14 +44,14 @@ export function ColorPopover({ editor, mode }: { editor: Editor; mode: keyof typ
           ) : null}
         </ToolbarButton>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-48 p-2" onCloseAutoFocus={keepEditorFocus(editor)}>
+      <PopoverContent align="start" className="w-48 p-2" onCloseAutoFocus={focus.onCloseAutoFocus}>
         <PopoverCaption>{config.label}</PopoverCaption>
         <div className="grid grid-cols-6 gap-1">
           {COLORS.map((color) => (
             <PopoverClose key={color} asChild>
               <button
                 type="button"
-                onClick={() => config.apply(editor, color)}
+                onClick={() => focus.run(() => config.apply(editor, color))}
                 className={cn(
                   SWATCH_CLASS,
                   currentTextColor === color ? "border-orange-500 ring-1 ring-orange-500" : "border-zinc-200 dark:border-zinc-700",
@@ -63,7 +64,7 @@ export function ColorPopover({ editor, mode }: { editor: Editor; mode: keyof typ
           ))}
         </div>
         <PopoverClose asChild>
-          <Button type="button" variant="ghost" size="sm" onClick={() => config.reset(editor)} className="mt-2 w-full justify-start font-normal text-zinc-500">
+          <Button type="button" variant="ghost" size="sm" onClick={() => focus.run(() => config.reset(editor))} className="mt-2 w-full justify-start font-normal text-zinc-500">
             Réinitialiser
           </Button>
         </PopoverClose>

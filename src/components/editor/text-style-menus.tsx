@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FONT_SIZES } from "./editor-config";
-import { keepEditorFocus, ToolbarButton } from "./toolbar-primitives";
+import { ToolbarButton, useEditorFocusReturn } from "./toolbar-primitives";
 
 const HEADINGS = [
   { label: "Paragraphe", icon: Type, run: (e: Editor) => e.chain().focus().setParagraph().run() },
@@ -22,17 +22,18 @@ const HEADINGS = [
 
 const DEFAULT_FONT_SIZE = "default";
 
-export function HeadingMenu({ editor }: { editor: Editor }) {
+export function HeadingMenu({ editor, active }: { editor: Editor; active: boolean }) {
+  const focus = useEditorFocusReturn(editor);
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        <ToolbarButton label="Titre" active={editor.isActive("heading")}>
+        <ToolbarButton label="Titre" active={active}>
           <Type />
         </ToolbarButton>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-40" onCloseAutoFocus={keepEditorFocus(editor)}>
+      <DropdownMenuContent align="start" className="w-40" onCloseAutoFocus={focus.onCloseAutoFocus}>
         {HEADINGS.map(({ label, icon: Icon, run }) => (
-          <DropdownMenuItem key={label} onSelect={() => run(editor)}>
+          <DropdownMenuItem key={label} onSelect={() => focus.run(() => run(editor))}>
             <Icon className="size-4" /> {label}
           </DropdownMenuItem>
         ))}
@@ -41,12 +42,15 @@ export function HeadingMenu({ editor }: { editor: Editor }) {
   );
 }
 
-export function FontSizeMenu({ editor }: { editor: Editor }) {
-  const current = (editor.getAttributes("textStyle")?.fontSize as string | undefined) ?? DEFAULT_FONT_SIZE;
+export function FontSizeMenu({ editor, fontSize }: { editor: Editor; fontSize: string | null }) {
+  const focus = useEditorFocusReturn(editor);
+  const current = fontSize ?? DEFAULT_FONT_SIZE;
 
   function select(value: string) {
-    const chain = editor.chain().focus();
-    (value === DEFAULT_FONT_SIZE ? chain.unsetFontSize() : chain.setFontSize(value)).run();
+    focus.run(() => {
+      const chain = editor.chain().focus();
+      (value === DEFAULT_FONT_SIZE ? chain.unsetFontSize() : chain.setFontSize(value)).run();
+    });
   }
 
   return (
@@ -57,7 +61,7 @@ export function FontSizeMenu({ editor }: { editor: Editor }) {
           <ChevronDown />
         </ToolbarButton>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-72 w-32 min-w-32 overflow-y-auto" onCloseAutoFocus={keepEditorFocus(editor)}>
+      <DropdownMenuContent align="start" className="max-h-72 w-32 min-w-32 overflow-y-auto" onCloseAutoFocus={focus.onCloseAutoFocus}>
         <DropdownMenuRadioGroup value={current} onValueChange={select}>
           <DropdownMenuRadioItem value={DEFAULT_FONT_SIZE} className="text-zinc-500">
             Par défaut

@@ -9,10 +9,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { VARIABLES, type SnippetOption } from "./editor-config";
-import { keepEditorFocus, ToolbarButton } from "./toolbar-primitives";
+import { ToolbarButton, useEditorFocusReturn } from "./toolbar-primitives";
 
 /** Inserts a merge variable as a mention chip. The menu closes itself on select. */
 export function VariablesMenu({ editor }: { editor: Editor }) {
+  const focus = useEditorFocusReturn(editor);
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -20,11 +21,11 @@ export function VariablesMenu({ editor }: { editor: Editor }) {
           <Variable /><span className="hidden sm:inline">Variables</span><ChevronDown />
         </ToolbarButton>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-72 w-60 overflow-y-auto" onCloseAutoFocus={keepEditorFocus(editor)}>
+      <DropdownMenuContent align="start" className="max-h-72 w-60 overflow-y-auto" onCloseAutoFocus={focus.onCloseAutoFocus}>
         {VARIABLES.map((v) => (
           <DropdownMenuItem
             key={v.name}
-            onSelect={() => editor.chain().focus().insertContent({ type: "mention", attrs: { id: v.name, label: v.label } }).run()}
+            onSelect={() => focus.run(() => editor.chain().focus().insertContent({ type: "mention", attrs: { id: v.name, label: v.label } }).run())}
             className="justify-between"
           >
             <span className="text-zinc-700 dark:text-zinc-300">{v.label}</span>
@@ -38,6 +39,7 @@ export function VariablesMenu({ editor }: { editor: Editor }) {
 
 /** Inserts a saved snippet's HTML at the cursor. */
 export function SnippetsMenu({ editor, snippets }: { editor: Editor; snippets: SnippetOption[] }) {
+  const focus = useEditorFocusReturn(editor);
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -45,11 +47,11 @@ export function SnippetsMenu({ editor, snippets }: { editor: Editor; snippets: S
           <FileCode /><span className="hidden sm:inline">Snippets</span><ChevronDown />
         </ToolbarButton>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-72 w-56 overflow-y-auto" onCloseAutoFocus={keepEditorFocus(editor)}>
+      <DropdownMenuContent align="start" className="max-h-72 w-56 overflow-y-auto" onCloseAutoFocus={focus.onCloseAutoFocus}>
         {snippets.length === 0 ? (
           <div className="px-3 py-2 text-xs text-zinc-500">Aucun snippet</div>
         ) : snippets.map((s) => (
-          <DropdownMenuItem key={s.id} onSelect={() => editor.chain().focus().insertContent(s.htmlContent).run()}>
+          <DropdownMenuItem key={s.id} onSelect={() => focus.run(() => editor.chain().focus().insertContent(s.htmlContent).run())}>
             <FileCode className="size-3.5 shrink-0 text-orange-500" />
             <span className="truncate text-zinc-700 dark:text-zinc-300">{s.name}</span>
           </DropdownMenuItem>

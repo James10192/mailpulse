@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { keepEditorFocus, PopoverCaption, ToolbarButton } from "./toolbar-primitives";
+import { PopoverCaption, ToolbarButton, useEditorFocusReturn } from "./toolbar-primitives";
 
 const GRID_SIZE = 6;
 
@@ -60,14 +60,14 @@ function TableGridSelector({ onSelect }: { onSelect: (rows: number, cols: number
   );
 }
 
-function TableActionList({ editor, actions, destructive }: { editor: Editor; actions: TableAction[]; destructive?: boolean }) {
+function TableActionList({ editor, actions, destructive, run }: { editor: Editor; actions: TableAction[]; destructive?: boolean; run: (action: () => void) => void }) {
   return actions.map((action) => (
     <PopoverClose key={action.label} asChild>
       <Button
         type="button"
         variant={destructive ? "ghost-destructive" : "ghost"}
         size="sm"
-        onClick={() => action.run(editor)}
+        onClick={() => run(() => action.run(editor))}
         className="w-full justify-start font-normal"
       >
         {action.icon} {action.label}
@@ -77,8 +77,8 @@ function TableActionList({ editor, actions, destructive }: { editor: Editor; act
 }
 
 /** Table button: a size picker outside a table, row/column actions inside one. */
-export function TableMenu({ editor }: { editor: Editor }) {
-  const inTable = editor.isActive("table");
+export function TableMenu({ editor, inTable }: { editor: Editor; inTable: boolean }) {
+  const focus = useEditorFocusReturn(editor);
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -86,15 +86,15 @@ export function TableMenu({ editor }: { editor: Editor }) {
           <TableIcon />
         </ToolbarButton>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto p-1" onCloseAutoFocus={keepEditorFocus(editor)}>
+      <PopoverContent align="start" className="w-auto p-1" onCloseAutoFocus={focus.onCloseAutoFocus}>
         {inTable ? (
           <div className="w-56">
-            <TableActionList editor={editor} actions={INSERT_ACTIONS} />
+            <TableActionList editor={editor} actions={INSERT_ACTIONS} run={focus.run} />
             <Separator className="my-1" />
-            <TableActionList editor={editor} actions={DELETE_ACTIONS} destructive />
+            <TableActionList editor={editor} actions={DELETE_ACTIONS} destructive run={focus.run} />
           </div>
         ) : (
-          <TableGridSelector onSelect={(rows, cols) => editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()} />
+          <TableGridSelector onSelect={(rows, cols) => focus.run(() => editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run())} />
         )}
       </PopoverContent>
     </Popover>

@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef } from "react";
+import { forwardRef, useRef } from "react";
 import type { Editor } from "@tiptap/react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -10,12 +10,26 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 export const TOOLTIP_DELAY_MS = 300;
 
 /**
- * Radix returns focus to the trigger when a menu closes. When the menu action has
- * just focused the editor (`chain().focus()`), keep the text cursor there instead.
+ * Radix returns focus to the trigger when a menu or popover closes. After an action
+ * that edited the document, the text cursor must go back to the editor instead.
+ * `run` flags the action before it executes; `onCloseAutoFocus` then cancels Radix's
+ * focus return and focuses the editor. Closing without an action (Escape, click
+ * outside) leaves Radix's default behaviour untouched.
  */
-export function keepEditorFocus(editor: Editor) {
-  return (event: Event) => {
-    if (editor.isFocused) event.preventDefault();
+export function useEditorFocusReturn(editor: Editor) {
+  const actedRef = useRef(false);
+
+  return {
+    run(action: () => void) {
+      actedRef.current = true;
+      action();
+    },
+    onCloseAutoFocus(event: Event) {
+      if (!actedRef.current) return;
+      actedRef.current = false;
+      event.preventDefault();
+      editor.commands.focus();
+    },
   };
 }
 

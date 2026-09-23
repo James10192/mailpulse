@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import type { Editor } from "@tiptap/react";
+import { useEditorState, type Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { ExternalLink, Link as LinkIcon, Pencil, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import { keepEditorFocus, ToolbarButton } from "./toolbar-primitives";
+import { ToolbarButton, useEditorFocusReturn } from "./toolbar-primitives";
 
 /**
  * The link editor is the one controlled popover of the toolbar: both the toolbar
@@ -45,15 +45,16 @@ export function useLinkEditor(editor: Editor | null) {
 export type LinkEditorState = ReturnType<typeof useLinkEditor>;
 
 /** Toolbar button + URL popover. Anchored rather than triggered, because the bubble menu opens it too. */
-export function LinkPopover({ editor, link }: { editor: Editor; link: LinkEditorState }) {
+export function LinkPopover({ editor, link, active }: { editor: Editor; link: LinkEditorState; active: boolean }) {
+  const focus = useEditorFocusReturn(editor);
   return (
     <Popover open={link.open} onOpenChange={link.setOpen}>
       <PopoverAnchor asChild>
-        <ToolbarButton label="Lien" active={editor.isActive("link") || link.open} aria-expanded={link.open} onClick={link.start}>
+        <ToolbarButton label="Lien" active={active || link.open} aria-expanded={link.open} onClick={link.start}>
           <LinkIcon />
         </ToolbarButton>
       </PopoverAnchor>
-      <PopoverContent align="start" className="w-72 p-2" onCloseAutoFocus={keepEditorFocus(editor)}>
+      <PopoverContent align="start" className="w-72 p-2" onCloseAutoFocus={focus.onCloseAutoFocus}>
         <Label className="block text-[10px] font-normal uppercase tracking-wider text-zinc-500 dark:text-zinc-500" htmlFor="rich-editor-link-url">
           URL du lien
         </Label>
@@ -65,10 +66,10 @@ export function LinkPopover({ editor, link }: { editor: Editor; link: LinkEditor
           className="mt-1 h-10 rounded-md px-2"
         />
         <div className="mt-2 flex justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={link.clear} className="text-zinc-500">
+          <Button type="button" variant="ghost" size="sm" onClick={() => focus.run(link.clear)} className="text-zinc-500">
             Retirer
           </Button>
-          <Button type="button" size="sm" onClick={link.apply}>
+          <Button type="button" size="sm" onClick={() => focus.run(link.apply)}>
             Appliquer
           </Button>
         </div>
@@ -79,7 +80,10 @@ export function LinkPopover({ editor, link }: { editor: Editor; link: LinkEditor
 
 /** Floating actions shown when the cursor sits in a link. */
 export function LinkBubbleMenu({ editor, onEdit }: { editor: Editor; onEdit: () => void }) {
-  const href: string | undefined = editor.getAttributes("link").href;
+  const href = useEditorState({
+    editor,
+    selector: ({ editor: e }) => (e.getAttributes("link").href as string | undefined) ?? "",
+  });
   return (
     <BubbleMenu editor={editor} shouldShow={({ editor: ed }) => ed.isActive("link") && !ed.isActive("image")}>
       <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm shadow-xl dark:border-zinc-800 dark:bg-zinc-950">

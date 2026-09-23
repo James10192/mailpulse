@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import type { Editor } from "@tiptap/react";
+import { useEditorState, type Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { AlignCenter, AlignLeft, AlignRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,28 +16,28 @@ const ALIGNMENTS = [
   { value: "right", label: "Droite", icon: AlignRight, margin: "0 0 0 auto" },
 ] as const;
 
+/** Width in percent of an image node, 100 when unset. */
+function readWidth(width: unknown): number {
+  const parsed = Number.parseInt(String(width ?? "").replace(/%|px/g, ""), 10);
+  return Number.isFinite(parsed) ? parsed : 100;
+}
+
 /** Size slider, width presets, alignment and delete for the selected image. Always rendered on a dark surface. */
 function ImageBubbleToolbar({ editor }: { editor: Editor }) {
-  const [sliderValue, setSliderValue] = useState(100);
-
-  const { state } = editor.view;
-  const { from } = state.selection;
-  const node = state.doc.nodeAt(from);
-  if (!node || node.type.name !== "image") return null;
-  const image = node;
-
-  // Sync slider value from node attrs (deferred to avoid a render loop).
-  const nodeWidth = image.attrs.width;
-  const parsed = nodeWidth ? parseInt(String(nodeWidth).replace("%", "").replace("px", "")) : 100;
-  if (parsed !== sliderValue) setTimeout(() => setSliderValue(parsed), 0);
+  // The width comes from the document itself, so the slider follows undo/redo and a change of image.
+  const image = useEditorState({
+    editor,
+    selector: ({ editor: e }) => (e.isActive("image") ? { width: readWidth(e.getAttributes("image").width) } : null),
+  });
+  if (!image) return null;
+  const sliderValue = image.width;
 
   function applyWidth(width: number) {
-    setSliderValue(width);
-    editor.view.dispatch(state.tr.setNodeMarkup(from, undefined, { ...image.attrs, width: `${width}%` }));
+    editor.chain().updateAttributes("image", { width: `${width}%` }).run();
   }
 
   function applyAlign(margin: string) {
-    editor.view.dispatch(state.tr.setNodeMarkup(from, undefined, { ...image.attrs, style: `display:block;margin:${margin}` }));
+    editor.chain().updateAttributes("image", { style: `display:block;margin:${margin}` }).run();
   }
 
   return (

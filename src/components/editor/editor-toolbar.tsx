@@ -13,32 +13,34 @@ import { LinkPopover, type LinkEditorState } from "./link-editor";
 import { TableMenu } from "./table-menu";
 import { FontSizeMenu, HeadingMenu } from "./text-style-menus";
 import { ToolbarButton, ToolbarSeparator, ToolbarToggle } from "./toolbar-primitives";
+import { useToolbarState, type ToolbarState } from "./toolbar-state";
 
-type ToggleSpec = { label: string; icon: React.ComponentType; isActive: (e: Editor) => boolean; run: (e: Editor) => boolean };
+type ActiveKey = { [K in keyof ToolbarState]: ToolbarState[K] extends boolean ? K : never }[keyof ToolbarState];
+type ToggleSpec = { label: string; icon: React.ComponentType; active: ActiveKey; run: (e: Editor) => boolean };
 
 const MARKS: ToggleSpec[] = [
-  { label: "Gras", icon: Bold, isActive: (e) => e.isActive("bold"), run: (e) => e.chain().focus().toggleBold().run() },
-  { label: "Italique", icon: Italic, isActive: (e) => e.isActive("italic"), run: (e) => e.chain().focus().toggleItalic().run() },
-  { label: "Souligné", icon: UnderlineIcon, isActive: (e) => e.isActive("underline"), run: (e) => e.chain().focus().toggleUnderline().run() },
-  { label: "Barré", icon: Strikethrough, isActive: (e) => e.isActive("strike"), run: (e) => e.chain().focus().toggleStrike().run() },
+  { label: "Gras", icon: Bold, active: "bold", run: (e) => e.chain().focus().toggleBold().run() },
+  { label: "Italique", icon: Italic, active: "italic", run: (e) => e.chain().focus().toggleItalic().run() },
+  { label: "Souligné", icon: UnderlineIcon, active: "underline", run: (e) => e.chain().focus().toggleUnderline().run() },
+  { label: "Barré", icon: Strikethrough, active: "strike", run: (e) => e.chain().focus().toggleStrike().run() },
 ];
 
-const ALIGNMENTS: ToggleSpec[] = (["left", "center", "right"] as const).map((align) => ({
+const ALIGNMENTS: ToggleSpec[] = (["left", "center", "right"] as const).map((align): ToggleSpec => ({
   label: align === "left" ? "Aligner à gauche" : align === "center" ? "Centrer" : "Aligner à droite",
   icon: align === "left" ? AlignLeft : align === "center" ? AlignCenter : AlignRight,
-  isActive: (e) => e.isActive({ textAlign: align }),
+  active: align === "left" ? "alignLeft" : align === "center" ? "alignCenter" : "alignRight",
   run: (e) => e.chain().focus().setTextAlign(align).run(),
 }));
 
 const BLOCKS: ToggleSpec[] = [
-  { label: "Liste à puces", icon: List, isActive: (e) => e.isActive("bulletList"), run: (e) => e.chain().focus().toggleBulletList().run() },
-  { label: "Liste numérotée", icon: ListOrdered, isActive: (e) => e.isActive("orderedList"), run: (e) => e.chain().focus().toggleOrderedList().run() },
-  { label: "Citation", icon: Quote, isActive: (e) => e.isActive("blockquote"), run: (e) => e.chain().focus().toggleBlockquote().run() },
+  { label: "Liste à puces", icon: List, active: "bulletList", run: (e) => e.chain().focus().toggleBulletList().run() },
+  { label: "Liste numérotée", icon: ListOrdered, active: "orderedList", run: (e) => e.chain().focus().toggleOrderedList().run() },
+  { label: "Citation", icon: Quote, active: "blockquote", run: (e) => e.chain().focus().toggleBlockquote().run() },
 ];
 
-function ToggleRow({ editor, specs }: { editor: Editor; specs: ToggleSpec[] }) {
-  return specs.map(({ label, icon: Icon, isActive, run }) => (
-    <ToolbarToggle key={label} label={label} pressed={isActive(editor)} onToggle={() => run(editor)}>
+function ToggleRow({ editor, state, specs }: { editor: Editor; state: ToolbarState; specs: ToggleSpec[] }) {
+  return specs.map(({ label, icon: Icon, active, run }) => (
+    <ToolbarToggle key={label} label={label} pressed={state[active]} onToggle={() => run(editor)}>
       <Icon />
     </ToolbarToggle>
   ));
@@ -75,34 +77,36 @@ export function EditorToolbar({ editor, link, snippets, onImageFile }: {
   snippets?: SnippetOption[];
   onImageFile: (file: File) => void;
 }) {
+  const state = useToolbarState(editor);
+
   return (
     <div role="toolbar" aria-label="Mise en forme" className="sticky top-0 z-30 flex flex-wrap items-center gap-0.5 rounded-t-xl border-b border-zinc-200 bg-zinc-50 p-1.5 dark:border-zinc-800 dark:bg-zinc-900/50">
-      <HeadingMenu editor={editor} />
-      <FontSizeMenu editor={editor} />
+      <HeadingMenu editor={editor} active={state.heading} />
+      <FontSizeMenu editor={editor} fontSize={state.fontSize} />
       <ToolbarSeparator />
-      <ToggleRow editor={editor} specs={MARKS} />
-      <LinkPopover editor={editor} link={link} />
+      <ToggleRow editor={editor} state={state} specs={MARKS} />
+      <LinkPopover editor={editor} link={link} active={state.link} />
       <ToolbarSeparator />
-      <ColorPopover editor={editor} mode="text" />
+      <ColorPopover editor={editor} mode="text" currentColor={state.textColor} />
       <ColorPopover editor={editor} mode="highlight" />
       <ToolbarButton label="Effacer la mise en forme" onClick={() => editor.chain().focus().unsetAllMarks().run()}>
         <RemoveFormatting />
       </ToolbarButton>
       <ToolbarSeparator />
-      <ToggleRow editor={editor} specs={ALIGNMENTS} />
+      <ToggleRow editor={editor} state={state} specs={ALIGNMENTS} />
       <ToolbarSeparator />
-      <ToggleRow editor={editor} specs={BLOCKS} />
+      <ToggleRow editor={editor} state={state} specs={BLOCKS} />
       <ToolbarSeparator />
       <ToolbarButton label="Ligne horizontale" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
         <Minus />
       </ToolbarButton>
       <ImageButton onFile={onImageFile} />
-      <TableMenu editor={editor} />
+      <TableMenu editor={editor} inTable={state.table} />
       <ToolbarSeparator />
-      <ToolbarButton label="Annuler" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
+      <ToolbarButton label="Annuler" onClick={() => editor.chain().focus().undo().run()} disabled={!state.canUndo}>
         <Undo2 />
       </ToolbarButton>
-      <ToolbarButton label="Refaire" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
+      <ToolbarButton label="Refaire" onClick={() => editor.chain().focus().redo().run()} disabled={!state.canRedo}>
         <Redo2 />
       </ToolbarButton>
       <ToolbarSeparator />
