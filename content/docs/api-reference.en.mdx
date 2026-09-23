@@ -35,6 +35,22 @@ GET /api/v1/messages/{message_id}
 Statuses: `queued`, `retrying`, `sent`, `delivered`, `read`, `failed`,
 `cancelled`, `template_required`.
 
+An email refused by the provider moves to `failed` and `error_code` gives the
+cause: `email_bounced`, `email_complained`, `email_suppressed` (address on the
+provider's suppression list) or `email_failed` (sending failure, reason in
+`error_message`). A late event never moves a delivered, read or failed message
+backwards.
+
+`GET /api/v1/messages/{message_id}` also returns `delivery_delays`, the delivery
+delays reported by the provider (at most 20, newest first). A delay does not
+change the status: the message stays `sent` while the provider retries.
+
+```json
+"delivery_delays": [
+  { "occurred_at": "2026-09-23T10:45:00.000Z", "reason": null }
+]
+```
+
 ## External applications
 
 ```txt

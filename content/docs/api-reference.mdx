@@ -57,6 +57,23 @@ Exemple :
 Statuts possibles : `queued`, `retrying`, `sent`, `delivered`, `read`, `failed`,
 `cancelled`, `template_required`.
 
+Un email refusé par le fournisseur passe en `failed` et `error_code` en donne la
+cause : `email_bounced` (rebond), `email_complained` (plainte),
+`email_suppressed` (adresse sur la liste de suppression du fournisseur) ou
+`email_failed` (échec d'envoi, motif dans `error_message`). Un événement tardif
+ne fait jamais reculer un message déjà délivré, lu ou en échec.
+
+`GET /api/v1/messages/{message_id}` renvoie aussi `delivery_delays`, les retards
+de remise signalés par le fournisseur (20 au plus, du plus récent au plus
+ancien). Un retard ne change pas le statut : le message reste `sent` tant que
+le fournisseur réessaie.
+
+```json
+"delivery_delays": [
+  { "occurred_at": "2026-09-23T10:45:00.000Z", "reason": null }
+]
+```
+
 ## Templates
 
 ```txt

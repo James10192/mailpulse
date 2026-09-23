@@ -1,6 +1,6 @@
 import { authenticateApiRequest } from "@/lib/mailpulse/api-keys";
 import { listDeliveryDelays } from "@/lib/mailpulse/message-delivery-delays";
-import { serializeMessage } from "@/lib/mailpulse/serializers";
+import { serializeMessageDetail } from "@/lib/mailpulse/serializers";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request, context: { params: Promise<{ messageId: string }> }) {
@@ -13,6 +13,6 @@ export async function GET(request: Request, context: { params: Promise<{ message
   });
 
   if (!message) return Response.json({ error: "Message not found" }, { status: 404 });
-  const deliveryDelays = await listDeliveryDelays(prisma, auth.organizationId, message.id);
-  return Response.json({ message: { ...serializeMessage(message), delivery_delays: deliveryDelays } });
+  const delays = await listDeliveryDelays(prisma, message.id);
+  return Response.json({ message: serializeMessageDetail(message, delays) });
 }
