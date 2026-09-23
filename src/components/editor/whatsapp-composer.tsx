@@ -187,9 +187,8 @@ export function WhatsAppComposer({
               </div>
               <Button
                 type="button"
-                variant="ghost"
+                variant="ghost-destructive"
                 size="icon"
-                className="h-10 w-10 text-zinc-500 hover:text-red-600"
                 aria-label="Retirer l'image"
                 title="Retirer l'image"
                 onClick={() => onImageChange({ url: null, name: null })}
