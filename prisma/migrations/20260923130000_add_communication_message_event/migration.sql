@@ -1,12 +1,11 @@
 -- Provider notices that do not change a message status (delivery delays).
--- Additive only: a new enum, a new table, and a new email event type.
+-- Additive only: a new enum, a new table, and two new email event types.
 CREATE TYPE "CommunicationMessageEventType" AS ENUM ('DELIVERY_DELAYED');
 
 CREATE TABLE "communication_message_event" (
     "id" TEXT NOT NULL,
     "type" "CommunicationMessageEventType" NOT NULL,
     "occurredAt" TIMESTAMP(3) NOT NULL,
-    "reason" TEXT,
     "provider" TEXT NOT NULL,
     "providerEventId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -31,5 +30,7 @@ ALTER TABLE "communication_message_event"
   ADD CONSTRAINT "communication_message_event_organizationId_fkey"
   FOREIGN KEY ("organizationId") REFERENCES "organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Campaign recipients get a SUPPRESSED event when the provider refuses to send.
+-- Campaign recipients get a FAILED or SUPPRESSED event when the provider does not
+-- send. Both are placed before the pre-existing UNSUBSCRIBED value only.
+ALTER TYPE "EmailEventType" ADD VALUE IF NOT EXISTS 'FAILED' BEFORE 'UNSUBSCRIBED';
 ALTER TYPE "EmailEventType" ADD VALUE IF NOT EXISTS 'SUPPRESSED' BEFORE 'UNSUBSCRIBED';

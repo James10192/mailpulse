@@ -141,7 +141,6 @@ export function serializeMessageDetail(message: CommunicationMessage, delays: De
     ...serializeMessage(message),
     delivery_delays: delays.map((delay) => ({
       occurred_at: delay.occurredAt.toISOString(),
-      reason: delay.reason,
     })),
   };
 }

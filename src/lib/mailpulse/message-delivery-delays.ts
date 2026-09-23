@@ -11,10 +11,9 @@ export type DelayNotice = {
   provider: "RESEND";
   providerEventId: string;
   occurredAt: Date;
-  reason: string | null;
 };
 
-export type DeliveryDelay = Pick<CommunicationMessageEvent, "occurredAt" | "reason">;
+export type DeliveryDelay = Pick<CommunicationMessageEvent, "occurredAt">;
 
 type EventWriter = {
   communicationMessageEvent: {
@@ -28,7 +27,7 @@ export const DELIVERY_DELAYS_INCLUDE = {
     where: { type: "DELIVERY_DELAYED" },
     orderBy: { occurredAt: "desc" },
     take: 20,
-    select: { occurredAt: true, reason: true },
+    select: { occurredAt: true },
   },
 } satisfies Prisma.CommunicationMessageInclude;
 

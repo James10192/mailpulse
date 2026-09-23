@@ -423,6 +423,7 @@ enum EmailEventType {
   BOUNCED_SOFT
   BOUNCED_HARD
   COMPLAINED
+  FAILED
   SUPPRESSED
   UNSUBSCRIBED
 }
@@ -841,7 +842,6 @@ model CommunicationMessageEvent {
   id              String                        @id @default(cuid())
   type            CommunicationMessageEventType
   occurredAt      DateTime
-  reason          String?
   provider        String
   providerEventId String
   createdAt       DateTime                      @default(now())
