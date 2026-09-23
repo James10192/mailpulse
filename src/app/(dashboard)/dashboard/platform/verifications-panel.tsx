@@ -21,8 +21,9 @@ const STATUS: Record<PhoneVerificationStatus, { label: string; variant: "success
 
 const SEND_ERRORS: Record<PhoneVerificationError, string> = {
   RECIPIENT_UNREACHABLE: "Numéro sans compte WhatsApp",
-  TIMEOUT: "Délai dépassé chez le fournisseur",
-  TRANSPORT: "Erreur du fournisseur WhatsApp",
+  REJECTED: "Envoi refusé par le fournisseur",
+  TIMEOUT: "Envoi non confirmé : délai dépassé",
+  TRANSPORT: "Envoi non confirmé : erreur du fournisseur",
 };
 
 async function loadVerifications(organizationId: string) {
