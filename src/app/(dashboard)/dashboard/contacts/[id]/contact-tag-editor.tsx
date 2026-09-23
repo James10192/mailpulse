@@ -13,6 +13,7 @@ import { addTagToContact, removeTagFromContact } from "./actions";
 const TAG_OPTION_CLASS = "flex min-h-11 w-full items-center px-3 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:bg-zinc-100 disabled:opacity-50 sm:min-h-8 dark:focus-visible:bg-zinc-800";
 
 const ADD_TAG_ERROR = "Impossible d'ajouter le tag. Réessayez.";
+const REMOVE_TAG_ERROR = "Impossible de retirer le tag. Réessayez.";
 
 /** Contact tags: remove with ×, add from existing tags or create one from the field. */
 export function ContactTagEditor({
@@ -26,6 +27,7 @@ export function ContactTagEditor({
 }) {
   const [newTag, setNewTag] = useState("");
   const [addingTag, setAddingTag] = useState(false);
+  const [removingTagId, setRemovingTagId] = useState<string | null>(null);
 
   // Used both by the field (Enter, « Créer ») and by the suggestion rows.
   async function handleAddTag(name: string) {
@@ -47,7 +49,15 @@ export function ContactTagEditor({
   }
 
   async function handleRemoveTag(tagId: string) {
-    await removeTagFromContact(contactId, tagId);
+    setRemovingTagId(tagId);
+    try {
+      const result = await removeTagFromContact(contactId, tagId);
+      if (result?.error) toast.error(result.error);
+    } catch {
+      toast.error(REMOVE_TAG_ERROR);
+    } finally {
+      setRemovingTagId(null);
+    }
   }
 
   const suggestions = availableTags.filter(
@@ -74,7 +84,8 @@ export function ContactTagEditor({
               type="button"
               variant="ghost-destructive"
               size="icon-xs"
-              onClick={() => handleRemoveTag(tag.id)}
+              onClick={() => void handleRemoveTag(tag.id)}
+              disabled={removingTagId === tag.id}
               aria-label={`Retirer le tag ${tag.name}`}
               className="rounded-full text-current"
             >
