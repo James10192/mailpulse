@@ -235,7 +235,7 @@ export function ApiKeysPanel({ apiKeys, emailSenders, canManage = true }: { apiK
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button type="button" variant="ghost" size="icon" className="size-9" aria-label={`Actions sur la clé ${key.name}`}>
+                            <Button type="button" variant="ghost" size="icon" aria-label={`Actions sur la clé ${key.name}`}>
                               <MoreHorizontal aria-hidden="true" />
                             </Button>
                           </DropdownMenuTrigger>

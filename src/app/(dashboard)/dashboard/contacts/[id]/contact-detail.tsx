@@ -312,14 +312,9 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
           </div>
         </div>
         <Button
-          variant="outline"
+          variant={contact.subscribed ? "outline-destructive" : "outline-success"}
           onClick={() => setShowUnsubConfirm(true)}
           disabled={isPending}
-          className={
-            contact.subscribed
-              ? "bg-red-600/10 text-red-500 shadow-[inset_0_0_0_1px_rgba(239,68,68,0.2)] hover:bg-red-600/20 hover:shadow-[inset_0_0_0_1px_rgba(239,68,68,0.3)] dark:bg-red-600/10 dark:text-red-400 dark:hover:bg-red-600/20"
-              : "bg-emerald-600/10 text-emerald-600 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.2)] hover:bg-emerald-600/20 hover:shadow-[inset_0_0_0_1px_rgba(16,185,129,0.3)] dark:bg-emerald-600/10 dark:text-emerald-400 dark:hover:bg-emerald-600/20"
-          }
         >
           {contact.subscribed ? "Désabonner" : "Réabonner"}
         </Button>
@@ -418,7 +413,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                 variant="ghost"
                 size="sm"
                 onClick={() => setEditing(true)}
-                className="h-7 px-2 text-orange-500 hover:text-orange-400 dark:text-orange-500 dark:hover:text-orange-400"
+                className="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
               >
                 Modifier
               </Button>
@@ -428,7 +423,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                   variant="ghost"
                   size="sm"
                   onClick={() => setEditing(false)}
-                  className="h-7 px-2 text-zinc-500"
+                  className="text-zinc-500"
                 >
                   Annuler
                 </Button>
@@ -436,7 +431,6 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                   size="sm"
                   onClick={handleSave}
                   disabled={saving}
-                  className="h-7 px-3"
                 >
                   {saving ? "..." : "Enregistrer"}
                 </Button>
@@ -539,7 +533,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddTag(); } }}
                   placeholder="Ajouter un tag..."
                   aria-label="Ajouter un tag"
-                  className="h-7 w-40 border border-dashed border-zinc-300 bg-transparent px-2 py-1 text-xs shadow-none placeholder:text-zinc-500 dark:border-zinc-700 dark:bg-transparent dark:shadow-none"
+                  className="h-11 w-40 border border-dashed sm:h-8 border-zinc-300 bg-transparent px-2 py-1 text-xs shadow-none placeholder:text-zinc-500 dark:border-zinc-700 dark:bg-transparent dark:shadow-none"
                 />
                 {newTag && (
                   <div className="absolute left-0 top-full mt-1 z-10 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg py-1 max-h-40 overflow-y-auto">
@@ -667,13 +661,13 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                 onChange={(e) => setEventSearch(e.target.value)}
                 placeholder="Rechercher..."
                 aria-label="Rechercher dans l'activité"
-                className="h-8 w-36 pl-8 pr-3 text-xs"
+                className="h-11 w-36 pl-8 pr-3 text-xs sm:h-9"
               />
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5 font-normal">
-                  <Filter className="h-3.5 w-3.5" />
+                <Button variant="outline" size="sm" className="gap-1.5 font-normal">
+                  <Filter />
                   {eventFilter === "ALL" ? "Tous les types" : EVENT_CONFIG[eventFilter]?.label ?? eventFilter}
                 </Button>
               </DropdownMenuTrigger>

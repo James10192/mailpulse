@@ -34,7 +34,7 @@ export default function NewCampaignPage() {
       />
 
       <div className="flex items-center gap-4">
-        <Button asChild variant="ghost" size="icon" className="h-9 w-9 text-zinc-400">
+        <Button asChild variant="ghost" size="icon" className="text-zinc-500 dark:text-zinc-400">
           <Link href="/dashboard/campaigns" aria-label="Retour aux campagnes" title="Retour aux campagnes">
             <ArrowLeft />
           </Link>

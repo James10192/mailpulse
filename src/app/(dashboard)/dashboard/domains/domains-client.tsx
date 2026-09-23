@@ -192,11 +192,10 @@ function DomainCard({
           </div>
           {!domain.verified && (
             <Button
-              variant="outline"
+              variant="outline-accent"
               size="sm"
               onClick={handleVerify}
               disabled={verifying}
-              className="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
             >
               <RefreshCw className={verifying ? "animate-spin" : ""} />
               Vérifier

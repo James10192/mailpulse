@@ -11,6 +11,7 @@ import { PageHint } from "@/components/dashboard/page-hint";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import type { ActionState } from "@/types/action-state";
 
@@ -115,31 +116,28 @@ export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
               ))}
             </div>
             <div className="hidden md:block">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="px-4">
                       Nom
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
+                    </TableHead>
+                    <TableHead className="px-4">
                       URL
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
+                    </TableHead>
+                    <TableHead className="px-4">
                       Statut
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
+                    </TableHead>
+                    <TableHead className="px-4">
                       Date
-                    </th>
-                    <th className="text-right text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 w-24" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                    </TableHead>
+                    <TableHead className="text-right px-4 w-24" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {pages.map((page) => (
-                    <tr
-                      key={page.id}
-                      className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
-                    >
-                      <td className="px-4 py-3">
+                    <TableRow key={page.id}>
+                      <TableCell className="px-4 py-3">
                         <Link
                           href={`/dashboard/capture-pages/${page.id}`}
                           className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors"
@@ -147,23 +145,23 @@ export function CapturePagesClient({ pages }: { pages: CapturePageData[] }) {
                           <Globe className="h-4 w-4 text-zinc-400" />
                           {page.name}
                         </Link>
-                      </td>
-                      <td className="px-4 py-3 text-xs font-mono text-zinc-500">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-xs font-mono text-zinc-500">
                         <span className="truncate max-w-xs block">
                           /capture/{page.slug}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
                         <PublishedBadge published={page.published} />
-                      </td>
-                      <td className="px-4 py-3 text-xs text-zinc-500 font-mono">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-xs text-zinc-500 font-mono">
                         {new Date(page.createdAt).toLocaleDateString("fr-FR")}
-                      </td>
-                      <td className="px-4 py-3 text-right">{rowActions(page)}</td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">{rowActions(page)}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         ) : (

@@ -117,7 +117,7 @@ export function ContactsClient({
                 <span className="text-xs text-zinc-500">
                   {currentCount}/{limit === -1 ? "∞" : limit} contacts
                 </span>
-                <Button asChild variant="outline" className="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300">
+                <Button asChild variant="outline-accent">
                   <Link href="/dashboard/settings/billing">
                     <Sparkles className="h-3.5 w-3.5" />
                     Passer au Pro

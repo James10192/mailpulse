@@ -16,7 +16,10 @@ const toggleVariants = cva(
         // Selectable option (audience pills, onboarding answers, channel cards): neutral outline,
         // orange once chosen. Also styles a <label> wrapping a checked radio through `has-`.
         choice:
-          "border border-zinc-200 bg-transparent font-normal text-zinc-500 hover:border-zinc-400 hover:bg-transparent hover:text-zinc-700 dark:border-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-200 data-[state=on]:border-orange-500/50 data-[state=on]:bg-orange-500/10 data-[state=on]:text-orange-600 data-[state=on]:hover:bg-orange-500/10 dark:data-[state=on]:text-orange-400 has-[[data-state=checked]]:border-orange-500/40 has-[[data-state=checked]]:bg-orange-500/5",
+          "border border-zinc-200 bg-transparent font-normal text-zinc-500 hover:border-zinc-400 hover:bg-transparent hover:text-zinc-700 dark:border-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-200 data-[state=on]:border-orange-500/50 data-[state=on]:bg-orange-500/10 data-[state=on]:text-orange-600 data-[state=on]:hover:bg-orange-500/10 dark:data-[state=on]:text-orange-400 has-[[data-state=checked]]:border-orange-500/40 has-[[data-state=checked]]:bg-orange-500/5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-orange-500/35",
+        // One segment of a segmented control (theme switcher): the chosen segment is raised.
+        segment:
+          "text-zinc-400 hover:bg-transparent hover:text-zinc-600 data-[state=on]:bg-white data-[state=on]:text-zinc-900 data-[state=on]:shadow-sm dark:hover:text-zinc-300 dark:data-[state=on]:bg-zinc-700 dark:data-[state=on]:text-zinc-100",
         // Editor formatting toggles (bold, alignment, lists). Keyed on aria-pressed, not data-state:
         // a wrapping TooltipTrigger passes its own data-state, which Radix Toggle lets override "on"/"off".
         toolbar:
@@ -28,8 +31,9 @@ const toggleVariants = cva(
         lg: "h-10 min-w-10 px-2.5",
         // Same 44px mobile touch target as the `icon-sm` button.
         "icon-sm": "size-11 min-w-11 p-0 sm:size-8 sm:min-w-8",
+        "icon-xs": "size-11 min-w-11 p-0 sm:size-7 sm:min-w-7",
         choice: "h-auto min-h-11 min-w-0 whitespace-normal rounded-lg px-3 py-2",
-        "choice-sm": "h-auto min-h-9 min-w-0 whitespace-normal rounded-lg px-3 py-1.5 text-xs",
+        "choice-sm": "h-auto min-h-11 min-w-0 sm:min-h-9 whitespace-normal rounded-lg px-3 py-1.5 text-xs",
         card: "h-auto items-start justify-start gap-3 whitespace-normal rounded-xl p-3 text-left",
       },
     },

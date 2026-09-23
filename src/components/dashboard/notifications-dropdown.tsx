@@ -4,7 +4,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useSession } from "@/lib/auth-client";
 import { Bell, Check, CheckCheck, Send, AlertTriangle, UserPlus, Zap, Trophy } from "lucide-react";
-import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -35,20 +34,19 @@ export function NotificationsDropdown() {
   const markAsRead = useMutation(api.notifications.markAsRead);
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
 
-  const [open, setOpen] = useState(false);
   const unread = unreadCount ?? 0;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover>
       <PopoverTrigger asChild>
         <Button
           type="button"
           variant="ghost"
           size="icon"
           aria-label={unread > 0 ? `Notifications (${unread} non lues)` : "Notifications"}
-          className="relative size-9 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+          className="relative text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
         >
-          <Bell className="h-5 w-5" />
+          <Bell className="size-5" />
           {unread > 0 && (
             <span className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-medium text-white">
               {unread > 9 ? "9+" : unread}
@@ -70,7 +68,7 @@ export function NotificationsDropdown() {
               onClick={() => {
                 if (userId) markAllAsRead({ userId });
               }}
-              className="-mr-2 gap-1 text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+              className="-mr-2 gap-1 text-orange-600 dark:text-orange-400"
             >
               <CheckCheck />
               Tout lire

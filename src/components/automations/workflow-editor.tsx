@@ -474,33 +474,33 @@ function WorkflowEditorInner({
           {/* Undo */}
           <Button
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             onClick={undo}
             title="Annuler (Ctrl+Z)"
             aria-label="Annuler (Ctrl+Z)"
-            className="h-9 w-9 text-zinc-500"
+            className="text-zinc-500"
           >
             <Undo2 />
           </Button>
           {/* Redo */}
           <Button
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             onClick={redo}
             title="Rétablir (Ctrl+Shift+Z)"
             aria-label="Rétablir (Ctrl+Shift+Z)"
-            className="h-9 w-9 text-zinc-500"
+            className="text-zinc-500"
           >
             <Redo2 />
           </Button>
           {/* Fit View */}
           <Button
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             onClick={handleFitView}
             title="Ajuster la vue"
             aria-label="Ajuster la vue"
-            className="h-9 w-9 text-zinc-500"
+            className="text-zinc-500"
           >
             <Maximize />
           </Button>

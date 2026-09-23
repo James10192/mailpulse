@@ -84,14 +84,9 @@ export function CapturePageDetail({
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant={published ? "outline" : "outline-success"}
             onClick={handleTogglePublish}
             disabled={toggling}
-            className={
-              published
-                ? "text-amber-600 hover:text-amber-600 dark:text-amber-400"
-                : "text-emerald-600 hover:text-emerald-600 dark:text-emerald-400"
-            }
           >
             {published ? <EyeOff /> : <Eye />}
             {published ? "Dépublier" : "Publier"}

@@ -25,7 +25,6 @@ export function ThemeToggle() {
   return (
     <ToggleGroup
       type="single"
-      size="sm"
       value={theme ?? ""}
       // Radix emits "" when the active item is clicked again; keep the current theme in that case.
       onValueChange={(next) => {
@@ -40,7 +39,8 @@ export function ThemeToggle() {
           value={opt.value}
           aria-label={opt.label}
           title={opt.label}
-          className="size-7 min-w-7 rounded-md p-1.5 text-zinc-400 hover:bg-transparent hover:text-zinc-600 data-[state=on]:bg-white data-[state=on]:text-zinc-900 data-[state=on]:shadow-sm dark:hover:text-zinc-300 dark:data-[state=on]:bg-zinc-700 dark:data-[state=on]:text-zinc-100"
+          variant="segment"
+          size="icon-xs"
         >
           <opt.icon className="h-3.5 w-3.5" />
         </ToggleGroupItem>

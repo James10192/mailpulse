@@ -13,6 +13,7 @@ import { PageHint } from "@/components/dashboard/page-hint";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -155,8 +156,7 @@ export function AutomationsClient({
               </span>
               <Button
                 asChild
-                variant="outline"
-                className="text-orange-600 hover:text-orange-600 dark:text-orange-400"
+                variant="outline-accent"
               >
                 <Link href="/dashboard/settings/billing">Passer au Pro</Link>
               </Button>
@@ -203,90 +203,85 @@ export function AutomationsClient({
         {/* Automations list */}
         {automations.length > 0 ? (
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                      Nom
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">
-                      Déclencheur
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                      Statut
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">
-                      Date
-                    </th>
-                    <th className="text-right text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 w-12" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                  {automations.map((auto) => {
-                    const badge = statusConfig[auto.status] ?? statusConfig.DRAFT;
-                    return (
-                      <tr
-                        key={auto.id}
-                        className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          <Link
-                            href={`/dashboard/automations/${auto.id}/edit`}
-                            className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors"
-                          >
-                            {auto.name}
-                          </Link>
-                          {auto.description && (
-                            <div className="text-xs text-zinc-500 mt-0.5 truncate max-w-xs">
-                              {auto.description}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell">
-                          <Badge variant="secondary">
-                            {triggerLabels[auto.trigger] ?? auto.trigger}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant={badge.variant}>{badge.label}</Badge>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-zinc-500 font-mono hidden md:table-cell">
-                          {new Date(auto.createdAt).toLocaleDateString("fr-FR")}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {overLimit && (auto.status === "ACTIVE" || auto.status === "DRAFT") && (
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => handlePause(auto.id)}
-                                disabled={pausing === auto.id}
-                                className="text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-500 dark:hover:bg-amber-500/10 dark:hover:text-amber-400"
-                                title="Désactiver"
-                                aria-label="Désactiver"
-                              >
-                                <PauseCircle />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost-destructive"
-                              size="icon-sm"
-                              onClick={() => setConfirmDeleteId(auto.id)}
-                              disabled={deleting === auto.id}
-                              title="Supprimer"
-                              aria-label="Supprimer"
-                            >
-                              <Trash2 />
-                            </Button>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-4">
+                    Nom
+                  </TableHead>
+                  <TableHead className="px-4 hidden sm:table-cell">
+                    Déclencheur
+                  </TableHead>
+                  <TableHead className="px-4">
+                    Statut
+                  </TableHead>
+                  <TableHead className="px-4 hidden md:table-cell">
+                    Date
+                  </TableHead>
+                  <TableHead className="text-right px-4 w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {automations.map((auto) => {
+                  const badge = statusConfig[auto.status] ?? statusConfig.DRAFT;
+                  return (
+                    <TableRow key={auto.id}>
+                      <TableCell className="px-4 py-3">
+                        <Link
+                          href={`/dashboard/automations/${auto.id}/edit`}
+                          className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors"
+                        >
+                          {auto.name}
+                        </Link>
+                        {auto.description && (
+                          <div className="text-xs text-zinc-500 mt-0.5 truncate max-w-xs">
+                            {auto.description}
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 hidden sm:table-cell">
+                        <Badge variant="secondary">
+                          {triggerLabels[auto.trigger] ?? auto.trigger}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-xs text-zinc-500 font-mono hidden md:table-cell">
+                        {new Date(auto.createdAt).toLocaleDateString("fr-FR")}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {overLimit && (auto.status === "ACTIVE" || auto.status === "DRAFT") && (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handlePause(auto.id)}
+                              disabled={pausing === auto.id}
+                              className="text-zinc-500 dark:text-zinc-400"
+                              title="Désactiver"
+                              aria-label="Désactiver"
+                            >
+                              <PauseCircle />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost-destructive"
+                            size="icon-sm"
+                            onClick={() => setConfirmDeleteId(auto.id)}
+                            disabled={deleting === auto.id}
+                            title="Supprimer"
+                            aria-label="Supprimer"
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         ) : (
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-12 text-center">
