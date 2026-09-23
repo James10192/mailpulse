@@ -1,7 +1,7 @@
 // Evolution API client — REST wrapper for Baileys WhatsApp sessions
 // Docs: https://doc.evolution-api.com
 
-import { isTimeoutError, type IWhatsAppProvider, type WhatsAppFailureReason, type WhatsAppSendResult } from "@/lib/whatsapp/types";
+import { isRejectedStatus, isTimeoutError, type IWhatsAppProvider, type WhatsAppFailureReason, type WhatsAppSendResult } from "@/lib/whatsapp/types";
 
 const EVO_URL = process.env.EVOLUTION_API_URL || "";
 const EVO_KEY = process.env.EVOLUTION_API_KEY || "";
@@ -334,6 +334,7 @@ export function isConfigured() {
 function evolutionFailureReason(error: unknown): WhatsAppFailureReason {
   if (error instanceof EvolutionApiError && error.recipientUnreachable) return "recipient_unreachable";
   if (isTimeoutError(error)) return "timeout";
+  if (error instanceof EvolutionApiError && isRejectedStatus(error.status)) return "rejected";
   return "transport";
 }
 
@@ -364,6 +365,7 @@ export class BaileysProvider implements IWhatsAppProvider {
     return {
       success: false,
       error: "Les templates WhatsApp approuvés sont disponibles uniquement via Meta Cloud API.",
+      reason: "rejected",
     };
   }
 

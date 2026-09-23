@@ -1,7 +1,7 @@
 // Meta WhatsApp Cloud API client (Graph API)
 // Docs: https://developers.facebook.com/docs/whatsapp/cloud-api
 
-import { isTimeoutError, type IWhatsAppProvider, type WhatsAppFailureReason, type WhatsAppSendResult } from "@/lib/whatsapp/types";
+import { isRejectedStatus, isTimeoutError, type IWhatsAppProvider, type WhatsAppFailureReason, type WhatsAppSendResult } from "@/lib/whatsapp/types";
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 
@@ -23,7 +23,17 @@ class MetaApiError extends Error {
 function metaFailureReason(error: unknown): WhatsAppFailureReason {
   if (error instanceof MetaApiError && error.code === META_RECIPIENT_UNREACHABLE) return "recipient_unreachable";
   if (isTimeoutError(error)) return "timeout";
+  if (error instanceof MetaApiError && isRejectedStatus(error.statusCode)) return "rejected";
   return "transport";
+}
+
+type GraphErrorBody = { error: { message?: string; code?: number } };
+
+/** The `{ error: { message, code } }` body the Graph API answers on failure. */
+function isGraphErrorBody(body: unknown): body is GraphErrorBody {
+  if (typeof body !== "object" || body === null || !("error" in body)) return false;
+  const { error } = body;
+  return typeof error === "object" && error !== null;
 }
 
 interface MetaOrgConfig {
@@ -46,9 +56,10 @@ async function metaFetch<T = unknown>(
   });
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: { message?: string; code?: unknown } };
-    const error = body?.error?.message || `HTTP ${res.status}`;
-    const code = typeof body?.error?.code === "number" ? body.error.code : null;
+    const body: unknown = await res.json().catch(() => null);
+    const graphError = isGraphErrorBody(body) ? body.error : null;
+    const error = typeof graphError?.message === "string" && graphError.message ? graphError.message : `HTTP ${res.status}`;
+    const code = typeof graphError?.code === "number" ? graphError.code : null;
     throw new MetaApiError(`Meta API: ${error}`, res.status, code);
   }
 
