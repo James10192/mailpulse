@@ -47,7 +47,7 @@ export function ExternalApplicationsClient({
               Connectez une application partenaire
             </h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-              Une application externe (ex. KLASSCI) envoie des commandes signées à MailPulse, relie son compte Meta
+              Une application externe (ex. votre application mobile) envoie des commandes signées à MailPulse, relie son compte Meta
               WhatsApp, reçoit les événements entrants sur ses endpoints de rappel et mappe ses opérations métier sur
               des templates approuvés.
             </p>
