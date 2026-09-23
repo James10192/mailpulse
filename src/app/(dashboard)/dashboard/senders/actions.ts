@@ -105,8 +105,8 @@ export async function setDefaultSender(id: string): Promise<ActionState> {
       where: { organizationId: org.id },
       data: { isDefault: false },
     }),
-    prisma.emailSender.update({
-      where: { id },
+    prisma.emailSender.updateMany({
+      where: { id, organizationId: org.id },
       data: { isDefault: true },
     }),
   ]);
@@ -128,7 +128,7 @@ export async function deleteSender(id: string): Promise<ActionState> {
 
     if (!sender) return { error: "Expediteur introuvable." };
 
-    await prisma.emailSender.delete({ where: { id, organizationId: org.id } });
+    await prisma.emailSender.deleteMany({ where: { id, organizationId: org.id } });
 
     if (sender.isDefault) {
       const nextSender = await prisma.emailSender.findFirst({
@@ -138,8 +138,8 @@ export async function deleteSender(id: string): Promise<ActionState> {
       });
 
       if (nextSender) {
-        await prisma.emailSender.update({
-          where: { id: nextSender.id },
+        await prisma.emailSender.updateMany({
+          where: { id: nextSender.id, organizationId: org.id },
           data: { isDefault: true },
         });
       }

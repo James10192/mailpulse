@@ -17,13 +17,14 @@ export async function cancelFilonRecovery(recoveryId: string) {
   if (!recovery) return { error: "Recouvrement introuvable." };
 
   await prisma.$transaction([
-    prisma.filonRecovery.update({
-      where: { id: recoveryId },
+    prisma.filonRecovery.updateMany({
+      where: { id: recoveryId, organizationId: org.id },
       data: { status: "CANCELLED", nextReminderAt: null },
     }),
     prisma.filonRecoveryStep.updateMany({
       where: {
         recoveryId,
+        recovery: { organizationId: org.id },
         status: { in: ["PENDING", "PREPARED"] },
       },
       data: { status: "CANCELLED" },
