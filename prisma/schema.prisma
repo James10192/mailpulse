@@ -648,11 +648,20 @@ enum PhoneVerificationChannel {
   WHATSAPP
 }
 
-// Why a code could not be sent, from the provider's structured signals.
+// Why a send did not go through cleanly, from the provider's structured signals.
+// RECIPIENT_UNREACHABLE and REJECTED are definite refusals (the verification
+// fails); TIMEOUT and TRANSPORT are ambiguous (it stays pending, the code may
+// still arrive).
 enum PhoneVerificationError {
   RECIPIENT_UNREACHABLE
+  REJECTED
   TIMEOUT
   TRANSPORT
+}
+
+enum PhoneVerificationLocale {
+  FR @map("fr")
+  EN @map("en")
 }
 
 enum PhoneVerificationStatus {
@@ -671,7 +680,7 @@ model PhoneVerification {
   id                String                   @id @default(cuid())
   channel           PhoneVerificationChannel @default(WHATSAPP)
   phoneNumber       String
-  locale            String                   @default("fr")
+  locale            PhoneVerificationLocale  @default(FR)
   reference         String?
   codeHash          String
   status            PhoneVerificationStatus  @default(PENDING)
@@ -682,7 +691,7 @@ model PhoneVerification {
   failedAt          DateTime?
   provider          String?
   providerMessageId String?
-  // Classified cause of a failed send, never the provider text (it carries the number).
+  // Classified cause of a failed or unconfirmed send, never the provider text (it carries the number).
   errorCode         PhoneVerificationError?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt

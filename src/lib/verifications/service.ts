@@ -8,6 +8,7 @@ import {
   classifySendError,
   effectiveStatus,
   evaluateSendLimits,
+  storedLocale,
   type VerificationLocale,
 } from "./policy";
 import type { VerificationStore } from "./store";
@@ -36,6 +37,7 @@ export type StartVerificationInput = {
 
 export type StartVerificationResult =
   | { type: "rate_limited"; retryAfterSeconds: number }
+  | { type: "busy"; retryAfterSeconds: number }
   | { type: "sent"; verification: PhoneVerification }
   | { type: "failed"; verification: PhoneVerification };
 
@@ -74,7 +76,7 @@ export async function startVerification(deps: VerificationServiceDeps, input: St
       organizationId: input.organizationId,
       apiKeyId: input.apiKeyId,
       phoneNumber: input.phoneNumber,
-      locale: input.locale,
+      locale: storedLocale(input.locale),
       reference: input.reference,
       codeHash: hashVerificationCode(deps.secret, code),
       expiresAt: new Date(now.getTime() + VERIFICATION_TTL_MS),
@@ -82,7 +84,7 @@ export async function startVerification(deps: VerificationServiceDeps, input: St
     });
     return { type: "created" as const, verification, code };
   });
-  if (!lock.acquired) return { type: "rate_limited", retryAfterSeconds: LOCK_BUSY_RETRY_SECONDS };
+  if (!lock.acquired) return { type: "busy", retryAfterSeconds: LOCK_BUSY_RETRY_SECONDS };
   const claim = lock.value;
   if (claim.type === "rate_limited") return claim;
 
@@ -92,12 +94,25 @@ export async function startVerification(deps: VerificationServiceDeps, input: St
   try {
     ({ messageId } = await input.transport.send(verification.phoneNumber, buildVerificationMessage(input.locale, code)));
   } catch (error) {
-    const current = await deps.store.markFailed(verification.id, { provider, errorCode: classifySendError(error), failedAt: deps.now() });
-    // A late failure never undoes a code that was received and approved meanwhile.
-    if (current && current.status !== "FAILED") return { type: "sent", verification: current };
-    return { type: "failed", verification: current ?? verification };
+    return recordSendFailure(deps, verification, provider, error);
   }
   return recordSend(deps, verification, provider, messageId);
+}
+
+/**
+ * A definite refusal fails the verification. An ambiguous failure (timeout,
+ * transport error) leaves it pending: the message may still arrive, and a code
+ * that arrives late must work. Neither ever undoes a code approved meanwhile.
+ */
+async function recordSendFailure(deps: VerificationServiceDeps, verification: PhoneVerification, provider: string, error: unknown): Promise<StartVerificationResult> {
+  const { errorCode, definite } = classifySendError(error);
+  if (!definite) {
+    const current = await deps.store.markUnconfirmed(verification.id, { provider, errorCode });
+    return { type: "sent", verification: current ?? verification };
+  }
+  const current = await deps.store.markFailed(verification.id, { provider, errorCode, failedAt: deps.now() });
+  if (current?.status === "APPROVED") return { type: "sent", verification: current };
+  return { type: "failed", verification: current ?? verification };
 }
 
 // ─── Check ──────────────────────────────────────────────
@@ -112,9 +127,7 @@ async function refuseWithCurrentState(deps: VerificationServiceDeps, organizatio
   const verification = await deps.store.find(organizationId, id);
   if (!verification) return { type: "not_found" };
   const status = effectiveStatus(verification, deps.now());
-  if (verification.status === "PENDING" && (status === "EXPIRED" || status === "MAX_ATTEMPTS")) {
-    await deps.store.settle(verification.id, status, deps.now());
-  }
+  if (status === "EXPIRED" || status === "MAX_ATTEMPTS") await deps.store.close(verification.id, status);
   return { type: "refused", id: verification.id, status };
 }
 
@@ -132,13 +145,13 @@ export async function checkVerification(
   if (!verification) return refuseWithCurrentState(deps, input.organizationId, input.id);
 
   if (verificationCodeMatches(deps.secret, input.code, verification.codeHash)) {
-    const approved = await deps.store.settle(verification.id, "APPROVED", now);
+    const approved = await deps.store.approveSpentAttempt(verification.id, now);
     // Lost only to a previous approval or a newer code: never approve twice.
     return approved ? { type: "approved", id: verification.id } : refuseWithCurrentState(deps, input.organizationId, input.id);
   }
 
   if (verification.attempts >= VERIFICATION_MAX_ATTEMPTS) {
-    const locked = await deps.store.settle(verification.id, "MAX_ATTEMPTS", now);
+    const locked = await deps.store.close(verification.id, "MAX_ATTEMPTS");
     return locked ? { type: "refused", id: verification.id, status: "MAX_ATTEMPTS" } : refuseWithCurrentState(deps, input.organizationId, input.id);
   }
   return { type: "refused", id: verification.id, status: "PENDING" };

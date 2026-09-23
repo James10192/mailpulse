@@ -21,8 +21,8 @@ export interface VerificationSendTx {
 
 export type LockResult<T> = { acquired: true; value: T } | { acquired: false };
 
-/** States a still-open verification can be closed into by a check or a read. */
-export type ClosingStatus = "APPROVED" | "MAX_ATTEMPTS" | "EXPIRED";
+/** States a read or a wrong code can close a pending verification into. */
+export type ClosingStatus = "MAX_ATTEMPTS" | "EXPIRED";
 
 export interface VerificationStore {
   /**
@@ -32,19 +32,23 @@ export interface VerificationStore {
   withOrganizationLock<T>(organizationId: string, fn: (tx: VerificationSendTx) => Promise<T>): Promise<LockResult<T>>;
   find(organizationId: string, id: string): Promise<PhoneVerification | null>;
   markSent(id: string, sent: { provider: string; providerMessageId: string | null }): Promise<PhoneVerification>;
-  /** Records a failed send only while the verification is still pending, then returns its current state. */
+  /** Records a definite refusal only while the verification is still pending, then returns its current state. */
   markFailed(id: string, failure: { provider: string; errorCode: PhoneVerificationError; failedAt: Date }): Promise<PhoneVerification | null>;
+  /** Notes an ambiguous send (the code may still arrive) without closing the verification, then returns its current state. */
+  markUnconfirmed(id: string, unconfirmed: { provider: string; errorCode: PhoneVerificationError }): Promise<PhoneVerification | null>;
   /**
    * Spends one attempt, atomically, only while the code is pending, unexpired
    * and under the attempt cap. Null when nothing was spent.
    */
   consumeAttempt(input: { organizationId: string; id: string; now: Date; maxAttempts: number }): Promise<PhoneVerification | null>;
   /**
-   * Closes a verification. Approval also wins over a lock or an expiry recorded
-   * after the right attempt was spent, but never over a previous approval, a
-   * newer code or a failed send. False when nothing changed.
+   * Approves after the right attempt was spent. Also wins over a lock or an
+   * expiry recorded meanwhile, never over a previous approval, a newer code or
+   * a failed send. False when nothing changed.
    */
-  settle(id: string, status: ClosingStatus, now: Date): Promise<boolean>;
+  approveSpentAttempt(id: string, now: Date): Promise<boolean>;
+  /** Closes a still-pending verification. False when it was no longer pending. */
+  close(id: string, status: ClosingStatus): Promise<boolean>;
 }
 
 const LOCK_NAMESPACE = "phone_verification:org:";
@@ -76,11 +80,6 @@ function sendTx(tx: Prisma.TransactionClient): VerificationSendTx {
   };
 }
 
-function settleWhere(id: string, status: ClosingStatus): Prisma.PhoneVerificationWhereInput {
-  if (status === "APPROVED") return { id, approvedAt: null, status: { in: ["PENDING", "MAX_ATTEMPTS", "EXPIRED"] } };
-  return { id, status: "PENDING" };
-}
-
 export function createPrismaVerificationStore(client: PrismaClient): VerificationStore {
   return {
     async withOrganizationLock(organizationId, fn) {
@@ -102,6 +101,10 @@ export function createPrismaVerificationStore(client: PrismaClient): Verificatio
       await client.phoneVerification.updateMany({ where: { id, status: "PENDING" }, data: { ...failure, status: "FAILED" } });
       return client.phoneVerification.findUnique({ where: { id } });
     },
+    async markUnconfirmed(id, unconfirmed) {
+      await client.phoneVerification.updateMany({ where: { id, status: "PENDING" }, data: unconfirmed });
+      return client.phoneVerification.findUnique({ where: { id } });
+    },
     async consumeAttempt({ organizationId, id, now, maxAttempts }) {
       const [row] = await client.phoneVerification.updateManyAndReturn({
         where: { id, organizationId, status: "PENDING", attempts: { lt: maxAttempts }, expiresAt: { gt: now } },
@@ -109,11 +112,15 @@ export function createPrismaVerificationStore(client: PrismaClient): Verificatio
       });
       return row ?? null;
     },
-    async settle(id, status, now) {
+    async approveSpentAttempt(id, now) {
       const result = await client.phoneVerification.updateMany({
-        where: settleWhere(id, status),
-        data: { status, ...(status === "APPROVED" ? { approvedAt: now } : {}) },
+        where: { id, approvedAt: null, status: { in: ["PENDING", "MAX_ATTEMPTS", "EXPIRED"] } },
+        data: { status: "APPROVED", approvedAt: now },
       });
+      return result.count === 1;
+    },
+    async close(id, status) {
+      const result = await client.phoneVerification.updateMany({ where: { id, status: "PENDING" }, data: { status } });
       return result.count === 1;
     },
   };

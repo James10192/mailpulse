@@ -77,20 +77,27 @@ export function createMemoryStore() {
       if (row.status === "PENDING") Object.assign(row, failure, { status: "FAILED" });
       return { ...row };
     },
+    async markUnconfirmed(id, unconfirmed) {
+      const row = byId(id);
+      if (row.status === "PENDING") Object.assign(row, unconfirmed);
+      return { ...row };
+    },
     async consumeAttempt({ organizationId, id, now, maxAttempts }) {
       const row = rows.find((item) => item.id === id && item.organizationId === organizationId);
       if (!row || row.status !== "PENDING" || row.attempts >= maxAttempts || row.expiresAt <= now) return null;
       row.attempts += 1;
       return { ...row };
     },
-    async settle(id, status: ClosingStatus, now) {
+    async approveSpentAttempt(id, now) {
       const row = byId(id);
-      const open = status === "APPROVED"
-        ? row.approvedAt === null && ["PENDING", "MAX_ATTEMPTS", "EXPIRED"].includes(row.status)
-        : row.status === "PENDING";
-      if (!open) return false;
+      if (row.approvedAt !== null || !["PENDING", "MAX_ATTEMPTS", "EXPIRED"].includes(row.status)) return false;
+      Object.assign(row, { status: "APPROVED", approvedAt: now });
+      return true;
+    },
+    async close(id, status: ClosingStatus) {
+      const row = byId(id);
+      if (row.status !== "PENDING") return false;
       row.status = status;
-      if (status === "APPROVED") row.approvedAt = now;
       return true;
     },
   };

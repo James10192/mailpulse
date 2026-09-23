@@ -1,9 +1,11 @@
--- Phone number verification by one-time code. Additive only: three new enums and
+-- Phone number verification by one-time code. Additive only: four new enums and
 -- one new table, nothing existing is altered. The code is never stored, only a
 -- salted HMAC of it in "codeHash".
 CREATE TYPE "PhoneVerificationChannel" AS ENUM ('WHATSAPP');
 
-CREATE TYPE "PhoneVerificationError" AS ENUM ('RECIPIENT_UNREACHABLE', 'TIMEOUT', 'TRANSPORT');
+CREATE TYPE "PhoneVerificationError" AS ENUM ('RECIPIENT_UNREACHABLE', 'REJECTED', 'TIMEOUT', 'TRANSPORT');
+
+CREATE TYPE "PhoneVerificationLocale" AS ENUM ('fr', 'en');
 
 CREATE TYPE "PhoneVerificationStatus" AS ENUM ('PENDING', 'APPROVED', 'EXPIRED', 'MAX_ATTEMPTS', 'CANCELED', 'FAILED');
 
@@ -11,7 +13,7 @@ CREATE TABLE "phone_verification" (
     "id" TEXT NOT NULL,
     "channel" "PhoneVerificationChannel" NOT NULL DEFAULT 'WHATSAPP',
     "phoneNumber" TEXT NOT NULL,
-    "locale" TEXT NOT NULL DEFAULT 'fr',
+    "locale" "PhoneVerificationLocale" NOT NULL DEFAULT 'fr',
     "reference" TEXT,
     "codeHash" TEXT NOT NULL,
     "status" "PhoneVerificationStatus" NOT NULL DEFAULT 'PENDING',

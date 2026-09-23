@@ -3,6 +3,7 @@ import type { PhoneVerification, PhoneVerificationStatus } from "@/generated/pri
 import { maskE164, parseStrictE164 } from "@/lib/phone-numbers";
 import { VERIFICATION_CODE_LENGTH, readVerificationSecret } from "./code";
 import { VERIFICATION_LOCALES, checkErrorCode, effectiveStatus, publicStatus } from "./policy";
+import type { StartVerificationResult } from "./service";
 
 /** HTTP surface of /api/v1/verifications: bodies, responses, configuration guard. */
 
@@ -39,6 +40,21 @@ export function serializeVerification(verification: PhoneVerification, now: Date
 
 export function refusedCheckBody(id: string, status: PhoneVerificationStatus) {
   return { id, status: publicStatus(status), error: checkErrorCode(status) };
+}
+
+/**
+ * 201 whenever a code may have reached the phone, including after a timeout:
+ * the verification stays pending and a late code still works. 502 only when the
+ * provider definitely refused the send.
+ */
+export function startVerificationResponse(result: StartVerificationResult, now: Date) {
+  if (result.type === "rate_limited" || result.type === "busy") {
+    const retryAfter = result.retryAfterSeconds;
+    return errorResponse("trop_de_demandes", 429, { retry_after: retryAfter }, { "Retry-After": String(retryAfter) });
+  }
+  const verification = serializeVerification(result.verification, now);
+  if (result.type === "failed") return Response.json({ ...verification, error: "envoi_echoue" }, { status: 502 });
+  return Response.json(verification, { status: 201 });
 }
 
 export function errorResponse(error: string, status: number, extra?: Record<string, unknown>, headers?: HeadersInit) {

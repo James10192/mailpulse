@@ -1,4 +1,4 @@
-import type { PhoneVerificationError, PhoneVerificationStatus } from "@/generated/prisma";
+import type { PhoneVerificationError, PhoneVerificationLocale, PhoneVerificationStatus } from "@/generated/prisma";
 import { API_RATE_LIMITS, API_RATE_WINDOW_MS } from "@/lib/mailpulse/api-rate-limits";
 import type { WhatsAppFailureReason } from "@/lib/whatsapp/types";
 
@@ -110,6 +110,12 @@ export function checkErrorCode(status: PhoneVerificationStatus) {
 export const VERIFICATION_LOCALES = ["fr", "en"] as const;
 export type VerificationLocale = (typeof VERIFICATION_LOCALES)[number];
 
+const STORED_LOCALE = { fr: "FR", en: "EN" } as const satisfies Record<VerificationLocale, PhoneVerificationLocale>;
+
+export function storedLocale(locale: VerificationLocale): PhoneVerificationLocale {
+  return STORED_LOCALE[locale];
+}
+
 /** Sober on purpose: no link, nothing to click. */
 export function buildVerificationMessage(locale: VerificationLocale, code: string) {
   const minutes = VERIFICATION_TTL_MS / MINUTE_MS;
@@ -123,20 +129,34 @@ export function buildVerificationMessage(locale: VerificationLocale, code: strin
 
 const ERROR_BY_REASON = {
   recipient_unreachable: "RECIPIENT_UNREACHABLE",
+  rejected: "REJECTED",
   timeout: "TIMEOUT",
   transport: "TRANSPORT",
 } as const satisfies Record<WhatsAppFailureReason, PhoneVerificationError>;
 
-function failureReason(error: unknown): WhatsAppFailureReason {
-  if (typeof error !== "object" || error === null || !("reason" in error)) return "transport";
-  const { reason } = error;
-  return reason === "recipient_unreachable" || reason === "timeout" ? reason : "transport";
-}
+const FAILURE_REASONS = Object.keys(ERROR_BY_REASON) as WhatsAppFailureReason[];
 
 /**
- * Reduces a send failure to the structured reason the provider client
- * attached. Provider texts are never stored: they carry the number in clear.
+ * Read by shape, not by class: the reason is the `reason` field the WhatsApp
+ * client attaches to the error it throws. Anything without a known reason (a
+ * bug, a crash in between) counts as an ambiguous transport failure, so it can
+ * never be mistaken for a definite refusal.
  */
-export function classifySendError(error: unknown): PhoneVerificationError {
-  return ERROR_BY_REASON[failureReason(error)];
+function failureReason(error: unknown): WhatsAppFailureReason {
+  if (typeof error !== "object" || error === null || !("reason" in error)) return "transport";
+  const reason = FAILURE_REASONS.find((known) => known === error.reason);
+  return reason ?? "transport";
+}
+
+export type SendFailure = { errorCode: PhoneVerificationError; definite: boolean };
+
+/**
+ * Reduces a send failure to a stored code. Only a definite refusal fails the
+ * verification; after a timeout or a transport error the message may still
+ * arrive, so the code stays usable. Provider texts are never kept: they carry
+ * the number in clear.
+ */
+export function classifySendError(error: unknown): SendFailure {
+  const reason = failureReason(error);
+  return { errorCode: ERROR_BY_REASON[reason], definite: reason === "recipient_unreachable" || reason === "rejected" };
 }

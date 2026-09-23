@@ -192,17 +192,36 @@ test("a provider failure is stored as a classified code, never as the provider t
   assert.equal(storedTexts.some((value) => value.includes("enregistré")), false);
 });
 
-test("any other provider failure is recorded as a transport error", async () => {
+test("an explicit refusal fails the verification", async () => {
+  const h = harness(async () => { throw Object.assign(new Error("Evolution API 400"), { reason: "rejected" }); });
+  assert.equal((await h.start()).type, "failed");
+  assert.equal(h.rows[0].status, "FAILED");
+  assert.equal(h.rows[0].errorCode, "REJECTED");
+});
+
+test("a timeout keeps the verification pending, and a code that arrives late still works", async () => {
+  const h = harness(async () => { throw Object.assign(new Error("The operation was aborted due to timeout"), { reason: "timeout" }); });
+  const result = await h.start();
+
+  assert.equal(result.type, "sent");
+  assert.equal(h.rows[0].status, "PENDING");
+  assert.equal(h.rows[0].errorCode, "TIMEOUT");
+  assert.equal(h.rows[0].failedAt, null);
+  assert.deepEqual(await h.check("ver_1", h.lastCode()), { type: "approved", id: "ver_1" });
+});
+
+test("an unclassified error is an ambiguous transport failure, never a refusal", async () => {
   const h = harness(async () => { throw new Error("Evolution API 500"); });
-  await h.start();
+  assert.equal((await h.start()).type, "sent");
+  assert.equal(h.rows[0].status, "PENDING");
   assert.equal(h.rows[0].errorCode, "TRANSPORT");
 });
 
-test("a late transport failure never undoes a code already approved", async () => {
+test("a late refusal never undoes a code already approved", async () => {
   let approve: () => Promise<unknown> = async () => undefined;
   const h = harness(async () => {
     await approve();
-    throw Object.assign(new Error("socket hang up"), { reason: "timeout" });
+    throw Object.assign(new Error("Evolution API 400"), { reason: "rejected" });
   });
   approve = () => h.check("ver_1", h.lastCode());
 
@@ -228,7 +247,7 @@ test("a send whose bookkeeping fails still answers with a usable pending verific
 
 test("a send finding the organization lock taken is told to retry, without waiting", async () => {
   const h = harness(undefined, (store) => ({ ...store, withOrganizationLock: async () => ({ acquired: false }) }));
-  assert.deepEqual(await h.start(), { type: "rate_limited", retryAfterSeconds: 1 });
+  assert.deepEqual(await h.start(), { type: "busy", retryAfterSeconds: 1 });
   assert.equal(h.sent.length, 0);
 });
 
@@ -238,11 +257,14 @@ test("the right fourth code approves even if a wrong fifth one locks first", asy
   const approvalGate = new Promise<void>((resolve) => { releaseApproval = resolve; });
   const h = harness(undefined, (store) => ({
     ...store,
-    async settle(id, status, now) {
-      if (status === "APPROVED") await approvalGate;
-      const settled = await store.settle(id, status, now);
+    async approveSpentAttempt(id, now) {
+      await approvalGate;
+      return store.approveSpentAttempt(id, now);
+    },
+    async close(id, status) {
+      const closed = await store.close(id, status);
       if (status === "MAX_ATTEMPTS") releaseApproval();
-      return settled;
+      return closed;
     },
   }));
   const id = await h.startedId();

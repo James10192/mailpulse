@@ -98,11 +98,14 @@ test("the message follows the requested language", () => {
 
 test("send failures are classified from their structured reason, not their text", () => {
   const failure = (reason: unknown) => Object.assign(new Error("any provider text"), { reason });
-  assert.equal(classifySendError(failure("recipient_unreachable")), "RECIPIENT_UNREACHABLE");
-  assert.equal(classifySendError(failure("timeout")), "TIMEOUT");
-  assert.equal(classifySendError(failure("transport")), "TRANSPORT");
-  assert.equal(classifySendError(failure("something else")), "TRANSPORT");
+  const ambiguous = (errorCode: string) => ({ errorCode, definite: false });
+  const definite = (errorCode: string) => ({ errorCode, definite: true });
+  assert.deepEqual(classifySendError(failure("recipient_unreachable")), definite("RECIPIENT_UNREACHABLE"));
+  assert.deepEqual(classifySendError(failure("rejected")), definite("REJECTED"));
+  assert.deepEqual(classifySendError(failure("timeout")), ambiguous("TIMEOUT"));
+  assert.deepEqual(classifySendError(failure("transport")), ambiguous("TRANSPORT"));
+  assert.deepEqual(classifySendError(failure("something else")), ambiguous("TRANSPORT"));
   // The text alone decides nothing, however explicit it looks.
-  assert.equal(classifySendError(new Error("Le numéro n'est pas enregistré sur WhatsApp.")), "TRANSPORT");
-  assert.equal(classifySendError("boom"), "TRANSPORT");
+  assert.deepEqual(classifySendError(new Error("Le numéro n'est pas enregistré sur WhatsApp.")), ambiguous("TRANSPORT"));
+  assert.deepEqual(classifySendError("boom"), ambiguous("TRANSPORT"));
 });

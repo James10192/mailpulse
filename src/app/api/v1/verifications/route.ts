@@ -1,7 +1,7 @@
 import { authenticateApiRequest } from "@/lib/mailpulse/api-keys";
 import { validationError } from "@/lib/mailpulse/schemas";
 import { prisma } from "@/lib/prisma";
-import { errorResponse, serializeVerification, startVerificationSchema, verificationSecretOrResponse } from "@/lib/verifications/api";
+import { errorResponse, startVerificationResponse, startVerificationSchema, verificationSecretOrResponse } from "@/lib/verifications/api";
 import { startVerification } from "@/lib/verifications/service";
 import { createPrismaVerificationStore } from "@/lib/verifications/store";
 import { canSendVerificationCodes, whatsAppVerificationTransport } from "@/lib/verifications/transport";
@@ -30,12 +30,7 @@ export async function POST(request: Request) {
       transport: whatsAppVerificationTransport(auth.organization),
     });
 
-    if (result.type === "rate_limited") {
-      return errorResponse("trop_de_demandes", 429, { retry_after: result.retryAfterSeconds }, { "Retry-After": String(result.retryAfterSeconds) });
-    }
-    const verification = serializeVerification(result.verification, new Date());
-    if (result.type === "failed") return Response.json({ ...verification, error: "envoi_echoue" }, { status: 502 });
-    return Response.json(verification, { status: 201 });
+    return startVerificationResponse(result, new Date());
   } catch (error) {
     console.error("[verifications] start failed", { organizationId: auth.organizationId, error: error instanceof Error ? error.message : error });
     return errorResponse("erreur_interne", 500);

@@ -7,6 +7,9 @@ process.env.EVOLUTION_API_KEY = "test-key";
 
 const { canSendVerificationCodes, whatsAppVerificationTransport } = await import("./transport");
 const { sendWhatsApp, WhatsAppSendError } = await import("@/lib/whatsapp");
+const { startVerification } = await import("./service");
+const { startVerificationResponse } = await import("./api");
+const { createMemoryStore } = await import("./memory-store.fixture");
 
 const ORG = {
   whatsappEnabled: true,
@@ -80,4 +83,37 @@ test("codes are refused on WhatsApp Cloud API and on a disconnected Evolution se
   assert.equal(canSendVerificationCodes({ ...ORG, whatsappMode: "META" as const, metaPhoneNumberId: "123", metaAccessToken: "token" }), false);
   assert.equal(canSendVerificationCodes({ ...ORG, evoInstanceStatus: "connecting" }), false);
   assert.equal(canSendVerificationCodes({ ...ORG, whatsappEnabled: false }), false);
+});
+
+test("an explicit 4xx refusal is a rejection", async () => {
+  stubEvolution(() => new Response(JSON.stringify({ response: { message: ["session closed"] } }), { status: 400 }));
+
+  const error = await whatsAppVerificationTransport(ORG).send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "rejected");
+});
+
+test("a provider timeout keeps the verification pending and answers 201", async () => {
+  globalThis.fetch = (async () => {
+    throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+  }) as typeof fetch;
+
+  const transport = whatsAppVerificationTransport(ORG);
+  const error = await transport.send(EXACT, "code").catch((caught: unknown) => caught);
+  assert.ok(error instanceof WhatsAppSendError);
+  assert.equal(error.reason, "timeout");
+
+  const { store, rows } = createMemoryStore();
+  const now = new Date("2026-09-23T10:00:00.000Z");
+  const result = await startVerification(
+    { store, now: () => now, secret: "t".repeat(32) },
+    { organizationId: "org_a", apiKeyId: "key_a", phoneNumber: EXACT, locale: "fr", reference: null, transport },
+  );
+  assert.equal(result.type, "sent");
+  assert.equal(rows[0].status, "PENDING");
+  assert.equal(rows[0].errorCode, "TIMEOUT");
+
+  const response = startVerificationResponse(result, now);
+  assert.equal(response.status, 201);
+  assert.equal((await response.json()).status, "pending");
 });
