@@ -3,13 +3,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { prisma } from "@/lib/prisma";
-import { maskPhoneNumber } from "@/lib/verifications/phone";
-import { effectiveStatus, VERIFICATION_MAX_ATTEMPTS, type VerificationStatus } from "@/lib/verifications/policy";
+import { maskE164 } from "@/lib/phone-numbers";
+import type { PhoneVerificationStatus } from "@/generated/prisma";
+import { effectiveStatus, VERIFICATION_MAX_ATTEMPTS, type SendErrorCode } from "@/lib/verifications/policy";
 
 const RECENT_LIMIT = 50;
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
 
-const STATUS: Record<VerificationStatus, { label: string; variant: "success" | "destructive" | "warning" | "secondary" }> = {
+const STATUS: Record<PhoneVerificationStatus, { label: string; variant: "success" | "destructive" | "warning" | "secondary" }> = {
   PENDING: { label: "En attente", variant: "warning" },
   APPROVED: { label: "Validée", variant: "success" },
   EXPIRED: { label: "Expirée", variant: "secondary" },
@@ -18,6 +19,16 @@ const STATUS: Record<VerificationStatus, { label: string; variant: "success" | "
   FAILED: { label: "Échec d'envoi", variant: "destructive" },
 };
 
+const SEND_ERRORS: Record<SendErrorCode, string> = {
+  numero_non_whatsapp: "Numéro sans compte WhatsApp",
+  delai_depasse: "Délai dépassé chez le fournisseur",
+  transport_erreur: "Erreur du fournisseur WhatsApp",
+};
+
+function sendErrorLabel(code: string) {
+  return SEND_ERRORS[code as SendErrorCode] ?? SEND_ERRORS.transport_erreur;
+}
+
 async function loadVerifications(organizationId: string) {
   try {
     const rows = await prisma.phoneVerification.findMany({
@@ -25,7 +36,7 @@ async function loadVerifications(organizationId: string) {
       // The code hash is deliberately never selected: the dashboard has no use for it.
       select: {
         id: true, phoneNumber: true, reference: true, status: true, attempts: true, expiresAt: true,
-        createdAt: true, errorMessage: true, apiKey: { select: { name: true, revokedAt: true } },
+        createdAt: true, errorCode: true, apiKey: { select: { name: true, revokedAt: true } },
       },
       orderBy: { createdAt: "desc" },
       take: RECENT_LIMIT,
@@ -75,7 +86,7 @@ export async function VerificationsPanel({ organizationId }: { organizationId: s
                   const status = STATUS[effectiveStatus(row, now)];
                   return (
                     <TableRow key={row.id}>
-                      <TableCell className="font-mono text-sm">{maskPhoneNumber(row.phoneNumber)}</TableCell>
+                      <TableCell className="font-mono text-sm">{maskE164(row.phoneNumber)}</TableCell>
                       <TableCell className="max-w-44 truncate text-sm text-muted-foreground" title={row.reference ?? undefined}>{row.reference ?? "Aucune"}</TableCell>
                       <TableCell>
                         {row.apiKey ? (
@@ -86,7 +97,7 @@ export async function VerificationsPanel({ organizationId }: { organizationId: s
                       </TableCell>
                       <TableCell>
                         <Badge variant={status.variant}>{status.label}</Badge>
-                        {row.errorMessage ? <p className="mt-1 max-w-56 truncate text-xs text-destructive" title={row.errorMessage}>{row.errorMessage}</p> : null}
+                        {row.errorCode ? <p className="mt-1 max-w-56 truncate text-xs text-destructive">{sendErrorLabel(row.errorCode)}</p> : null}
                       </TableCell>
                       <TableCell className="font-mono text-sm tabular-nums">{row.attempts}/{VERIFICATION_MAX_ATTEMPTS}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{dateFormatter.format(row.createdAt)}</TableCell>
