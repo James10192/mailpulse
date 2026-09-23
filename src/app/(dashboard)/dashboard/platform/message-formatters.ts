@@ -5,12 +5,7 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   timeStyle: "short",
 });
 
-export function messageStatusVariant(status: string) {
-  if (["delivered", "sent", "read", "approved"].includes(status)) return "success" as const;
-  if (["failed", "rejected", "template_required"].includes(status)) return "destructive" as const;
-  if (["retrying", "pending_review", "queued"].includes(status)) return "warning" as const;
-  return "secondary" as const;
-}
+export { messageStatusLabel, messageStatusTone as messageStatusVariant } from "@/lib/mailpulse/message-outcomes";
 
 export function formatMessageDate(value: string | null) {
   return value ? dateFormatter.format(new Date(value)) : "Non renseigné";

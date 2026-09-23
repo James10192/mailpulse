@@ -633,6 +633,7 @@ model IntegrationApiKey {
 
   organizationId String
   organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages       CommunicationMessage[]
 
   @@index([organizationId, provider, revokedAt])
   @@map("integration_api_key")
@@ -810,6 +811,10 @@ model CommunicationMessage {
   conversation          Conversation?         @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   templateId            String?
   template              CommunicationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  // The key that submitted an API message. Null for platform, campaign and
+  // pre-existing messages; a key is revoked, never deleted, so the link holds.
+  apiKeyId              String?
+  apiKey                IntegrationApiKey?   @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
 
   webhookDeliveries     WebhookDelivery[]
   smsDeliveryReceiptInboxEntries SmsDeliveryReceiptInbox[] @relation("SmsDeliveryReceiptMessage")
@@ -818,6 +823,7 @@ model CommunicationMessage {
   @@index([organizationId, status, createdAt])
   @@index([organizationId, channel, createdAt])
   @@index([organizationId, origin, createdAt])
+  @@index([organizationId, apiKeyId, createdAt])
   @@index([conversationId, createdAt])
   @@index([externalEventId])
   @@unique([organizationId, channel, provider, providerMessageId])

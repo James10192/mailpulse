@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:delivery": "node --experimental-strip-types --test src/lib/mailpulse/delivery-core.test.ts src/lib/mailpulse/direct-provider.test.ts src/lib/mailpulse/resend-message-status.test.ts",
+    "test:platform": "node --experimental-strip-types --test src/lib/mailpulse/api-key-name.test.ts src/lib/mailpulse/message-outcomes.test.ts",
     "test:external-applications": "node --experimental-strip-types --test src/lib/external-applications/*.test.ts",
     "provision:external-application": "node --experimental-strip-types scripts/provision-external-application.ts",
     "validate:orange-sms": "node scripts/validate-orange-sms-config.mjs",
@@ -73,6 +74,7 @@
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
     "resend": "^6.9.4",
+    "sonner": "^2.0.8",
     "svix": "^1.89.0",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"

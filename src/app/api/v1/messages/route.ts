@@ -51,6 +51,7 @@ export async function POST(request: Request) {
     input: parsed.data,
     idempotencyKey,
     defaultEmailSenderId: auth.defaultEmailSenderId,
+    apiKeyId: auth.id,
     method: "POST",
     path: "/api/v1/messages",
     requestBody: body,

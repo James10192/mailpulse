@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
+import { normalizeApiKeyName } from "./api-key-name";
 import { previewSecret, randomSecret, sha256 } from "./crypto";
 
 export type MailPulseApiEnvironment = "LIVE" | "TEST";
@@ -60,4 +61,27 @@ export async function authenticateApiRequest(request: Request) {
   });
 
   return integrationKey;
+}
+
+/**
+ * Renames a key of the given organization and provider. The name is free text,
+ * not an identifier: two keys may share it (rotation creates the new key before
+ * the old one is revoked), and a revoked key can still be renamed.
+ */
+export async function renameIntegrationApiKey(params: {
+  organizationId: string;
+  provider: "MAILPULSE" | "FILON";
+  keyId: string;
+  name: unknown;
+}): Promise<{ name: string } | { error: string }> {
+  const normalized = normalizeApiKeyName(params.name);
+  if (!normalized.ok) return { error: normalized.error };
+  if (!params.keyId) return { error: "Clé introuvable." };
+
+  const result = await prisma.integrationApiKey.updateMany({
+    where: { id: params.keyId, organizationId: params.organizationId, provider: params.provider },
+    data: { name: normalized.name },
+  });
+  if (result.count === 0) return { error: "Clé introuvable." };
+  return { name: normalized.name };
 }
