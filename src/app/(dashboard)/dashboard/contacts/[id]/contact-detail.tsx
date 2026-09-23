@@ -160,14 +160,24 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
       if (customFieldValues[f.name]) metadata[f.name] = customFieldValues[f.name];
       else delete metadata[f.name];
     }
-    await updateContact(contact.id, {
-      firstName: editData.firstName,
-      lastName: editData.lastName,
-      phone: editData.phone,
-      metadata,
-    });
-    setSaving(false);
-    setEditing(false);
+    try {
+      const result = await updateContact(contact.id, {
+        firstName: editData.firstName,
+        lastName: editData.lastName,
+        phone: editData.phone,
+        metadata,
+      });
+      // Keep the form open with the user's edits when the server refuses them.
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+      setEditing(false);
+    } catch {
+      toast.error("Le contact n'a pas pu être enregistré. Réessayez.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   // Build chart data from campaign recipients (last 30 days)

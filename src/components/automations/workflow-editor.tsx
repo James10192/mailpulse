@@ -30,6 +30,7 @@ import {
   type WorkflowNodeType,
   type WorkflowNodeData,
 } from "./workflow-types";
+import { toast } from "sonner";
 import { saveWorkflow, updateAutomationStatus } from "@/app/(dashboard)/dashboard/automations/actions";
 import type { AutomationStatus } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
@@ -241,8 +242,14 @@ function WorkflowEditorInner({
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
       saveTimeout.current = setTimeout(async () => {
         setSaving(true);
-        await saveWorkflow(automationId, JSON.stringify(updatedNodes), JSON.stringify(updatedEdges));
-        setSaving(false);
+        try {
+          const result = await saveWorkflow(automationId, JSON.stringify(updatedNodes), JSON.stringify(updatedEdges));
+          if (result?.error) toast.error(result.error);
+        } catch {
+          toast.error("Le workflow n'a pas pu être enregistré. Réessayez.");
+        } finally {
+          setSaving(false);
+        }
       }, 1500);
     },
     [automationId]
@@ -423,8 +430,17 @@ function WorkflowEditorInner({
 
   const handleToggleStatus = useCallback(async () => {
     const newStatus = status === "ACTIVE" ? "PAUSED" : "ACTIVE";
-    await updateAutomationStatus(automationId, newStatus);
-    setStatus(newStatus);
+    try {
+      const result = await updateAutomationStatus(automationId, newStatus);
+      // Only reflect the new status once the server accepted it.
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+      setStatus(newStatus);
+    } catch {
+      toast.error("Le statut n'a pas pu être modifié. Réessayez.");
+    }
   }, [automationId, status]);
 
   const handlePaneClick = useCallback(() => {
