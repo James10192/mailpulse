@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
-import { orangeSmsReceiptTargetStatus, preferredOrangeSmsDeliveryStatus } from "./delivery-receipt-status.ts";
+import { orangeSmsReceiptTargetStatus, preferredOrangeSmsDeliveryStatus } from "./delivery-receipt-status";
 
 test("maps terminal Orange delivery receipts without treating unknown values as failures", () => {
   assert.equal(orangeSmsReceiptTargetStatus("DeliveredToTerminal"), "DELIVERED");

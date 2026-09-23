@@ -13,6 +13,7 @@ import {
   fromRecipientType,
   fromTemplateStatus,
 } from "./schemas";
+import type { DeliveryDelay } from "./message-delivery-delays";
 
 export function serializeContact(contact: Contact) {
   const metadata = contact.metadata && typeof contact.metadata === "object" && !Array.isArray(contact.metadata)
@@ -131,5 +132,15 @@ export function serializeWebhookDelivery(delivery: WebhookDelivery) {
     last_error: delivery.lastError,
     delivered_at: delivery.deliveredAt?.toISOString() ?? null,
     created_at: delivery.createdAt.toISOString(),
+  };
+}
+
+/** The single-message view: the list shape plus the provider's delivery delays. */
+export function serializeMessageDetail(message: CommunicationMessage, delays: DeliveryDelay[]) {
+  return {
+    ...serializeMessage(message),
+    delivery_delays: delays.map((delay) => ({
+      occurred_at: delay.occurredAt.toISOString(),
+    })),
   };
 }

@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-// Node's type-stripping runner requires the explicit TypeScript extension.
-// @ts-expect-error TS5097 is intentional for direct Node execution.
-import { resolvePrismaConnection } from "./prisma-connection.ts";
+import { resolvePrismaConnection } from "./prisma-connection";
 
 test("passes the requested PostgreSQL schema to the driver adapter", () => {
   const connection = resolvePrismaConnection(
