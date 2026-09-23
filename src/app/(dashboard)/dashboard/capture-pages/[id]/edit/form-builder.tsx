@@ -5,6 +5,19 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2, GripVertical, Save, Eye, Check, Loader2 } from "lucide-react";
 import { MailPulseLogo } from "@/components/mailpulse-logo";
 import { updateCapturePageFields } from "../../actions";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Field {
   name: string;
@@ -16,9 +29,9 @@ interface Field {
 const FIELD_TYPES = [
   { value: "email", label: "Email" },
   { value: "text", label: "Texte" },
-  { value: "tel", label: "Telephone" },
+  { value: "tel", label: "Téléphone" },
   { value: "textarea", label: "Zone de texte" },
-  { value: "select", label: "Liste deroulante" },
+  { value: "select", label: "Liste déroulante" },
 ];
 
 export function FormBuilder({
@@ -80,36 +93,32 @@ export function FormBuilder({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-          Editeur de formulaire
+          Éditeur de formulaire
         </h1>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => router.push(`/dashboard/capture-pages/${pageId}`)}
-            className="px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
           >
             Retour
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-          >
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
             {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="animate-spin" />
             ) : saved ? (
-              <Check className="h-4 w-4" />
+              <Check />
             ) : (
-              <Save className="h-4 w-4" />
+              <Save />
             )}
-            {saved ? "Enregistre" : "Enregistrer"}
-          </button>
+            {saved ? "Enregistré" : "Enregistrer"}
+          </Button>
         </div>
       </div>
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 text-sm text-red-600 dark:text-red-400">
+        <Alert variant="destructive" className="p-3">
           {error}
-        </div>
+        </Alert>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -128,81 +137,95 @@ export function FormBuilder({
                   <GripVertical className="h-4 w-4 text-zinc-400 mt-2.5 shrink-0" />
                   <div className="flex-1 space-y-2">
                     <div className="flex gap-2">
-                      <input
+                      <Input
                         value={field.label}
                         onChange={(e) => updateField(index, { label: e.target.value })}
-                        className="flex-1 px-2.5 py-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                        className="h-9 flex-1"
                         placeholder="Label"
+                        aria-label="Libellé du champ"
                       />
-                      <select
+                      <Select
                         value={field.type}
-                        onChange={(e) => updateField(index, { type: e.target.value })}
+                        onValueChange={(value) => updateField(index, { type: value })}
                         disabled={field.type === "email"}
-                        className="px-2.5 py-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30 disabled:opacity-50"
                       >
-                        {FIELD_TYPES.map((t) => (
-                          <option key={t.value} value={t.value}>
-                            {t.label}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="h-9 w-auto min-w-36" aria-label="Type de champ">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FIELD_TYPES.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 text-xs text-zinc-500 cursor-pointer">
-                        <input
-                          type="checkbox"
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`required-${field.name}`}
                           checked={field.required}
-                          onChange={(e) => updateField(index, { required: e.target.checked })}
+                          onCheckedChange={(checked) => updateField(index, { required: checked === true })}
                           disabled={field.type === "email"}
-                          className="rounded border-zinc-300 dark:border-zinc-600"
                         />
-                        Obligatoire
-                      </label>
-                      {field.type !== "email" && (
-                        <button
-                          onClick={() => removeField(index)}
-                          className="p-1 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer"
+                        <Label
+                          htmlFor={`required-${field.name}`}
+                          className="cursor-pointer text-xs font-normal text-zinc-500"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                          Obligatoire
+                        </Label>
+                      </div>
+                      {field.type !== "email" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeField(index)}
+                          className="h-7 w-7 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 [&_svg]:size-3.5"
+                          aria-label="Supprimer le champ"
+                          title="Supprimer le champ"
+                        >
+                          <Trash2 />
+                        </Button>
                       )}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            <button
+            <Button
+              variant="ghost"
               onClick={addField}
-              className="mt-3 w-full flex items-center justify-center gap-2 py-2 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg text-sm text-zinc-500 hover:text-orange-500 hover:border-orange-500/50 transition-colors cursor-pointer"
+              className="mt-3 w-full border border-dashed border-zinc-300 text-zinc-500 hover:border-orange-500/50 hover:bg-transparent hover:text-orange-500 dark:border-zinc-700 dark:hover:bg-transparent"
             >
-              <Plus className="h-4 w-4" />
+              <Plus />
               Ajouter un champ
-            </button>
+            </Button>
           </div>
 
           {/* Settings */}
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5 space-y-4">
             <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              Parametres
+              Paramètres
             </h2>
-            <div>
-              <label className="block text-xs font-medium text-zinc-500 mb-1.5">
+            <div className="space-y-1.5">
+              <Label htmlFor="form-button-label" className="text-xs text-zinc-500">
                 Texte du bouton
-              </label>
-              <input
+              </Label>
+              <Input
+                id="form-button-label"
                 value={buttonLabel}
                 onChange={(e) => setButtonLabel(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-500 mb-1.5">
-                Message de succes
-              </label>
-              <input
+            <div className="space-y-1.5">
+              <Label htmlFor="form-success-message" className="text-xs text-zinc-500">
+                Message de succès
+              </Label>
+              <Input
+                id="form-success-message"
                 value={successMessage}
                 onChange={(e) => setSuccessMessage(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
               />
             </div>
           </div>
@@ -213,7 +236,7 @@ export function FormBuilder({
           <div className="flex items-center gap-2 mb-4">
             <Eye className="h-4 w-4 text-zinc-500" />
             <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
-              Apercu en direct
+              Aperçu en direct
             </span>
           </div>
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
@@ -226,40 +249,48 @@ export function FormBuilder({
               </div>
             </div>
             <div className="space-y-3">
-              {fields.map((field, index) => (
+              {fields.map((field) => (
                 <div key={field.name}>
-                  <label className="block text-sm font-medium text-zinc-300 mb-1">
+                  <Label
+                    htmlFor={`preview-${field.name}`}
+                    className="mb-1 block text-sm font-medium text-zinc-300"
+                  >
                     {field.label} {field.required && "*"}
-                  </label>
+                  </Label>
                   {field.type === "textarea" ? (
-                    <textarea
+                    <Textarea
+                      id={`preview-${field.name}`}
                       disabled
                       placeholder={`Entrez ${field.label.toLowerCase()}`}
-                      className="w-full px-3 py-2 bg-zinc-800/50 border border-zinc-700 rounded-xl text-sm text-zinc-400 resize-none h-20"
+                      className="h-20 min-h-20 resize-none rounded-xl border-zinc-700 bg-zinc-800/50 text-zinc-400 disabled:cursor-default disabled:opacity-100 dark:border-zinc-700 dark:bg-zinc-800/50"
                     />
                   ) : field.type === "select" ? (
-                    <select
-                      disabled
-                      className="w-full px-3 py-2 bg-zinc-800/50 border border-zinc-700 rounded-xl text-sm text-zinc-400"
-                    >
-                      <option>Choisir...</option>
-                    </select>
+                    <Select disabled>
+                      <SelectTrigger
+                        id={`preview-${field.name}`}
+                        className="rounded-xl border-zinc-700 bg-zinc-800/50 text-zinc-400 disabled:cursor-default disabled:opacity-100"
+                      >
+                        <SelectValue placeholder="Choisir..." />
+                      </SelectTrigger>
+                      <SelectContent />
+                    </Select>
                   ) : (
-                    <input
+                    <Input
+                      id={`preview-${field.name}`}
                       disabled
                       type={field.type}
                       placeholder={field.type === "email" ? "vous@exemple.com" : field.type === "tel" ? "+225 XX XX XX XX" : ""}
-                      className="w-full px-3 py-2 bg-zinc-800/50 border border-zinc-700 rounded-xl text-sm text-zinc-400"
+                      className="h-auto rounded-xl bg-zinc-800/50 text-zinc-400 shadow-[inset_0_0_0_1px_rgb(63,63,70)] disabled:cursor-default disabled:opacity-100 dark:bg-zinc-800/50 dark:shadow-[inset_0_0_0_1px_rgb(63,63,70)]"
                     />
                   )}
                 </div>
               ))}
-              <button
+              <Button
                 disabled
-                className="w-full py-2.5 bg-orange-600 text-white rounded-xl text-sm font-semibold mt-2"
+                className="mt-2 h-auto w-full rounded-xl py-2.5 font-semibold shadow-none disabled:cursor-default disabled:opacity-100"
               >
                 {buttonLabel}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

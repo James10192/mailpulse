@@ -30,6 +30,8 @@ import {
   type WorkflowNodeData,
 } from "./workflow-types";
 import { saveWorkflow, updateAutomationStatus } from "@/app/(dashboard)/dashboard/automations/actions";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const EDGE_COLOR = "#71717a";
 const MAX_HISTORY = 20;
@@ -454,18 +456,12 @@ function WorkflowEditorInner({
             {automationName}
           </h1>
           <div className="flex items-center gap-2 mt-1">
-            <span
-              className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                isActive
-                  ? "bg-emerald-500/10 text-emerald-400"
-                  : "bg-zinc-800 text-zinc-400"
-              }`}
-            >
+            <Badge variant={isActive ? "success" : "secondary"} className="text-[10px]">
               {isActive ? "ACTIF" : status}
-            </span>
+            </Badge>
             {/* Node count display */}
             <span className="text-[10px] text-zinc-600 font-mono">
-              {nodes.length} noeud{nodes.length !== 1 ? "s" : ""} · {edges.length} connexion{edges.length !== 1 ? "s" : ""}
+              {nodes.length} nœud{nodes.length !== 1 ? "s" : ""} · {edges.length} connexion{edges.length !== 1 ? "s" : ""}
             </span>
             {saving && (
               <span className="text-[10px] text-zinc-500 font-mono">
@@ -476,50 +472,54 @@ function WorkflowEditorInner({
         </div>
         <div className="flex items-center gap-2">
           {/* Undo */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={undo}
             title="Annuler (Ctrl+Z)"
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+            aria-label="Annuler (Ctrl+Z)"
+            className="h-9 w-9 text-zinc-500"
           >
-            <Undo2 className="h-4 w-4" />
-          </button>
+            <Undo2 />
+          </Button>
           {/* Redo */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={redo}
-            title="Retablir (Ctrl+Shift+Z)"
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+            title="Rétablir (Ctrl+Shift+Z)"
+            aria-label="Rétablir (Ctrl+Shift+Z)"
+            className="h-9 w-9 text-zinc-500"
           >
-            <Redo2 className="h-4 w-4" />
-          </button>
+            <Redo2 />
+          </Button>
           {/* Fit View */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleFitView}
             title="Ajuster la vue"
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+            aria-label="Ajuster la vue"
+            className="h-9 w-9 text-zinc-500"
           >
-            <Maximize className="h-4 w-4" />
-          </button>
+            <Maximize />
+          </Button>
           {/* Toggle status */}
-          <button
-            onClick={handleToggleStatus}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-              isActive
-                ? "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
-                : "bg-emerald-600 hover:bg-emerald-500 text-white"
-            }`}
-          >
-            {isActive ? (
-              <>
-                <PowerOff className="h-4 w-4" />
-                Desactiver
-              </>
-            ) : (
-              <>
-                <Power className="h-4 w-4" />
-                Activer le workflow
-              </>
-            )}
-          </button>
+          {isActive ? (
+            <Button
+              variant="outline"
+              onClick={handleToggleStatus}
+              className="text-red-600 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-500/10"
+            >
+              <PowerOff />
+              Désactiver
+            </Button>
+          ) : (
+            <Button onClick={handleToggleStatus}>
+              <Power />
+              Activer le workflow
+            </Button>
+          )}
         </div>
       </div>
 
@@ -580,22 +580,23 @@ function WorkflowEditorInner({
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-medium text-zinc-400">
-                    Commencez par ajouter un declencheur
+                    Commencez par ajouter un déclencheur
                   </p>
                   <p className="text-xs text-zinc-600 mt-1">
-                    Cliquez sur le bouton + pour demarrer
+                    Cliquez sur le bouton + pour démarrer
                   </p>
                 </div>
-                <button
+                <Button
+                  size="lg"
                   onClick={() => {
                     setConnectFromNodeId(null);
                     setShowAddPanel(true);
                   }}
-                  className="mt-2 px-6 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium shadow-lg shadow-orange-500/20 transition-all cursor-pointer hover:scale-105 inline-flex items-center gap-2"
+                  className="mt-2 rounded-xl"
                 >
-                  <Plus className="h-4 w-4" />
-                  Ajouter un noeud
-                </button>
+                  <Plus />
+                  Ajouter un nœud
+                </Button>
               </div>
             </div>
           )}
@@ -604,15 +605,19 @@ function WorkflowEditorInner({
 
         {/* Floating + button */}
         {!isEmpty && (
-          <button
+          <Button
+            size="icon"
             onClick={() => {
               setConnectFromNodeId(null);
               setShowAddPanel(!showAddPanel);
             }}
-            className="absolute bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 transition-all cursor-pointer hover:scale-105"
+            aria-label="Ajouter un nœud"
+            title="Ajouter un nœud"
+            aria-expanded={showAddPanel}
+            className="absolute bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg shadow-orange-500/20 [&_svg]:size-5"
           >
-            <Plus className="h-5 w-5" />
-          </button>
+            <Plus />
+          </Button>
         )}
 
         {/* Add node panel */}

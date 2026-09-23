@@ -10,6 +10,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Alert } from "@/components/ui/alert";
+
+const CHANNEL_CARD_CLASS =
+  "flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40 has-[[data-state=checked]]:border-orange-500/40 has-[[data-state=checked]]:bg-orange-500/5";
 
 export default function NewCampaignPage() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
@@ -28,12 +33,11 @@ export default function NewCampaignPage() {
       />
 
       <div className="flex items-center gap-4">
-        <Link
-          href="/dashboard/campaigns"
-          className="p-2 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
+        <Button asChild variant="ghost" size="icon" className="h-9 w-9 text-zinc-400">
+          <Link href="/dashboard/campaigns" aria-label="Retour aux campagnes" title="Retour aux campagnes">
+            <ArrowLeft />
+          </Link>
+        </Button>
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
             Nouvelle campagne
@@ -48,20 +52,16 @@ export default function NewCampaignPage() {
         <Card>
           <CardContent className="p-6 space-y-4">
           <div>
-            <label
-              htmlFor="campaign-name"
-              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
-            >
+            <Label htmlFor="campaign-name" className="mb-1.5 block">
               Nom de la campagne <span className="text-red-500">*</span>
-            </label>
-            <input
+            </Label>
+            <Input
               id="campaign-name"
               name="name"
               type="text"
               required
               autoFocus
               placeholder="Ex: Newsletter Mars 2026"
-              className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
             />
             <p className="mt-1.5 text-xs text-zinc-500">
               Vous pourrez éditer le sujet, le contenu et l&apos;expéditeur ensuite.
@@ -73,7 +73,7 @@ export default function NewCampaignPage() {
               Canal de la campagne
             </p>
             <RadioGroup name="channel" defaultValue="EMAIL" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Label htmlFor="campaign-channel-email" className="flex cursor-pointer items-start gap-3 rounded-xl border border-orange-500/40 bg-orange-500/5 p-3 text-sm">
+              <Label htmlFor="campaign-channel-email" className={CHANNEL_CARD_CLASS}>
                 <RadioGroupItem id="campaign-channel-email" value="EMAIL" className="mt-1" />
                 <span>
                   <span className="flex items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100">
@@ -85,7 +85,7 @@ export default function NewCampaignPage() {
                   </span>
                 </span>
               </Label>
-              <Label htmlFor="campaign-channel-whatsapp" className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 p-3 text-sm">
+              <Label htmlFor="campaign-channel-whatsapp" className={CHANNEL_CARD_CLASS}>
                 <RadioGroupItem id="campaign-channel-whatsapp" value="WHATSAPP" className="mt-1" />
                 <span>
                   <span className="flex items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100">
@@ -97,7 +97,7 @@ export default function NewCampaignPage() {
                   </span>
                 </span>
               </Label>
-              <Label htmlFor="campaign-channel-sms" className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 p-3 text-sm">
+              <Label htmlFor="campaign-channel-sms" className={CHANNEL_CARD_CLASS}>
                 <RadioGroupItem id="campaign-channel-sms" value="SMS" className="mt-1" />
                 <span>
                   <span className="flex items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100">
@@ -113,31 +113,24 @@ export default function NewCampaignPage() {
           </div>
 
           {state?.error && (
-            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-sm text-red-700 dark:text-red-400">
+            <Alert variant="destructive" className="p-3">
               {state.error}
-            </div>
+            </Alert>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <Link
-              href="/dashboard/campaigns"
-              className="px-4 py-2.5 text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
-            >
-              Annuler
-            </Link>
-            <Button
-              type="submit"
-              disabled={pending}
-              className="gap-2 bg-orange-600 hover:bg-orange-500"
-            >
+            <Button asChild variant="ghost">
+              <Link href="/dashboard/campaigns">Annuler</Link>
+            </Button>
+            <Button type="submit" disabled={pending}>
               {pending ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="animate-spin" />
                   Création...
                 </>
               ) : (
                 <>
-                  <Plus className="h-4 w-4" />
+                  <Plus />
                   Créer la campagne
                 </>
               )}
