@@ -1,12 +1,27 @@
 // Unified WhatsApp client — routes to Baileys (Evolution API) or Meta Cloud API
 // based on the organization's whatsappMode setting.
 
-import type { IWhatsAppProvider, WhatsAppProviderConfig } from "@/lib/whatsapp/types";
-import { BaileysProvider } from "./whatsapp-baileys";
-import { MetaProvider } from "./whatsapp-meta";
-import * as baileys from "./whatsapp-baileys";
-import * as meta from "./whatsapp-meta";
-import { getWhatsAppPhoneCandidates } from "./phone-numbers";
+import type { IWhatsAppProvider, WhatsAppFailureReason, WhatsAppProviderConfig } from "@/lib/whatsapp/types";
+import { BaileysProvider } from "@/lib/whatsapp-baileys";
+import { MetaProvider } from "@/lib/whatsapp-meta";
+import * as baileys from "@/lib/whatsapp-baileys";
+import * as meta from "@/lib/whatsapp-meta";
+import { getWhatsAppPhoneCandidates } from "@/lib/phone-numbers";
+
+/**
+ * A failed text send. Same message as before for existing callers; the reason
+ * lets a caller tell an unreachable recipient from a provider problem without
+ * reading the text.
+ */
+export class WhatsAppSendError extends Error {
+  readonly reason: WhatsAppFailureReason;
+
+  constructor(message: string, reason: WhatsAppFailureReason) {
+    super(message);
+    this.name = "WhatsAppSendError";
+    this.reason = reason;
+  }
+}
 
 export type WhatsAppMode = "BAILEYS" | "META";
 
@@ -80,7 +95,7 @@ export async function sendWhatsApp(
   }
 
   if (!result.success) {
-    throw new Error(result.error ?? "Echec de l'envoi WhatsApp.");
+    throw new WhatsAppSendError(result.error ?? "Echec de l'envoi WhatsApp.", result.reason ?? "transport");
   }
 
   return result;

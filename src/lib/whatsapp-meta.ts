@@ -1,18 +1,29 @@
 // Meta WhatsApp Cloud API client (Graph API)
 // Docs: https://developers.facebook.com/docs/whatsapp/cloud-api
 
-import type { IWhatsAppProvider, WhatsAppSendResult } from "@/lib/whatsapp/types";
+import { isTimeoutError, type IWhatsAppProvider, type WhatsAppFailureReason, type WhatsAppSendResult } from "@/lib/whatsapp/types";
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 
+// Graph API "Message undeliverable": the recipient cannot receive the message.
+const META_RECIPIENT_UNREACHABLE = 131026;
+
 class MetaApiError extends Error {
-  constructor(
-    message: string,
-    public readonly statusCode: number,
-  ) {
+  readonly statusCode: number;
+  readonly code: number | null;
+
+  constructor(message: string, statusCode: number, code: number | null = null) {
     super(message);
     this.name = "MetaApiError";
+    this.statusCode = statusCode;
+    this.code = code;
   }
+}
+
+function metaFailureReason(error: unknown): WhatsAppFailureReason {
+  if (error instanceof MetaApiError && error.code === META_RECIPIENT_UNREACHABLE) return "recipient_unreachable";
+  if (isTimeoutError(error)) return "timeout";
+  return "transport";
 }
 
 interface MetaOrgConfig {
@@ -35,9 +46,10 @@ async function metaFetch<T = unknown>(
   });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const error = (body as { error?: { message?: string } })?.error?.message || `HTTP ${res.status}`;
-    throw new MetaApiError(`Meta API: ${error}`, res.status);
+    const body = (await res.json().catch(() => ({}))) as { error?: { message?: string; code?: unknown } };
+    const error = body?.error?.message || `HTTP ${res.status}`;
+    const code = typeof body?.error?.code === "number" ? body.error.code : null;
+    throw new MetaApiError(`Meta API: ${error}`, res.status, code);
   }
 
   return res.json() as Promise<T>;
@@ -179,10 +191,13 @@ export function getConfigId() {
 }
 
 export class MetaProvider implements IWhatsAppProvider {
-  constructor(
-    private phoneNumberId: string,
-    private accessToken: string,
-  ) {}
+  private readonly phoneNumberId: string;
+  private readonly accessToken: string;
+
+  constructor(phoneNumberId: string, accessToken: string) {
+    this.phoneNumberId = phoneNumberId;
+    this.accessToken = accessToken;
+  }
 
   async sendText(to: string, text: string): Promise<WhatsAppSendResult> {
     try {
@@ -201,6 +216,7 @@ export class MetaProvider implements IWhatsAppProvider {
         success: false,
         error: err instanceof Error ? err.message : "Unknown Meta API error",
         statusCode: err instanceof MetaApiError ? err.statusCode : undefined,
+        reason: metaFailureReason(err),
       };
     }
   }
@@ -229,6 +245,7 @@ export class MetaProvider implements IWhatsAppProvider {
         success: false,
         error: err instanceof Error ? err.message : "Unknown Meta API error",
         statusCode: err instanceof MetaApiError ? err.statusCode : undefined,
+        reason: metaFailureReason(err),
       };
     }
   }
@@ -251,6 +268,7 @@ export class MetaProvider implements IWhatsAppProvider {
         success: false,
         error: err instanceof Error ? err.message : "Unknown Meta API error",
         statusCode: err instanceof MetaApiError ? err.statusCode : undefined,
+        reason: metaFailureReason(err),
       };
     }
   }
