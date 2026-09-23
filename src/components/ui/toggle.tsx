@@ -20,10 +20,11 @@ const toggleVariants = cva(
         // One segment of a segmented control (theme switcher): the chosen segment is raised.
         segment:
           "text-zinc-400 hover:bg-transparent hover:text-zinc-600 data-[state=on]:bg-white data-[state=on]:text-zinc-900 data-[state=on]:shadow-sm dark:hover:text-zinc-300 dark:data-[state=on]:bg-zinc-700 dark:data-[state=on]:text-zinc-100",
-        // Editor formatting toggles (bold, alignment, lists). Keyed on aria-pressed, not data-state:
-        // a wrapping TooltipTrigger passes its own data-state, which Radix Toggle lets override "on"/"off".
+        // Editor formatting toggles (bold, alignment, lists). Keyed on ARIA, not data-state: a wrapping
+        // TooltipTrigger passes its own data-state, which Radix Toggle lets override "on"/"off".
+        // aria-pressed covers a lone Toggle, aria-checked a single-choice ToggleGroup item.
         toolbar:
-          "text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 aria-pressed:bg-orange-500/15 aria-pressed:text-orange-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:aria-pressed:text-orange-400",
+          "text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 aria-pressed:bg-orange-500/15 aria-pressed:text-orange-600 aria-checked:bg-orange-500/15 aria-checked:text-orange-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:aria-pressed:text-orange-400 dark:aria-checked:text-orange-400",
       },
       size: {
         default: "h-9 min-w-9 px-2",

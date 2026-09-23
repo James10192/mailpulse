@@ -6,22 +6,23 @@ import { isOneOf } from "@/components/forms/one-of";
 type SelectRootProps = React.ComponentProps<typeof Select>;
 
 /**
- * Select over a string union, built from a `{ value: label }` map: it renders the
- * items itself, and only listed values reach `onValueChange`, so callers never
- * cast Radix's plain string. `children` is the trigger.
+ * Select over a string union: `values` fixes the order, `labels` names each value.
+ * It renders the items itself, and only listed values reach `onValueChange`, so
+ * callers never cast Radix's plain string. `children` is the trigger.
  */
 export function TypedSelect<T extends string>({
-  options,
+  values,
+  labels,
   value,
   onValueChange,
   children,
   ...props
 }: Omit<SelectRootProps, "value" | "onValueChange" | "defaultValue"> & {
-  options: Record<T, string>;
+  values: readonly T[];
+  labels: Record<T, string>;
   value: T;
   onValueChange: (value: T) => void;
 }) {
-  const values = Object.keys(options) as T[];
   return (
     <Select
       value={value}
@@ -34,7 +35,7 @@ export function TypedSelect<T extends string>({
       <SelectContent>
         {values.map((option) => (
           <SelectItem key={option} value={option}>
-            {options[option]}
+            {labels[option]}
           </SelectItem>
         ))}
       </SelectContent>

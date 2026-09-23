@@ -13,6 +13,8 @@ const buttonVariants = cva(
         outline: "bg-white text-zinc-700 shadow-[var(--shadow-border)] hover:bg-zinc-50 hover:shadow-[var(--shadow-border-hover)] dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900",
         secondary: "bg-zinc-100 text-zinc-900 shadow-[inset_0_0_0_1px_rgba(24,24,27,0.06)] hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700",
         ghost: "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
+        // Secondary row actions (edit, open): quiet at rest, accent on hover and focus.
+        "ghost-accent": "text-zinc-500 hover:bg-orange-50 hover:text-orange-600 focus-visible:text-orange-600 dark:text-zinc-400 dark:hover:bg-orange-500/10 dark:hover:text-orange-400 dark:focus-visible:text-orange-400",
         // Delete actions in lists and menus: quiet at rest, red on hover and focus.
         "ghost-destructive": "text-zinc-500 hover:bg-red-50 hover:text-red-600 focus-visible:text-red-600 dark:text-zinc-400 dark:hover:bg-red-500/10 dark:hover:text-red-400 dark:focus-visible:text-red-400",
         // Dense toolbars (editor, bubble menus): no press scale. Highlighted while its menu is open
@@ -20,7 +22,7 @@ const buttonVariants = cva(
         toolbar: "text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 active:scale-100 disabled:opacity-40 data-[active=true]:bg-orange-500/15 data-[active=true]:text-orange-600 data-[state=open]:bg-orange-500/15 data-[state=open]:text-orange-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:data-[active=true]:text-orange-400 dark:data-[state=open]:text-orange-400",
         // Outlined secondary actions carrying the accent or a status colour
         // ("Passer au Pro", "Vérifier", "Désactiver", "Réabonner"...).
-        "outline-accent": "bg-white text-orange-600 shadow-[var(--shadow-border)] hover:bg-orange-50 hover:text-orange-700 dark:bg-zinc-950 dark:text-orange-400 dark:hover:bg-orange-500/10 dark:hover:text-orange-300",
+        "outline-accent": "bg-white text-orange-600 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.3)] hover:bg-orange-50 hover:text-orange-700 dark:bg-zinc-950 dark:text-orange-400 dark:hover:bg-orange-500/10 dark:hover:text-orange-300",
         "outline-destructive": "bg-white text-red-600 shadow-[inset_0_0_0_1px_rgba(239,68,68,0.3)] hover:bg-red-50 hover:text-red-700 dark:bg-zinc-950 dark:text-red-400 dark:hover:bg-red-500/10 dark:hover:text-red-300",
         "outline-success": "bg-white text-emerald-700 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.3)] hover:bg-emerald-50 hover:text-emerald-800 dark:bg-zinc-950 dark:text-emerald-400 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300",
         link: "text-orange-500 underline-offset-4 hover:underline",

@@ -138,7 +138,7 @@ export function FormBuilder({
                       <Input
                         value={field.label}
                         onChange={(e) => updateField(index, { label: e.target.value })}
-                        className="h-9 flex-1"
+                        className="flex-1 sm:h-9"
                         placeholder="Label"
                         aria-label="Libellé du champ"
                       />
@@ -147,7 +147,7 @@ export function FormBuilder({
                         onValueChange={(value) => updateField(index, { type: value })}
                         disabled={field.type === "email"}
                       >
-                        <SelectTrigger className="h-9 w-auto min-w-36" aria-label="Type de champ">
+                        <SelectTrigger className="h-11 w-auto min-w-36 sm:h-9" aria-label="Type de champ">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

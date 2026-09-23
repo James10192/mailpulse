@@ -162,7 +162,7 @@ export function ApiKeysPanel({ apiKeys, emailSenders, canManage = true }: { apiK
             <div className="grid gap-2">
               <Label htmlFor="key-sender">Expéditeur des e-mails</Label>
               <Select name="defaultEmailSenderId" defaultValue={defaultSenderId}>
-                <SelectTrigger id="key-sender" className="h-10"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="key-sender"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={INHERIT}>Expéditeur par défaut de l&apos;organisation</SelectItem>
                   {emailSenders.map((sender) => <SenderItem key={sender.id} sender={sender} />)}
@@ -223,7 +223,7 @@ export function ApiKeysPanel({ apiKeys, emailSenders, canManage = true }: { apiK
                       </TableCell>
                       <TableCell className="min-w-56">
                         <Select value={key.defaultEmailSenderId ?? INHERIT} onValueChange={(value) => updateSender(key.id, value)} disabled={!canManage || isPending || revoked}>
-                          <SelectTrigger className="h-9" aria-label={`Expéditeur de la clé ${key.name}`}><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-11 sm:h-9" aria-label={`Expéditeur de la clé ${key.name}`}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value={INHERIT}>Expéditeur par défaut</SelectItem>
                             {emailSenders.map((sender) => <SenderItem key={sender.id} sender={sender} />)}

@@ -21,7 +21,7 @@ export function CapturePageRowActions({
   return (
     <div className="flex items-center justify-end gap-1">
       {page.published && (
-        <Button asChild variant="ghost" size="icon-sm" className="text-zinc-500 hover:text-orange-600 dark:text-zinc-400 dark:hover:text-orange-400">
+        <Button asChild variant="ghost-accent" size="icon-sm">
           <a href={`/capture/${page.slug}`} target="_blank" rel="noopener noreferrer" title="Voir la page" aria-label="Voir la page">
             <ExternalLink />
           </a>

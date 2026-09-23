@@ -77,7 +77,7 @@ export function WhatsNewButton() {
         variant="ghost"
         size="icon"
         onClick={() => setOpen(true)}
-        className="size-10 transition-[scale,color,background-color] hover:bg-orange-50 hover:text-orange-600 active:scale-[0.96] dark:hover:bg-orange-500/10 dark:hover:text-orange-400"
+        className="transition-[scale,color,background-color] hover:bg-orange-50 hover:text-orange-600 active:scale-[0.96] dark:hover:bg-orange-500/10 dark:hover:text-orange-400"
         aria-label="Quoi de neuf ?"
         title="Quoi de neuf ?"
       >

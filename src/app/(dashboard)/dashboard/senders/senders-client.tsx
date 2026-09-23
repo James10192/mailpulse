@@ -164,10 +164,9 @@ export function SendersClient({
                     <TableCell className="px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button
-                          variant="ghost"
+                          variant="ghost-accent"
                           size="icon-sm"
                           onClick={(e) => { e.stopPropagation(); setEditSender(sender); }}
-                          className="text-zinc-500 hover:text-orange-600 dark:text-zinc-400 dark:hover:text-orange-400"
                           title="Modifier"
                           aria-label={`Modifier l'expéditeur ${sender.name}`}
                         >

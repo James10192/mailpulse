@@ -27,13 +27,14 @@ import type { ActionState } from "@/types/action-state";
 
 type TagData = { name: string; count: number };
 
-const SORT_OPTIONS = {
+const SORT_KEYS = ["name-asc", "name-desc", "count-desc", "count-asc"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+const SORT_LABELS: Record<SortKey, string> = {
   "name-asc": "Nom A-Z",
   "name-desc": "Nom Z-A",
   "count-desc": "Plus de contacts",
   "count-asc": "Moins de contacts",
 };
-type SortKey = keyof typeof SORT_OPTIONS;
 
 export function TagsClient({ tags }: { tags: TagData[] }) {
   const [open, setOpen] = useState(false);
@@ -107,10 +108,10 @@ export function TagsClient({ tags }: { tags: TagData[] }) {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher un tag..."
             aria-label="Rechercher un tag"
-            className="h-10 pl-9"
+            className="h-11 pl-9 sm:h-10"
           />
         </div>
-        <TypedSelect options={SORT_OPTIONS} value={sort} onValueChange={setSort}>
+        <TypedSelect values={SORT_KEYS} labels={SORT_LABELS} value={sort} onValueChange={setSort}>
           <SelectTrigger className="sm:w-52" aria-label="Trier les tags">
             {/* A div, not a span: the trigger line-clamps its direct span children. */}
             <div className="flex min-w-0 items-center gap-2">

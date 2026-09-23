@@ -49,7 +49,7 @@ function TextField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-9"
+        className="sm:h-9"
       />
     </div>
   );
@@ -74,7 +74,7 @@ function SelectField({
       </Label>
       <Select value={value} onValueChange={onChange}>
         {/* "nokey": React Flow must not treat Backspace/Delete here as a node deletion. */}
-        <SelectTrigger id={id} className="nokey h-9">
+        <SelectTrigger id={id} className="nokey h-11 sm:h-9">
           <SelectValue />
         </SelectTrigger>
         <SelectContent className="nokey">

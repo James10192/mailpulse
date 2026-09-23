@@ -36,20 +36,22 @@ type SegmentData = {
   createdAt: string;
 };
 
-const SORT_OPTIONS = {
+const SORT_KEYS = ["recent", "oldest", "name-asc", "name-desc"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+const SORT_LABELS: Record<SortKey, string> = {
   recent: "Plus récents",
   oldest: "Plus anciens",
   "name-asc": "Nom A-Z",
   "name-desc": "Nom Z-A",
 };
-type SortKey = keyof typeof SORT_OPTIONS;
 
-const SUBSCRIPTION_OPTIONS = {
+const SUBSCRIPTION_FILTERS = ["all", "true", "false"] as const;
+type SubscriptionFilter = (typeof SUBSCRIPTION_FILTERS)[number];
+const SUBSCRIPTION_LABELS: Record<SubscriptionFilter, string> = {
   all: "Tous",
   true: "Abonnés uniquement",
   false: "Désabonnés uniquement",
 };
-type SubscriptionFilter = keyof typeof SUBSCRIPTION_OPTIONS;
 
 export function SegmentsClient({
   segments,
@@ -177,10 +179,10 @@ export function SegmentsClient({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher un segment..."
             aria-label="Rechercher un segment"
-            className="h-10 pl-9"
+            className="h-11 pl-9 sm:h-10"
           />
         </div>
-        <TypedSelect options={SORT_OPTIONS} value={sort} onValueChange={setSort}>
+        <TypedSelect values={SORT_KEYS} labels={SORT_LABELS} value={sort} onValueChange={setSort}>
           <SelectTrigger className="sm:w-48" aria-label="Trier les segments">
             {/* A div, not a span: the trigger line-clamps its direct span children. */}
             <div className="flex min-w-0 items-center gap-2">
@@ -264,7 +266,7 @@ export function SegmentsClient({
           <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Filtres dynamiques</p>
           <div className="space-y-1.5">
             <Label htmlFor="segment-filter-subscribed" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Statut abonnement</Label>
-            <TypedSelect options={SUBSCRIPTION_OPTIONS} value={filterSubscribed} onValueChange={setFilterSubscribed}>
+            <TypedSelect values={SUBSCRIPTION_FILTERS} labels={SUBSCRIPTION_LABELS} value={filterSubscribed} onValueChange={setFilterSubscribed}>
               <SelectTrigger id="segment-filter-subscribed">
                 <SelectValue />
               </SelectTrigger>

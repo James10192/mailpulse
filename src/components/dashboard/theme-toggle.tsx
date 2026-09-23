@@ -14,7 +14,6 @@ export function ThemeToggle() {
     const timer = window.setTimeout(() => setMounted(true), 0);
     return () => window.clearTimeout(timer);
   }, []);
-  if (!mounted) return <div className="w-8 h-8" />;
 
   const options = [
     { value: "light", icon: Sun, label: "Clair" },
@@ -25,7 +24,10 @@ export function ThemeToggle() {
   return (
     <ToggleGroup
       type="single"
-      value={theme ?? ""}
+      // Rendered disabled until mounted (the theme is only known client-side), so the
+      // placeholder has exactly the size of the final control.
+      value={mounted ? theme ?? "" : ""}
+      disabled={!mounted}
       // Radix emits "" when the active item is clicked again; keep the current theme in that case.
       onValueChange={(next) => {
         if (next) setTheme(next);

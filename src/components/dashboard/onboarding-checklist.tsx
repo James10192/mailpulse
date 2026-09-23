@@ -225,7 +225,8 @@ export function OnboardingChecklist() {
                   checked={done}
                   onCheckedChange={() => toggleTask(task.id)}
                   aria-label={done ? `Marquer « ${task.label} » comme à faire` : `Marquer « ${task.label} » comme fait`}
-                  className="size-5 rounded-full"
+                  // 20px visual, 44px hit area through the padded ::after.
+                  className="relative size-5 rounded-full after:absolute after:-inset-3 after:content-['']"
                 />
                 <Icon className={cn("h-4 w-4 shrink-0", done ? "text-zinc-400" : "text-zinc-500")} />
                 <div className="flex-1 min-w-0">
