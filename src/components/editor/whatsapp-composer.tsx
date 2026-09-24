@@ -120,7 +120,6 @@ export function WhatsAppComposer({
               type="button"
               variant="outline"
               size="sm"
-              className="h-10"
               onClick={() => insertVariable(variable)}
             >
               {variable}
@@ -129,7 +128,7 @@ export function WhatsAppComposer({
 
           {snippets.length > 0 && (
             <Select onValueChange={applySnippet}>
-              <SelectTrigger className="h-10 w-full sm:w-56">
+              <SelectTrigger className="w-full sm:w-56">
                 <SelectValue placeholder="Insérer un snippet" />
               </SelectTrigger>
               <SelectContent>
@@ -164,7 +163,7 @@ export function WhatsAppComposer({
             <Button
               type="button"
               variant="outline"
-              className="h-10 gap-2"
+              className="gap-2"
               disabled={uploading}
               onClick={() => fileRef.current?.click()}
             >
@@ -187,9 +186,10 @@ export function WhatsAppComposer({
               </div>
               <Button
                 type="button"
-                variant="ghost"
+                variant="ghost-destructive"
                 size="icon"
-                className="h-10 w-10 text-zinc-500 hover:text-red-600"
+                aria-label="Retirer l'image"
+                title="Retirer l'image"
                 onClick={() => onImageChange({ url: null, name: null })}
               >
                 <Trash2 className="h-4 w-4" />

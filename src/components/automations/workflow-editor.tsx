@@ -18,18 +18,22 @@ import {
   MarkerType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Plus, Power, PowerOff, Maximize, Undo2, Redo2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { WorkflowNode } from "./workflow-node";
 import { WorkflowEdge } from "./workflow-edge";
 import { AddNodePanel } from "./add-node-panel";
 import { NodeConfigPanel } from "./node-config-panel";
+import { WorkflowHeader } from "./workflow-header";
 import {
   getNodeLabel,
   getDefaultConfig,
   type WorkflowNodeType,
   type WorkflowNodeData,
 } from "./workflow-types";
+import { toast } from "sonner";
 import { saveWorkflow, updateAutomationStatus } from "@/app/(dashboard)/dashboard/automations/actions";
+import type { AutomationStatus } from "@/generated/prisma";
+import { Button } from "@/components/ui/button";
 
 const EDGE_COLOR = "#71717a";
 const MAX_HISTORY = 20;
@@ -68,7 +72,7 @@ interface HistoryEntry {
 interface WorkflowEditorProps {
   automationId: string;
   automationName: string;
-  automationStatus: string;
+  automationStatus: AutomationStatus;
   automationTrigger: string;
   initialNodes: Node[];
   initialEdges: Edge[];
@@ -95,7 +99,7 @@ function WorkflowEditorInner({
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [connectFromNodeId, setConnectFromNodeId] = useState<string | null>(null);
-  const [status, setStatus] = useState(automationStatus);
+  const [status, setStatus] = useState<AutomationStatus>(automationStatus);
   const [saving, setSaving] = useState(false);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reactFlowInstance = useReactFlow();
@@ -238,8 +242,14 @@ function WorkflowEditorInner({
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
       saveTimeout.current = setTimeout(async () => {
         setSaving(true);
-        await saveWorkflow(automationId, JSON.stringify(updatedNodes), JSON.stringify(updatedEdges));
-        setSaving(false);
+        try {
+          const result = await saveWorkflow(automationId, JSON.stringify(updatedNodes), JSON.stringify(updatedEdges));
+          if (result?.error) toast.error(result.error);
+        } catch {
+          toast.error("Le workflow n'a pas pu être enregistré. Réessayez.");
+        } finally {
+          setSaving(false);
+        }
       }, 1500);
     },
     [automationId]
@@ -420,8 +430,17 @@ function WorkflowEditorInner({
 
   const handleToggleStatus = useCallback(async () => {
     const newStatus = status === "ACTIVE" ? "PAUSED" : "ACTIVE";
-    await updateAutomationStatus(automationId, newStatus);
-    setStatus(newStatus);
+    try {
+      const result = await updateAutomationStatus(automationId, newStatus);
+      // Only reflect the new status once the server accepted it.
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+      setStatus(newStatus);
+    } catch {
+      toast.error("Le statut n'a pas pu être modifié. Réessayez.");
+    }
   }, [automationId, status]);
 
   const handlePaneClick = useCallback(() => {
@@ -442,86 +461,17 @@ function WorkflowEditorInner({
     ? (nodes.find((n) => n.id === selectedNodeId) as (Node & { data: WorkflowNodeData }) | undefined) ?? null
     : null;
 
-  const isActive = status === "ACTIVE";
   const isEmpty = nodes.length === 0;
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-            {automationName}
-          </h1>
-          <div className="flex items-center gap-2 mt-1">
-            <span
-              className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                isActive
-                  ? "bg-emerald-500/10 text-emerald-400"
-                  : "bg-zinc-800 text-zinc-400"
-              }`}
-            >
-              {isActive ? "ACTIF" : status}
-            </span>
-            {/* Node count display */}
-            <span className="text-[10px] text-zinc-600 font-mono">
-              {nodes.length} noeud{nodes.length !== 1 ? "s" : ""} · {edges.length} connexion{edges.length !== 1 ? "s" : ""}
-            </span>
-            {saving && (
-              <span className="text-[10px] text-zinc-500 font-mono">
-                Sauvegarde...
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Undo */}
-          <button
-            onClick={undo}
-            title="Annuler (Ctrl+Z)"
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            <Undo2 className="h-4 w-4" />
-          </button>
-          {/* Redo */}
-          <button
-            onClick={redo}
-            title="Retablir (Ctrl+Shift+Z)"
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            <Redo2 className="h-4 w-4" />
-          </button>
-          {/* Fit View */}
-          <button
-            onClick={handleFitView}
-            title="Ajuster la vue"
-            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            <Maximize className="h-4 w-4" />
-          </button>
-          {/* Toggle status */}
-          <button
-            onClick={handleToggleStatus}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-              isActive
-                ? "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
-                : "bg-emerald-600 hover:bg-emerald-500 text-white"
-            }`}
-          >
-            {isActive ? (
-              <>
-                <PowerOff className="h-4 w-4" />
-                Desactiver
-              </>
-            ) : (
-              <>
-                <Power className="h-4 w-4" />
-                Activer le workflow
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+      <WorkflowHeader
+        name={automationName}
+        status={status}
+        saving={saving}
+        counts={{ nodes: nodes.length, edges: edges.length }}
+        actions={{ undo, redo, fitView: handleFitView, toggleStatus: handleToggleStatus }}
+      />
 
       {/* Canvas */}
       <div className="relative w-full h-[calc(100vh-220px)] rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
@@ -580,22 +530,23 @@ function WorkflowEditorInner({
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-medium text-zinc-400">
-                    Commencez par ajouter un declencheur
+                    Commencez par ajouter un déclencheur
                   </p>
                   <p className="text-xs text-zinc-600 mt-1">
-                    Cliquez sur le bouton + pour demarrer
+                    Cliquez sur le bouton + pour démarrer
                   </p>
                 </div>
-                <button
+                <Button
+                  size="lg"
                   onClick={() => {
                     setConnectFromNodeId(null);
                     setShowAddPanel(true);
                   }}
-                  className="mt-2 px-6 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium shadow-lg shadow-orange-500/20 transition-all cursor-pointer hover:scale-105 inline-flex items-center gap-2"
+                  className="mt-2 rounded-xl"
                 >
-                  <Plus className="h-4 w-4" />
-                  Ajouter un noeud
-                </button>
+                  <Plus />
+                  Ajouter un nœud
+                </Button>
               </div>
             </div>
           )}
@@ -604,15 +555,19 @@ function WorkflowEditorInner({
 
         {/* Floating + button */}
         {!isEmpty && (
-          <button
+          <Button
+            size="icon"
             onClick={() => {
               setConnectFromNodeId(null);
               setShowAddPanel(!showAddPanel);
             }}
-            className="absolute bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 transition-all cursor-pointer hover:scale-105"
+            aria-label="Ajouter un nœud"
+            title="Ajouter un nœud"
+            aria-expanded={showAddPanel}
+            className="absolute bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg shadow-orange-500/20 [&_svg]:size-5"
           >
-            <Plus className="h-5 w-5" />
-          </button>
+            <Plus />
+          </Button>
         )}
 
         {/* Add node panel */}

@@ -1,12 +1,32 @@
 "use client";
 
-import { useActionState, useState, useMemo, useRef } from "react";
-import { Plus, Filter, Trash2, X, Sparkles, Search, ArrowUpDown, Info, Users, ChevronDown } from "lucide-react";
+import { useActionState, useState, useMemo } from "react";
+import { Plus, Filter, Trash2, Sparkles, Search, ArrowUpDown, Users } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { createSegment, deleteSegment } from "./actions";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { FormDialog } from "@/components/dashboard/form-dialog";
+import { PageHint } from "@/components/dashboard/page-hint";
+import { TypedSelect } from "@/components/forms/typed-select";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import type { ActionState } from "@/types/action-state";
 
 type SegmentData = {
@@ -17,7 +37,22 @@ type SegmentData = {
   createdAt: string;
 };
 
-type SortKey = "recent" | "oldest" | "name-asc" | "name-desc";
+const SORT_KEYS = ["recent", "oldest", "name-asc", "name-desc"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+const SORT_LABELS: Record<SortKey, string> = {
+  recent: "Plus récents",
+  oldest: "Plus anciens",
+  "name-asc": "Nom A-Z",
+  "name-desc": "Nom Z-A",
+};
+
+const SUBSCRIPTION_FILTERS = ["all", "true", "false"] as const;
+type SubscriptionFilter = (typeof SUBSCRIPTION_FILTERS)[number];
+const SUBSCRIPTION_LABELS: Record<SubscriptionFilter, string> = {
+  all: "Tous",
+  true: "Abonnés uniquement",
+  false: "Désabonnés uniquement",
+};
 
 export function SegmentsClient({
   segments,
@@ -35,7 +70,7 @@ export function SegmentsClient({
   overLimit: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [filterSubscribed, setFilterSubscribed] = useState<"all" | "true" | "false">("all");
+  const [filterSubscribed, setFilterSubscribed] = useState<SubscriptionFilter>("all");
   const [filterTags, setFilterTags] = useState("");
   const [filterEngagementMin, setFilterEngagementMin] = useState("");
   const [filterCreatedAfter, setFilterCreatedAfter] = useState("");
@@ -99,7 +134,7 @@ export function SegmentsClient({
           current={currentCount}
           limit={limit}
           planLabel={planLabel}
-          actionLabel="Vous ne pouvez plus en creer. Passez au Pro pour des segments illimites."
+          actionLabel="Vous ne pouvez plus en créer. Passez au Pro pour des segments illimités."
         />
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -108,101 +143,80 @@ export function SegmentsClient({
             Segments
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Creez des segments dynamiques pour cibler vos contacts
+            Créez des segments dynamiques pour cibler vos contacts
           </p>
         </div>
         {canCreate ? (
-          <button
-            onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-          >
+          <Button onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" />
-            Creer un segment
-          </button>
+            Créer un segment
+          </Button>
         ) : (
           <div className="flex items-center gap-3">
             <span className="text-xs text-zinc-500">
               {currentCount}/{limit === -1 ? "\u221E" : limit} segments
             </span>
-            <Link
-              href="/dashboard/settings/billing"
-              className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Passer au Pro
-            </Link>
+            <Button asChild variant="outline-accent">
+              <Link href="/dashboard/settings/billing">
+                <Sparkles />
+                Passer au Pro
+              </Link>
+            </Button>
           </div>
         )}
       </div>
 
-      {/* Info banner */}
-      <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
-        <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-        <p className="text-sm text-blue-300/80">
-          Les segments regroupent dynamiquement vos contacts selon des criteres. Utilisez-les pour cibler vos campagnes vers une audience specifique.
-        </p>
-      </div>
+      <PageHint>
+        Les segments regroupent dynamiquement vos contacts selon des critères. Utilisez-les pour cibler vos campagnes vers une audience spécifique.
+      </PageHint>
 
       {/* Search and sort controls */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-          <input
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+          <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher un segment..."
-            className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            aria-label="Rechercher un segment"
+            className="h-11 pl-9 sm:h-10"
           />
         </div>
-        <div className="relative">
-          <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-            className="pl-9 pr-8 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none cursor-pointer"
-          >
-            <option value="recent">Plus recents</option>
-            <option value="oldest">Plus anciens</option>
-            <option value="name-asc">Nom A-Z</option>
-            <option value="name-desc">Nom Z-A</option>
-          </select>
-        </div>
+        <TypedSelect values={SORT_KEYS} labels={SORT_LABELS} value={sort} onValueChange={setSort}>
+          <SelectTrigger className="sm:w-48" aria-label="Trier les segments">
+            {/* A div, not a span: the trigger line-clamps its direct span children. */}
+            <div className="flex min-w-0 items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 shrink-0 text-zinc-400" />
+              <SelectValue />
+            </div>
+          </SelectTrigger>
+        </TypedSelect>
       </div>
 
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
         {filtered.length > 0 ? (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                  Nom du segment
-                </th>
-                <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                  Description
-                </th>
-                <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                  Contacts
-                </th>
-                <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                  Date de creation
-                </th>
-                <th className="text-right text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="px-4">Nom du segment</TableHead>
+                <TableHead className="px-4">Description</TableHead>
+                <TableHead className="px-4">Contacts</TableHead>
+                <TableHead className="px-4">Date de création</TableHead>
+                <TableHead className="px-4 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filtered.map((segment) => (
                 <SegmentRow key={segment.id} segment={segment} />
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         ) : segments.length > 0 && filtered.length === 0 ? (
           <div className="p-12 text-center">
             <Search className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
             <p className="text-zinc-500 text-sm">
-              Aucun segment ne correspond a votre recherche.
+              Aucun segment ne correspond à votre recherche.
             </p>
           </div>
         ) : (
@@ -212,105 +226,70 @@ export function SegmentsClient({
               Aucun segment pour le moment.
             </p>
             <p className="text-zinc-400 text-xs">
-              Creez un segment dynamique pour regrouper automatiquement vos
-              contacts selon des criteres.
+              Créez un segment dynamique pour regrouper automatiquement vos
+              contacts selon des critères.
             </p>
           </div>
         )}
       </div>
 
       {/* Create modal */}
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setOpen(false)}
+      <FormDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Nouveau segment"
+        action={formAction}
+        error={state?.error}
+        pending={pending}
+        submit={{ label: "Créer", pendingLabel: "Création..." }}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="segment-name">Nom</Label>
+          <Input
+            id="segment-name"
+            name="name"
+            required
+            placeholder="ex: Clients actifs, Prospects..."
           />
-          <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                Nouveau segment
-              </h2>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="segment-description">Description</Label>
+          <Textarea
+            id="segment-description"
+            name="description"
+            rows={3}
+            className="min-h-0 resize-none"
+            placeholder="Description optionnelle..."
+          />
+        </div>
+        {/* Dynamic filters */}
+        <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-3">
+          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Filtres dynamiques</p>
+          <div className="space-y-1.5">
+            <Label htmlFor="segment-filter-subscribed" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Statut abonnement</Label>
+            <TypedSelect values={SUBSCRIPTION_FILTERS} labels={SUBSCRIPTION_LABELS} value={filterSubscribed} onValueChange={setFilterSubscribed}>
+              <SelectTrigger id="segment-filter-subscribed">
+                <SelectValue />
+              </SelectTrigger>
+            </TypedSelect>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="segment-filter-tags" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Tags (séparés par des virgules)</Label>
+            <Input id="segment-filter-tags" value={filterTags} onChange={(e) => setFilterTags(e.target.value)} placeholder="vip, client" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="segment-filter-engagement" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Score engagement min</Label>
+              <Input id="segment-filter-engagement" type="number" value={filterEngagementMin} onChange={(e) => setFilterEngagementMin(e.target.value)} placeholder="0" />
             </div>
-            <form action={formAction} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Nom
-                </label>
-                <input
-                  name="name"
-                  required
-                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="ex: Clients actifs, Prospects..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  rows={3}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-                  placeholder="Description optionnelle..."
-                />
-              </div>
-              {/* Dynamic filters */}
-              <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-3">
-                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Filtres dynamiques</p>
-                <div>
-                  <label className="block text-xs text-zinc-500 mb-1">Statut abonnement</label>
-                  <select value={filterSubscribed} onChange={(e) => setFilterSubscribed(e.target.value as "all" | "true" | "false")} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer">
-                    <option value="all">Tous</option>
-                    <option value="true">Abonnes uniquement</option>
-                    <option value="false">Desabonnes uniquement</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-500 mb-1">Tags (separes par des virgules)</label>
-                  <input value={filterTags} onChange={(e) => setFilterTags(e.target.value)} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="vip, client" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Score engagement min</label>
-                    <input type="number" value={filterEngagementMin} onChange={(e) => setFilterEngagementMin(e.target.value)} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="0" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Crees apres</label>
-                    <input type="date" value={filterCreatedAfter} onChange={(e) => setFilterCreatedAfter(e.target.value)} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer" />
-                  </div>
-                </div>
-              </div>
-              <input type="hidden" name="filters" value={getFiltersJson()} />
-              {state?.error && (
-                <p className="text-sm text-red-500">{state.error}</p>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="px-4 py-2 text-sm rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium disabled:opacity-50 cursor-pointer"
-                >
-                  {pending ? "Creation..." : "Creer"}
-                </button>
-              </div>
-            </form>
+            <div className="space-y-1.5">
+              <Label htmlFor="segment-filter-created-after" className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Créés après</Label>
+              <Input id="segment-filter-created-after" type="date" value={filterCreatedAfter} onChange={(e) => setFilterCreatedAfter(e.target.value)} className="cursor-pointer" />
+            </div>
           </div>
         </div>
-      )}
+        <input type="hidden" name="filters" value={getFiltersJson()} />
+      </FormDialog>
     </div>
   );
 }
@@ -341,40 +320,41 @@ function SegmentRow({ segment }: { segment: SegmentData }) {
 
   return (
     <>
-      <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-        <td className="px-4 py-3">
+      <TableRow>
+        <TableCell className="px-4">
           <div className="flex items-center gap-2">
             <Filter className="h-3.5 w-3.5 text-orange-500" />
             <Link href={`/dashboard/segments/${segment.id}`} className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors">
               {segment.name}
             </Link>
           </div>
-        </td>
-        <td className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
+        </TableCell>
+        <TableCell className="px-4 text-sm text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
           {segment.description || "\u2014"}
-        </td>
-        <td className="px-4 py-3">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-500">
-            <Users className="h-3.5 w-3.5" />
+        </TableCell>
+        <TableCell className="px-4">
+          <Badge className="gap-1.5 px-2.5 py-1 text-orange-500 dark:text-orange-500 [&_svg]:size-3.5">
+            <Users />
             <span className="text-sm font-semibold font-mono">{segment.contactCount}</span>
-          </div>
-        </td>
-        <td className="px-4 py-3 text-sm text-zinc-500">{formattedDate}</td>
-        <td className="px-4 py-3 text-right">
-          <button
+          </Badge>
+        </TableCell>
+        <TableCell className="px-4 text-sm text-zinc-500">{formattedDate}</TableCell>
+        <TableCell className="px-4 text-right">
+          <Button
+            variant="ghost-destructive"
+            size="sm"
             onClick={() => setConfirmOpen(true)}
             disabled={deleting}
-            className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-400 disabled:opacity-50 cursor-pointer"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 />
             {deleting ? "..." : "Supprimer"}
-          </button>
-        </td>
-      </tr>
+          </Button>
+        </TableCell>
+      </TableRow>
       <ConfirmDialog
         open={confirmOpen}
         title="Supprimer le segment"
-        message={`Etes-vous sur de vouloir supprimer le segment "${segment.name}" ? Cette action est irreversible.`}
+        message={`Êtes-vous sûr de vouloir supprimer le segment "${segment.name}" ? Cette action est irréversible.`}
         confirmLabel="Supprimer"
         cancelLabel="Annuler"
         onConfirm={handleDelete}

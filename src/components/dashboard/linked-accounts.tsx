@@ -174,7 +174,6 @@ export function LinkedAccounts() {
                         <Button
                           type="button"
                           variant="outline"
-                          className="h-11"
                           onClick={() => handleUnlink(provider.id)}
                           disabled={isPending}
                         >
@@ -190,7 +189,6 @@ export function LinkedAccounts() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-11"
                         onClick={() => handleLink(provider.id)}
                         disabled={isPending}
                       >

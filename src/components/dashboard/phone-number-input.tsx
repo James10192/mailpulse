@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 export function PhoneNumberInput({
   id,
   name,
-  label = "Telephone WhatsApp",
+  label = "Téléphone WhatsApp",
   value,
   onChange,
   placeholder,
@@ -76,7 +76,7 @@ export function PhoneNumberInput({
           type="tel"
           value={nationalNumber}
           onChange={(event) => updatePhone(countryCode, event.target.value)}
-          placeholder={placeholder ?? selectedCountry?.example ?? "Numero"}
+          placeholder={placeholder ?? selectedCountry?.example ?? "Numéro"}
           className="h-11"
         />
       </div>

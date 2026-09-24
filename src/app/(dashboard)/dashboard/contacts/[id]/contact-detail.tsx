@@ -3,14 +3,9 @@
 import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import {
-  Send,
-  CheckCircle,
   Eye,
   MousePointerClick,
   AlertTriangle,
-  AlertOctagon,
-  UserMinus,
-  UserPlus,
   Mail,
   BarChart3,
   Zap,
@@ -19,9 +14,6 @@ import {
   User,
   Phone,
   Globe,
-  Tag,
-  Search,
-  Filter,
 } from "lucide-react";
 import {
   AreaChart,
@@ -32,9 +24,23 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { PhoneNumberInput } from "@/components/dashboard/phone-number-input";
-import { toggleContactSubscription, triggerAutomation, updateContact, addTagToContact, removeTagFromContact } from "./actions";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toggleContactSubscription, triggerAutomation, updateContact } from "./actions";
+import { ContactActivityTimeline } from "./contact-activity-timeline";
+import { ContactTagEditor } from "./contact-tag-editor";
 
 // ────────────────────────────────────────────────────────
 // Types
@@ -113,46 +119,13 @@ function formatDate(iso: string) {
   });
 }
 
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-const EVENT_CONFIG: Record<string, { icon: typeof Send; label: string; color: string }> = {
-  SUBSCRIBED: { icon: UserPlus, label: "Abonne", color: "text-emerald-500" },
-  SENT: { icon: Send, label: "Email envoye", color: "text-blue-400" },
-  DELIVERED: { icon: CheckCircle, label: "Email delivre", color: "text-emerald-400" },
-  OPENED: { icon: Eye, label: "Email ouvert", color: "text-sky-400" },
-  CLICKED: { icon: MousePointerClick, label: "Email clique", color: "text-orange-400" },
-  BOUNCED_SOFT: { icon: AlertTriangle, label: "Bounce soft", color: "text-amber-400" },
-  BOUNCED_HARD: { icon: AlertTriangle, label: "Bounce hard", color: "text-red-400" },
-  COMPLAINED: { icon: AlertOctagon, label: "Spam", color: "text-red-500" },
-  FAILED: { icon: AlertTriangle, label: "Échec d'envoi", color: "text-red-400" },
-  SUPPRESSED: { icon: AlertOctagon, label: "Adresse en liste de suppression", color: "text-amber-500" },
-  UNSUBSCRIBED: { icon: UserMinus, label: "Desabonne", color: "text-zinc-400" },
-  TAG_ADDED: { icon: Tag, label: "Tag ajoute", color: "text-purple-400" },
-  TAG_REMOVED: { icon: Tag, label: "Tag retire", color: "text-zinc-400" },
-  WORKFLOW_STARTED: { icon: Zap, label: "Automation demarree", color: "text-orange-500" },
-  WORKFLOW_COMPLETED: { icon: CheckCircle, label: "Automation terminee", color: "text-emerald-500" },
-};
-
-const EVENT_FILTER_OPTIONS = Object.entries(EVENT_CONFIG).map(([value, cfg]) => ({
-  value,
-  label: cfg.label,
-}));
-
 const TRIGGER_LABELS: Record<string, string> = {
-  SUBSCRIBER_ADDED: "Nouvel abonne",
-  TAG_ADDED: "Tag ajoute",
+  SUBSCRIBER_ADDED: "Nouvel abonné",
+  TAG_ADDED: "Tag ajouté",
   CAMPAIGN_OPENED: "Campagne ouverte",
-  LINK_CLICKED: "Lien clique",
+  LINK_CLICKED: "Lien cliqué",
   DATE_BASED: "Date",
-  CUSTOM_EVENT: "Evenement custom",
+  CUSTOM_EVENT: "Événement personnalisé",
 };
 
 // ────────────────────────────────────────────────────────
@@ -162,8 +135,6 @@ const TRIGGER_LABELS: Record<string, string> = {
 export function ContactDetail({ contact, stats, activeAutomations, customFields, availableTags }: ContactDetailProps) {
   const [isPending, startTransition] = useTransition();
   const [showUnsubConfirm, setShowUnsubConfirm] = useState(false);
-  const [automationDropdown, setAutomationDropdown] = useState(false);
-  const [triggerResult, setTriggerResult] = useState<string | null>(null);
 
   // Edit mode state
   const [editing, setEditing] = useState(false);
@@ -181,11 +152,6 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
     return vals;
   });
   const [saving, setSaving] = useState(false);
-  const [newTag, setNewTag] = useState("");
-  const [addingTag, setAddingTag] = useState(false);
-  const [eventFilter, setEventFilter] = useState<string>("ALL");
-  const [eventFilterOpen, setEventFilterOpen] = useState(false);
-  const [eventSearch, setEventSearch] = useState("");
 
   async function handleSave() {
     setSaving(true);
@@ -194,26 +160,24 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
       if (customFieldValues[f.name]) metadata[f.name] = customFieldValues[f.name];
       else delete metadata[f.name];
     }
-    await updateContact(contact.id, {
-      firstName: editData.firstName,
-      lastName: editData.lastName,
-      phone: editData.phone,
-      metadata,
-    });
-    setSaving(false);
-    setEditing(false);
-  }
-
-  async function handleAddTag() {
-    if (!newTag.trim()) return;
-    setAddingTag(true);
-    await addTagToContact(contact.id, newTag.trim());
-    setNewTag("");
-    setAddingTag(false);
-  }
-
-  async function handleRemoveTag(tagId: string) {
-    await removeTagFromContact(contact.id, tagId);
+    try {
+      const result = await updateContact(contact.id, {
+        firstName: editData.firstName,
+        lastName: editData.lastName,
+        phone: editData.phone,
+        metadata,
+      });
+      // Keep the form open with the user's edits when the server refuses them.
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+      setEditing(false);
+    } catch {
+      toast.error("Le contact n'a pas pu être enregistré. Réessayez.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   // Build chart data from campaign recipients (last 30 days)
@@ -258,15 +222,12 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
   }
 
   function handleTriggerAutomation(automationId: string) {
-    setAutomationDropdown(false);
     startTransition(async () => {
       const result = await triggerAutomation(contact.id, automationId);
       if (result?.success) {
-        setTriggerResult("Automation declenchee");
-        setTimeout(() => setTriggerResult(null), 3000);
+        toast.success("Automation déclenchée");
       } else {
-        setTriggerResult(result?.error ?? "Erreur");
-        setTimeout(() => setTriggerResult(null), 3000);
+        toast.error(result?.error ?? "Erreur");
       }
     });
   }
@@ -279,35 +240,30 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-lg font-semibold text-zinc-300">
-            {contact.email[0].toUpperCase()}
-          </div>
+          <Avatar className="h-12 w-12">
+            <AvatarFallback className="bg-zinc-800 text-lg font-semibold text-zinc-300">
+              {contact.email[0].toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
               {contact.email}
             </h1>
-            <span
-              className={`inline-block mt-1 text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                contact.subscribed
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                  : "bg-red-500/10 text-red-400 border border-red-500/20"
-              }`}
+            <Badge
+              variant={contact.subscribed ? "success" : "destructive"}
+              className="mt-1 px-2.5 text-xs"
             >
-              {contact.subscribed ? "ABONNE" : "DESABONNE"}
-            </span>
+              {contact.subscribed ? "ABONNÉ" : "DÉSABONNÉ"}
+            </Badge>
           </div>
         </div>
-        <button
+        <Button
+          variant={contact.subscribed ? "outline-destructive" : "outline-success"}
           onClick={() => setShowUnsubConfirm(true)}
           disabled={isPending}
-          className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50 ${
-            contact.subscribed
-              ? "bg-red-600/10 text-red-400 border border-red-500/20 hover:bg-red-600/20"
-              : "bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/20"
-          }`}
         >
-          {contact.subscribed ? "Desabonner" : "Reabonner"}
-        </button>
+          {contact.subscribed ? "Désabonner" : "Réabonner"}
+        </Button>
       </div>
 
       {/* Stat cards */}
@@ -399,63 +355,71 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
               Informations
             </h2>
             {!editing ? (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setEditing(true)}
-                className="text-xs text-orange-500 hover:text-orange-400 cursor-pointer"
+                className="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
               >
                 Modifier
-              </button>
+              </Button>
             ) : (
               <div className="flex gap-2">
-                <button onClick={() => setEditing(false)} className="text-xs text-zinc-500 hover:text-zinc-300 cursor-pointer">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditing(false)}
+                  className="text-zinc-500"
+                >
                   Annuler
-                </button>
-                <button
+                </Button>
+                <Button
+                  size="sm"
                   onClick={handleSave}
                   disabled={saving}
-                  className="text-xs text-orange-500 hover:text-orange-400 cursor-pointer disabled:opacity-50"
                 >
                   {saving ? "..." : "Enregistrer"}
-                </button>
+                </Button>
               </div>
             )}
           </div>
 
           {editing ? (
             <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-zinc-500 mb-1">Email</label>
-                <input disabled value={contact.email} className="w-full px-3 py-2 bg-zinc-800/30 border border-zinc-700 rounded-lg text-sm text-zinc-400 cursor-not-allowed" />
+              <div className="space-y-1">
+                <Label htmlFor="contact-email" className="text-xs font-normal text-zinc-500 dark:text-zinc-500">Email</Label>
+                <Input id="contact-email" disabled value={contact.email} className="h-11 sm:h-10" />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-zinc-500 mb-1">Prenom</label>
-                  <input value={editData.firstName} onChange={(e) => setEditData({ ...editData, firstName: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30" />
+                <div className="space-y-1">
+                  <Label htmlFor="contact-first-name" className="text-xs font-normal text-zinc-500 dark:text-zinc-500">Prénom</Label>
+                  <Input id="contact-first-name" value={editData.firstName} onChange={(e) => setEditData({ ...editData, firstName: e.target.value })} className="h-11 sm:h-10" />
                 </div>
-                <div>
-                  <label className="block text-xs text-zinc-500 mb-1">Nom</label>
-                  <input value={editData.lastName} onChange={(e) => setEditData({ ...editData, lastName: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30" />
+                <div className="space-y-1">
+                  <Label htmlFor="contact-last-name" className="text-xs font-normal text-zinc-500 dark:text-zinc-500">Nom</Label>
+                  <Input id="contact-last-name" value={editData.lastName} onChange={(e) => setEditData({ ...editData, lastName: e.target.value })} className="h-11 sm:h-10" />
                 </div>
               </div>
               <PhoneNumberInput
                 id="contact-phone"
-                label="Telephone"
+                label="Téléphone"
                 value={editData.phone}
                 onChange={(phone) => setEditData({ ...editData, phone })}
               />
               {customFields.length > 0 && (
                 <>
                   <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                    <p className="text-xs text-zinc-500 mb-2">Champs personnalises</p>
+                    <p className="text-xs text-zinc-500 mb-2">Champs personnalisés</p>
                   </div>
                   {customFields.map((f) => (
-                    <div key={f.id}>
-                      <label className="block text-xs text-zinc-500 mb-1">{f.label}</label>
-                      <input
+                    <div key={f.id} className="space-y-1">
+                      <Label htmlFor={`custom-field-${f.id}`} className="text-xs font-normal text-zinc-500 dark:text-zinc-500">{f.label}</Label>
+                      <Input
+                        id={`custom-field-${f.id}`}
                         value={customFieldValues[f.name] || ""}
                         onChange={(e) => setCustomFieldValues({ ...customFieldValues, [f.name]: e.target.value })}
                         type={f.type === "number" ? "number" : f.type === "email" ? "email" : f.type === "url" ? "url" : f.type === "date" ? "date" : "text"}
-                        className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                        className="h-11 sm:h-10"
                       />
                     </div>
                   ))}
@@ -467,7 +431,7 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InfoRow icon={Mail} label="Email" value={contact.email} />
                 <InfoRow icon={User} label="Nom complet" value={fullName} />
-                <InfoRow icon={Phone} label="Telephone" value={contact.phone ?? "—"} />
+                <InfoRow icon={Phone} label="Téléphone" value={contact.phone ?? "—"} />
                 <InfoRow icon={Globe} label="Source" value={contact.source ?? "—"} />
               </div>
               {customFields.length > 0 && (
@@ -482,62 +446,10 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
             </>
           )}
 
-          {/* Tags */}
-          <div>
-            <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mb-2">
-              <Tag className="h-3.5 w-3.5" />
-              Tags
-            </div>
-            <div className="flex gap-1.5 flex-wrap">
-              {contact.tags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border border-zinc-700 bg-zinc-800 text-zinc-300"
-                  style={{ borderColor: tag.color + "40", backgroundColor: tag.color + "15", color: tag.color }}
-                >
-                  {tag.name}
-                  <button onClick={() => handleRemoveTag(tag.id)} className="hover:opacity-60 cursor-pointer">×</button>
-                </span>
-              ))}
-              <div className="relative">
-                <input
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddTag(); } }}
-                  placeholder="Ajouter un tag..."
-                  className="w-40 px-2 py-1 text-xs bg-transparent border border-dashed border-zinc-700 rounded-lg text-zinc-400 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50"
-                />
-                {newTag && (
-                  <div className="absolute left-0 top-full mt-1 z-10 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg py-1 max-h-40 overflow-y-auto">
-                    {availableTags
-                      .filter((t) => t.toLowerCase().includes(newTag.toLowerCase()) && !contact.tags.some((ct) => ct.name === t))
-                      .map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => { setNewTag(""); addTagToContact(contact.id, t); }}
-                          className="w-full px-3 py-1.5 text-left text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer"
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    {!availableTags.some((t) => t.toLowerCase() === newTag.toLowerCase()) && (
-                      <button
-                        onClick={handleAddTag}
-                        disabled={addingTag}
-                        className="w-full px-3 py-1.5 text-left text-xs text-orange-500 hover:bg-orange-500/5 cursor-pointer"
-                      >
-                        + Creer &quot;{newTag}&quot;
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <ContactTagEditor contactId={contact.id} tags={contact.tags} availableTags={availableTags} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-zinc-200 dark:border-zinc-800">
-            <InfoRow icon={Clock} label="Cree le" value={formatDate(contact.createdAt)} />
+            <InfoRow icon={Clock} label="Créé le" value={formatDate(contact.createdAt)} />
             <InfoRow
               icon={Clock}
               label="Dernier engagement"
@@ -551,12 +463,6 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             Automations actives
           </h2>
-
-          {triggerResult && (
-            <div className="text-xs px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              {triggerResult}
-            </div>
-          )}
 
           {activeAutomations.length > 0 ? (
             <div className="space-y-2">
@@ -588,153 +494,54 @@ export function ContactDetail({ contact, stats, activeAutomations, customFields,
                 href="/dashboard/automations"
                 className="text-xs text-orange-500 hover:text-orange-400"
               >
-                Aller aux automations pour en creer une.
+                Aller aux automations pour en créer une.
               </Link>
             </div>
           )}
 
           {/* Trigger automation dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setAutomationDropdown(!automationDropdown)}
-              disabled={activeAutomations.length === 0 || isPending}
-              className="w-full inline-flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-            >
-              <Zap className="h-4 w-4" />
-              Declencher une automation
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-            {automationDropdown && activeAutomations.length > 0 && (
-              <div className="absolute z-20 bottom-full mb-1 left-0 right-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg py-1 max-h-48 overflow-y-auto">
-                {activeAutomations.map((auto) => (
-                  <button
-                    key={auto.id}
-                    onClick={() => handleTriggerAutomation(auto.id)}
-                    className="w-full text-left px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-orange-500/5 hover:text-orange-400 transition-colors cursor-pointer"
-                  >
-                    {auto.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Activity Timeline */}
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Activite
-          </h2>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
-              <input
-                value={eventSearch}
-                onChange={(e) => setEventSearch(e.target.value)}
-                placeholder="Rechercher..."
-                className="pl-8 pr-3 py-1.5 w-36 text-xs bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
-              />
-            </div>
-            <div className="relative">
-              <button
-                onClick={() => setEventFilterOpen(!eventFilterOpen)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                disabled={activeAutomations.length === 0 || isPending}
+                className="w-full"
               >
-                <Filter className="h-3.5 w-3.5" />
-                {eventFilter === "ALL" ? "Tous les types" : EVENT_CONFIG[eventFilter]?.label ?? eventFilter}
-              </button>
-              {eventFilterOpen && (
-                <div className="absolute right-0 top-full mt-1 z-20 w-56 max-h-64 overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl py-1">
-                  <button
-                    onClick={() => { setEventFilter("ALL"); setEventFilterOpen(false); }}
-                    className={`w-full px-3 py-2 text-left text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer ${eventFilter === "ALL" ? "text-orange-500 bg-orange-500/5" : "text-zinc-600 dark:text-zinc-300"}`}
-                  >
-                    Tous les types
-                  </button>
-                  {EVENT_FILTER_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => { setEventFilter(opt.value); setEventFilterOpen(false); }}
-                      className={`w-full px-3 py-2 text-left text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer ${eventFilter === opt.value ? "text-orange-500 bg-orange-500/5" : "text-zinc-600 dark:text-zinc-300"}`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+                <Zap className="h-4 w-4" />
+                Déclencher une automation
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="top"
+              align="start"
+              className="max-h-48 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
+            >
+              {activeAutomations.map((auto) => (
+                <DropdownMenuItem
+                  key={auto.id}
+                  onSelect={() => handleTriggerAutomation(auto.id)}
+                  className="text-zinc-600 focus:bg-orange-500/5 focus:text-orange-500 dark:text-zinc-300 dark:focus:bg-orange-500/5 dark:focus:text-orange-400"
+                >
+                  {auto.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-
-        {(() => {
-          // Build timeline: real events + "Subscribed" pseudo-event from createdAt
-          const allEvents = [
-            ...contact.emailEvents,
-            { id: "subscribed-event", type: "SUBSCRIBED", metadata: null, createdAt: contact.createdAt },
-          ]
-            .filter((e) => eventFilter === "ALL" || e.type === eventFilter)
-            .filter((e) => {
-              if (!eventSearch) return true;
-              const cfg = EVENT_CONFIG[e.type];
-              return cfg?.label.toLowerCase().includes(eventSearch.toLowerCase());
-            })
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-          return allEvents.length > 0 ? (
-            <div className="space-y-1">
-              {allEvents.map((event) => {
-                const config = EVENT_CONFIG[event.type] ?? {
-                  icon: Mail,
-                  label: event.type,
-                  color: "text-zinc-400",
-                };
-                const Icon = config.icon;
-                const meta = event.metadata as Record<string, string> | null;
-                const campaignName = meta?.campaignName ?? null;
-
-                return (
-                  <div
-                    key={event.id}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
-                  >
-                    <div className={`shrink-0 ${config.color}`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                        {config.label}
-                      </span>
-                      {campaignName && (
-                        <span className="text-sm text-zinc-500"> — {campaignName}</span>
-                      )}
-                    </div>
-                    <span className="text-xs text-zinc-500 shrink-0">
-                      {formatDateTime(event.createdAt)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-20 text-sm text-zinc-500">
-              Aucun evenement {eventFilter !== "ALL" ? "de ce type" : ""}
-            </div>
-          );
-        })()}
       </div>
+
+      <ContactActivityTimeline events={contact.emailEvents} subscribedAt={contact.createdAt} />
 
       {/* Confirm dialog for subscription toggle */}
       <ConfirmDialog
         open={showUnsubConfirm}
-        title={contact.subscribed ? "Desabonner ce contact" : "Reabonner ce contact"}
+        title={contact.subscribed ? "Désabonner ce contact" : "Réabonner ce contact"}
         message={
           contact.subscribed
             ? "Ce contact ne recevra plus vos campagnes email."
-            : "Ce contact sera de nouveau eligible pour recevoir vos campagnes."
+            : "Ce contact sera de nouveau éligible pour recevoir vos campagnes."
         }
-        confirmLabel={contact.subscribed ? "Desabonner" : "Reabonner"}
+        confirmLabel={contact.subscribed ? "Désabonner" : "Réabonner"}
         cancelLabel="Annuler"
         destructive={contact.subscribed}
         onConfirm={handleToggleSubscription}

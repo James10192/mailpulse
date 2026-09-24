@@ -1,13 +1,27 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Plus, Zap, X, Trash2, Pencil, PauseCircle, Info } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Plus, Zap, Trash2, PauseCircle } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { createAutomation, deleteAutomation, updateAutomationStatus } from "./actions";
 import { cn } from "@/lib/utils";
 import { LimitWarningBanner } from "@/components/dashboard/feature-gate";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { FormDialog } from "@/components/dashboard/form-dialog";
+import { PageHint } from "@/components/dashboard/page-hint";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ActionState } from "@/types/action-state";
 
 interface AutomationData {
@@ -20,48 +34,32 @@ interface AutomationData {
 }
 
 const triggerLabels: Record<string, string> = {
-  SUBSCRIBER_ADDED: "Nouvel abonne",
-  TAG_ADDED: "Tag ajoute",
+  SUBSCRIBER_ADDED: "Nouvel abonné",
+  TAG_ADDED: "Tag ajouté",
   CAMPAIGN_OPENED: "Campagne ouverte",
-  LINK_CLICKED: "Lien clique",
-  DATE_BASED: "Base sur la date",
-  CUSTOM_EVENT: "Evenement personnalise",
+  LINK_CLICKED: "Lien cliqué",
+  DATE_BASED: "Basé sur la date",
+  CUSTOM_EVENT: "Événement personnalisé",
 };
 
-const statusConfig: Record<string, { label: string; classes: string }> = {
-  DRAFT: {
-    label: "Brouillon",
-    classes:
-      "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400",
-  },
-  ACTIVE: {
-    label: "Actif",
-    classes:
-      "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  },
-  PAUSED: {
-    label: "En pause",
-    classes:
-      "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  },
-  ARCHIVED: {
-    label: "Archive",
-    classes:
-      "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400",
-  },
+const statusConfig: Record<string, { label: string; variant: BadgeProps["variant"] }> = {
+  DRAFT: { label: "Brouillon", variant: "secondary" },
+  ACTIVE: { label: "Actif", variant: "success" },
+  PAUSED: { label: "En pause", variant: "warning" },
+  ARCHIVED: { label: "Archivé", variant: "destructive" },
 };
 
 const presets = [
   {
-    name: "Serie de bienvenue",
-    desc: "Envoyez une sequence d'emails aux nouveaux abonnes",
-    triggerLabel: "Nouvel abonne",
+    name: "Série de bienvenue",
+    desc: "Envoyez une séquence d'emails aux nouveaux abonnés",
+    triggerLabel: "Nouvel abonné",
     triggerValue: "SUBSCRIBER_ADDED",
   },
   {
-    name: "Re-engagement",
+    name: "Réengagement",
     desc: "Ciblez les contacts inactifs depuis 30 jours",
-    triggerLabel: "Inactivite",
+    triggerLabel: "Inactivité",
     triggerValue: "DATE_BASED",
   },
   {
@@ -87,7 +85,6 @@ export function AutomationsClient({
   planLabel: string;
   overLimit: boolean;
 }) {
-  const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [presetName, setPresetName] = useState("");
   const [presetTrigger, setPresetTrigger] = useState("SUBSCRIBER_ADDED");
@@ -109,14 +106,14 @@ export function AutomationsClient({
     setDeleting(id);
     const result = await deleteAutomation(id);
     setDeleting(null);
-    if (result?.error) alert(result.error);
+    if (result?.error) toast.error(result.error);
   }
 
   async function handlePause(id: string) {
     setPausing(id);
     const result = await updateAutomationStatus(id, "PAUSED");
     setPausing(null);
-    if (result?.error) alert(result.error);
+    if (result?.error) toast.error(result.error);
   }
 
   return (
@@ -128,7 +125,7 @@ export function AutomationsClient({
             current={currentCount}
             limit={limit}
             planLabel={planLabel}
-            actionLabel="Les automations en exces ont ete mises en pause automatiquement. Passez au Pro pour toutes les reactiver."
+            actionLabel="Les automations en excès ont été mises en pause automatiquement. Passez au Pro pour toutes les réactiver."
           />
         )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -137,43 +134,39 @@ export function AutomationsClient({
               Automations
             </h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-              Workflows automatises pour vos campagnes
+              Workflows automatisés pour vos campagnes
             </p>
           </div>
           {canCreate ? (
-            <button
+            <Button
               onClick={() => {
                 setPresetName("");
                 setPresetTrigger("SUBSCRIBER_ADDED");
                 setPresetDesc("");
                 setModalOpen(true);
               }}
-              className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
-              <Plus className="h-4 w-4" />
+              <Plus />
               Nouvelle automation
-            </button>
+            </Button>
           ) : (
             <div className="flex items-center gap-3">
               <span className="text-xs text-zinc-500">
                 {currentCount}/{limit === -1 ? "∞" : limit} automations
               </span>
-              <Link
-                href="/dashboard/settings/billing"
-                className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-orange-600/30"
+              <Button
+                asChild
+                variant="outline-accent"
               >
-                Passer au Pro
-              </Link>
+                <Link href="/dashboard/settings/billing">Passer au Pro</Link>
+              </Button>
             </div>
           )}
         </div>
 
-        <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
-          <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-          <p className="text-sm text-blue-300/80">
-            Les automations declenchent des sequences d&apos;emails automatiques en reponse a des evenements (nouvel abonne, tag ajoute, date). Creez un workflow visuel pour definir les etapes.
-          </p>
-        </div>
+        <PageHint>
+          Les automations déclenchent des séquences d&apos;emails automatiques en réponse à des événements (nouvel abonné, tag ajouté, date). Créez un workflow visuel pour définir les étapes.
+        </PageHint>
 
         {/* Preset cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -182,7 +175,6 @@ export function AutomationsClient({
               key={preset.name}
               type="button"
               onClick={() => {
-                if (!canCreate) return;
                 setPresetName(preset.name);
                 setPresetTrigger(preset.triggerValue);
                 setPresetDesc(preset.desc);
@@ -190,20 +182,20 @@ export function AutomationsClient({
               }}
               disabled={!canCreate}
               className={cn(
-                "p-5 rounded-xl border border-dashed text-left transition-colors group bg-white dark:bg-transparent",
+                "group flex flex-col items-start rounded-xl border border-dashed bg-white p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35 disabled:opacity-50 dark:bg-transparent",
                 canCreate
-                  ? "border-zinc-300 dark:border-zinc-700 hover:border-orange-500/50 cursor-pointer"
-                  : "border-zinc-200 dark:border-zinc-800 opacity-50 cursor-not-allowed"
+                  ? "border-zinc-300 hover:border-orange-500/50 dark:border-zinc-700"
+                  : "border-zinc-200 dark:border-zinc-800"
               )}
             >
-              <Zap className="h-5 w-5 text-zinc-400 dark:text-zinc-500 group-hover:text-orange-500 mb-3 transition-colors" />
+              <Zap className="mb-3 size-5 text-zinc-400 transition-colors group-hover:group-enabled:text-orange-500 dark:text-zinc-500" />
               <h3 className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
                 {preset.name}
               </h3>
               <p className="text-xs text-zinc-500 mt-1">{preset.desc}</p>
-              <div className="mt-3 inline-block text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
+              <Badge variant="secondary" className="mt-3">
                 {preset.triggerLabel}
-              </div>
+              </Badge>
             </button>
           ))}
         </div>
@@ -211,205 +203,156 @@ export function AutomationsClient({
         {/* Automations list */}
         {automations.length > 0 ? (
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                      Nom
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">
-                      Declencheur
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                      Statut
-                    </th>
-                    <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">
-                      Date
-                    </th>
-                    <th className="text-right text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3 w-12" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                  {automations.map((auto) => {
-                    const badge = statusConfig[auto.status] ?? statusConfig.DRAFT;
-                    return (
-                      <tr
-                        key={auto.id}
-                        className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          <Link
-                            href={`/dashboard/automations/${auto.id}/edit`}
-                            className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors cursor-pointer"
-                          >
-                            {auto.name}
-                          </Link>
-                          {auto.description && (
-                            <div className="text-xs text-zinc-500 mt-0.5 truncate max-w-xs">
-                              {auto.description}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell">
-                          <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
-                            {triggerLabels[auto.trigger] ?? auto.trigger}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${badge.classes}`}
-                          >
-                            {badge.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-zinc-500 font-mono hidden md:table-cell">
-                          {new Date(auto.createdAt).toLocaleDateString("fr-FR")}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {overLimit && (auto.status === "ACTIVE" || auto.status === "DRAFT") && (
-                              <button
-                                onClick={() => handlePause(auto.id)}
-                                disabled={pausing === auto.id}
-                                className="p-1.5 rounded-lg text-amber-500 hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors cursor-pointer disabled:opacity-50"
-                                title="Desactiver"
-                              >
-                                <PauseCircle className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => setConfirmDeleteId(auto.id)}
-                              disabled={deleting === auto.id}
-                              className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
-                              title="Supprimer"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-4">
+                    Nom
+                  </TableHead>
+                  <TableHead className="px-4 hidden sm:table-cell">
+                    Déclencheur
+                  </TableHead>
+                  <TableHead className="px-4">
+                    Statut
+                  </TableHead>
+                  <TableHead className="px-4 hidden md:table-cell">
+                    Date
+                  </TableHead>
+                  <TableHead className="text-right px-4 w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {automations.map((auto) => {
+                  const badge = statusConfig[auto.status] ?? statusConfig.DRAFT;
+                  return (
+                    <TableRow key={auto.id}>
+                      <TableCell className="px-4 py-3">
+                        <Link
+                          href={`/dashboard/automations/${auto.id}/edit`}
+                          className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-orange-500 transition-colors"
+                        >
+                          {auto.name}
+                        </Link>
+                        {auto.description && (
+                          <div className="text-xs text-zinc-500 mt-0.5 truncate max-w-xs">
+                            {auto.description}
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 hidden sm:table-cell">
+                        <Badge variant="secondary">
+                          {triggerLabels[auto.trigger] ?? auto.trigger}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-xs text-zinc-500 font-mono hidden md:table-cell">
+                        {new Date(auto.createdAt).toLocaleDateString("fr-FR")}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {overLimit && (auto.status === "ACTIVE" || auto.status === "DRAFT") && (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handlePause(auto.id)}
+                              disabled={pausing === auto.id}
+                              className="text-zinc-500 dark:text-zinc-400"
+                              title="Désactiver"
+                              aria-label="Désactiver"
+                            >
+                              <PauseCircle />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost-destructive"
+                            size="icon-sm"
+                            onClick={() => setConfirmDeleteId(auto.id)}
+                            disabled={deleting === auto.id}
+                            title="Supprimer"
+                            aria-label="Supprimer"
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         ) : (
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-12 text-center">
             <div className="text-zinc-500 text-sm">
-              Aucune automation active. Choisissez un modele ci-dessus ou
-              creez-en une personnalisee.
+              Aucune automation active. Choisissez un modèle ci-dessus ou
+              créez-en une personnalisée.
             </div>
           </div>
         )}
       </div>
 
       {/* Create modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                Nouvelle automation
-              </h2>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form action={formAction} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="automation-name"
-                  className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
-                >
-                  Nom *
-                </label>
-                <input
-                  id="automation-name"
-                  name="name"
-                  type="text"
-                  required
-                  defaultValue={presetName}
-                  key={`name-${presetName}`}
-                  placeholder="Serie de bienvenue"
-                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="automation-description"
-                  className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
-                >
-                  Description
-                </label>
-                <input
-                  id="automation-description"
-                  name="description"
-                  type="text"
-                  defaultValue={presetDesc}
-                  key={`desc-${presetDesc}`}
-                  placeholder="Description optionnelle"
-                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="automation-trigger"
-                  className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
-                >
-                  Declencheur *
-                </label>
-                <select
-                  id="automation-trigger"
-                  name="trigger"
-                  required
-                  defaultValue={presetTrigger}
-                  key={`trigger-${presetTrigger}`}
-                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-zinc-900 dark:text-zinc-100 cursor-pointer"
-                >
-                  {Object.entries(triggerLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {state?.error && (
-                <p className="text-sm text-red-500">{state.error}</p>
-              )}
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {isPending ? "Creation..." : "Creer"}
-                </button>
-              </div>
-            </form>
-          </div>
+      <FormDialog
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        title="Nouvelle automation"
+        action={formAction}
+        error={state?.error}
+        pending={isPending}
+        submit={{ label: "Créer", pendingLabel: "Création..." }}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="automation-name">Nom *</Label>
+          <Input
+            id="automation-name"
+            name="name"
+            type="text"
+            required
+            defaultValue={presetName}
+            key={`name-${presetName}`}
+            placeholder="Série de bienvenue"
+          />
         </div>
-      )}
+        <div className="space-y-1.5">
+          <Label htmlFor="automation-description">Description</Label>
+          <Input
+            id="automation-description"
+            name="description"
+            type="text"
+            defaultValue={presetDesc}
+            key={`desc-${presetDesc}`}
+            placeholder="Description optionnelle"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="automation-trigger">Déclencheur *</Label>
+          <Select
+            name="trigger"
+            required
+            defaultValue={presetTrigger}
+            key={`trigger-${presetTrigger}`}
+          >
+            <SelectTrigger id="automation-trigger">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(triggerLabels).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </FormDialog>
 
       {/* Confirm delete dialog */}
       <ConfirmDialog
         open={!!confirmDeleteId}
         title="Supprimer cette automation ?"
-        message="Cette action est irreversible. L'automation et toutes ses etapes seront supprimees definitivement."
+        message="Cette action est irréversible. L'automation et toutes ses étapes seront supprimées définitivement."
         confirmLabel="Supprimer"
         cancelLabel="Annuler"
         destructive

@@ -44,7 +44,7 @@ export default async function SendersPage() {
 
   return (
     <>
-      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Envoi", href: "/dashboard/senders" }, { label: "Expediteurs" }]} />
+      <Breadcrumb items={[{ label: "", href: "/dashboard" }, { label: "Envoi", href: "/dashboard/senders" }, { label: "Expéditeurs" }]} />
       <SendersClient senders={serializedSenders} domains={domainOptions} />
     </>
   );

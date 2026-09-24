@@ -83,7 +83,7 @@ export function TemplateConfigsSection({
           {isBaileys ? "Messages WhatsApp" : "Templates WhatsApp"}
         </h3>
         {canManage ? (
-          <Button variant="outline" className="h-11" onClick={() => setOpen(true)}>
+          <Button variant="outline" onClick={() => setOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
             Associer
           </Button>
@@ -219,10 +219,10 @@ export function TemplateConfigsSection({
             </div>
             {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
             <DialogFooter>
-              <Button type="button" variant="outline" className="h-11" onClick={() => handleOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                 Annuler
               </Button>
-              <Button type="submit" className="h-11" disabled={pending}>
+              <Button type="submit" disabled={pending}>
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Enregistrer
               </Button>

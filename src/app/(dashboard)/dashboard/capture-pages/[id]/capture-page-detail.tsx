@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Eye, EyeOff, Pencil, ExternalLink, Users, BarChart3, MousePointerClick, TrendingUp } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { toggleCapturePagePublished } from "../actions";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface PageData {
   id: string;
@@ -51,9 +53,9 @@ export function CapturePageDetail({
   }
 
   const stats = [
-    { label: "Total vues", value: page.totalViews, icon: Eye, color: "text-blue-500" },
+    { label: "Total vues", value: page.totalViews, icon: Eye, color: "text-zinc-400" },
     { label: "Conversions", value: page.conversions, icon: MousePointerClick, color: "text-orange-500" },
-    { label: "Taux de conversion", value: `${page.conversionRate}%`, icon: TrendingUp, color: "text-purple-500" },
+    { label: "Taux de conversion", value: `${page.conversionRate}%`, icon: TrendingUp, color: "text-zinc-400" },
   ];
 
   const chartData = dailyStats.map((s) => ({
@@ -71,13 +73,9 @@ export function CapturePageDetail({
               {page.name}
             </h1>
             {published ? (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                Publiee
-              </span>
+              <Badge variant="success">Publiée</Badge>
             ) : (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
-                Brouillon
-              </span>
+              <Badge variant="secondary">Brouillon</Badge>
             )}
           </div>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 font-mono">
@@ -85,36 +83,32 @@ export function CapturePageDetail({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant={published ? "outline" : "outline-success"}
             onClick={handleTogglePublish}
             disabled={toggling}
-            className={`inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors cursor-pointer disabled:opacity-50 ${
-              published
-                ? "border-amber-500/30 text-amber-500 hover:bg-amber-500/10"
-                : "border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
-            }`}
           >
-            {published ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            {published ? "Depublier" : "Publier"}
-          </button>
+            {published ? <EyeOff /> : <Eye />}
+            {published ? "Dépublier" : "Publier"}
+          </Button>
           {published && (
-            <a
-              href={`/capture/${page.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-zinc-700 dark:text-zinc-300"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Preview
-            </a>
+            <Button asChild variant="outline">
+              <a
+                href={`/capture/${page.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink />
+                Aperçu
+              </a>
+            </Button>
           )}
-          <Link
-            href={`/dashboard/capture-pages/${page.id}/edit`}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors font-medium"
-          >
-            <Pencil className="h-4 w-4" />
-            Editer la page
-          </Link>
+          <Button asChild>
+            <Link href={`/dashboard/capture-pages/${page.id}/edit`}>
+              <Pencil />
+              Éditer la page
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -177,7 +171,7 @@ export function CapturePageDetail({
           <div className="h-[300px] flex items-center justify-center text-zinc-500 text-sm">
             <div className="text-center">
               <BarChart3 className="h-8 w-8 mx-auto mb-2 text-zinc-400" />
-              Pas encore de donnees. Partagez votre page pour commencer a collecter.
+              Pas encore de données. Partagez votre page pour commencer à collecter.
             </div>
           </div>
         )}
@@ -188,7 +182,7 @@ export function CapturePageDetail({
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
           <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
             <Users className="h-4 w-4 text-zinc-400" />
-            Abonnes recents ({recentSubscribers.length})
+            Abonnés récents ({recentSubscribers.length})
           </h2>
           <Link
             href="/dashboard/contacts"
@@ -215,7 +209,7 @@ export function CapturePageDetail({
           </div>
         ) : (
           <div className="px-6 py-8 text-center text-sm text-zinc-500">
-            Aucun abonne pour le moment. Partagez votre page pour collecter des leads.
+            Aucun abonné pour le moment. Partagez votre page pour collecter des leads.
           </div>
         )}
       </div>

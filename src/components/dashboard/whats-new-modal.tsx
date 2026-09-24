@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Bug, ChevronDown, ChevronUp, Sparkles, Zap } from "lucide-react";
+import { Bug, Sparkles, Zap } from "lucide-react";
 
 import { changelog, APP_VERSION, type ChangelogEntry } from "@/lib/changelog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,61 +15,46 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "mailpulse-last-seen-version";
 
 const typeConfig = {
-  feature: { icon: Sparkles, label: "Nouveau", className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
-  fix: { icon: Bug, label: "Correction", className: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300" },
-  improvement: { icon: Zap, label: "Amélioré", className: "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300" },
-};
+  feature: { icon: Sparkles, label: "Nouveau", variant: "success" },
+  fix: { icon: Bug, label: "Correction", variant: "warning" },
+  improvement: { icon: Zap, label: "Amélioré", variant: "secondary" },
+} as const satisfies Record<string, { icon: typeof Sparkles; label: string; variant: BadgeProps["variant"] }>;
 
-function VersionBlock({ entry, defaultOpen }: { entry: ChangelogEntry; defaultOpen: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
-
+function VersionBlock({ entry }: { entry: ChangelogEntry }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left transition-[color,background-color] hover:bg-zinc-50 dark:hover:bg-zinc-900"
-      >
-        <span className="flex min-w-0 items-center gap-3">
-          <span className="rounded-md bg-orange-500/10 px-2 py-1 font-mono text-[11px] font-semibold text-orange-600 dark:text-orange-400">
-            v{entry.version}
+    <AccordionItem value={entry.version} className="overflow-hidden rounded-lg border border-zinc-200 last:border-b dark:border-zinc-800">
+      <AccordionTrigger className="min-h-11 items-center gap-3 rounded-none px-3 py-2 font-normal hover:bg-zinc-50 hover:no-underline focus-visible:ring-inset dark:hover:bg-zinc-900">
+        <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="rounded-md bg-orange-500/10 px-2 py-1 font-mono text-[11px] font-semibold text-orange-600 dark:text-orange-400">
+              v{entry.version}
+            </span>
+            <span className="truncate text-sm font-medium text-zinc-950 dark:text-zinc-50">{entry.title}</span>
           </span>
-          <span className="truncate text-sm font-medium text-zinc-950 dark:text-zinc-50">{entry.title}</span>
+          <span className="shrink-0 text-[11px] text-zinc-500">{entry.date}</span>
         </span>
-        <span className="flex shrink-0 items-center gap-2 text-[11px] text-zinc-500">
-          {entry.date}
-          {open ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-        </span>
-      </button>
-      {open ? (
-        <div className="space-y-2 px-3 pb-3">
-          {entry.changes.map((change) => {
-            const config = typeConfig[change.type];
-            const Icon = config.icon;
+      </AccordionTrigger>
+      <AccordionContent className="space-y-2 px-3 pb-3">
+        {entry.changes.map((change) => {
+          const config = typeConfig[change.type];
+          const Icon = config.icon;
 
-            return (
-              <div key={`${entry.version}-${change.text}`} className="flex items-start gap-2">
-                <span
-                  className={cn(
-                    "mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
-                    config.className,
-                  )}
-                >
-                  <Icon className="size-3" />
-                  {config.label}
-                </span>
-                <span className="text-pretty text-xs leading-5 text-zinc-600 dark:text-zinc-400">{change.text}</span>
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-    </section>
+          return (
+            <div key={`${entry.version}-${change.text}`} className="flex items-start gap-2">
+              <Badge variant={config.variant} className="mt-0.5 shrink-0 rounded-md px-1.5 text-[10px]">
+                <Icon className="size-3" />
+                {config.label}
+              </Badge>
+              <span className="text-pretty text-xs leading-5 text-zinc-600 dark:text-zinc-400">{change.text}</span>
+            </div>
+          );
+        })}
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
@@ -90,7 +77,7 @@ export function WhatsNewButton() {
         variant="ghost"
         size="icon"
         onClick={() => setOpen(true)}
-        className="size-10 transition-[scale,color,background-color] hover:bg-orange-50 hover:text-orange-600 active:scale-[0.96] dark:hover:bg-orange-500/10 dark:hover:text-orange-400"
+        className="transition-[scale,color,background-color] hover:bg-orange-50 hover:text-orange-600 active:scale-[0.96] dark:hover:bg-orange-500/10 dark:hover:text-orange-400"
         aria-label="Quoi de neuf ?"
         title="Quoi de neuf ?"
       >
@@ -106,11 +93,15 @@ export function WhatsNewButton() {
           </DialogTitle>
           <DialogDescription>Historique des mises à jour · v{APP_VERSION}</DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 space-y-3 overflow-y-auto p-5">
-          {changelog.map((entry, index) => (
-            <VersionBlock key={entry.version} entry={entry} defaultOpen={index === 0} />
+        <Accordion
+          type="multiple"
+          defaultValue={changelog[0] ? [changelog[0].version] : []}
+          className="min-h-0 space-y-3 overflow-y-auto p-5"
+        >
+          {changelog.map((entry) => (
+            <VersionBlock key={entry.version} entry={entry} />
           ))}
-        </div>
+        </Accordion>
         <DialogFooter className="border-t border-zinc-200 p-4 dark:border-zinc-800">
           <Button type="button" className="w-full sm:w-auto" onClick={() => handleOpenChange(false)}>
             C&apos;est noté

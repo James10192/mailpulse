@@ -1,14 +1,40 @@
 "use client";
 
 import { useActionState, useState, useMemo } from "react";
-import { Plus, Tag, Trash2, X, Info, Search, ArrowUpDown, Users } from "lucide-react";
+import { Plus, Tag, Trash2, Search, ArrowUpDown, Users } from "lucide-react";
 import { createTag, deleteTag } from "./actions";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { FormDialog } from "@/components/dashboard/form-dialog";
+import { PageHint } from "@/components/dashboard/page-hint";
+import { TypedSelect } from "@/components/forms/typed-select";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { ActionState } from "@/types/action-state";
 
 type TagData = { name: string; count: number };
 
-type SortKey = "name-asc" | "name-desc" | "count-desc" | "count-asc";
+const SORT_KEYS = ["name-asc", "name-desc", "count-desc", "count-asc"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+const SORT_LABELS: Record<SortKey, string> = {
+  "name-asc": "Nom A-Z",
+  "name-desc": "Nom Z-A",
+  "count-desc": "Plus de contacts",
+  "count-asc": "Moins de contacts",
+};
 
 export function TagsClient({ tags }: { tags: TagData[] }) {
   const [open, setOpen] = useState(false);
@@ -59,80 +85,64 @@ export function TagsClient({ tags }: { tags: TagData[] }) {
             Tags
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Gerez vos tags pour organiser vos contacts
+            Gérez vos tags pour organiser vos contacts
           </p>
         </div>
-        <button
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-        >
+        <Button onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" />
-          Creer un tag
-        </button>
+          Créer un tag
+        </Button>
       </div>
 
-      {/* Info banner */}
-      <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
-        <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-        <p className="text-sm text-blue-300/80">
-          Les tags categorisent vos contacts. Ajoutez des tags lors de la creation de contacts ou via les pages de capture pour faciliter le ciblage.
-        </p>
-      </div>
+      <PageHint>
+        Les tags catégorisent vos contacts. Ajoutez des tags lors de la création de contacts ou via les pages de capture pour faciliter le ciblage.
+      </PageHint>
 
       {/* Search and sort controls */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-          <input
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+          <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher un tag..."
-            className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            aria-label="Rechercher un tag"
+            className="h-11 pl-9 sm:h-10"
           />
         </div>
-        <div className="relative">
-          <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-            className="pl-9 pr-8 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none cursor-pointer"
-          >
-            <option value="name-asc">Nom A-Z</option>
-            <option value="name-desc">Nom Z-A</option>
-            <option value="count-desc">Plus de contacts</option>
-            <option value="count-asc">Moins de contacts</option>
-          </select>
-        </div>
+        <TypedSelect values={SORT_KEYS} labels={SORT_LABELS} value={sort} onValueChange={setSort}>
+          <SelectTrigger className="sm:w-52" aria-label="Trier les tags">
+            {/* A div, not a span: the trigger line-clamps its direct span children. */}
+            <div className="flex min-w-0 items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 shrink-0 text-zinc-400" />
+              <SelectValue />
+            </div>
+          </SelectTrigger>
+        </TypedSelect>
       </div>
 
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden">
         {filtered.length > 0 ? (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                  Nom du tag
-                </th>
-                <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                  Contacts
-                </th>
-                <th className="text-right text-xs font-medium text-zinc-500 uppercase tracking-wider px-4 py-3">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="px-4">Nom du tag</TableHead>
+                <TableHead className="px-4">Contacts</TableHead>
+                <TableHead className="px-4 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filtered.map((tag) => (
                 <TagRow key={tag.name} tag={tag} />
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         ) : tags.length > 0 && filtered.length === 0 ? (
           <div className="p-12 text-center">
             <Search className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
             <p className="text-zinc-500 text-sm">
-              Aucun tag ne correspond a votre recherche.
+              Aucun tag ne correspond à votre recherche.
             </p>
           </div>
         ) : (
@@ -142,77 +152,42 @@ export function TagsClient({ tags }: { tags: TagData[] }) {
               Aucun tag pour le moment.
             </p>
             <p className="text-zinc-400 text-xs">
-              Creez un tag ou ajoutez des tags lors de la creation de contacts.
+              Créez un tag ou ajoutez des tags lors de la création de contacts.
             </p>
           </div>
         )}
       </div>
 
       {/* Create modal */}
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setOpen(false)}
+      <FormDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Nouveau tag"
+        action={formAction}
+        error={state?.error}
+        pending={pending}
+        submit={{ label: "Créer", pendingLabel: "Création..." }}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="tag-name">Nom</Label>
+          <Input
+            id="tag-name"
+            name="name"
+            required
+            placeholder="ex: VIP, Newsletter..."
           />
-          <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                Nouveau tag
-              </h2>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form action={formAction} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Nom
-                </label>
-                <input
-                  name="name"
-                  required
-                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="ex: VIP, Newsletter..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Couleur
-                </label>
-                <input
-                  name="color"
-                  type="color"
-                  defaultValue="#f97316"
-                  className="h-10 w-16 rounded border border-zinc-200 dark:border-zinc-700 cursor-pointer"
-                />
-              </div>
-              {state?.error && (
-                <p className="text-sm text-red-500">{state.error}</p>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="px-4 py-2 text-sm rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium disabled:opacity-50 cursor-pointer"
-                >
-                  {pending ? "Creation..." : "Creer"}
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
-      )}
+        <div className="space-y-1.5">
+          <Label htmlFor="tag-color">Couleur</Label>
+          <Input
+            id="tag-color"
+            name="color"
+            type="color"
+            defaultValue="#f97316"
+            className="w-16 cursor-pointer p-1"
+          />
+        </div>
+      </FormDialog>
     </div>
   );
 }
@@ -239,36 +214,37 @@ function TagRow({ tag }: { tag: TagData }) {
 
   return (
     <>
-      <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-        <td className="px-4 py-3">
+      <TableRow>
+        <TableCell className="px-4">
           <div className="flex items-center gap-2">
             <Tag className="h-3.5 w-3.5 text-orange-500" />
             <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
               {tag.name}
             </span>
           </div>
-        </td>
-        <td className="px-4 py-3">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-500">
-            <Users className="h-3.5 w-3.5" />
+        </TableCell>
+        <TableCell className="px-4">
+          <Badge className="gap-1.5 px-2.5 py-1 text-orange-500 dark:text-orange-500 [&_svg]:size-3.5">
+            <Users />
             <span className="text-sm font-semibold font-mono">{tag.count}</span>
-          </div>
-        </td>
-        <td className="px-4 py-3 text-right">
-          <button
+          </Badge>
+        </TableCell>
+        <TableCell className="px-4 text-right">
+          <Button
+            variant="ghost-destructive"
+            size="sm"
             onClick={() => setConfirmOpen(true)}
             disabled={deleting}
-            className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-400 disabled:opacity-50 cursor-pointer"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 />
             {deleting ? "..." : "Supprimer"}
-          </button>
-        </td>
-      </tr>
+          </Button>
+        </TableCell>
+      </TableRow>
       <ConfirmDialog
         open={confirmOpen}
         title="Supprimer le tag"
-        message={`Etes-vous sur de vouloir supprimer le tag "${tag.name}" ? Cette action est irreversible.`}
+        message={`Êtes-vous sûr de vouloir supprimer le tag "${tag.name}" ? Cette action est irréversible.`}
         confirmLabel="Supprimer"
         cancelLabel="Annuler"
         onConfirm={handleDelete}

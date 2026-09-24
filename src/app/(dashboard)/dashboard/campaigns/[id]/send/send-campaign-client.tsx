@@ -5,6 +5,15 @@ import { Send, Users, AtSign, AlertTriangle, Check, Loader2, ArrowLeft, Clock, C
 import Link from "next/link";
 import { scheduleCampaign } from "../../actions";
 import { sendCampaign } from "../../campaign-sending-actions";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { SingleChoiceGroup } from "@/components/forms/single-choice-group";
+import { ToggleGroupItem } from "@/components/ui/toggle-group";
+
+const AUDIENCE_MODES = ["all", "segment", "tag"] as const;
+const SEND_MODES = ["now", "schedule"] as const;
 
 interface CampaignData {
   id: string;
@@ -29,7 +38,8 @@ interface ContactListData {
   contactCount: number;
 }
 
-type AudienceMode = "all" | "segment" | "tag";
+type AudienceMode = (typeof AUDIENCE_MODES)[number];
+type SendMode = (typeof SEND_MODES)[number];
 
 export function SendCampaignClient({
   campaign,
@@ -51,12 +61,18 @@ export function SendCampaignClient({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-  const [sendMode, setSendMode] = useState<"now" | "schedule">("now");
+  const [sendMode, setSendMode] = useState<SendMode>("now");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
   // Scheduled sends target every contact: segments and tags are only sent immediately.
   const canSchedule = audienceMode === "all";
   const isScheduling = canSchedule && sendMode === "schedule";
+
+  function changeAudience(mode: AudienceMode) {
+    setAudienceMode(mode);
+    // A segment or tag can only be sent now: drop a pending "Planifier" choice.
+    if (mode !== "all") setSendMode("now");
+  }
 
   const selectedSender = senders.find((s) => s.id === senderId);
   const isWhatsApp = campaign.channel === "WHATSAPP";
@@ -125,12 +141,9 @@ export function SendCampaignClient({
               : `« ${campaign.name} » a été envoyée. Les résultats apparaîtront dans les analytics.`
           }
         </p>
-        <Link
-          href="/dashboard/campaigns"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          Retour aux campagnes
-        </Link>
+        <Button asChild>
+          <Link href="/dashboard/campaigns">Retour aux campagnes</Link>
+        </Button>
       </div>
     );
   }
@@ -141,13 +154,12 @@ export function SendCampaignClient({
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
           Envoyer la campagne
         </h1>
-        <Link
-          href="/dashboard/campaigns"
-          className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Retour
-        </Link>
+        <Button asChild variant="ghost" className="text-zinc-500">
+          <Link href="/dashboard/campaigns">
+            <ArrowLeft />
+            Retour
+          </Link>
+        </Button>
       </div>
 
       {/* Campaign summary */}
@@ -200,21 +212,19 @@ export function SendCampaignClient({
           Expéditeur
         </h2>
         {senders.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <SingleChoiceGroup
+            values={senders.map((s) => s.id)}
+            value={senderId}
+            onValueChange={setSenderId}
+            aria-label="Expéditeur"
+            className="flex-wrap gap-2"
+          >
             {senders.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSenderId(s.id)}
-                className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
-                  senderId === s.id
-                    ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
-                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
-                }`}
-              >
+              <ToggleGroupItem key={s.id} value={s.id} variant="choice" size="choice">
                 {s.name} &lt;{s.email}&gt;
-              </button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </SingleChoiceGroup>
         ) : (
           <div className="p-4 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 text-center">
             <p className="text-sm text-amber-400 mb-2">Aucun expéditeur configuré.</p>
@@ -237,80 +247,61 @@ export function SendCampaignClient({
         </h2>
 
         {/* Mode pills */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setAudienceMode("all")}
-            className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
-              audienceMode === "all"
-                ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
-                : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
-            }`}
-          >
+        <SingleChoiceGroup
+          values={AUDIENCE_MODES}
+          value={audienceMode}
+          onValueChange={changeAudience}
+          aria-label="Audience"
+          className="flex-wrap gap-2"
+        >
+          <ToggleGroupItem value="all" variant="choice" size="choice">
             {isSms ? "Contacts SMS" : isWhatsApp ? "Contacts WhatsApp" : "Tous les abonnés"} ({subscribedCount})
-          </button>
+          </ToggleGroupItem>
           {availableSegments.length > 0 && (
-            <button
-              onClick={() => setAudienceMode("segment")}
-              className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
-                audienceMode === "segment"
-                  ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
-                  : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
-              }`}
-            >
+            <ToggleGroupItem value="segment" variant="choice" size="choice">
               Par segment
-            </button>
+            </ToggleGroupItem>
           )}
-          <button
-            onClick={() => setAudienceMode("tag")}
-            className={`px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
-              audienceMode === "tag"
-                ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
-                : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
-            }`}
-          >
-            <span className="flex items-center gap-1.5">
-              <Tag className="h-3 w-3" />
-              Par tag
-            </span>
-          </button>
-        </div>
+          <ToggleGroupItem value="tag" variant="choice" size="choice" className="gap-1.5">
+            <Tag className="size-3" />
+            Par tag
+          </ToggleGroupItem>
+        </SingleChoiceGroup>
 
         {/* Segment sub-selection */}
         {audienceMode === "segment" && (
-          <div className="flex flex-wrap gap-2 pt-1">
+          <SingleChoiceGroup
+            values={availableSegments.map((seg) => seg.id)}
+            value={selectedSegment}
+            onValueChange={setSelectedSegment}
+            aria-label="Segment"
+            className="flex-wrap gap-2 pt-1"
+          >
             {availableSegments.map((seg) => (
-              <button
-                key={seg.id}
-                onClick={() => setSelectedSegment(seg.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
-                  selectedSegment === seg.id
-                    ? "border-orange-500/50 bg-orange-500/10 text-orange-400"
-                    : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-400"
-                }`}
-              >
+              <ToggleGroupItem key={seg.id} value={seg.id} variant="choice" size="choice-sm">
                 {seg.name} ({seg.contactCount})
-              </button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </SingleChoiceGroup>
         )}
 
         {/* Tag sub-selection */}
         {audienceMode === "tag" && (
           <div className="flex flex-wrap gap-2 pt-1">
             {availableTags.length > 0 ? (
-              availableTags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => setSelectedTag(tag)}
-                  className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
-                    selectedTag === tag
-                      ? "border-orange-500/50 bg-orange-500/10 text-orange-400"
-                      : "border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-400"
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))
+              <SingleChoiceGroup
+                values={availableTags}
+                value={selectedTag}
+                onValueChange={setSelectedTag}
+                aria-label="Tag"
+                className="flex-wrap gap-2"
+              >
+                {availableTags.map((tag) => (
+                  <ToggleGroupItem key={tag} value={tag} variant="choice" size="choice-sm">
+                    {tag}
+                  </ToggleGroupItem>
+                ))}
+              </SingleChoiceGroup>
             ) : (
               <p className="text-xs text-zinc-500 italic">Aucun tag. Ajoutez des tags à vos contacts pour filtrer par tag.</p>
             )}
@@ -331,32 +322,29 @@ export function SendCampaignClient({
           <Clock className="h-4 w-4" />
           Quand envoyer
         </h2>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setSendMode("now")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
-              !isScheduling
-                ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
-                : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
-            }`}
-          >
-            <Send className="h-4 w-4" />
+        <SingleChoiceGroup
+          values={SEND_MODES}
+          value={isScheduling ? "schedule" : "now"}
+          onValueChange={setSendMode}
+          aria-label="Quand envoyer"
+          className="w-full gap-2"
+        >
+          <ToggleGroupItem value="now" variant="choice" size="choice" className="flex-1 gap-2 px-4 py-3 font-medium">
+            <Send />
             Envoyer maintenant
-          </button>
-          <button
-            onClick={() => setSendMode("schedule")}
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="schedule"
+            variant="choice"
+            size="choice"
             disabled={!canSchedule}
             title={canSchedule ? undefined : "La planification est réservée à l’envoi à tous les contacts."}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-              isScheduling
-                ? "border-orange-500/50 bg-orange-500/10 text-orange-500"
-                : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-400"
-            }`}
+            className="flex-1 gap-2 px-4 py-3 font-medium"
           >
-            <CalendarDays className="h-4 w-4" />
+            <CalendarDays />
             Planifier
-          </button>
-        </div>
+          </ToggleGroupItem>
+        </SingleChoiceGroup>
         {!canSchedule && (
           <p className="text-xs text-zinc-500">
             La planification est réservée à l’envoi à tous les contacts. Pour un segment ou un tag, envoyez maintenant.
@@ -364,23 +352,29 @@ export function SendCampaignClient({
         )}
         {isScheduling && (
           <div className="grid grid-cols-2 gap-3 pt-2">
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Date</label>
-              <input
+            <div className="space-y-1">
+              <Label htmlFor="schedule-date" className="text-xs font-normal text-zinc-500">
+                Date
+              </Label>
+              <Input
+                id="schedule-date"
                 type="date"
                 value={scheduledDate}
                 onChange={(e) => setScheduledDate(e.target.value)}
                 min={new Date().toISOString().split("T")[0]}
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30 cursor-pointer"
+                className="cursor-pointer"
               />
             </div>
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Heure</label>
-              <input
+            <div className="space-y-1">
+              <Label htmlFor="schedule-time" className="text-xs font-normal text-zinc-500">
+                Heure
+              </Label>
+              <Input
+                id="schedule-time"
                 type="time"
                 value={scheduledTime}
                 onChange={(e) => setScheduledTime(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/30 cursor-pointer"
+                className="cursor-pointer"
               />
             </div>
           </div>
@@ -389,9 +383,9 @@ export function SendCampaignClient({
 
       {/* Error */}
       {error && (
-        <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-sm text-red-400">
+        <Alert variant="destructive" className="rounded-xl p-4">
           {error}
-        </div>
+        </Alert>
       )}
 
       {/* Send button */}
@@ -403,28 +397,29 @@ export function SendCampaignClient({
               : `Prêt à envoyer à ${recipientCount} contact${recipientCount > 1 ? "s" : ""}`
             : "Complétez les étapes ci-dessus pour envoyer"}
         </p>
-        <button
+        <Button
+          size="lg"
           onClick={handleSend}
           disabled={!canSend || sending || (isScheduling && (!scheduledDate || !scheduledTime))}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-sm font-semibold transition-all hover:shadow-lg hover:shadow-orange-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-xl font-semibold"
         >
           {sending ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="animate-spin" />
               {isScheduling ? "Planification..." : "Envoi en cours..."}
             </>
           ) : isScheduling ? (
             <>
-              <CalendarDays className="h-4 w-4" />
+              <CalendarDays />
               Planifier l&apos;envoi
             </>
           ) : (
             <>
-              <Send className="h-4 w-4" />
+              <Send />
               Confirmer et envoyer
             </>
           )}
-        </button>
+        </Button>
       </div>
     </div>
   );

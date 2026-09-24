@@ -13,6 +13,7 @@ All notable changes to MailPulse will be documented in this file.
 ### Changed
 - `ConfirmDialog`, `ContactDialog` and `HelpModal` are built on the shadcn Dialog/AlertDialog: focus trap, Escape to close, screen-reader roles. Their props are unchanged.
 - The platform tab is kept in the URL (`?tab=`), so links and reloads land on the right tab.
+- Every dashboard screen uses the shadcn/ui components instead of hand-made controls: contacts (list, detail, add panel, CSV import), segments, tags, custom fields, senders, domains, capture pages, automations and the workflow editor, campaign creation and sending, onboarding, notifications, theme toggle and the rich editor toolbar. New shared components: Checkbox, Slider, ScrollArea, Progress, plus PageHint, FormDialog, TypedSelect and SingleChoiceGroup. Page explanations that used blue info banners, outside the MailPulse palette, are now neutral notes (`PageHint`, announced as a note, not an alert); compact buttons keep a 44px touch target on mobile; missing French accents were restored.
 
 ### Fixed
 - Creating an API key failed with "Expéditeur invalide" when the default sender's domain was not verified; unverified senders are now shown disabled and never preselected.
