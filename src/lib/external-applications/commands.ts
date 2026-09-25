@@ -8,7 +8,7 @@ import {
   parseCommandPayload,
   submitCommandToProvider,
 } from "@/lib/external-applications/command-submission";
-import { applyConsentGate, CONSENT_PENDING_STATUS } from "@/lib/external-applications/consent-hold";
+import { applyConsentGate, CONSENT_PENDING_STATUS, QUEUED_STATUS } from "@/lib/external-applications/consent-hold";
 import { CONSENT_REFUSED_CODE } from "@/lib/external-applications/consent-policy";
 import { hasActiveExternalWhatsAppConversationWindow } from "@/lib/external-applications/conversation-window";
 import { isProviderConfirmedOperationStatus, isProviderRejectedOperationStatus } from "@/lib/external-applications/message-status";
@@ -19,8 +19,6 @@ import { isConfigured as isEvolutionConfigured } from "@/lib/whatsapp-baileys";
 export type { ExternalCommand };
 
 const LEASE_DURATION_MS = 10 * 60_000;
-/** Released by a consent and waiting its turn in the sending account's paced queue. */
-export const QUEUED_STATUS = "QUEUED";
 
 export async function dispatchExternalApplicationCommand(application: ExternalApplicationContext, command: ExternalCommand) {
   const provider = await resolveWhatsAppProvider(application);

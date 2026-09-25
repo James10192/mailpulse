@@ -78,3 +78,12 @@ export function consentGateDecision(status: ConsentState | null | undefined, ask
   if (status === "PENDING") return "join";
   return "request";
 }
+
+/**
+ * Only an answer to a request the recipient actually received is consumed. A
+ * yes or no sent before the request left still decides, but it is also an
+ * ordinary message the client application may want to read.
+ */
+export function isConsumedConsentReply(before: { status: ConsentState; requestSentAt: Date | null } | null | undefined) {
+  return before?.status === "PENDING" && before.requestSentAt !== null;
+}

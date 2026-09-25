@@ -7,7 +7,10 @@ import { consentWhere, readRecipientConsent, type ConsentScope } from "@/lib/ext
 import { encryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import { prisma } from "@/lib/prisma";
 
+/** Held behind a consent request: never submitted, never retried by the dispatcher. */
 export const CONSENT_PENDING_STATUS = "CONSENT_PENDING";
+/** Released by a consent and waiting its turn in the sending account's paced queue. */
+export const QUEUED_STATUS = "QUEUED";
 
 export type ConsentGateOutcome = "send" | "refused" | "held" | "window_closed";
 

@@ -66,3 +66,17 @@ function routeExports(source: string) {
   }
   return names.sort();
 }
+
+test("a reply consumed by a consent request is recorded but never forwarded", () => {
+  const consent = webhook.indexOf("const consent = await applyInboundConsentReply(tx,");
+  const snapshot = webhook.indexOf("const callbackDeliveries = consent.consumed ? [] : await snapshotExternalApplicationCallbackDeliveries(tx,");
+  const create = webhook.indexOf("operationKey: consent.consumed ? CONSENT_REPLY_OPERATION_KEY : INBOUND_EVENT,");
+
+  assert.ok(consent >= 0, "the consent reply is applied inside the inbound transaction");
+  assert.ok(snapshot > consent, "the forward is decided after the reply is applied");
+  assert.ok(create > snapshot, "the consumed reply is still recorded for idempotency");
+});
+
+test("a redelivered inbound message is found under its namespaced key", () => {
+  assert.match(webhook, /idempotencyKey: \{ in: \[inboundIdempotencyKey\(message\.providerMessageId\), message\.providerMessageId\] \}/);
+});

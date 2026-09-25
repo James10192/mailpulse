@@ -7,6 +7,7 @@ import {
   consentStateAfterReply,
   consentTtlSeconds,
   isConsentBlocking,
+  isConsumedConsentReply,
   normalizeConsentReply,
 } from "./consent-policy";
 
@@ -66,4 +67,15 @@ test("a command is sent, held behind a new request, joined to a pending one or r
   // A refusal holds with or without a consent request.
   assert.equal(consentGateDecision("REFUSED", false), "refuse");
   assert.equal(consentGateDecision("REFUSED", true), "refuse");
+});
+
+test("a reply is consumed only when it answers a request that was actually sent", () => {
+  const sentAt = new Date("2026-09-25T10:00:00Z");
+  assert.equal(isConsumedConsentReply({ status: "PENDING", requestSentAt: sentAt }), true);
+  // Written before the request left: it decides, but it is still forwarded.
+  assert.equal(isConsumedConsentReply({ status: "PENDING", requestSentAt: null }), false);
+  // No pending request: an ordinary message, whatever it says.
+  assert.equal(isConsumedConsentReply({ status: "GRANTED", requestSentAt: sentAt }), false);
+  assert.equal(isConsumedConsentReply({ status: "EXPIRED", requestSentAt: sentAt }), false);
+  assert.equal(isConsumedConsentReply(null), false);
 });
