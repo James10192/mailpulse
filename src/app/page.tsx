@@ -1,599 +1,693 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  BarChart3,
-  Zap,
-  Target,
-  MousePointerClick,
-  Eye,
-  Shield,
-  Globe,
-  Sparkles,
+  BookOpen,
   Check,
+  ChevronDown,
+  Code2,
+  KeyRound,
+  Languages,
+  Mail,
   MessageCircle,
+  MessageSquareText,
+  ShieldCheck,
+  Terminal,
+  Webhook,
 } from "lucide-react";
-import { PLAN_CATALOG } from "@/lib/plan-catalog";
 
-function GithubIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.694.825.576C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
-    </svg>
-  );
-}
-
-function LinkedinIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-    </svg>
-  );
-}
-import { HeroGlow } from "@/components/landing/hero-glow";
-import { Navbar } from "@/components/landing/navbar";
-import { BrandMark } from "@/components/brand-mark";
-import { AnimatedSection, StaggerContainer, StaggerItem } from "@/components/landing/animated-section";
-import { PulseLine } from "@/components/landing/pulse-line";
-import { MetricCard } from "@/components/landing/metric-card";
+import { PLAN_CATALOG, PLAN_LIMITS, type PlanTier } from "@/lib/plan-catalog";
+import { cn } from "@/lib/utils";
+import {
+  AutomationMock,
+  BentoCard,
+  ChannelsMock,
+  CodeMock,
+  ContactsMock,
+  TrackingMock,
+} from "@/components/landing/bento";
+import { CodeBlock } from "@/components/landing/code-block";
+import { HeroConsole } from "@/components/landing/hero-console";
 import { LandingCTATracker, PricingSectionTracker } from "@/components/landing/landing-tracker";
+import { LiveAnalytics } from "@/components/landing/live-analytics";
+import { LandingMotion } from "@/components/landing/motion-provider";
+import { Logo, Navbar } from "@/components/landing/navbar";
+import {
+  Container,
+  Eyebrow,
+  H2,
+  Lead,
+  cardClass,
+  ghostCta,
+  primaryCta,
+} from "@/components/landing/primitives";
+import { Reveal, Stagger, StaggerItem } from "@/components/landing/reveal";
+import { Story } from "@/components/landing/story";
 
-const features = [
+function formatNumber(value: number) {
+  return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+const FREE_CONTACTS = formatNumber(PLAN_LIMITS.FREE.contacts);
+
+/* ───────── Data ───────── */
+
+const INFRA = [
+  { Icon: Mail, label: "Envoi e-mail via Resend" },
+  { Icon: MessageCircle, label: "WhatsApp Cloud API (Meta)" },
+  { Icon: MessageSquareText, label: "SMS Orange" },
+  { Icon: Webhook, label: "Webhooks signés HMAC SHA-256" },
+  { Icon: KeyRound, label: "Clés d'API par organisation" },
+  { Icon: ShieldCheck, label: "Désabonnement en un clic" },
+  { Icon: Languages, label: "Interface et documentation en français" },
+];
+
+const PROBLEMS = [
   {
-    icon: MessageCircle,
-    title: "Campagnes email et WhatsApp",
-    desc: "Choisissez le canal par campagne, reutilisez vos snippets et ciblez les contacts avec email et numero WhatsApp.",
+    title: "Vos canaux ne se parlent pas",
+    text: "L'e-mail dans un outil, WhatsApp sur un téléphone, les SMS chez un prestataire. Personne ne sait qui a reçu quoi.",
+    log: [
+      ["email", "outil A · export CSV"],
+      ["whatsapp", "téléphone de l'accueil"],
+    ],
   },
   {
-    icon: BarChart3,
-    title: "Analytics temps reel",
-    desc: "Ouvertures, clics, messages WhatsApp lus, réponses, bounces et attribution. Dashboard live powered by Convex.",
+    title: "Vous payez en devises",
+    text: "Des abonnements en dollars ou en euros, pensés pour d'autres marchés. MailPulse affiche ses prix en FCFA.",
+    log: [
+      ["plan", `Pro · ${formatNumber(PLAN_LIMITS.PRO.priceFCFA)} FCFA / mois`],
+      ["devise", "XOF, sans conversion"],
+    ],
   },
   {
-    icon: Zap,
-    title: "Automations avancees",
-    desc: "Drip campaigns, triggers evenementiels, workflows conditionnels, send time optimization par IA.",
-  },
-  {
-    icon: Target,
-    title: "Segmentation precise",
-    desc: "Tags, scoring d'engagement, RFM, segments dynamiques, prediction de churn et lifecycle management.",
-  },
-  {
-    icon: MousePointerClick,
-    title: "Click tracking avance",
-    desc: "Chaque lien tracke individuellement. Redirect 302, heat maps de clics, attribution par campagne.",
-  },
-  {
-    icon: Shield,
-    title: "Compliance integree",
-    desc: "GDPR, CAN-SPAM, List-Unsubscribe one-click, double opt-in, gestion du consentement automatisee.",
+    title: "Vous découvrez les échecs trop tard",
+    text: "Un rebond, une plainte, un désabonnement : MailPulse reçoit l'événement du fournisseur et met le contact à jour tout seul.",
+    log: [
+      ["14:02:11", "rebond définitif"],
+      ["→", "contact désabonné"],
+    ],
   },
 ];
 
-const trackingFeatures = [
-  { icon: Eye, label: "Open tracking", desc: "Pixel invisible 1x1" },
-  { icon: MousePointerClick, label: "Click tracking", desc: "Redirect 302 signe HMAC" },
-  { icon: MessageCircle, label: "WhatsApp tracking", desc: "Lus et reponses par campagne" },
-  { icon: Globe, label: "Geo & Device", desc: "Localisation et appareil" },
-  { icon: Sparkles, label: "Engagement score", desc: "Scoring automatique" },
+const DEV_POINTS = [
+  "Clés d'API révocables, isolées par organisation",
+  "Webhooks sortants signés en HMAC SHA-256",
+  "Idempotence : un envoi rejoué ne part qu'une fois",
+  "API de codes de vérification par WhatsApp",
 ];
 
-const pricingPlans = [
-  { name: "Starter", price: "0", desc: "Pour démarrer", features: PLAN_CATALOG.FREE.features, cta: "Commencer gratuitement", highlighted: false },
-  { name: "Pro", price: "15 000", desc: "Pour les équipes", features: PLAN_CATALOG.PRO.features, cta: "Essai gratuit 14 jours", highlighted: true },
-  { name: "Enterprise", price: "Sur mesure", desc: "Pour les grandes équipes", features: PLAN_CATALOG.ENTERPRISE.features, cta: "Nous contacter", highlighted: false },
+const PLANS: {
+  tier: PlanTier;
+  name: string;
+  desc: string;
+  cta: string;
+  href: string;
+  highlighted: boolean;
+}[] = [
+  { tier: "FREE", name: PLAN_LIMITS.FREE.label, desc: "Pour démarrer", cta: "Commencer gratuitement", href: "/login", highlighted: false },
+  { tier: "PRO", name: PLAN_LIMITS.PRO.label, desc: "Pour les équipes", cta: "Choisir Pro", href: "/login", highlighted: true },
+  {
+    tier: "ENTERPRISE",
+    name: "Entreprise",
+    desc: "Volumes, SLA et accompagnement",
+    cta: "Parler à l'équipe",
+    href: "/contact",
+    highlighted: false,
+  },
 ];
+
+const FAQ = [
+  {
+    q: "Faut-il un numéro WhatsApp Business ?",
+    a: "Deux options. L'API officielle de Meta (WhatsApp Cloud API), avec vos modèles approuvés, recommandée en production. Ou la connexion d'un numéro existant par QR code, pratique pour démarrer mais non officielle.",
+  },
+  {
+    q: "Mes données sont-elles isolées des autres clients ?",
+    a: "Oui. Chaque organisation a ses contacts, ses clés d'API, ses webhooks et ses journaux, sans partage avec les autres.",
+  },
+  {
+    q: "Puis-je importer mes contacts existants ?",
+    a: "Oui, par fichier CSV ou par l'API. Les numéros sont convertis au format international et les adresses déjà présentes ne sont pas dupliquées.",
+  },
+  {
+    q: "Comment sont gérés les désabonnements ?",
+    a: "En un clic, depuis la messagerie du destinataire ou depuis un lien dans l'e-mail. Le contact passe immédiatement en désabonné.",
+  },
+  {
+    q: "Puis-je envoyer des codes de vérification ?",
+    a: "Oui, par WhatsApp. MailPulse génère le code à 6 chiffres, l'envoie, gère l'expiration après 10 minutes et bloque après 5 essais. Votre application ne voit jamais le code.",
+  },
+  {
+    q: "Que se passe-t-il si j'atteins une limite de mon plan ?",
+    a: `Le plan ${PLAN_LIMITS.FREE.label} couvre ${FREE_CONTACTS} contacts et ${formatNumber(PLAN_LIMITS.FREE.emailsPerMonth)} e-mails par mois. Au-delà, rien n'est supprimé : vos données restent visibles et tout se réactive dès le passage au plan Pro.`,
+  },
+  {
+    q: "Comment se passe le paiement ?",
+    a: "Les prix sont en FCFA. Le passage au plan Pro se règle en ligne depuis les paramètres de facturation de votre espace.",
+  },
+];
+
+/* ───────── Page ───────── */
 
 export default function LandingPage() {
   return (
-    <div className="mailpulse-landing flex min-h-screen flex-col overflow-x-hidden bg-white text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
-      <Navbar />
+    <LandingMotion>
+      <div className="dark mp-landing relative flex min-h-screen flex-col overflow-x-clip bg-zinc-950 text-zinc-50 antialiased">
+        <div aria-hidden className="mp-grain" />
+        <Navbar />
 
-      <main className="flex-1">
-        {/* ─── Hero ─── */}
-        <section className="relative pt-32 pb-20 md:pt-44 md:pb-32">
-          <HeroGlow />
+        <main id="mp-main" className="flex-1">
+          <Hero />
+          <InfraStrip />
+          <Problems />
+          <Platform />
+          <HowItWorks />
+          <Developers />
+          <Live />
+          <Pricing />
+          <Faq />
+          <FinalCta />
+        </main>
 
-          <div className="relative max-w-4xl mx-auto px-6 text-center">
-            <AnimatedSection>
-              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium tracking-wide text-orange-700">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-500" />
-                </span>
-                Open source &middot; Self-hostable
-              </div>
-            </AnimatedSection>
+        <Footer />
+      </div>
+    </LandingMotion>
+  );
+}
 
-            <AnimatedSection delay={0.1}>
-              <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] font-mono">
-                Vos campagnes email
-                <br />
-                <span className="text-orange-600">
-                  et WhatsApp
-                </span>
-              </h1>
-            </AnimatedSection>
+/* ───────── 2.2 Hero ───────── */
 
-            <AnimatedSection delay={0.2}>
-              <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-600 md:text-xl">
-                Campagnes email et WhatsApp, analytics en temps reel,
-                automations intelligentes. Tout ce qu&apos;il faut pour envoyer,
-                suivre les lus et mesurer les réponses.
-              </p>
-            </AnimatedSection>
+function Hero() {
+  return (
+    <section className="relative overflow-hidden pb-16 pt-12 md:pb-24 md:pt-20 lg:pb-32 lg:pt-24">
+      <div aria-hidden className="mp-grid pointer-events-none absolute inset-0" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-[340px] h-[420px] w-[900px] max-w-[160vw] -translate-x-1/2 rounded-full bg-orange-500 opacity-[0.12] blur-[120px]"
+      />
 
-            <AnimatedSection delay={0.3}>
-              <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-                <LandingCTATracker location="hero">
-                  <Link
-                    href="/register"
-                    className="group inline-flex min-h-11 items-center gap-2 rounded-xl bg-orange-600 px-7 py-3.5 font-medium text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_10px_24px_rgba(234,88,12,0.2)] transition-[scale,background-color] hover:bg-orange-500 active:scale-[0.985]"
-                  >
-                    Commencer gratuitement
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </Link>
-                </LandingCTATracker>
-                <a
-                  href="#features"
-                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-zinc-200 bg-white px-6 py-3.5 text-sm text-zinc-700 shadow-[var(--shadow-border)] transition-[scale,color,box-shadow] hover:text-zinc-950 hover:shadow-[var(--shadow-border-hover)] active:scale-[0.985]"
-                >
-                  Decouvrir les features
-                </a>
-              </div>
-            </AnimatedSection>
+      <Container className="relative">
+        <div className="md:mx-auto md:max-w-[820px] md:text-center">
+          <Link
+            href="/docs/whatsapp"
+            className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-full border border-white/[0.08] bg-zinc-900/70 py-1 pl-1.5 pr-3 text-[13px] text-zinc-300 transition-colors hover:border-white/[0.16] hover:text-zinc-50"
+          >
+            <span className="rounded-full bg-orange-500/15 px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-orange-300">
+              Nouveau
+            </span>
+            <span className="truncate">WhatsApp et SMS dans le même flux</span>
+            <ArrowRight aria-hidden className="size-3.5 shrink-0" />
+          </Link>
 
-            {/* Tech stack badges */}
-            <AnimatedSection delay={0.5}>
-              <div className="mt-16 flex items-center justify-center gap-3 flex-wrap">
-                {["Next.js 16", "Prisma", "Convex", "Resend", "Cloudflare R2"].map(
-                  (tech) => (
-                    <span
-                      key={tech}
-                      className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1 font-mono text-xs text-zinc-600"
-                    >
-                      {tech}
-                    </span>
-                  )
-                )}
-              </div>
-            </AnimatedSection>
+          {/* Not animated on purpose: the h1 is the LCP element. */}
+          <h1 className="mt-6 text-balance bg-gradient-to-b from-zinc-50 to-zinc-400 bg-clip-text text-[clamp(2.5rem,6vw+0.5rem,4.5rem)] font-semibold leading-[1.02] tracking-[-0.045em] text-transparent">
+            Chaque message part. Vous voyez où il arrive.
+          </h1>
+          <p className="mt-6 text-pretty text-[17px] leading-[1.5] tracking-[-0.01em] text-zinc-400 md:mx-auto md:max-w-[640px] md:text-xl">
+            E-mail, WhatsApp et SMS depuis une seule plateforme. Campagnes, automatisations et codes de
+            vérification, avec le suivi de chaque ouverture, chaque clic et chaque réponse, en direct.
+          </p>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row md:justify-center">
+            <LandingCTATracker location="hero">
+              <Link href="/login" className={cn(primaryCta, "w-full sm:w-auto")}>
+                Commencer gratuitement
+                <ArrowRight aria-hidden className="size-4 transition-transform duration-150 group-hover:translate-x-0.5" />
+              </Link>
+            </LandingCTATracker>
+            <Link href="/docs/api-reference" className={cn(ghostCta, "w-full sm:w-auto")}>
+              <Terminal aria-hidden className="size-4 text-zinc-400" />
+              Voir la documentation API
+            </Link>
           </div>
-        </section>
+          <p className="mt-4 text-[13px] text-zinc-500">
+            Gratuit jusqu&apos;à {FREE_CONTACTS} contacts · Sans carte bancaire · Tarifs en FCFA
+          </p>
+        </div>
 
-        {/* ─── Metrics ─── */}
-        <section className="border-y border-zinc-200 py-16">
-          <div className="max-w-4xl mx-auto px-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              <MetricCard value={99.2} suffix="%" label="Delivrabilite" delay={0} />
-              <MetricCard value={50} suffix="k+" label="Emails / heure" delay={0.1} />
-              <MetricCard value={15} suffix="ms" label="Latence tracking" delay={0.2} />
-              <MetricCard value={100} suffix="%" label="Open source" delay={0.3} />
-            </div>
-          </div>
-        </section>
+        <div className="mt-14 md:mx-auto md:mt-16 md:max-w-[1080px] lg:mt-20">
+          <HeroConsole />
+        </div>
+      </Container>
+    </section>
+  );
+}
 
-        {/* ─── Made for West Africa ─── */}
-        <section className="py-20 md:py-28">
-          <div className="max-w-5xl mx-auto px-6">
-            <AnimatedSection>
-              <div className="text-center mb-12">
-                <span className="text-xs font-mono text-orange-500 uppercase tracking-[0.2em]">
-                  Afrique de l&apos;Ouest
-                </span>
-                <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
-                  Construit pour
-                  <br />
-                  <span className="text-zinc-600">les entreprises africaines.</span>
-                </h2>
-                <p className="mx-auto mt-4 max-w-xl text-zinc-600">
-                  Pas un outil americain adapte. Une plateforme pensee des le depart
-                  pour le marche ouest-africain.
-                </p>
-              </div>
-            </AnimatedSection>
+/* ───────── 2.3 Infrastructure strip ───────── */
 
-            <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                {
-                  title: "Tarifs en FCFA",
-                  desc: "Fini les conversions USD. Prix transparents en Francs CFA, paiement Orange Money et MTN Mobile Money.",
-                  badge: "XOF",
-                },
-                {
-                  title: "Support francophone",
-                  desc: "Une equipe qui parle votre langue, dans votre fuseau horaire. Support en francais par email et WhatsApp.",
-                  badge: "FR",
-                },
-                {
-                  title: "Delivrabilite locale",
-                  desc: "Infrastructure dediee pour les FAI africains. Vos emails arrivent dans la boite de reception, pas dans les spams.",
-                  badge: "99%",
-                },
-              ].map((item) => (
-                <StaggerItem key={item.title}>
-                  <div className="h-full rounded-lg border border-zinc-200 bg-white p-6 shadow-[var(--shadow-border)]">
-                    <span className="mb-4 inline-block rounded bg-orange-50 px-2 py-0.5 font-mono text-[10px] font-bold text-orange-700 ring-1 ring-orange-200">
-                      {item.badge}
-                    </span>
-                    <h3 className="font-semibold text-lg mb-2">{item.title}</h3>
-                    <p className="text-sm leading-relaxed text-zinc-600">{item.desc}</p>
+function InfraStrip() {
+  const items = (hidden: boolean) =>
+    INFRA.map(({ Icon, label }) => (
+      <li
+        key={`${label}-${hidden ? "b" : "a"}`}
+        aria-hidden={hidden || undefined}
+        className={cn(
+          "flex shrink-0 items-center gap-2 px-5 font-mono text-[12px] text-zinc-400",
+          hidden && "mp-marquee-dup lg:hidden",
+        )}
+      >
+        <Icon aria-hidden className="size-3.5 text-zinc-500" />
+        {label}
+      </li>
+    ));
+
+  return (
+    <section aria-labelledby="infra-title" className="border-y border-white/[0.06] py-8">
+      <Container>
+        <p id="infra-title" className="text-center text-[13px] text-zinc-500">
+          Construit sur une infrastructure que vous connaissez déjà
+        </p>
+      </Container>
+      <div className="mp-marquee mt-5 overflow-hidden">
+        <ul className="mp-marquee-track">
+          {items(false)}
+          {items(true)}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+/* ───────── 2.4 Problem ───────── */
+
+function Problems() {
+  return (
+    <section className="py-16 md:py-24 lg:py-32">
+      <Container>
+        <div className="grid gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
+          <Reveal className="max-w-[520px]">
+            <Eyebrow>Le constat</Eyebrow>
+            <H2 className="mt-4">Trois outils, trois factures, aucune vue d&apos;ensemble.</H2>
+            <Lead className="mt-5">
+              Le problème n&apos;est pas d&apos;envoyer. C&apos;est de savoir ce qui s&apos;est passé ensuite.
+            </Lead>
+          </Reveal>
+          <Stagger className="grid gap-4">
+            {PROBLEMS.map((p, i) => (
+              <StaggerItem key={p.title}>
+                <article className={cn(cardClass, "grid gap-5 p-6 md:grid-cols-[1fr_auto] md:items-center md:p-8 lg:grid-cols-1 xl:grid-cols-[1fr_auto]")}>
+                  <div>
+                    <p className="font-mono text-xs text-zinc-500">0{i + 1}</p>
+                    <h3 className="mt-2 text-lg font-semibold tracking-[-0.015em] text-zinc-50 md:text-xl">{p.title}</h3>
+                    <p className="mt-2 max-w-[460px] text-pretty text-[15px] leading-[1.6] text-zinc-400 md:text-base">
+                      {p.text}
+                    </p>
                   </div>
-                </StaggerItem>
-              ))}
-            </StaggerContainer>
-          </div>
-        </section>
-
-        <PulseLine />
-
-        {/* ─── Features Bento Grid ─── */}
-        <section id="features" className="py-20 md:py-32">
-          <div className="max-w-6xl mx-auto px-6">
-            <AnimatedSection>
-              <div className="text-center mb-16">
-                <span className="text-xs font-mono text-orange-500 uppercase tracking-[0.2em]">
-                  Features
-                </span>
-                <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
-                  Tout pour vos campagnes.
-                  <br />
-                  <span className="text-zinc-600">Rien de superflu.</span>
-                </h2>
-              </div>
-            </AnimatedSection>
-
-            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {features.map((feature) => (
-                <StaggerItem key={feature.title}>
-                  <div className="h-full rounded-lg border border-zinc-200 bg-white p-6 shadow-[var(--shadow-border)] transition-[box-shadow,border-color] duration-300 hover:border-orange-200 hover:shadow-[var(--shadow-border-hover)]">
-                    <div>
-                      <div className="mb-4 inline-flex rounded-lg bg-orange-50 p-2.5 ring-1 ring-orange-200">
-                        <feature.icon className="h-5 w-5 text-orange-600" />
-                      </div>
-                      <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
-                      <p className="text-sm leading-relaxed text-zinc-600">
-                        {feature.desc}
+                  <div className="rounded-[10px] border border-white/[0.06] bg-zinc-950/60 px-4 py-3 font-mono text-[12px] leading-6 md:min-w-[250px]">
+                    {p.log.map(([a, b]) => (
+                      <p key={a + b} className="flex gap-3 whitespace-nowrap">
+                        <span className="text-zinc-500">{a}</span>
+                        <span className="text-zinc-300">{b}</span>
                       </p>
-                    </div>
-                  </div>
-                </StaggerItem>
-              ))}
-            </StaggerContainer>
-          </div>
-        </section>
-
-        {/* ─── Tracking Section ─── */}
-        <section id="tracking" className="border-y border-zinc-200 py-20 md:py-32">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="grid lg:grid-cols-2 gap-16 items-center">
-              <AnimatedSection>
-                <span className="text-xs font-mono text-orange-500 uppercase tracking-[0.2em]">
-                  Tracking
-                </span>
-                <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
-                  Chaque interaction
-                  <br />
-                  <span className="text-zinc-600">est mesurée.</span>
-                </h2>
-                <p className="mt-4 leading-relaxed text-zinc-600">
-                  Pixel d&apos;ouverture invisible, redirect signe HMAC pour les clics,
-                  webhooks Resend pour les bounces et complaints. Tout est trace,
-                  rien n&apos;echappe a votre dashboard.
-                </p>
-
-                <div className="mt-8 grid grid-cols-2 gap-4">
-                  {trackingFeatures.map((tf) => (
-                    <div
-                      key={tf.label}
-                      className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-white p-3"
-                    >
-                      <tf.icon className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
-                      <div>
-                        <div className="text-sm font-medium">{tf.label}</div>
-                        <div className="text-xs text-zinc-500">{tf.desc}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </AnimatedSection>
-
-              {/* Tracking visualization */}
-              <AnimatedSection delay={0.2}>
-                <div className="relative overflow-hidden rounded-lg border border-zinc-200 bg-white p-6 shadow-[var(--shadow-border)]">
-                  {/* Fake terminal */}
-                  <div className="flex items-center gap-1.5 mb-4">
-                    <div className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
-                    <div className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
-                    <div className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
-                    <span className="ml-3 font-mono text-xs text-zinc-500">
-                      webhook events
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 font-mono text-xs text-zinc-600">
-                    {[
-                      { time: "23:04:12", event: "email.delivered", color: "text-emerald-400", email: "marie@startup.io" },
-                      { time: "23:04:15", event: "email.opened", color: "text-orange-600", email: "jean@corp.fr" },
-                      { time: "23:04:18", event: "whatsapp.read", color: "text-emerald-400", email: "+2250700000000" },
-                      { time: "23:04:22", event: "email.clicked", color: "text-orange-600", email: "marie@startup.io" },
-                      { time: "23:04:25", event: "whatsapp.replied", color: "text-orange-600", email: "+2250500000000" },
-                      { time: "23:04:31", event: "email.opened", color: "text-orange-600", email: "alex@dev.co" },
-                      { time: "23:04:33", event: "whatsapp.delivered", color: "text-emerald-400", email: "+2250100000000" },
-                    ].map((log, i) => (
-                      <div key={i} className="flex gap-3">
-                        <span className="text-zinc-400">{log.time}</span>
-                        <span className={log.color}>{log.event}</span>
-                        <span className="text-zinc-500">{log.email}</span>
-                      </div>
                     ))}
-                    <div className="flex gap-3">
-                      <span className="text-zinc-400">23:04:35</span>
-                      <span className="animate-pulse text-zinc-500">|</span>
-                    </div>
                   </div>
+                </article>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </div>
+      </Container>
+    </section>
+  );
+}
 
-                </div>
-              </AnimatedSection>
+/* ───────── 2.5 Bento ───────── */
+
+function Platform() {
+  return (
+    <section id="plateforme" className="scroll-mt-20 py-16 md:py-24 lg:py-32">
+      <Container>
+        <Reveal className="max-w-[720px]">
+          <Eyebrow>La plateforme</Eyebrow>
+          <H2 className="mt-4">Tout ce qu&apos;il faut pour parler à vos contacts. Rien de plus.</H2>
+          <Lead className="mt-5">Une base de contacts, trois canaux, un suivi unique.</Lead>
+        </Reveal>
+
+        <Stagger className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-6 lg:grid-rows-[auto_auto_auto]">
+          <BentoCard
+            className="md:col-span-2 lg:col-span-4 lg:row-span-2"
+            title="Un message, trois canaux"
+            text="Écrivez une fois. Envoyez par e-mail, WhatsApp ou SMS selon ce que chaque contact lit vraiment."
+          >
+            <ChannelsMock />
+          </BentoCard>
+          <BentoCard
+            className="lg:col-span-2"
+            title="Ouvertures et clics, en direct"
+            text="Pixel d'ouverture, liens suivis, rebonds et plaintes remontés dès que le fournisseur les signale."
+          >
+            <TrackingMock />
+          </BentoCard>
+          <BentoCard
+            className="lg:col-span-2"
+            title="Des segments qui se tiennent à jour"
+            text="Import CSV, champs personnalisés, tags et segments dynamiques."
+          >
+            <ContactsMock />
+          </BentoCard>
+          <BentoCard
+            className="lg:col-span-3"
+            title="Des parcours, pas des listes"
+            text="Déclencheur, délai, condition, action. Dessinez le parcours, MailPulse l'exécute."
+          >
+            <AutomationMock />
+          </BentoCard>
+          <BentoCard
+            className="lg:col-span-3"
+            title="Des codes de vérification, livrés"
+            text="Un code à usage unique par WhatsApp, avec expiration et limite d'essais gérées pour vous."
+          >
+            <CodeMock />
+          </BentoCard>
+        </Stagger>
+      </Container>
+    </section>
+  );
+}
+
+/* ───────── 2.6 Story ───────── */
+
+function HowItWorks() {
+  return (
+    <section id="fonctionnement" className="scroll-mt-20 pb-16 md:pb-24 lg:pb-32">
+      <div className="mp-divider mx-auto mb-16 max-w-[1200px] md:mb-24" />
+      <Container>
+        <Reveal className="max-w-[720px]">
+          <Eyebrow>Comment ça marche</Eyebrow>
+          <H2 className="mt-4">D&apos;un envoi à une réponse, sans rien perdre en route.</H2>
+        </Reveal>
+        <div className="mt-12 lg:mt-4">
+          <Story />
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+/* ───────── 2.7 Developers ───────── */
+
+function Developers() {
+  return (
+    <section id="developpeurs" className="scroll-mt-20 border-y border-white/[0.06] bg-zinc-900/20 py-16 md:py-24 lg:py-32">
+      <Container>
+        <div className="grid gap-12 lg:grid-cols-12 lg:gap-12">
+          <Reveal className="lg:col-span-5">
+            <Eyebrow>Pour les développeurs</Eyebrow>
+            <H2 className="mt-4">Une requête pour envoyer. Un webhook pour tout savoir.</H2>
+            <Lead className="mt-5">
+              API REST, clés par organisation, webhooks signés. La même API alimente notre propre interface.
+            </Lead>
+            <ul className="mt-8 space-y-3">
+              {DEV_POINTS.map((point) => (
+                <li key={point} className="flex items-start gap-3 text-[15px] leading-[1.5] text-zinc-300">
+                  <Check aria-hidden className="mt-1 size-3.5 shrink-0 text-orange-400" />
+                  {point}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2">
+              <Link href="/docs" className={ghostCta}>
+                <BookOpen aria-hidden className="size-4 text-zinc-400" />
+                Lire la documentation
+              </Link>
+              <Link
+                href="/docs/api-reference#webhooks-sortants"
+                className="inline-flex min-h-11 items-center gap-1.5 text-sm text-zinc-400 underline-offset-4 transition-colors hover:text-zinc-50 hover:underline"
+              >
+                <Code2 aria-hidden className="size-4" />
+                Voir le format des webhooks
+              </Link>
+            </div>
+          </Reveal>
+          <Reveal delay={0.1} className="min-w-0 lg:col-span-7">
+            <CodeBlock />
+          </Reveal>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+/* ───────── 2.8 Live analytics ───────── */
+
+function Live() {
+  return (
+    <section className="py-16 md:py-24 lg:py-32">
+      <Container>
+        <Reveal className="max-w-[720px]">
+          <Eyebrow>En direct</Eyebrow>
+          <H2 className="mt-4">Le tableau de bord se met à jour pendant que vous le regardez.</H2>
+          <Lead className="mt-5">
+            Pas de rapport à générer, pas de page à rafraîchir. Livraisons, ouvertures, clics et désabonnements
+            s&apos;affichent au fil de l&apos;eau.
+          </Lead>
+        </Reveal>
+        <Reveal delay={0.1} className="mt-12">
+          <LiveAnalytics />
+        </Reveal>
+      </Container>
+    </section>
+  );
+}
+
+/* ───────── 2.9 Pricing ───────── */
+
+function Pricing() {
+  return (
+    <section id="tarifs" className="scroll-mt-20 border-t border-white/[0.06] py-16 md:py-24 lg:py-32">
+      {/* The tracker looks up #pricing; keep this anchor. */}
+      <span id="pricing" aria-hidden className="block" />
+      <PricingSectionTracker />
+      <Container>
+        <Reveal className="mx-auto max-w-[640px] text-center">
+          <Eyebrow>Tarifs</Eyebrow>
+          <H2 className="mt-4">Des prix en FCFA, sans surprise.</H2>
+          <Lead className="mt-5">Commencez gratuitement. Passez au plan Pro quand vos envois décollent.</Lead>
+        </Reveal>
+
+        <Stagger className="mt-12 grid items-start gap-4 md:mt-16 md:grid-cols-3">
+          {PLANS.map((plan) => {
+            const price = PLAN_LIMITS[plan.tier].priceFCFA;
+            return (
+              <StaggerItem
+                key={plan.tier}
+                className={cn(plan.highlighted ? "order-first md:order-none md:-mt-4" : "")}
+              >
+                <article
+                  className={cn(
+                    cardClass,
+                    "flex h-full flex-col p-6 md:p-8",
+                    plan.highlighted && "border-white/[0.14] bg-zinc-900 md:pb-12",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-lg font-semibold tracking-[-0.015em] text-zinc-50">{plan.name}</h3>
+                    {plan.highlighted ? (
+                      <span className="rounded-full border border-orange-500/30 px-2.5 py-0.5 font-mono text-[11px] text-orange-300">
+                        Recommandé
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-sm text-zinc-500">{plan.desc}</p>
+                  <p className="mt-6 flex items-baseline gap-2">
+                    {price >= 0 ? (
+                      <>
+                        <span className="font-mono text-[40px] font-medium leading-none tabular-nums tracking-[-0.03em] text-zinc-50">
+                          {formatNumber(price)}
+                        </span>
+                        <span className="text-sm text-zinc-400">FCFA / mois</span>
+                      </>
+                    ) : (
+                      <span className="text-[32px] font-semibold leading-none tracking-[-0.03em] text-zinc-50">Sur devis</span>
+                    )}
+                  </p>
+                  <ul className="mt-8 flex-1 space-y-3">
+                    {PLAN_CATALOG[plan.tier].features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2.5 text-[15px] leading-[1.45] text-zinc-300">
+                        <Check aria-hidden className="mt-1 size-3.5 shrink-0 text-orange-400" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <LandingCTATracker location={`pricing_${plan.tier.toLowerCase()}`}>
+                    <Link
+                      href={plan.href}
+                      className={cn(plan.highlighted ? primaryCta : ghostCta, "mt-8 w-full")}
+                    >
+                      {plan.cta}
+                    </Link>
+                  </LandingCTATracker>
+                </article>
+              </StaggerItem>
+            );
+          })}
+        </Stagger>
+        <p className="mt-8 text-center text-[13px] text-zinc-500">
+          Tarifs par organisation. Une question sur les volumes ?{" "}
+          <Link href="/contact" className="text-zinc-300 underline underline-offset-4 hover:text-zinc-50">
+            Écrivez-nous
+          </Link>
+          .
+        </p>
+      </Container>
+    </section>
+  );
+}
+
+/* ───────── 2.10 FAQ ───────── */
+
+function Faq() {
+  return (
+    <section className="py-16 md:py-24 lg:py-32">
+      <Container>
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-16">
+          <div className="lg:col-span-4">
+            <div className="lg:sticky lg:top-24">
+              <H2>Questions fréquentes</H2>
+              <p className="mt-4 text-[15px] leading-[1.6] text-zinc-400">
+                Une question qui n&apos;est pas ici ?{" "}
+                <Link href="/contact" className="text-zinc-200 underline underline-offset-4 hover:text-zinc-50">
+                  Écrivez à l&apos;équipe
+                </Link>
+                .
+              </p>
             </div>
           </div>
-        </section>
-
-        <PulseLine />
-
-        <PricingSectionTracker />
-        {/* ─── Pricing ─── */}
-        <section id="pricing" className="py-20 md:py-32">
-          <div className="max-w-5xl mx-auto px-6">
-            <AnimatedSection>
-              <div className="text-center mb-16">
-                <span className="text-xs font-mono text-orange-500 uppercase tracking-[0.2em]">
-                  Pricing
-                </span>
-                <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
-                  Simple et transparent.
-                </h2>
-                <p className="mt-3 text-zinc-600">
-                  Commencez gratuitement. Evoluez quand vous etes pret.
-                </p>
-              </div>
-            </AnimatedSection>
-
-            <StaggerContainer className="grid md:grid-cols-3 gap-4">
-              {pricingPlans.map((plan) => (
-                <StaggerItem key={plan.name}>
-                  <div
-                    className={`relative p-6 rounded-2xl border h-full flex flex-col ${
-                      plan.highlighted
-                        ? "border-orange-500/30 bg-orange-500/5 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.24)]"
-                        : "border-zinc-200 bg-white shadow-[var(--shadow-border)]"
-                    }`}
-                  >
-                    {plan.highlighted && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-orange-600 text-[10px] font-semibold uppercase tracking-wider">
-                        Populaire
-                      </div>
-                    )}
-
-                    <div className="mb-6">
-                      <h3 className="font-semibold text-lg">{plan.name}</h3>
-                      <p className="mt-1 text-xs text-zinc-600">{plan.desc}</p>
-                      <div className="mt-4 flex items-baseline gap-1">
-                        {plan.price !== "Sur mesure" ? (
-                          <>
-                            <span className="text-4xl font-bold font-mono">
-                              {plan.price}
-                            </span>
-                            <span className="text-sm text-zinc-600">FCFA/mois</span>
-                          </>
-                        ) : (
-                          <span className="text-2xl font-bold">{plan.price}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <ul className="space-y-2.5 mb-8 flex-1">
-                      {plan.features.map((f) => (
-                        <li key={f} className="flex items-center gap-2.5 text-sm text-zinc-700">
-                          <Check className="h-3.5 w-3.5 text-orange-500 shrink-0" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-
-                    <LandingCTATracker location="pricing">
-                      <Link
-                        href={plan.cta === "Nous contacter" ? "/contact" : "/register"}
-                        className={`block text-center py-2.5 rounded-lg text-sm font-medium transition-[scale,background-color,color,box-shadow] active:scale-[0.985] ${
-                          plan.highlighted
-                            ? "bg-orange-600 hover:bg-orange-500 text-white "
-                            : "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
-                        }`}
-                      >
-                        {plan.cta}
-                      </Link>
-                    </LandingCTATracker>
-                  </div>
-                </StaggerItem>
-              ))}
-            </StaggerContainer>
+          <div className="mp-faq lg:col-span-8">
+            {FAQ.map((item) => (
+              <details key={item.q} name="faq" className="group border-b border-white/[0.06]">
+                <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-6 py-4 text-left text-[17px] font-medium tracking-[-0.01em] text-zinc-100 transition-colors hover:text-zinc-50">
+                  {item.q}
+                  <ChevronDown
+                    aria-hidden
+                    className="mp-faq-chevron size-4 shrink-0 text-zinc-500 transition-transform duration-200"
+                  />
+                </summary>
+                <p className="max-w-[640px] pb-6 text-pretty text-[15px] leading-[1.6] text-zinc-400">{item.a}</p>
+              </details>
+            ))}
           </div>
-        </section>
+        </div>
+      </Container>
+    </section>
+  );
+}
 
-        {/* ─── CTA Final ─── */}
-        <section className="py-20 md:py-32">
-          <AnimatedSection>
-            <div className="max-w-3xl mx-auto px-6 text-center">
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight font-mono">
-                Pret a envoyer des emails
-                <br />
-                <span className="text-orange-600">
-                  qui comptent ?
-                </span>
-              </h2>
-              <p className="mt-4 text-lg text-zinc-600">
-                Rejoignez MailPulse et transformez vos campagnes.
-              </p>
-              <div className="mt-8">
+/* ───────── 2.11 Final CTA ───────── */
+
+function FinalCta() {
+  return (
+    <section className="pb-16 md:pb-24 lg:pb-32">
+      <Container>
+        <Reveal>
+          <div className="relative overflow-hidden rounded-[20px] border border-white/[0.08] bg-zinc-900 px-6 py-16 text-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] md:px-12 md:py-24">
+            <div aria-hidden className="mp-grid mp-grid--bottom pointer-events-none absolute inset-0" />
+            <div
+              aria-hidden
+              className="mp-breathe pointer-events-none absolute -bottom-40 left-1/2 h-[320px] w-[720px] max-w-[160vw] -translate-x-1/2 rounded-full bg-orange-500 opacity-[0.1] blur-[100px]"
+            />
+            <div className="relative mx-auto max-w-[640px]">
+              <H2>Votre prochain envoi peut partir dans dix minutes.</H2>
+              <Lead className="mx-auto mt-5">Créez un compte, importez une liste, envoyez. On s&apos;occupe du suivi.</Lead>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
                 <LandingCTATracker location="footer_cta">
-                  <Link
-                    href="/register"
-                    className="group inline-flex min-h-12 items-center gap-2 rounded-xl bg-orange-600 px-8 py-4 text-lg font-medium text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_10px_24px_rgba(234,88,12,0.2)] transition-[scale,background-color] hover:bg-orange-500 active:scale-[0.985]"
-                  >
-                    Creer mon compte
-                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  <Link href="/login" className={cn(primaryCta, "w-full sm:w-auto")}>
+                    Commencer gratuitement
+                    <ArrowRight aria-hidden className="size-4 transition-transform duration-150 group-hover:translate-x-0.5" />
                   </Link>
                 </LandingCTATracker>
+                <Link href="/contact" className={cn(ghostCta, "w-full sm:w-auto")}>
+                  Parler à l&apos;équipe
+                </Link>
               </div>
-            </div>
-          </AnimatedSection>
-        </section>
-      </main>
-
-      {/* ─── Equipe ─── */}
-      <section id="team" className="border-t border-zinc-200 py-20 md:py-32">
-        <div className="max-w-4xl mx-auto px-6">
-          <AnimatedSection>
-            <div className="text-center mb-16">
-              <span className="text-xs font-mono text-orange-500 uppercase tracking-[0.2em]">
-                Equipe
-              </span>
-              <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight font-mono">
-                Les createurs.
-              </h2>
-              <p className="mt-3 text-zinc-600">
-                Les personnes derriere MailPulse.
-              </p>
-            </div>
-          </AnimatedSection>
-
-          <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* James */}
-            <StaggerItem>
-              <div className="h-full rounded-lg border border-zinc-200 bg-white p-6 shadow-[var(--shadow-border)] transition-[box-shadow,border-color] duration-300 hover:border-orange-200 hover:shadow-[var(--shadow-border-hover)]">
-                <div className="flex items-start gap-5">
-                  <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-orange-500/10 border border-orange-500/10 text-orange-500 font-mono font-bold text-lg">
-                    MD
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-lg">Marcel DJEDJE-LI</h3>
-                    <p className="mt-0.5 font-mono text-sm text-orange-600">Fondateur & Full-Stack Developer</p>
-                    <p className="mt-3 text-sm leading-relaxed text-zinc-600">
-                      Fondateur et architecte de MailPulse. Full-stack developer base a Abidjan, passione par les solutions tech pour l&apos;Afrique francophone.
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {["Next.js", "Prisma", "Convex", "Python", "TypeScript"].map((tech) => (
-                        <span
-                          key={tech}
-                          className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-mono text-[10px] text-zinc-600"
-                        >
-                          {tech}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-3 mt-4">
-                      <a
-                        href="https://github.com/James10192"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-950"
-                      >
-                        <GithubIcon className="h-3.5 w-3.5" />
-                        GitHub
-                      </a>
-                      <a
-                        href="https://www.linkedin.com/in/marcel-djedje-li-099490235"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-950"
-                      >
-                        <LinkedinIcon className="h-3.5 w-3.5" />
-                        LinkedIn
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </StaggerItem>
-
-            {/* Ruben */}
-            <StaggerItem>
-              <div className="h-full rounded-lg border border-zinc-200 bg-white p-6 shadow-[var(--shadow-border)] transition-[box-shadow,border-color] duration-300 hover:border-orange-200 hover:shadow-[var(--shadow-border-hover)]">
-                <div className="flex items-start gap-5">
-                  <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-orange-500/10 border border-orange-500/10 text-orange-500 font-mono font-bold text-lg">
-                    YR
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-lg">Yablai Yablai Ruben Virgil</h3>
-                    <p className="mt-0.5 font-mono text-sm text-orange-600">Co-Fondateur & Frontend / Mobile Developer</p>
-                    <p className="mt-3 text-sm leading-relaxed text-zinc-600">
-                      Developpeur frontend et mobile. Specialise dans les interfaces utilisateur modernes et les applications cross-platform.
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {["Flutter", "Next.js", "React", "TypeScript", "Dart"].map((tech) => (
-                        <span
-                          key={tech}
-                          className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-mono text-[10px] text-zinc-600"
-                        >
-                          {tech}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-3 mt-4">
-                      <a
-                        href="https://github.com/yab21"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-950"
-                      >
-                        <GithubIcon className="h-3.5 w-3.5" />
-                        GitHub
-                      </a>
-                      <a
-                        href="https://linkedin.com/in/ruben-yablai"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-950"
-                      >
-                        <LinkedinIcon className="h-3.5 w-3.5" />
-                        LinkedIn
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </StaggerItem>
-          </StaggerContainer>
-        </div>
-      </section>
-
-      {/* ─── Footer ─── */}
-      <footer className="border-t border-zinc-200 bg-zinc-50 py-12">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <BrandMark className="text-sm" />
-
-            <nav className="flex items-center gap-6 text-sm text-zinc-500">
-              <a href="https://github.com/James10192/mailpulse" className="transition-colors hover:text-zinc-950">
-                GitHub
-              </a>
-              <a href="#features" className="transition-colors hover:text-zinc-950">
-                Features
-              </a>
-              <a href="#pricing" className="transition-colors hover:text-zinc-950">
-                Pricing
-              </a>
-              <a href="/contact" className="transition-colors hover:text-zinc-950">
-                Contact
-              </a>
-            </nav>
-
-            <div className="text-xs text-zinc-600">
-              &copy; {new Date().getFullYear()} MailPulse. Open source.
+              <p className="mt-4 text-[13px] text-zinc-500">Sans carte bancaire · Interface en français</p>
             </div>
           </div>
+        </Reveal>
+      </Container>
+    </section>
+  );
+}
+
+/* ───────── Footer ───────── */
+
+const FOOTER = [
+  {
+    title: "Produit",
+    links: [
+      { label: "Plateforme", href: "#plateforme" },
+      { label: "Fonctionnement", href: "#fonctionnement" },
+      { label: "Tarifs", href: "#tarifs" },
+    ],
+  },
+  {
+    title: "Documentation",
+    links: [
+      { label: "Démarrage", href: "/docs/demarrage" },
+      { label: "Campagnes", href: "/docs/campagnes" },
+      { label: "Automatisations", href: "/docs/automations" },
+      { label: "WhatsApp", href: "/docs/whatsapp" },
+    ],
+  },
+  {
+    title: "Développeurs",
+    links: [
+      { label: "Référence API", href: "/docs/api-reference" },
+      { label: "Webhooks", href: "/docs/api-reference#webhooks-sortants" },
+      { label: "Codes de vérification", href: "/docs/verifications" },
+      { label: "Documentation en anglais", href: "/en/docs" },
+    ],
+  },
+  {
+    title: "Compte",
+    links: [
+      { label: "Se connecter", href: "/login" },
+      { label: "Contact", href: "/contact" },
+    ],
+  },
+];
+
+function Footer() {
+  return (
+    <footer id="mp-footer" className="relative overflow-hidden border-t border-white/[0.06] pt-16">
+      <Container>
+        <div className="grid gap-10 lg:grid-cols-[1.4fr_repeat(4,1fr)]">
+          <div className="max-w-[280px]">
+            <Logo />
+            <p className="mt-3 text-[13px] leading-[1.6] text-zinc-500">
+              E-mail, WhatsApp et SMS depuis une seule plateforme, avec le suivi de chaque message.
+            </p>
+          </div>
+          <nav aria-label="Pied de page" className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4 lg:col-span-4">
+            {FOOTER.map((col) => (
+              <div key={col.title}>
+                <p className="text-[13px] font-medium text-zinc-300">{col.title}</p>
+                <ul className="mt-3">
+                  {col.links.map((link) => (
+                    <li key={link.label}>
+                      <Link
+                        href={link.href}
+                        className="inline-flex min-h-11 items-center text-[13px] text-zinc-500 transition-colors hover:text-zinc-200 sm:min-h-9"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </nav>
         </div>
-      </footer>
-    </div>
+        <div className="mt-12 flex flex-col gap-2 border-t border-white/[0.06] py-6 text-[13px] text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>© {new Date().getFullYear()} MailPulse</p>
+          <p>Prix en FCFA · Interface en français</p>
+        </div>
+      </Container>
+      <p
+        aria-hidden
+        className="pointer-events-none -mb-[0.26em] select-none text-center text-[18vw] font-semibold leading-none tracking-[-0.06em] text-white/[0.03]"
+      >
+        MailPulse
+      </p>
+    </footer>
   );
 }

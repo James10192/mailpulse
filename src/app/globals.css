@@ -622,3 +622,246 @@ input[type="range"]::-moz-range-thumb {
 .driver-overlay {
   background: rgba(0, 0, 0, 0.7) !important;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Landing page (scoped to .mp-landing). Nothing here touches the
+   dashboard tokens above.
+   ───────────────────────────────────────────────────────────── */
+
+.mp-landing {
+  --mp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}
+
+.mp-landing ::selection {
+  background: rgba(249, 115, 22, 0.35);
+  color: #fafafa;
+}
+
+.mp-landing :focus-visible {
+  outline: 2px solid #fb923c;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Film grain: breaks gradient banding on 8-bit screens. */
+.mp-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+@media print {
+  .mp-grain {
+    display: none;
+  }
+}
+
+/* Masked 64px grid (hero and final CTA only). */
+.mp-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 0%, #000, transparent);
+  mask-image: radial-gradient(ellipse 60% 50% at 50% 0%, #000, transparent);
+}
+
+.mp-grid--bottom {
+  -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 100%, #000, transparent);
+  mask-image: radial-gradient(ellipse 70% 70% at 50% 100%, #000, transparent);
+}
+
+.mp-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+}
+
+/* Infrastructure strip: pure CSS marquee on small screens. */
+@keyframes mp-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.mp-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: mp-marquee 40s linear infinite;
+}
+
+.mp-marquee:hover .mp-marquee-track {
+  animation-play-state: paused;
+}
+
+.mp-marquee {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+
+/* Desktop: static, centred, wrapped. */
+@media (min-width: 1024px) {
+  .mp-marquee {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .mp-marquee-track {
+    width: auto;
+    max-width: 1200px;
+    margin-inline: auto;
+    padding-inline: 2rem;
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 0.75rem;
+  }
+}
+
+/* Live dot: a ring that expands and fades. */
+@keyframes mp-ping {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.mp-ping {
+  animation: mp-ping 1.6s var(--mp-ease) infinite;
+}
+
+/* Final CTA glow breathes. */
+@keyframes mp-breathe {
+  0%,
+  100% {
+    opacity: 0.08;
+  }
+  50% {
+    opacity: 0.14;
+  }
+}
+
+.mp-breathe {
+  animation: mp-breathe 6s ease-in-out infinite;
+}
+
+/* Blinking caret for code and OTP mockups. */
+@keyframes mp-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.mp-caret {
+  animation: mp-caret 1s steps(1) infinite;
+}
+
+/* Bento: glow that follows the pointer (vars set in JS). */
+.mp-spotlight {
+  --x: 50%;
+  --y: 50%;
+}
+
+.mp-spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s var(--mp-ease);
+  background: radial-gradient(240px circle at var(--x) var(--y), rgba(249, 115, 22, 0.1), transparent 70%);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mp-spotlight:hover::before {
+    opacity: 1;
+  }
+}
+
+/* Automation tile: a dot travelling along the edges. */
+@keyframes mp-travel {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.mp-travel {
+  animation: mp-travel 2.4s var(--mp-ease) infinite;
+}
+
+/* FAQ: native <details>, animated height without measuring. */
+.mp-faq details {
+  interpolate-size: allow-keywords;
+}
+
+.mp-faq details::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition:
+    block-size 0.25s var(--mp-ease),
+    content-visibility 0.25s allow-discrete;
+}
+
+.mp-faq details[open]::details-content {
+  block-size: auto;
+}
+
+.mp-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.mp-faq details[open] .mp-faq-chevron {
+  transform: rotate(180deg);
+}
+
+/* Code: horizontal scroll, never forced wrapping. */
+.mp-code {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-marquee-track {
+    animation: none;
+    width: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .mp-marquee {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .mp-marquee-dup {
+    display: none;
+  }
+
+  .mp-ping,
+  .mp-breathe,
+  .mp-caret,
+  .mp-travel {
+    animation: none;
+  }
+
+  .mp-spotlight::before {
+    display: none;
+  }
+
+  .mp-faq details::details-content {
+    transition: none;
+  }
+}
