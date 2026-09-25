@@ -18,6 +18,8 @@ import {
 import { encryptExternalApplicationValue, hashExternalApplicationPayload } from "@/lib/external-applications/crypto";
 import { applyInboundConsentReply } from "@/lib/external-applications/consent-inbound";
 import { extendExternalWhatsAppConversationWindow } from "@/lib/external-applications/conversation-window";
+import { messageEventForStatus } from "@/lib/external-applications/event-payload";
+import { recordOperationEvents } from "@/lib/external-applications/events";
 import {
   MESSAGE_STATUS_EVENT,
   metaCommunicationMessageTransition,
@@ -370,7 +372,13 @@ async function applyMetaStatusUpdate(application: ExternalApplicationContext, pr
           timestamp: update.timestamp,
         });
 
-        await applyOperationStatusTransition(tx, target, update);
+        if (await applyOperationStatusTransition(tx, target, update)) {
+          await recordOperationEvents(tx, { organizationId: application.organizationId, applicationId: application.id, providerAccountId }, messageEventForStatus(update.status), [target.id], {
+            occurredAt: update.occurredAt,
+            failureCode: update.errorCode,
+            fallbackRecipient: update.recipient,
+          });
+        }
 
         const callbackDeliveries = await snapshotExternalApplicationCallbackDeliveries(tx, {
           applicationId: application.id,
@@ -470,11 +478,12 @@ async function resolveStatusTargetOperation(
  */
 async function applyOperationStatusTransition(tx: Prisma.TransactionClient, target: StatusTargetOperation, update: MetaStatusEvent) {
   const transition = metaOperationStatusTransition(target.status, update);
-  if (!transition) return;
-  await tx.externalTransportOperation.updateMany({
+  if (!transition) return false;
+  const applied = await tx.externalTransportOperation.updateMany({
     where: { id: target.id, status: target.status },
     data: transition,
   });
+  return applied.count === 1;
 }
 
 /**

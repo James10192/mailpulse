@@ -11,6 +11,7 @@ import {
 import { applyConsentGate, CONSENT_PENDING_STATUS, QUEUED_STATUS } from "@/lib/external-applications/consent-hold";
 import { CONSENT_REFUSED_CODE } from "@/lib/external-applications/consent-policy";
 import { hasActiveExternalWhatsAppConversationWindow } from "@/lib/external-applications/conversation-window";
+import { recordEventsAfterCommit, recordOperationEvents } from "@/lib/external-applications/events";
 import { isProviderConfirmedOperationStatus, isProviderRejectedOperationStatus } from "@/lib/external-applications/message-status";
 import { requiresWhatsAppServiceWindow } from "@/lib/external-applications/whatsapp-transport-policy";
 import { prisma } from "@/lib/prisma";
@@ -77,6 +78,27 @@ export async function submitOperation(
   provider: ExternalWhatsAppProvider,
   operation: { id: string; payloadCiphertext: string | null },
   claimableStatus: "PENDING" | typeof QUEUED_STATUS = "PENDING",
+) {
+  const result = await submitClaimedOperation(application, provider, operation, claimableStatus);
+  if (result.status === "accepted" || result.status === "rejected") {
+    const event = result.status === "accepted" ? "message.sent" : "message.failed";
+    const failureCode = result.status === "rejected" ? result.rejectionCode : null;
+    await recordEventsAfterCommit(event, () => recordOperationEvents(
+      prisma,
+      { organizationId: application.organizationId, applicationId: application.id, providerAccountId: provider.id },
+      event,
+      [operation.id],
+      { occurredAt: new Date(), failureCode },
+    ));
+  }
+  return result;
+}
+
+async function submitClaimedOperation(
+  application: ExternalApplicationContext,
+  provider: ExternalWhatsAppProvider,
+  operation: { id: string; payloadCiphertext: string | null },
+  claimableStatus: "PENDING" | typeof QUEUED_STATUS,
 ) {
   const leaseToken = randomUUID();
   const now = new Date();

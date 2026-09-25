@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma";
 import { CONSENT_PENDING_STATUS, QUEUED_STATUS } from "@/lib/external-applications/consent-hold";
 import { CONSENT_REFUSED_CODE, classifyConsentReply, isConsumedConsentReply, type ConsentReply } from "@/lib/external-applications/consent-policy";
 import { readRecipientConsent, recordConsentReply, type ConsentScope } from "@/lib/external-applications/consent-store";
+import { recordExternalEvent, recordOperationEvents } from "@/lib/external-applications/events";
 import type { InboundMessage } from "@/lib/external-applications/meta-webhook";
 
 export type SettledConsent = {
@@ -40,9 +41,36 @@ export async function applyInboundConsentReply(
   }, now);
 
   const operationIds = await settleHeldContents(tx, consent.id, reply, now);
+  await recordDecisionEvents(tx, scope, message, reply, operationIds, before?.status !== consent.status ? consent.id : null);
   const consumed = isConsumedConsentReply(before);
   const settled = before?.status === "PENDING" || operationIds.length > 0 ? { consentId: consent.id, reply, operationIds } : null;
   return { consumed, settled };
+}
+
+/**
+ * One event per settled command. A yes or a stop written with no command
+ * waiting still tells the client, once, that the recipient's decision changed.
+ */
+async function recordDecisionEvents(
+  tx: Prisma.TransactionClient,
+  scope: Omit<ConsentScope, "recipient">,
+  message: InboundMessage,
+  reply: ConsentReply,
+  operationIds: string[],
+  changedConsentId: string | null,
+) {
+  const event = reply === "grant" ? "consent.granted" : "consent.refused";
+  if (operationIds.length > 0) {
+    await recordOperationEvents(tx, scope, event, operationIds, { occurredAt: message.occurredAt, fallbackRecipient: message.sender });
+    return;
+  }
+  if (!changedConsentId) return;
+  await recordExternalEvent(tx, scope, `${event}:${changedConsentId}:${message.providerMessageId}`, {
+    event,
+    subject: null,
+    recipient: message.sender,
+    occurredAt: message.occurredAt,
+  });
 }
 
 /**

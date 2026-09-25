@@ -352,6 +352,8 @@ export async function setWebhook(
         "SEND_MESSAGE",
         "CONNECTION_UPDATE",
         "MESSAGES_UPSERT",
+        // Delivery and read acknowledgements of the messages we sent.
+        "MESSAGES_UPDATE",
         "QRCODE_UPDATED",
       ],
       webhook_by_events: false,

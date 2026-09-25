@@ -6,6 +6,7 @@ import { QUEUED_STATUS } from "@/lib/external-applications/consent-hold";
 import { CONSENT_EXPIRED_CODE } from "@/lib/external-applications/consent-policy";
 import { sendConsentRequest } from "@/lib/external-applications/consent-request";
 import { abandonPendingConsent } from "@/lib/external-applications/consent-settlement";
+import { recordEventsAfterCommit, recordOperationEvents } from "@/lib/external-applications/events";
 import {
   effectiveSenderPacing,
   hasConsentRequestBudget,
@@ -60,7 +61,7 @@ async function expireDueConsents(now: Date) {
       status: "PENDING",
       OR: [{ expiresAt: { lte: now } }, { requestSentAt: null, requestQueuedAt: { lte: staleBefore } }],
     },
-    select: { id: true, expiresAt: true },
+    select: { id: true, expiresAt: true, organizationId: true, applicationId: true, providerAccountId: true },
     take: MAX_EXPIRIES_PER_RUN,
   });
 
@@ -70,6 +71,7 @@ async function expireDueConsents(now: Date) {
     const operationIds = await prisma.$transaction((tx) => abandonPendingConsent(tx, consent.id, CONSENT_EXPIRED_CODE, now, guard));
     if (!operationIds) continue;
     count += 1;
+    await recordEventsAfterCommit("consent.expired", () => recordOperationEvents(prisma, consent, "consent.expired", operationIds, { occurredAt: now }));
   }
   return count;
 }
@@ -151,6 +153,15 @@ async function sendNextItem(
   if (!request) return "idle";
 
   const outcome = await sendConsentRequest(target.application, target.provider, request, now);
+  const scope = { organizationId: target.application.organizationId, applicationId: target.application.id, providerAccountId };
+  if (outcome.outcome === "sent") {
+    const held = await prisma.externalConsentHeldContent.findMany({ where: { consentId: request.id, status: "HELD" }, select: { operationId: true } });
+    await recordEventsAfterCommit("consent.requested", () => recordOperationEvents(prisma, scope, "consent.requested", held.map((item) => item.operationId), { occurredAt: outcome.sentAt }));
+  } else if (outcome.outcome === "abandoned") {
+    // The question never reached the recipient: nothing was refused and nothing
+    // expired, the held content simply could not be delivered.
+    await recordEventsAfterCommit("message.failed", () => recordOperationEvents(prisma, scope, "message.failed", outcome.operationIds, { occurredAt: now, failureCode: outcome.rejectionCode }));
+  }
   // A failed attempt still counts as a send for pacing: the session did write.
   return outcome.outcome === "skipped" ? "idle" : "sent";
 }
