@@ -141,7 +141,7 @@ export const auth = betterAuth({
       rateLimit: { window: 60, max: 5 },
       async sendVerificationOTP({ email, otp, type }) {
         if (type !== "sign-in") return;
-        const message = courrielConnexion({ email, code: otp, lien: lienConnexion(BASE_URL, email, otp) });
+        const message = courrielConnexion({ email, code: otp, lien: lienConnexion(BASE_URL, email, otp), baseUrl: BASE_URL });
         // Local development without a Resend key: print the email instead of
         // failing. Never in production, where a missing key must surface.
         if (!process.env.RESEND_API_KEY && process.env.NODE_ENV !== "production") {
