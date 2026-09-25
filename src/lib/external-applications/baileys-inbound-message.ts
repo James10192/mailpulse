@@ -1,6 +1,6 @@
 import type { InboundMessage } from "@/lib/external-applications/meta-webhook";
 
-/** WhatsApp Web ids for groups, broadcasts and status updates are not parents. */
+/** WhatsApp Web ids for groups, broadcasts and status updates are not recipients. */
 const DIRECT_CHAT_SUFFIX = "@s.whatsapp.net";
 
 /**
@@ -69,7 +69,7 @@ function toInboundMessage(entry: unknown, now: Date): InboundMessage | null {
 
 /**
  * A linked id carries no phone number, so the companion field is the only way
- * back to the parent. Device suffixes such as `2250707123456:12` denote a
+ * back to the sender. Device suffixes such as `2250707123456:12` denote a
  * companion device and must be dropped, not folded into the digits: doing so
  * would build a different number and apply a STOP to the wrong contact.
  */
@@ -89,7 +89,7 @@ function resolveSender(entry: Record<string, unknown>) {
 }
 
 /**
- * Unwraps the envelopes WhatsApp puts around an ordinary text. A parent using
+ * Unwraps the envelopes WhatsApp puts around an ordinary text. A sender using
  * disappearing messages would otherwise never get an answer.
  */
 function getMessageText(message: unknown, depth = 0): string | null {
@@ -113,7 +113,7 @@ function getMessageText(message: unknown, depth = 0): string | null {
 /**
  * Evolution sends seconds, as a number or a string depending on version, and
  * some builds send milliseconds. An unbounded value would open a conversation
- * window expiring centuries from now and hand the school app a nonsense date.
+ * window expiring centuries from now and hand the client application a nonsense date.
  */
 function parseTimestamp(value: unknown, now: Date) {
   const raw = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;

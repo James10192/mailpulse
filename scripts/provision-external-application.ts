@@ -11,6 +11,8 @@ import { encryptExternalApplicationValue } from "../src/lib/external-application
 import { assertSafeCallbackUrl } from "../src/lib/external-applications/network.ts";
 // @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
 import { assertSingleActiveWhatsAppAccount, ensureInboundToken, inboundWebhookUrl, META_PROVIDER, upsertBaileysProviderAccount } from "./provision-whatsapp.ts";
+// @ts-expect-error Node's type-strip runner requires explicit TypeScript extensions.
+import { isValidTimeZone } from "../src/lib/external-applications/pacing-policy.ts";
 
 const USAGE = `Provisionne une application externe MailPulse (idempotent).
 
@@ -22,7 +24,12 @@ Usage:
     [--instance <nom-instance-evolution> [--sender <numero>]]      (transport baileys) \\
     [--forward-url <https-url>] [--forward-events ev1,ev2] \\
     [--template "operationKey=providerTemplateId@locale"]... \\
-    [--rotate-command-credential] [--rotate-forward-secret] [--rotate-inbound-token]
+    [--rotate-command-credential] [--rotate-forward-secret] [--rotate-inbound-token] \\
+    [--daily-consent-limit <n>] [--quiet-hours <debut-fin>] [--time-zone <zone IANA>]
+
+Rythme d'envoi des demandes d'accord (compte Baileys) : au plus 40 premières demandes
+par jour, rien entre 21 h et 7 h, fuseau Africa/Abidjan par défaut. --quiet-hours 0-0
+supprime les heures creuses.
 
 Transport meta : canal officiel, templates approuvés obligatoires, fenêtre de service 24 h.
 Transport baileys : WhatsApp Web via Evolution API, aucun template ni fenêtre 24 h, mais
@@ -57,6 +64,9 @@ const { values } = parseArgs({
     "rotate-inbound-token": { type: "boolean", default: false },
     "update-meta-credentials": { type: "boolean", default: false },
     "reassign-provider-account": { type: "boolean", default: false },
+    "daily-consent-limit": { type: "string" },
+    "quiet-hours": { type: "string" },
+    "time-zone": { type: "string" },
     help: { type: "boolean", default: false },
   },
 });
@@ -121,6 +131,10 @@ try {
 
   for (const spec of values.template ?? []) {
     await upsertTemplateConfig(organization.id, application.id, spec);
+  }
+
+  if (providerAccount && (values["daily-consent-limit"] || values["quiet-hours"] || values["time-zone"])) {
+    await upsertSenderPacing(organization.id, providerAccount.id);
   }
 
   printSummary(organization.id, application, providerAccount?.senderId ?? null);
@@ -208,8 +222,8 @@ async function upsertMetaProviderAccount(organizationId: string, applicationId: 
     select: { id: true, applicationId: true },
   });
 
-  // Silently re-parenting the account would break the previous application's
-  // outbound path and reroute its parents' inbound messages to this one.
+  // Silently moving the account would break the previous application's
+  // outbound path and reroute its recipients' inbound messages to this one.
   if (existing?.applicationId && existing.applicationId !== applicationId && !values["reassign-provider-account"]) {
     throw new Error(
       `Le compte fournisseur ${existing.id} (WABA ${waba}) appartient déjà à l'application ${existing.applicationId}. Relancez avec --reassign-provider-account pour le transférer en connaissance de cause.`,
@@ -321,6 +335,32 @@ async function upsertForwardEndpoint(organizationId: string, applicationId: stri
     `  MAILPULSE_CALLBACK_KEY_ID=${keyId}`,
     `  MAILPULSE_CALLBACK_SECRET=${secret}`,
   );
+}
+
+async function upsertSenderPacing(organizationId: string, providerAccountId: string) {
+  const settings: { dailyConsentRequestLimit?: number; quietHoursStart?: number; quietHoursEnd?: number; timeZone?: string } = {};
+  if (values["daily-consent-limit"]) {
+    const limit = Number(values["daily-consent-limit"]);
+    if (!Number.isInteger(limit) || limit < 0) throw new Error("--daily-consent-limit doit être un entier positif ou nul.");
+    settings.dailyConsentRequestLimit = limit;
+  }
+  if (values["quiet-hours"]) {
+    const match = /^(\d{1,2})-(\d{1,2})$/.exec(values["quiet-hours"].trim());
+    const [start, end] = match ? [Number(match[1]), Number(match[2])] : [NaN, NaN];
+    if (!(start >= 0 && start <= 23 && end >= 0 && end <= 23)) throw new Error("--quiet-hours attend deux heures de 0 à 23, par exemple 21-7.");
+    settings.quietHoursStart = start;
+    settings.quietHoursEnd = end;
+  }
+  if (values["time-zone"]) {
+    if (!isValidTimeZone(values["time-zone"])) throw new Error(`Fuseau inconnu : "${values["time-zone"]}".`);
+    settings.timeZone = values["time-zone"];
+  }
+  const pacing = await prisma.externalSenderPacing.upsert({
+    where: { organizationId_providerAccountId: { organizationId, providerAccountId } },
+    create: { organizationId, providerAccountId, ...settings },
+    update: settings,
+  });
+  console.log(`Rythme d'envoi : ${pacing.dailyConsentRequestLimit} demandes/jour, pause ${pacing.quietHoursStart} h-${pacing.quietHoursEnd} h (${pacing.timeZone})`);
 }
 
 async function upsertTemplateConfig(organizationId: string, applicationId: string, spec: string) {

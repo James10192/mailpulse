@@ -23,7 +23,7 @@ type EvolutionErrorBody = {
 /**
  * Carries the HTTP status so callers can tell a definitive refusal from an
  * ambiguous failure. Without it a wrong phone number and a network timeout look
- * identical, and every unreachable parent lands in manual reconciliation.
+ * identical, and every unreachable recipient lands in manual reconciliation.
  */
 export class EvolutionApiError extends Error {
   readonly status: number;
@@ -42,7 +42,7 @@ export class EvolutionApiError extends Error {
    * Allow-list, never a status range. Evolution answers 400 both for "this
    * number has no WhatsApp account" and for "the session is currently
    * disconnected", and treating the second as final would permanently drop
-   * every notification sent while the school's phone was offline.
+   * every notification sent while the sender's phone was offline.
    */
   get deterministic() {
     return this.recipientUnreachable;
@@ -103,8 +103,8 @@ async function evoFetch<T = unknown>(
     throw new Error("Evolution API non configurée.");
   }
 
-  // The api key and every parent phone number and message body travel in this
-  // request. Plain HTTP would put them, and the key that controls every school
+  // The api key and every recipient phone number and message body travel in this
+  // request. Plain HTTP would put them, and the key that controls every client
   // session, on the wire in clear.
   if (process.env.NODE_ENV === "production" && !EVO_URL.startsWith("https://")) {
     throw new Error("EVOLUTION_API_URL doit etre en HTTPS en production.");
@@ -303,6 +303,37 @@ export async function sendMedia(
   );
 }
 
+/**
+ * A file sent as a WhatsApp document, with its real name and media type. The
+ * generic `sendMedia` above guesses both from the media kind, which shows every
+ * file as `file.pdf` on the recipient's phone.
+ */
+export async function sendDocument(
+  instanceName: string,
+  to: string,
+  document: { url: string; filename: string; mimeType: string; caption?: string },
+) {
+  const number = normalizePhone(to);
+  if (!number) {
+    throw new Error("Numéro WhatsApp requis.");
+  }
+
+  return evoFetch<SendMessageResult>(
+    `/message/sendMedia/${instanceName}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        number,
+        mediatype: "document",
+        mimetype: document.mimeType,
+        media: document.url,
+        fileName: document.filename,
+        ...(document.caption ? { caption: document.caption } : {}),
+      }),
+    },
+  );
+}
+
 // ─── Webhook ────────────────────────────────────────────
 
 export async function setWebhook(
@@ -321,6 +352,8 @@ export async function setWebhook(
         "SEND_MESSAGE",
         "CONNECTION_UPDATE",
         "MESSAGES_UPSERT",
+        // Delivery and read acknowledgements of the messages we sent.
+        "MESSAGES_UPDATE",
         "QRCODE_UPDATED",
       ],
       webhook_by_events: false,

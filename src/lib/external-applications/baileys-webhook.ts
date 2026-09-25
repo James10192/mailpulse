@@ -2,6 +2,8 @@ import { timingSafeEqual } from "node:crypto";
 
 import { resolveBaileysWebhookTarget } from "@/lib/external-applications/application";
 import { getBaileysInstanceName, getInboundTextMessages } from "@/lib/external-applications/baileys-inbound-message";
+import { applyBaileysStatusUpdates } from "@/lib/external-applications/baileys-status";
+import { getBaileysStatusUpdates } from "@/lib/external-applications/baileys-status-update";
 import { decryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import {
   RequestBodyTooLargeError,
@@ -32,11 +34,12 @@ export async function receiveBaileysWebhookRequest(request: Request, application
     const verdict = await verifyInboundToken(target.application.id, readToken(request));
     // A key that cannot decrypt anything is a deployment fault, not a bad
     // token. Answering 401 there sends the operator rotating a secret that was
-    // never the problem while every parent message is refused.
+    // never the problem while every inbound message is refused.
     if (verdict === "unreadable") return new Response("Service unavailable", { status: 503 });
     if (verdict === "rejected") return new Response("Unauthorized", { status: 401 });
 
     await recordInboundTextMessages(target.application, target.providerAccountId, getInboundTextMessages(payload));
+    await applyBaileysStatusUpdates(target.application, target.providerAccountId, getBaileysStatusUpdates(payload));
     return new Response(null, { status: 200 });
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) return new Response("Payload too large", { status: 413 });

@@ -1,6 +1,6 @@
 /**
  * Transport-shaped decisions for the external application WhatsApp rail, kept
- * dependency-free so the rules that decide what a parent finally reads are
+ * dependency-free so the rules that decide what a recipient finally reads are
  * directly testable without a database or an HTTP client.
  */
 
@@ -26,18 +26,20 @@ const TEMPLATE_REJECTION_CODES: Record<WhatsAppTemplateRenderReason, string> = {
 const PLACEHOLDER = /\{\{([^{}]*)\}\}/g;
 
 /**
- * Meta refuses free-form text outside the 24h service window. A Baileys session
+ * Meta refuses free-form content outside the 24h service window. A Baileys session
  * is a WhatsApp Web client with no such window, so applying the gate there would
  * silently drop replies the transport would have delivered.
  */
-export function requiresWhatsAppServiceWindow(providerKind: WhatsAppTransportKind, contentType: "text" | "template") {
-  return providerKind === "meta" && contentType === "text";
+export function requiresWhatsAppServiceWindow(providerKind: WhatsAppTransportKind, contentType: "text" | "template" | "document") {
+  // A document is free-form content too: only an approved template may open
+  // a conversation on Meta.
+  return providerKind === "meta" && contentType !== "template";
 }
 
 /**
  * Baileys has no approved-template concept, so the configured template id is
  * read as a body carrying {{1}}, {{2}}... markers. Any mismatch between markers
- * and parameters fails the whole render: a parent must never receive a message
+ * and parameters fails the whole render: a recipient must never receive a message
  * still showing its own placeholder syntax.
  */
 export function renderWhatsAppTextTemplate(body: string, parameters: readonly string[]): WhatsAppTemplateRender {

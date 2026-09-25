@@ -16,7 +16,10 @@ import {
   snapshotExternalApplicationCallbackDeliveries,
 } from "@/lib/external-applications/callback";
 import { encryptExternalApplicationValue, hashExternalApplicationPayload } from "@/lib/external-applications/crypto";
+import { applyInboundConsentReply } from "@/lib/external-applications/consent-inbound";
 import { extendExternalWhatsAppConversationWindow } from "@/lib/external-applications/conversation-window";
+import { messageEventForStatus } from "@/lib/external-applications/event-payload";
+import { recordOperationEvents } from "@/lib/external-applications/events";
 import {
   MESSAGE_STATUS_EVENT,
   metaCommunicationMessageTransition,
@@ -31,6 +34,8 @@ import { prisma } from "@/lib/prisma";
 import { hasValidMetaHmac } from "@/lib/external-applications/signatures";
 
 const INBOUND_EVENT = "whatsapp.inbound_message";
+/** A reply that settled a consent request is recorded for idempotency, never forwarded. */
+const CONSENT_REPLY_OPERATION_KEY = "whatsapp.consent_reply";
 const MAX_WEBHOOK_BODY_BYTES = 256 * 1024;
 const MAX_STATUS_UPDATES_PER_REQUEST = 100;
 const MAX_CALLBACK_ATTEMPTS = 8;
@@ -253,8 +258,8 @@ function getInboundTextMessages(payload: unknown, senderId: string, now = new Da
 /**
  * Inbound and outbound operations share one uniqueness constraint, and on a
  * WhatsApp Web session the provider message id is chosen by the sender's own
- * device. Without this namespace a parent could send a message whose id equals
- * a school's outbound idempotency key and permanently block that notification.
+ * device. Without this namespace a sender could send a message whose id equals
+ * a client application's outbound idempotency key and permanently block that notification.
  */
 function inboundIdempotencyKey(providerMessageId: string) {
   return `in:${providerMessageId}`;
@@ -279,12 +284,23 @@ async function findOrCreateInboundOperation(application: ExternalApplicationCont
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       return await prisma.$transaction(async (tx) => {
+        // Rows are written under the namespaced key; the raw id is still read
+        // so messages recorded before the namespace existed stay deduplicated.
         const existing = await tx.externalTransportOperation.findFirst({
-          where: { organizationId: application.organizationId, applicationId: application.id, idempotencyKey: message.providerMessageId },
+          where: {
+            organizationId: application.organizationId,
+            applicationId: application.id,
+            idempotencyKey: { in: [inboundIdempotencyKey(message.providerMessageId), message.providerMessageId] },
+          },
         });
         if (existing) return existing;
 
-        const callbackDeliveries = await snapshotExternalApplicationCallbackDeliveries(tx, {
+        const consent = await applyInboundConsentReply(tx, {
+          organizationId: application.organizationId,
+          applicationId: application.id,
+          providerAccountId,
+        }, message, recordedAt);
+        const callbackDeliveries = consent.consumed ? [] : await snapshotExternalApplicationCallbackDeliveries(tx, {
           applicationId: application.id,
           providerAccountId,
           event: INBOUND_EVENT,
@@ -294,7 +310,7 @@ async function findOrCreateInboundOperation(application: ExternalApplicationCont
         const operation = await tx.externalTransportOperation.create({
           data: {
             direction: "INBOUND",
-            operationKey: "whatsapp.inbound_message",
+            operationKey: consent.consumed ? CONSENT_REPLY_OPERATION_KEY : INBOUND_EVENT,
             idempotencyKey: inboundIdempotencyKey(message.providerMessageId),
             payloadHash: hashExternalApplicationPayload(payload),
             payloadCiphertext: encryptExternalApplicationValue(payload),
@@ -356,7 +372,13 @@ async function applyMetaStatusUpdate(application: ExternalApplicationContext, pr
           timestamp: update.timestamp,
         });
 
-        await applyOperationStatusTransition(tx, target, update);
+        if (await applyOperationStatusTransition(tx, target, update)) {
+          await recordOperationEvents(tx, { organizationId: application.organizationId, applicationId: application.id, providerAccountId }, messageEventForStatus(update.status), [target.id], {
+            occurredAt: update.occurredAt,
+            failureCode: update.errorCode,
+            fallbackRecipient: update.recipient,
+          });
+        }
 
         const callbackDeliveries = await snapshotExternalApplicationCallbackDeliveries(tx, {
           applicationId: application.id,
@@ -456,11 +478,12 @@ async function resolveStatusTargetOperation(
  */
 async function applyOperationStatusTransition(tx: Prisma.TransactionClient, target: StatusTargetOperation, update: MetaStatusEvent) {
   const transition = metaOperationStatusTransition(target.status, update);
-  if (!transition) return;
-  await tx.externalTransportOperation.updateMany({
+  if (!transition) return false;
+  const applied = await tx.externalTransportOperation.updateMany({
     where: { id: target.id, status: target.status },
     data: transition,
   });
+  return applied.count === 1;
 }
 
 /**

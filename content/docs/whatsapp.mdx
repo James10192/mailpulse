@@ -25,3 +25,28 @@ Si `MAILPULSE_MANAGED_WHATSAPP_ENABLED=true`, MailPulse peut proposer une ressou
 ## Envoi
 
 La page `WhatsApp` permet d’activer un mode, scanner un QR code, sauvegarder la configuration Meta, envoyer un message simple, faire un envoi groupé et déconnecter la session.
+
+## Accord du destinataire et rythme d'envoi
+
+Une application externe peut exiger l'accord explicite du destinataire avant de
+lui écrire : MailPulse envoie d'abord la demande rédigée par l'application,
+garde le contenu chiffré, puis l'envoie après un OUI ou l'annule après un NON ou
+un STOP. Un destinataire qui a dit NON ou STOP ne reçoit plus rien de cette
+application par ce numéro, jusqu'à un nouveau OUI. Les détails de la commande et
+des événements sont dans la référence API.
+
+Sur WhatsApp Web, ces envois passent par une file propre à chaque numéro, pour
+limiter le risque de blocage :
+
+- une pause aléatoire de 15 à 45 secondes sépare deux messages ;
+- au plus 40 premières demandes d'accord par jour et par numéro ;
+- aucun envoi entre 21 h et 7 h, dans le fuseau du numéro (`Africa/Abidjan` par défaut).
+
+Ces trois réglages se changent par numéro à l'aide du script de provisionnement
+(`--daily-consent-limit`, `--quiet-hours`, `--time-zone`). Les destinataires déjà
+d'accord passent avant les nouvelles demandes. Meta applique ses propres limites
+et n'est pas soumis à cette file.
+
+Pour recevoir les accusés de réception et de lecture, la session Evolution doit
+envoyer les évènements `MESSAGES_UPDATE` en plus de `MESSAGES_UPSERT`.
+

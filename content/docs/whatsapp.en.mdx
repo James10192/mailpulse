@@ -25,3 +25,28 @@ When `MAILPULSE_MANAGED_WHATSAPP_ENABLED=true`, MailPulse can provide a platform
 ## Sending
 
 The `WhatsApp` page lets users activate a mode, scan a QR code, save Meta configuration, send a single message, send bulk messages, and disconnect the session.
+
+## Recipient consent and pacing
+
+An external application can require the recipient's explicit agreement before
+writing to them: MailPulse first sends the request written by the application,
+keeps the content encrypted, then sends it after a YES or cancels it after a NO
+or STOP. A recipient who said NO or STOP receives nothing more from that
+application through this number, until a new YES. The command and event details
+are in the API reference.
+
+On WhatsApp Web, these sends go through a queue specific to each number, to limit
+the risk of the number being blocked:
+
+- a random pause of 15 to 45 seconds separates two messages;
+- at most 40 first consent requests per day and per number;
+- nothing is sent between 9 pm and 7 am, in the number's time zone (`Africa/Abidjan` by default).
+
+These three settings can be changed per number with the provisioning script
+(`--daily-consent-limit`, `--quiet-hours`, `--time-zone`). Recipients who already
+agreed go before new requests. Meta applies its own limits and is not subject to
+this queue.
+
+To receive delivery and read receipts, the Evolution session must send the
+`MESSAGES_UPDATE` events in addition to `MESSAGES_UPSERT`.
+

@@ -86,6 +86,73 @@ with HTTP `422` and `rejection_code: "whatsapp_service_window_closed"`; use an
 approved template command instead. Template commands remain permitted outside the
 window.
 
+### Document
+
+A command can send a file:
+
+```json
+{
+  "type": "document",
+  "url": "https://files.example.com/statement.pdf",
+  "filename": "statement.pdf",
+  "mimeType": "application/pdf",
+  "caption": "Optional text"
+}
+```
+
+`url` must be HTTPS. `filename` is at most 120 characters, with no `/` or `\`.
+`mimeType` (or `mime_type`) is `application/pdf`, `image/jpeg` or `image/png`.
+`caption` is optional, at most 1024 characters. The recipient sees the real file
+name. On Meta, a document is free-form content and follows the 24-hour window
+rule, like `text`.
+
+### Recipient consent
+
+A command can require the recipient's explicit agreement before writing to them.
+The request text is written by the client application:
+
+```json
+{
+  "operation_key": "notification",
+  "channel": "whatsapp",
+  "recipient": { "type": "phone", "value": "+2250700000000" },
+  "content": { "type": "text", "text": "Your notification is ready." },
+  "metadata": { "idempotency_key": "client_event_987_recipient_123" },
+  "consent": {
+    "request": { "text": "Hello, do you agree to receive our messages? Reply YES or NO." },
+    "expiresInSeconds": 172800
+  }
+}
+```
+
+`request.text` is 1 to 1024 characters. `expiresInSeconds` (or
+`expires_in_seconds`) defaults to 172800 (48 h) and is brought within 3600 to
+604800. The expiry starts when the request is actually sent. Consent is held per
+application, per sending account and per recipient.
+
+| Consent state | What MailPulse does | Response |
+|---|---|---|
+| already granted | sends the content at once | as without consent (`202` accepted) |
+| refused (NO or STOP) | sends nothing | `409 { "code": "consent_refused" }` |
+| none, or expired | queues the request and keeps the content encrypted | `202 { "status": "consent_pending", "operationId": "…" }` |
+| a request already pending | adds the content to the same wait, with no second request | `202 { "status": "consent_pending", "operationId": "…" }` |
+
+A recipient who replied NO or STOP receives no further command from the
+application through this account, with or without `consent`. A new YES from
+them reactivates consent. A command whose consent expired is rejected with `422`
+and `rejection_code: "consent_expired"`; send it again with a new idempotency
+key to ask again.
+
+Replies are read regardless of case, accents, punctuation and spaces. `OUI`,
+`YES`, `OK`, `D'ACCORD` and `J'ACCEPTE` grant; `NON`, `NO`, `STOP`, `ARRÊT`,
+`STOPPER` and `DÉSABONNER` refuse. A reply that settles a sent request is not
+forwarded as an inbound message.
+
+On Meta, the request is free-form text: it needs an open conversation window,
+otherwise the command is rejected with `whatsapp_service_window_closed`. On
+WhatsApp Web, consent-gated sends follow the pacing described on the WhatsApp
+page.
+
 ### Callbacks to the application
 
 MailPulse pushes provider events to the endpoints registered for the
@@ -124,6 +191,38 @@ be matched to its send without storing a MailPulse identifier. A status that
 matches no command of the application is never forwarded. Statuses only move
 forward, and a status can automatically reconcile a submission whose provider
 response was lost.
+
+### Consent and delivery events
+
+These events share one payload, and an endpoint only receives those it
+subscribes to:
+
+```json
+{
+  "event": "consent.granted",
+  "operationKey": "notification",
+  "idempotencyKey": "client_event_987_recipient_123",
+  "operationId": "cmd_123",
+  "recipient": "+2250700000000",
+  "occurredAt": "2026-09-25T16:00:00.000Z"
+}
+```
+
+| Event | When |
+|---|---|
+| `consent.requested` | the consent request actually left |
+| `consent.granted` | YES reply |
+| `consent.refused` | NO or STOP reply; the held content is cancelled |
+| `consent.expired` | no reply before the deadline; the held content is abandoned |
+| `message.sent` | the content was accepted by the provider |
+| `message.delivered` / `message.read` | delivery or read receipt, on Meta and on WhatsApp Web |
+| `message.failed` | the content could not be delivered |
+
+`message.*` also carries `messageId`, and `message.failed` a `failureCode`. A
+recipient who already agreed only produces `message.*`. Each held command gets
+its own events; a YES or STOP written with no command waiting produces a single
+`consent.*`, with `operationKey`, `idempotencyKey` and `operationId` set to
+`null`. Events are emitted once, even when the provider replays its webhook.
 
 ## Templates
 

@@ -4,24 +4,25 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 const commands = readFileSync(resolve(process.cwd(), "src/lib/external-applications/commands.ts"), "utf8");
+const submission = readFileSync(resolve(process.cwd(), "src/lib/external-applications/command-submission.ts"), "utf8");
 
 test("template dispatch resolves a provider override before the default configuration", () => {
-  const providerLookup = commands.indexOf("providerAccountId,\n    },\n    select: { providerTemplateId: true },\n  });");
-  const defaultLookup = commands.indexOf("providerAccountId: null,");
+  const providerLookup = submission.indexOf("providerAccountId,\n    },\n    select: { providerTemplateId: true },\n  });");
+  const defaultLookup = submission.indexOf("providerAccountId: null,");
 
   assert.ok(providerLookup >= 0, "provider-specific template lookup is present");
   assert.ok(defaultLookup > providerLookup, "default template lookup follows the provider-specific lookup");
-  assert.doesNotMatch(commands, /orderBy: \{ providerAccountId:/);
+  assert.doesNotMatch(submission, /orderBy: \{ providerAccountId:/);
 });
 
 test("free-form commands are fail-closed before Meta submission when no window is active", () => {
   const windowCheck = commands.indexOf("hasOpenConversationWindow(application, provider.id, command.recipient)");
   const rejected = commands.indexOf('rejectionCode: "whatsapp_service_window_closed"');
-  const submission = commands.indexOf("submitMetaCommand(application, provider, payload, operation.id)");
+  const submitted = commands.indexOf("submitCommandToProvider(application, provider, payload, operation.id)");
 
   assert.ok(windowCheck >= 0, "text commands check the external conversation window");
   assert.ok(rejected > windowCheck, "a closed window transitions the operation to rejected");
-  assert.ok(submission > rejected, "Meta submission happens only after the window gate");
+  assert.ok(submitted > rejected, "Meta submission happens only after the window gate");
   assert.match(commands, /catch \{\n    \/\/ A failed lookup must never permit a free-form WhatsApp command\.\n    return false;/);
 });
 
@@ -44,7 +45,7 @@ test("a status webhook confirmation is honoured when the dispatcher write loses 
 test("every Meta submission carries the operation id as opaque callback data", () => {
   // Without this echo, a status webhook cannot reconcile a submission whose
   // provider response was lost.
-  assert.equal(commands.match(/biz_opaque_callback_data: operationId/g)?.length, 2);
+  assert.equal(submission.match(/biz_opaque_callback_data: operationId/g)?.length, 3);
 });
 
 // The dispatcher reaches Prisma and the Evolution client through the "@/" alias,
@@ -54,14 +55,15 @@ test("every Meta submission carries the operation id as opaque callback data", (
 
 test("the transport branch is chosen from the resolved provider kind", () => {
   assert.match(commands, /const provider = await resolveWhatsAppProvider\(application\);/);
-  assert.match(commands, /provider\.kind === "meta"\n\s+\? await submitMetaCommand\(application, provider, payload, operation\.id\)\n\s+: await submitBaileysCommand\(application, provider, payload\);/);
+  assert.match(submission, /provider\.kind === "meta"\n\s+\? submitMetaCommand\(application, provider, command, operationId\)\n\s+: submitBaileysCommand\(application, provider, command\);/);
   // Meta-only resolution would silently ignore an application running on Baileys.
-  assert.doesNotMatch(commands, /resolveMetaProviderAccount/);
+  assert.doesNotMatch(commands + submission, /resolveMetaProviderAccount/);
 });
 
 test("the 24h service window gate stays specific to the Meta rail", () => {
   const gate = commands.indexOf("requiresWhatsAppServiceWindow(provider.kind, command.content.type)");
-  const rejected = commands.indexOf('rejectionCode: "whatsapp_service_window_closed"');
+  // The consent gate rejects a closed window earlier for the request itself.
+  const rejected = commands.lastIndexOf('rejectionCode: "whatsapp_service_window_closed"');
 
   assert.ok(gate >= 0, "the window gate is delegated to the transport policy");
   assert.ok(rejected > gate, "a closed window still rejects before any submission");
@@ -70,20 +72,20 @@ test("the 24h service window gate stays specific to the Meta rail", () => {
 });
 
 test("a Baileys template that cannot be rendered is rejected with its own code", () => {
-  assert.match(commands, /const rendered = renderWhatsAppTextTemplate\(body, command\.content\.parameters\);/);
-  assert.match(commands, /rendered\.ok \? \{ ok: true as const, text: rendered\.text \} : \{ ok: false as const, rejectionCode: rendered\.rejectionCode \}/);
-  assert.match(commands, /if \(!body\.ok\) return \{ outcome: "rejected", rejectionCode: body\.rejectionCode \};/);
+  assert.match(submission, /const rendered = renderWhatsAppTextTemplate\(body, content\.parameters\);/);
+  assert.match(submission, /rendered\.ok \? \{ ok: true as const, text: rendered\.text \} : \{ ok: false as const, rejectionCode: rendered\.rejectionCode \}/);
+  assert.match(submission, /if \(!body\.ok\) return \{ outcome: "rejected", rejectionCode: body\.rejectionCode \};/);
   // The durable rejection has to reach the caller instead of the generic code.
   assert.match(commands, /return \{ status: "rejected" as const, operationId: operation\.id, rejectionCode: submission\.rejectionCode \};/);
 });
 
 test("a Baileys submission we cannot prove failed stays reconcilable", () => {
-  const send = commands.indexOf("await sendText(provider.instanceName, command.recipient, body.text)");
-  const unknown = commands.indexOf('return { outcome: "unknown" };\n  }\n}');
+  const send = submission.indexOf("await sendText(provider.instanceName, command.recipient, body.text)");
+  const unknown = submission.indexOf('return { outcome: "unknown" };\n  }\n}');
 
   assert.ok(send >= 0, "text is sent through the Evolution client");
   assert.ok(unknown > send, "a throw from the Evolution client resolves to unknown, never to a rejection");
-  assert.match(commands, /const messageId = typeof result\.key\?\.id === "string" && result\.key\.id \? result\.key\.id : null;/);
+  assert.match(submission, /const messageId = typeof result\.key\?\.id === "string" && result\.key\.id \? result\.key\.id : null;/);
 });
 
 test("an unconfigured Evolution endpoint is refused before an operation exists", () => {
@@ -98,8 +100,35 @@ test("an unconfigured Evolution endpoint is refused before an operation exists",
 
 test("a durable Baileys rejection is persisted before the caller is answered", () => {
   const rejected = commands.indexOf('if (submission.outcome === "rejected")');
-  const finalize = commands.indexOf('await finalizeOperation(operation.id, leaseToken, "REJECTED")');
+  const finalize = commands.indexOf("await finalizeOperation(operation.id, leaseToken, submission.rejectionCode)");
 
   assert.ok(rejected >= 0, "the submission outcome drives the rejection branch");
   assert.ok(finalize > rejected, "the operation is finalized before returning the rejection");
+});
+
+test("a refused recipient is answered before any window or transport gate", () => {
+  const refusal = commands.indexOf("await applyConsentGate(application, provider, operation, command,");
+  const confirmed = commands.indexOf("isProviderConfirmedOperationStatus(operation.status)");
+  const windowCheck = commands.indexOf("hasOpenConversationWindow(application, provider.id, command.recipient)");
+
+  assert.ok(refusal > confirmed, "an already delivered command is still reported as accepted");
+  assert.ok(windowCheck > refusal, "the refusal is checked before the service window");
+  assert.match(commands, /rejectPendingOperation\(operation\.id, CONSENT_REFUSED_CODE\)/);
+  // An idempotent retry of a refused command keeps the refusal code.
+  assert.match(commands, /operation\.rejectionCode === CONSENT_REFUSED_CODE\) return \{ status: "consent_refused"/);
+});
+
+test("a document reaches Baileys with its real name and type, and Meta as a document message", () => {
+  assert.match(submission, /sendDocument\(provider\.instanceName, command\.recipient, \{ url, filename, mimeType, caption \}\)/);
+  assert.match(submission, /type: "document",\n\s+biz_opaque_callback_data: operationId,\n\s+document: \{ link: url, filename/);
+  assert.doesNotMatch(submission, /file\.pdf/);
+});
+
+test("a held command is answered as pending and never reaches the provider", () => {
+  const held = commands.indexOf('if (consent === "held") return { status: "consent_pending"');
+  const submitted = commands.indexOf("submitCommandToProvider(application, provider, payload, operation.id)");
+  assert.ok(held >= 0 && submitted > held, "the hold returns before any submission");
+  // An idempotent retry of a held or queued command must not bypass the wait.
+  assert.match(commands, /operation\.status === CONSENT_PENDING_STATUS\) return \{ status: "consent_pending"/);
+  assert.match(commands, /operation\.status === QUEUED_STATUS\) return \{ status: "queued"/);
 });

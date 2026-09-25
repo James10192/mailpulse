@@ -6,7 +6,7 @@ import { getInboundTextMessages } from "./baileys-inbound-message";
 const NOW = new Date("2026-08-08T10:00:00.000Z");
 
 function upsert(data: unknown, event = "messages.upsert") {
-  return { event, instance: "school-abidjan", data };
+  return { event, instance: "sender-1", data };
 }
 
 function directMessage(overrides: Record<string, unknown> = {}) {
@@ -88,7 +88,7 @@ test("an implausible sender is rejected rather than normalised into a fake numbe
   }
 });
 
-test("a linked id resolves the parent through its companion phone field", () => {
+test("a linked id resolves the sender through its companion phone field", () => {
   const linked = directMessage({ key: { remoteJid: "184700000000000@lid", fromMe: false, id: "3EB0LID" }, senderPn: "2250707123456@s.whatsapp.net" });
 
   assert.equal(getInboundTextMessages(upsert(linked), NOW)[0].sender, "+2250707123456");

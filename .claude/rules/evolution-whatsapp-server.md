@@ -6,13 +6,22 @@ Aucun secret dans ce fichier : il est versionné.
 ## L'URL à utiliser
 
 ```
-EVOLUTION_API_URL=https://college.klassci.com/evolution
+EVOLUTION_API_URL=https://evolution.klassci.com
 ```
 
-Publique, en HTTPS, déjà servie par le Caddy du serveur. **Ne crée pas de
-sous-domaine `evolution.klassci.com`** : il n'apporte rien, il faudrait un
-enregistrement DNS, et modifier le Caddyfile ferait courir un risque inutile à la
-production de KLASSCI College.
+Sous-domaine dédié, pointant sur le serveur Windows (`94.72.96.119`), servi en
+HTTPS par son Caddy (bloc `evolution.klassci.com { reverse_proxy 127.0.0.1:8080 }`,
+versionné dans `klassci-college-backend/deploy/server/Caddyfile.*`).
+
+**Ne reviens pas à `college.klassci.com/evolution`.** Le 25 septembre 2026, ce
+domaine a déménagé sur le serveur de production de KLASSCI College (Dokploy,
+`169.58.156.206`), alors qu'Evolution est resté sur le Windows, devenu serveur de
+démo. Toutes les commandes WhatsApp sont alors tombées sur la page 404 du site
+(« Evolution API 404: <!DOCTYPE html>… »). Un sous-domaine à lui ne dépend plus
+des déménagements de KLASSCI College.
+
+Dépannage sans DNS : `94-72-96-119.sslip.io` résout vers la même IP et Caddy peut
+y obtenir un certificat. Solution temporaire, elle dépend d'un service tiers.
 
 ## Le piège numéro un
 
@@ -23,7 +32,7 @@ refuse en 401. Résultat : tout paraît « Evolution est éteint » alors que le
 service tourne parfaitement. Avant de conclure à une panne, vérifie l'URL et la
 clé.
 
-**Evolution vit sur le VPS Windows Contabo, celui de KLASSCI College.**
+**Evolution vit sur le VPS Windows Contabo, l'ancien serveur de KLASSCI College, devenu serveur de démo.**
 
 ## Le serveur
 
@@ -35,11 +44,11 @@ clé.
 | Service | `mailpulse-evolution` (géré par NSSM) |
 | Dossier | `C:\evolution-api` |
 | Écoute | `127.0.0.1:8080`, jamais exposé en direct |
-| Accès public | `https://college.klassci.com/evolution` (Caddy strip le préfixe) |
+| Accès public | `https://evolution.klassci.com` (Caddy, HTTPS automatique) |
 | Version | Evolution API 2.3.7, `clientName: mailpulse_evolution` |
 | Reverse proxy | Caddy (`klassci-caddy`), config `C:\klassci\deploy\Caddyfile` |
 
-Le même serveur héberge KLASSCI College. Ne casse rien en intervenant.
+Le même serveur héberge la démo de KLASSCI College. Ne casse rien en intervenant.
 
 ## Y accéder
 
@@ -67,13 +76,13 @@ Un `curl` depuis ton poste vers `http://94.72.96.119:8080` **timeout, et c'est
 normal** : aucune règle de pare-feu n'ouvre 8080 et il ne faut pas l'ouvrir, ce
 serait exposer l'API en clair. L'accès public passe uniquement par le chemin
 HTTPS ci-dessus. Ne conclus pas que le service est mort : teste
-`https://college.klassci.com/evolution/`, puis en local sur le serveur.
+`https://evolution.klassci.com/`, puis en local sur le serveur.
 
 Depuis ton poste :
 
 ```bash
-curl -s https://college.klassci.com/evolution/
-curl -s -H "apikey: <cle>" https://college.klassci.com/evolution/instance/fetchInstances
+curl -s https://evolution.klassci.com/
+curl -s -H "apikey: <cle>" https://evolution.klassci.com/instance/fetchInstances
 ```
 
 `evoFetch` (`src/lib/whatsapp-baileys.ts`) **refuse volontairement une URL non
@@ -120,7 +129,7 @@ webhook, pas une redirection ni du JSON de protection.
 | Instance Evolution | `mp-cmn9rqwxh000004ky0azejp5x`, statut `open` |
 | Numéro WhatsApp | `22541540178` |
 | Template | `parent_chatbot.invitation` (fr) |
-| Webhook Evolution | posé, jeton en en-tête `Authorization`, évènement `MESSAGES_UPSERT` |
+| Webhook Evolution | posé, jeton en en-tête `Authorization`, évènement `MESSAGES_UPSERT` — **ajouter `MESSAGES_UPDATE`** pour les accusés remis / lu |
 | Callback KLASSCI | `https://esbtp-abidjan.klassci.com/api/v1/integrations/mailpulse/parent-chatbot/inbound` |
 
 Validé en production le 2026-08-08 : commande signée acceptée, message WhatsApp
@@ -186,8 +195,8 @@ les journaux d'accès. Configure le webhook ainsi :
 curl -X POST -H "apikey: <cle>" -H "Content-Type: application/json" \
   -d '{"webhook":{"enabled":true,"url":"<url-sans-token>",
        "headers":{"Authorization":"Bearer <jeton>"},
-       "byEvents":false,"base64":false,"events":["MESSAGES_UPSERT"]}}' \
-  https://college.klassci.com/evolution/webhook/set/<instance>
+       "byEvents":false,"base64":false,"events":["MESSAGES_UPSERT","MESSAGES_UPDATE"]}}' \
+  https://evolution.klassci.com/webhook/set/<instance>
 ```
 
 Le corps attendu est la forme v2 imbriquée sous `webhook`. Relire la config avec

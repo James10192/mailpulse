@@ -173,6 +173,8 @@ model Organization {
   applicationTemplateConfigs ApplicationTemplateConfig[]
   externalTransportOperations ExternalTransportOperation[]
   externalConversationWindows ExternalConversationWindow[]
+  externalRecipientConsents ExternalRecipientConsent[]
+  externalSenderPacings ExternalSenderPacing[]
   phoneVerifications PhoneVerification[]
 
   @@map("organization")
@@ -1017,6 +1019,7 @@ model ExternalApplication {
   templateConfigs     ApplicationTemplateConfig[]
   transportOperations ExternalTransportOperation[]
   conversationWindows ExternalConversationWindow[]
+  recipientConsents   ExternalRecipientConsent[]
 
   @@unique([organizationId, key])
   @@unique([organizationId, id])
@@ -1066,6 +1069,8 @@ model ProviderAccount {
   templateConfigs     ApplicationTemplateConfig[]
   transportOperations ExternalTransportOperation[]
   conversationWindows ExternalConversationWindow[]
+  recipientConsents   ExternalRecipientConsent[]
+  senderPacing        ExternalSenderPacing?
 
   @@unique([organizationId, channel, provider, externalAccountId])
   @@unique([organizationId, id])
@@ -1132,6 +1137,9 @@ model ExternalTransportOperation {
   leaseExpiresAt           DateTime?
   leaseAcquiredAt          DateTime?
   providerMessageId        String?
+  // Why a command was refused, so an idempotent retry is answered with the
+  // same code instead of a generic provider rejection.
+  rejectionCode            String?
   reconciliationDecision   String?
   reconciliationFollowUpAt DateTime?
   reconciliationFollowUpById String?
@@ -1152,6 +1160,7 @@ model ExternalTransportOperation {
   providerAccountId   String
   providerAccount     ProviderAccount @relation(fields: [organizationId, providerAccountId], references: [organizationId, id], onDelete: Restrict)
   callbackDeliveries  ExternalCallbackDelivery[]
+  consentHold         ExternalConsentHeldContent?
 
   @@unique([organizationId, applicationId, idempotencyKey])
   @@unique([organizationId, providerAccountId, providerMessageId])
@@ -1217,6 +1226,104 @@ model ExternalConversationWindow {
   @@unique([organizationId, applicationId, providerAccountId, channel, recipientHash])
   @@index([organizationId, applicationId, providerAccountId, channel, expiresAt])
   @@map("external_conversation_window")
+}
+
+enum ExternalConsentStatus {
+  PENDING
+  GRANTED
+  REFUSED
+  EXPIRED
+}
+
+// One row per (application, sending account, recipient). The recipient is kept
+// both as a keyed hash, for lookups, and encrypted, for callbacks; the reply
+// that settled the decision is kept encrypted as proof.
+model ExternalRecipientConsent {
+  id                  String                @id @default(cuid())
+  recipientHash       String
+  recipientCiphertext String
+  status              ExternalConsentStatus
+  proofCiphertext     String?
+  grantedAt           DateTime?
+  refusedAt           DateTime?
+  // The request that is, or was last, pending. Its text is written by the
+  // client application and kept encrypted until it is sent.
+  requestTextCiphertext    String?
+  requestTtlSeconds        Int?
+  requestQueuedAt          DateTime?
+  requestSentAt            DateTime?
+  requestAttempts          Int       @default(0)
+  requestProviderMessageId String?
+  // Counted from the moment the request actually leaves, not from the command.
+  expiresAt                DateTime?
+  expiredAt                DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  organizationId    String
+  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId     String
+  application       ExternalApplication @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Cascade)
+  providerAccountId String
+  providerAccount   ProviderAccount     @relation(fields: [organizationId, providerAccountId], references: [organizationId, id], onDelete: Cascade)
+
+  heldContents ExternalConsentHeldContent[]
+
+  @@unique([organizationId, applicationId, providerAccountId, recipientHash])
+  @@index([status, expiresAt])
+  @@index([providerAccountId, status, requestSentAt])
+  @@map("external_recipient_consent")
+}
+
+// Per sending account: when it may write next, and how much. The lease keeps
+// two overlapping queue runs from sending on the same account at once.
+model ExternalSenderPacing {
+  id                       String    @id @default(cuid())
+  dailyConsentRequestLimit Int       @default(40)
+  quietHoursStart          Int       @default(21)
+  quietHoursEnd            Int       @default(7)
+  timeZone                 String    @default("Africa/Abidjan")
+  nextSendAt               DateTime?
+  leaseToken               String?
+  leaseExpiresAt           DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  organizationId    String
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerAccountId String
+  providerAccount   ProviderAccount @relation(fields: [organizationId, providerAccountId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, providerAccountId])
+  @@map("external_sender_pacing")
+}
+
+enum ExternalConsentHeldStatus {
+  HELD
+  RELEASED
+  CANCELLED
+  EXPIRED
+}
+
+// A command waiting for its recipient's consent. Once released, the operation
+// itself carries the delivery lifecycle.
+model ExternalConsentHeldContent {
+  id                String                    @id @default(cuid())
+  status            ExternalConsentHeldStatus @default(HELD)
+  payloadCiphertext String
+  releasedAt        DateTime?
+  settledAt         DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  consentId   String
+  consent     ExternalRecipientConsent   @relation(fields: [consentId], references: [id], onDelete: Cascade)
+  operationId String                     @unique
+  operation   ExternalTransportOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  @@index([consentId, status])
+  @@index([status, releasedAt])
+  @@map("external_consent_held_content")
 }
 
 model WebhookEndpoint {

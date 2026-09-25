@@ -58,3 +58,27 @@ jobs:
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+  process-whatsapp-consents:
+    runs-on: ubuntu-latest
+    # The queue sends at most one message per sending account per call and
+    # spaces them 15 to 45 s apart, so the job calls it every 25 s until the
+    # next scheduled run. The wait happens here, never inside the function.
+    timeout-minutes: 6
+    steps:
+      - name: Process WhatsApp consent queue
+        run: |
+          set -euo pipefail
+          APP_URL="$(printf '%s' "$APP_URL" | xargs)"
+          CRON_SECRET="$(printf '%s' "$CRON_SECRET" | xargs)"
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11; do
+            curl --fail-with-body --silent --show-error -X POST "$APP_URL/api/cron/process-whatsapp-consents" \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -H "Content-Type: application/json"
+            sleep 25
+          done
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

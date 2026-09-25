@@ -43,10 +43,10 @@ Exemple :
     "type": "template",
     "template_key": "absence_alert",
     "locale": "fr_CI",
-    "variables": { "parent_name": "M. Kouassi" }
+    "variables": { "customer_name": "M. Kouassi" }
   },
   "metadata": {
-    "external_user_id": "parent_123",
+    "external_user_id": "user_123",
     "external_event_id": "event_987",
     "source_app": "application_client"
   },
@@ -181,6 +181,73 @@ rejetée durablement avec HTTP `422` et
 `rejection_code: "whatsapp_service_window_closed"`; utilisez une commande de
 template approuvée. Les templates restent autorisés hors fenêtre.
 
+### Document
+
+Une commande peut envoyer un fichier :
+
+```json
+{
+  "type": "document",
+  "url": "https://fichiers.exemple.com/releve.pdf",
+  "filename": "releve.pdf",
+  "mimeType": "application/pdf",
+  "caption": "Texte facultatif"
+}
+```
+
+`url` doit être en HTTPS. `filename` compte au plus 120 caractères, sans `/` ni
+`\`. `mimeType` (ou `mime_type`) est `application/pdf`, `image/jpeg` ou
+`image/png`. `caption` est facultative, 1024 caractères au plus. Le destinataire
+voit le vrai nom du fichier. Sur Meta, un document est du contenu libre et suit la
+règle de la fenêtre de 24 heures, comme `text`.
+
+### Accord du destinataire
+
+Une commande peut exiger l'accord explicite du destinataire avant de lui écrire.
+Le texte de la demande est écrit par l'application cliente :
+
+```json
+{
+  "operation_key": "notification",
+  "channel": "whatsapp",
+  "recipient": { "type": "phone", "value": "+2250700000000" },
+  "content": { "type": "text", "text": "Votre notification est prête." },
+  "metadata": { "idempotency_key": "client_event_987_recipient_123" },
+  "consent": {
+    "request": { "text": "Bonjour, acceptez-vous de recevoir nos messages ? Répondez OUI ou NON." },
+    "expiresInSeconds": 172800
+  }
+}
+```
+
+`request.text` compte de 1 à 1024 caractères. `expiresInSeconds` (ou
+`expires_in_seconds`) vaut 172800 (48 h) par défaut et est ramené entre 3600 et
+604800. L'échéance court à partir de l'envoi réel de la demande. L'accord est tenu
+par application, par compte d'envoi et par destinataire.
+
+| État de l'accord | Ce que fait MailPulse | Réponse |
+|---|---|---|
+| déjà accordé | envoie le contenu tout de suite | comme sans accord (`202` accepté) |
+| refusé (NON ou STOP) | n'envoie rien | `409 { "code": "consent_refused" }` |
+| aucun, ou expiré | met la demande en file et garde le contenu chiffré | `202 { "status": "consent_pending", "operationId": "…" }` |
+| une demande déjà en attente | ajoute le contenu à la même attente, sans seconde demande | `202 { "status": "consent_pending", "operationId": "…" }` |
+
+Un destinataire qui a répondu NON ou STOP ne reçoit plus aucune commande de
+l'application par ce compte, avec ou sans `consent`. Un nouveau OUI de sa part
+réactive l'accord. Une commande dont l'accord a expiré est refusée avec `422` et
+`rejection_code: "consent_expired"`; renvoyez-la avec une nouvelle clé
+d'idempotence pour poser une nouvelle demande.
+
+Les réponses sont lues sans tenir compte de la casse, des accents, de la
+ponctuation ni des espaces. `OUI`, `YES`, `OK`, `D'ACCORD` et `J'ACCEPTE`
+accordent ; `NON`, `NO`, `STOP`, `ARRÊT`, `STOPPER` et `DÉSABONNER` refusent. Une
+réponse qui tranche une demande envoyée n'est pas transmise comme message entrant.
+
+Sur Meta, la demande est du texte libre : elle exige une fenêtre de conversation
+ouverte, sinon la commande est refusée avec `whatsapp_service_window_closed`. Sur
+WhatsApp Web, les envois soumis à accord suivent un rythme décrit dans la page
+WhatsApp.
+
 ### Callbacks vers l'application
 
 MailPulse pousse les événements du fournisseur vers les points de terminaison
@@ -225,11 +292,45 @@ transmis. Les statuts progressent uniquement vers l'avant, et un statut peut
 réconcilier automatiquement une soumission dont la réponse du fournisseur avait
 été perdue.
 
+### Événements d'accord et de livraison
+
+Ces événements partagent une même charge utile, et un point de terminaison ne
+reçoit que ceux auxquels il est abonné :
+
+```json
+{
+  "event": "consent.granted",
+  "operationKey": "notification",
+  "idempotencyKey": "client_event_987_recipient_123",
+  "operationId": "cmd_123",
+  "recipient": "+2250700000000",
+  "occurredAt": "2026-09-25T16:00:00.000Z"
+}
+```
+
+| Événement | Quand |
+|---|---|
+| `consent.requested` | la demande d'accord est réellement partie |
+| `consent.granted` | réponse OUI |
+| `consent.refused` | réponse NON ou STOP ; le contenu retenu est annulé |
+| `consent.expired` | aucune réponse avant l'échéance ; le contenu retenu est abandonné |
+| `message.sent` | le contenu a été accepté par le fournisseur |
+| `message.delivered` / `message.read` | accusé de réception ou de lecture, sur Meta comme sur WhatsApp Web |
+| `message.failed` | le contenu n'a pas pu être livré |
+
+`message.*` porte en plus `messageId`, et `message.failed` un `failureCode`. Un
+destinataire déjà d'accord ne produit que des `message.*`. Chaque commande
+retenue reçoit ses propres événements ; un OUI ou un STOP écrit sans commande en
+attente produit un seul `consent.*`, avec `operationKey`, `idempotencyKey` et
+`operationId` à `null`. Les événements sont émis une seule fois, même si le
+fournisseur renvoie son webhook.
+
 ## Endpoints système existants
 
 ```txt
 GET /api/cron/send-scheduled
 GET /api/cron/filon-recoveries
+POST /api/cron/process-whatsapp-consents
 GET /api/track/open
 GET /api/track/click
 GET /api/unsubscribe
