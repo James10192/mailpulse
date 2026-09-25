@@ -27,45 +27,53 @@ export function lienConnexion(baseUrl: string, email: string, code: string): str
 
 export function courrielConnexion(params: { email: string; code: string; lien: string }) {
   const { code, lien } = params;
-  const subject = `${code} — votre code de connexion MailPulse`;
+  // Code first: readable in the notification, and offered for autofill by
+  // iOS and Android.
+  const subject = `${code} est votre code MailPulse`;
+  const preheader = `Valable ${EXPIRATION_MINUTES} minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.`;
   const text = [
     "Votre code de connexion MailPulse :",
     "",
     code,
     "",
-    `Ou connectez-vous en un clic : ${lien}`,
+    `Ou connectez-vous directement : ${lien}`,
     "",
-    `Le code expire dans ${EXPIRATION_MINUTES} minutes. Si vous n'avez rien demandé, ignorez ce message : personne ne peut entrer sans ce code.`,
+    `Le code et le lien expirent dans ${EXPIRATION_MINUTES} minutes et ne fonctionnent qu'une fois.`,
+    "Ce n'était pas vous ? Ignorez cet e-mail : personne ne peut se connecter sans ce code.",
   ].join("\n");
 
+  // Light body on purpose: dark emails render badly in Outlook. No tracking
+  // pixel, no tracked link — this email must be trusted and scanners that
+  // pre-open links must not use it up (the link lands on a confirm page).
   const html = `<!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>${escape(subject)}</title></head>
-<body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-<span style="display:none;max-height:0;overflow:hidden;opacity:0;">Votre code : ${escape(code)} · valable ${EXPIRATION_MINUTES} minutes</span>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#09090b;padding:40px 16px;">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${escape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;">${escape(preheader)}</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px;">
   <tr><td align="center">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#18181b;border:1px solid #27272a;border-radius:16px;">
-      <tr><td style="padding:32px 32px 8px;">
-        <div style="font-size:15px;font-weight:600;color:#fafafa;letter-spacing:-0.01em;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #e4e4e7;border-radius:16px;">
+      <tr><td style="padding:32px 32px 0;">
+        <div style="font-size:15px;font-weight:600;color:#18181b;letter-spacing:-0.01em;">
           <span style="display:inline-block;width:10px;height:10px;border-radius:999px;background:#f97316;margin-right:8px;vertical-align:middle;"></span>MailPulse
         </div>
       </td></tr>
-      <tr><td style="padding:16px 32px 0;">
-        <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:600;color:#fafafa;letter-spacing:-0.02em;">Votre code de connexion</h1>
-        <p style="margin:12px 0 0;font-size:15px;line-height:1.6;color:#a1a1aa;">Saisissez ce code dans la fenêtre ouverte, ou utilisez le bouton ci-dessous.</p>
+      <tr><td style="padding:24px 32px 0;">
+        <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:600;color:#18181b;letter-spacing:-0.02em;">Votre code de connexion</h1>
+        <p style="margin:12px 0 0;font-size:15px;line-height:1.6;color:#52525b;">Saisissez ce code dans l'onglet MailPulse ouvert :</p>
+      </td></tr>
+      <tr><td style="padding:20px 32px 0;">
+        <div style="background:#f4f4f5;border-radius:12px;padding:20px;text-align:center;font-family:'SFMono-Regular',Menlo,Consolas,monospace;font-size:32px;font-weight:600;letter-spacing:0.3em;color:#18181b;">${escape(code)}</div>
       </td></tr>
       <tr><td style="padding:24px 32px 0;">
-        <div style="background:#09090b;border:1px solid #27272a;border-radius:12px;padding:20px;text-align:center;font-family:'SFMono-Regular',Menlo,Consolas,monospace;font-size:32px;font-weight:600;letter-spacing:10px;color:#fafafa;">${escape(code)}</div>
-      </td></tr>
-      <tr><td style="padding:24px 32px 0;">
-        <a href="${escape(lien)}" style="display:block;background:#f97316;color:#09090b;text-decoration:none;text-align:center;font-weight:600;font-size:15px;padding:14px 20px;border-radius:10px;">Me connecter à MailPulse</a>
+        <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#52525b;">Ou connectez-vous directement :</p>
+        <a href="${escape(lien)}" style="display:block;background:#ea580c;color:#ffffff;text-decoration:none;text-align:center;font-weight:600;font-size:15px;padding:14px 20px;border-radius:10px;">Se connecter à MailPulse</a>
       </td></tr>
       <tr><td style="padding:24px 32px 32px;">
-        <p style="margin:0;font-size:13px;line-height:1.6;color:#71717a;">Le code et le lien expirent dans ${EXPIRATION_MINUTES} minutes et ne servent qu'une fois. Si vous n'avez rien demandé, ignorez ce message : personne ne peut entrer sans ce code.</p>
+        <p style="margin:0;font-size:13px;line-height:1.6;color:#71717a;">Le code et le lien expirent dans ${EXPIRATION_MINUTES} minutes et ne fonctionnent qu'une fois.<br>Ce n'était pas vous ? Ignorez cet e-mail : personne ne peut se connecter sans ce code.</p>
       </td></tr>
     </table>
-    <p style="margin:24px 0 0;font-size:12px;color:#52525b;">MailPulse · e-mail, WhatsApp et SMS depuis une seule plateforme</p>
+    <p style="margin:24px 0 0;font-size:12px;color:#a1a1aa;">MailPulse · e-mail, WhatsApp et SMS depuis une seule plateforme</p>
   </td></tr>
 </table>
 </body>
