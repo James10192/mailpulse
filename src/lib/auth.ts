@@ -40,9 +40,34 @@ export const auth = betterAuth({
     enabled: false,
   },
 
+  // Counters in the database, not in memory: on serverless each instance
+  // would otherwise count on its own. A storage failure (table not migrated
+  // yet, database blip) must never block sign-in: it lets the request through
+  // and logs.
   rateLimit: {
     enabled: process.env.NODE_ENV === "production",
-    storage: "database",
+    customStorage: {
+      async get(key) {
+        try {
+          const ligne = await prisma.rateLimit.findUnique({ where: { key } });
+          return ligne ? { key: ligne.key, count: ligne.count, lastRequest: Number(ligne.lastRequest) } : null;
+        } catch (erreur) {
+          console.error("[auth] rate limit indisponible (lecture)", erreur);
+          return null;
+        }
+      },
+      async set(key, valeur) {
+        try {
+          await prisma.rateLimit.upsert({
+            where: { key },
+            create: { key, count: valeur.count, lastRequest: BigInt(valeur.lastRequest) },
+            update: { count: valeur.count, lastRequest: BigInt(valeur.lastRequest) },
+          });
+        } catch (erreur) {
+          console.error("[auth] rate limit indisponible (écriture)", erreur);
+        }
+      },
+    },
   },
 
   hooks: {
@@ -145,7 +170,15 @@ const FENETRE_ADRESSE_MS = 60 * 60 * 1000;
  */
 async function autoriserEnvoiCode(email: string): Promise<boolean> {
   if (process.env.NODE_ENV !== "production") return true;
-  const key = `otp-email:${email}`;
+  try {
+    return await compterEnvoiCode(`otp-email:${email}`);
+  } catch (erreur) {
+    console.error("[auth] plafond par adresse indisponible", erreur);
+    return true;
+  }
+}
+
+async function compterEnvoiCode(key: string): Promise<boolean> {
   const now = Date.now();
   const courant = await prisma.rateLimit.findUnique({ where: { key } });
 
