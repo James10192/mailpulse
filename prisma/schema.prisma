@@ -97,6 +97,17 @@ model Verification {
   @@map("verification")
 }
 
+// Better Auth rate-limit counters. In the database, not in memory: on
+// serverless each instance would otherwise count on its own.
+model RateLimit {
+  id          String @id @default(cuid())
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("rate_limit")
+}
+
 // ============================================
 // Organization (Better Auth org plugin)
 // ============================================
