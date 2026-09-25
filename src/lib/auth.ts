@@ -80,6 +80,16 @@ export const auth = betterAuth({
         });
       }
     }),
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/email-otp/send-verification-otp") return;
+      const email = String(ctx.body?.email ?? "").trim().toLowerCase();
+      if (envoisEchoues.delete(email)) {
+        throw new APIError("BAD_GATEWAY", {
+          code: "EMAIL_SEND_FAILED",
+          message: "L'e-mail n'a pas pu partir. Réessayez dans un instant.",
+        });
+      }
+    }),
   },
 
   databaseHooks: {
@@ -138,13 +148,20 @@ export const auth = betterAuth({
           console.info(`[auth] Connexion ${email} : ${otp} · ${lienConnexion(BASE_URL, email, otp)}`);
           return;
         }
-        await sendEmail({
-          to: email,
-          subject: message.subject,
-          html: message.html,
-          text: message.text,
-          tags: [{ name: "category", value: "auth_sign_in" }],
-        });
+        try {
+          await sendEmail({
+            to: email,
+            subject: message.subject,
+            html: message.html,
+            text: message.text,
+            tags: [{ name: "category", value: "auth_sign_in" }],
+          });
+        } catch (erreur) {
+          // Better Auth swallows errors thrown here and answers « sent ».
+          // Remember the failure so the after hook can report it.
+          envoisEchoues.add(email.toLowerCase());
+          console.error("[auth] envoi du code de connexion impossible", erreur);
+        }
       },
     }),
     passkey({
@@ -159,6 +176,9 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24, // 1 day
   },
 });
+
+/** Addresses whose sign-in email failed during the current request. */
+const envoisEchoues = new Set<string>();
 
 const CODES_PAR_ADRESSE = 5;
 const FENETRE_ADRESSE_MS = 60 * 60 * 1000;
