@@ -1,5 +1,4 @@
 import type * as React from "react";
-import type { RefObject } from "react";
 
 /**
  * An « outside » click that happened inside the modal's own frame must not
@@ -13,23 +12,15 @@ import type { RefObject } from "react";
  * working in it.
  */
 type InteractionExterieure = {
-  preventDefault(): void;
   detail: { originalEvent: { clientX: number; clientY: number } };
 };
 
-export function ignorerClicDansLeCadre<E extends InteractionExterieure>(
-  cadre: RefObject<HTMLElement | null>,
-  handler?: (event: E) => void,
-) {
-  return (event: E) => {
-    const rect = cadre.current?.getBoundingClientRect();
-    const { clientX, clientY } = event.detail.originalEvent;
-    if (rect && clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
-      event.preventDefault();
-      return;
-    }
-    handler?.(event);
-  };
+export function clicDansLeCadre(cadre: HTMLElement | null, event: InteractionExterieure): boolean {
+  const rect = cadre?.getBoundingClientRect();
+  if (!rect) return false;
+  const { clientX, clientY } = event.detail.originalEvent;
+
+  return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
 }
 
 export function composerRefs<T>(...refs: (React.Ref<T> | undefined)[]) {

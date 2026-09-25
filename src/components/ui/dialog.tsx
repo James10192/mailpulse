@@ -5,7 +5,7 @@ import { XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { composerRefs, ignorerClicDansLeCadre } from "@/components/ui/interaction-exterieure"
+import { composerRefs, clicDansLeCadre } from "@/components/ui/interaction-exterieure"
 import { Button } from "@/components/ui/button"
 
 function Dialog({
@@ -69,7 +69,13 @@ function DialogContent({
           className
         )}
         ref={composerRefs(cadre, ref)}
-        onPointerDownOutside={ignorerClicDansLeCadre(cadre, onPointerDownOutside)}
+        onPointerDownOutside={(event) => {
+          if (clicDansLeCadre(cadre.current, event)) {
+            event.preventDefault()
+            return
+          }
+          onPointerDownOutside?.(event)
+        }}
         {...props}
       >
         {children}

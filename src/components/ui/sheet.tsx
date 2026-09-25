@@ -5,7 +5,7 @@ import { XIcon } from "lucide-react";
 import { Dialog as SheetPrimitive } from "radix-ui";
 
 import { cn } from "@/lib/utils"
-import { composerRefs, ignorerClicDansLeCadre } from "@/components/ui/interaction-exterieure";
+import { composerRefs, clicDansLeCadre } from "@/components/ui/interaction-exterieure";
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />;
@@ -70,7 +70,13 @@ function SheetContent({
           className
         )}
         ref={composerRefs(cadre, ref)}
-        onPointerDownOutside={ignorerClicDansLeCadre(cadre, onPointerDownOutside)}
+        onPointerDownOutside={(event) => {
+          if (clicDansLeCadre(cadre.current, event)) {
+            event.preventDefault()
+            return
+          }
+          onPointerDownOutside?.(event)
+        }}
         {...props}
       >
         {children}
