@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { BrandMark } from "@/components/brand-mark";
+
 import { PanneauMarque } from "./panneau-marque";
 
 /**
@@ -39,7 +41,7 @@ export function EcranAuth({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <p className="px-4 pb-6 text-center text-xs text-zinc-600 sm:px-8">
-            <Link href="/" className="hover:text-zinc-400">mailpulse</Link> · Données chiffrées en transit · Code à usage unique
+            <Link href="/" className="hover:text-zinc-400">MailPulse</Link> · Données chiffrées en transit · Code à usage unique
           </p>
         </main>
       </div>
@@ -54,12 +56,10 @@ export function EcranAuth({ children }: { children: React.ReactNode }) {
 
 function Logo() {
   return (
-    <Link href="/" className="inline-flex min-h-[44px] items-center gap-2.5 text-[15px] font-semibold tracking-[-0.01em] text-zinc-50">
-      <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
-        <span className="absolute inset-0 animate-ping rounded-full bg-orange-500/60 motion-reduce:hidden" />
-        <span className="relative h-2.5 w-2.5 rounded-full bg-orange-500" />
-      </span>
-      MailPulse
-    </Link>
+    <BrandMark
+      className="min-h-[44px] gap-3 text-[17px] tracking-[-0.01em] text-zinc-50 hover:text-zinc-50"
+      logoClassName="h-9 w-16"
+      logoSizes="64px"
+    />
   );
 }

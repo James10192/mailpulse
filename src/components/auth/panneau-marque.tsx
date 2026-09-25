@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MailPulseLogo } from "@/components/mailpulse-logo";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 const CODE = "482917";
@@ -52,7 +53,7 @@ export function PanneauMarque() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/15 font-mono text-xs font-medium text-orange-400">MP</span>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-950 ring-1 ring-white/[0.08]"><MailPulseLogo className="h-4 w-7" sizes="28px" /></span>
                     <div>
                       <p className="text-sm font-medium text-zinc-100">MailPulse</p>
                       <p className="font-mono text-[11px] text-zinc-500">à l&apos;instant</p>
