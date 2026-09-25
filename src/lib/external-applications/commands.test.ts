@@ -62,7 +62,8 @@ test("the transport branch is chosen from the resolved provider kind", () => {
 
 test("the 24h service window gate stays specific to the Meta rail", () => {
   const gate = commands.indexOf("requiresWhatsAppServiceWindow(provider.kind, command.content.type)");
-  const rejected = commands.indexOf('rejectionCode: "whatsapp_service_window_closed"');
+  // The consent gate rejects a closed window earlier for the request itself.
+  const rejected = commands.lastIndexOf('rejectionCode: "whatsapp_service_window_closed"');
 
   assert.ok(gate >= 0, "the window gate is delegated to the transport policy");
   assert.ok(rejected > gate, "a closed window still rejects before any submission");
@@ -106,7 +107,7 @@ test("a durable Baileys rejection is persisted before the caller is answered", (
 });
 
 test("a refused recipient is answered before any window or transport gate", () => {
-  const refusal = commands.indexOf("await isRecipientRefused(application, provider.id, command.recipient)");
+  const refusal = commands.indexOf("await applyConsentGate(application, provider, operation, command,");
   const confirmed = commands.indexOf("isProviderConfirmedOperationStatus(operation.status)");
   const windowCheck = commands.indexOf("hasOpenConversationWindow(application, provider.id, command.recipient)");
 
@@ -121,4 +122,13 @@ test("a document reaches Baileys with its real name and type, and Meta as a docu
   assert.match(submission, /sendDocument\(provider\.instanceName, command\.recipient, \{ url, filename, mimeType, caption \}\)/);
   assert.match(submission, /type: "document",\n\s+biz_opaque_callback_data: operationId,\n\s+document: \{ link: url, filename/);
   assert.doesNotMatch(submission, /file\.pdf/);
+});
+
+test("a held command is answered as pending and never reaches the provider", () => {
+  const held = commands.indexOf('if (consent === "held") return { status: "consent_pending"');
+  const submitted = commands.indexOf("submitCommandToProvider(application, provider, payload, operation.id)");
+  assert.ok(held >= 0 && submitted > held, "the hold returns before any submission");
+  // An idempotent retry of a held or queued command must not bypass the wait.
+  assert.match(commands, /operation\.status === CONSENT_PENDING_STATUS\) return \{ status: "consent_pending"/);
+  assert.match(commands, /operation\.status === QUEUED_STATUS\) return \{ status: "queued"/);
 });

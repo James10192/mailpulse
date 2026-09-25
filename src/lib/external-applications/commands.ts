@@ -8,7 +8,7 @@ import {
   parseCommandPayload,
   submitCommandToProvider,
 } from "@/lib/external-applications/command-submission";
-import { isRecipientRefused } from "@/lib/external-applications/consent-gate";
+import { applyConsentGate, CONSENT_PENDING_STATUS } from "@/lib/external-applications/consent-hold";
 import { CONSENT_REFUSED_CODE } from "@/lib/external-applications/consent-policy";
 import { hasActiveExternalWhatsAppConversationWindow } from "@/lib/external-applications/conversation-window";
 import { isProviderConfirmedOperationStatus, isProviderRejectedOperationStatus } from "@/lib/external-applications/message-status";
@@ -19,6 +19,8 @@ import { isConfigured as isEvolutionConfigured } from "@/lib/whatsapp-baileys";
 export type { ExternalCommand };
 
 const LEASE_DURATION_MS = 10 * 60_000;
+/** Released by a consent and waiting its turn in the sending account's paced queue. */
+export const QUEUED_STATUS = "QUEUED";
 
 export async function dispatchExternalApplicationCommand(application: ExternalApplicationContext, command: ExternalCommand) {
   const provider = await resolveWhatsAppProvider(application);
@@ -41,12 +43,21 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
   }
   if (operation.status === "SUBMISSION_UNKNOWN") return { status: "submission_unknown" as const, operationId: operation.id };
 
+  if (operation.status === CONSENT_PENDING_STATUS) return { status: "consent_pending" as const, operationId: operation.id };
+  if (operation.status === QUEUED_STATUS) return { status: "queued" as const, operationId: operation.id };
+
   // Before any other gate: a refusal is the recipient's own decision and must
   // hold whatever the content, the transport or the window.
-  if (await isRecipientRefused(application, provider.id, command.recipient)) {
+  const consent = await applyConsentGate(application, provider, operation, command, () => hasOpenConversationWindow(application, provider.id, command.recipient));
+  if (consent === "refused") {
     await rejectPendingOperation(operation.id, CONSENT_REFUSED_CODE);
     return { status: "consent_refused" as const, operationId: operation.id };
   }
+  if (consent === "window_closed") {
+    await rejectPendingOperation(operation.id, "whatsapp_service_window_closed");
+    return { status: "rejected" as const, operationId: operation.id, rejectionCode: "whatsapp_service_window_closed" };
+  }
+  if (consent === "held") return { status: "consent_pending" as const, operationId: operation.id };
 
   if (requiresWhatsAppServiceWindow(provider.kind, command.content.type)) {
     const windowOpen = await hasOpenConversationWindow(application, provider.id, command.recipient);

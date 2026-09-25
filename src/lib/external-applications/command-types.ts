@@ -10,4 +10,12 @@ export type ExternalCommand = {
   idempotencyKey: string;
   recipient: string;
   content: ExternalCommandContent;
+  /** Present when the content must wait for the recipient's explicit agreement. */
+  consent?: ExternalConsentRequest;
+};
+
+export type ExternalConsentRequest = {
+  /** Written by the client application; sent as is. */
+  requestText: string;
+  expiresInSeconds: number;
 };

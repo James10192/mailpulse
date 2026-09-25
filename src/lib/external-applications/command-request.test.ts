@@ -46,3 +46,30 @@ test("unknown fields are still refused", () => {
   assert.equal(parseExternalCommandRequest(snake({ type: "text", text: "x" }, { extra: true })), null);
   assert.equal(parseExternalCommandRequest(snake({ type: "text", text: "x", extra: true })), null);
 });
+
+test("a consent request is read in either shape, with its expiry brought into range", () => {
+  const consent = { request: { text: " Répondez OUI ou NON. " }, expiresInSeconds: 60 };
+  assert.deepEqual(parseExternalCommandRequest(snake({ type: "text", text: "x" }, { consent }))?.consent, {
+    requestText: "Répondez OUI ou NON.",
+    expiresInSeconds: 3_600,
+  });
+  const camel = parseExternalCommandRequest({
+    operationKey: "notice.sent",
+    idempotencyKey: "k-1",
+    recipient: "+2250700000000",
+    content: DOCUMENT,
+    consent: { request: { text: "OUI ?" }, expires_in_seconds: 7_200 },
+  });
+  assert.equal(camel?.consent?.expiresInSeconds, 7_200);
+});
+
+test("a consent request without expiry waits 48 h, and one without text is refused", () => {
+  const command = parseExternalCommandRequest(snake({ type: "text", text: "x" }, { consent: { request: { text: "OUI ?" } } }));
+  assert.equal(command?.consent?.expiresInSeconds, 172_800);
+  assert.equal(parseExternalCommandRequest(snake({ type: "text", text: "x" }, { consent: { request: { text: "  " } } })), null);
+  assert.equal(parseExternalCommandRequest(snake({ type: "text", text: "x" }, { consent: { request: { text: "a".repeat(1025) } } })), null);
+});
+
+test("a command without consent carries no consent field", () => {
+  assert.equal("consent" in (parseExternalCommandRequest(snake({ type: "text", text: "x" })) ?? {}), false);
+});

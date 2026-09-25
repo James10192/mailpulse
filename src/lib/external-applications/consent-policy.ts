@@ -46,3 +46,35 @@ export function consentStateAfterReply(reply: ConsentReply): ConsentState {
 export function isConsentBlocking(status: ConsentState | null | undefined) {
   return status === "REFUSED";
 }
+
+export const DEFAULT_CONSENT_TTL_SECONDS = 172_800;
+export const MIN_CONSENT_TTL_SECONDS = 3_600;
+export const MAX_CONSENT_TTL_SECONDS = 604_800;
+export const MAX_CONSENT_REQUEST_LENGTH = 1024;
+
+/** Brought back into [1 h, 7 days]; absent means 48 h. */
+export function consentTtlSeconds(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return DEFAULT_CONSENT_TTL_SECONDS;
+  return Math.min(MAX_CONSENT_TTL_SECONDS, Math.max(MIN_CONSENT_TTL_SECONDS, Math.floor(value)));
+}
+
+export type ConsentGateDecision =
+  /** Send now: the recipient already agreed, or the command asks no consent. */
+  | "send"
+  /** Nothing is sent, ever, until the recipient writes YES again. */
+  | "refuse"
+  /** Hold the content and queue a new request. */
+  | "request"
+  /** Hold the content behind the request already waiting for an answer. */
+  | "join";
+
+/**
+ * What a command does given the recipient's current consent. A pending request
+ * is never duplicated: a second command joins the first one's wait.
+ */
+export function consentGateDecision(status: ConsentState | null | undefined, asksConsent: boolean): ConsentGateDecision {
+  if (status === "REFUSED") return "refuse";
+  if (!asksConsent || status === "GRANTED") return "send";
+  if (status === "PENDING") return "join";
+  return "request";
+}

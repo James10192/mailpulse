@@ -39,6 +39,8 @@ export async function POST(request: Request, context: { params: Promise<{ applic
   if (result.status === "accepted") return Response.json({ accepted: true, operation_id: result.operationId, dispatch_state: "accepted", reconciliation_required: false }, { status: 202 });
   if (result.status === "submission_unknown") return Response.json({ accepted: false, operation_id: result.operationId, dispatch_state: "pending_reconciliation", reconciliation_required: true }, { status: 202 });
   if (result.status === "rejected") return Response.json({ accepted: false, operation_id: result.operationId, dispatch_state: "rejected", rejection_code: result.rejectionCode ?? "provider_rejected", reconciliation_required: false }, { status: 422 });
+  if (result.status === "consent_pending") return Response.json({ accepted: false, status: "consent_pending", operation_id: result.operationId, operationId: result.operationId, dispatch_state: "consent_pending", reconciliation_required: false }, { status: 202 });
+  if (result.status === "queued") return Response.json({ accepted: false, status: "queued", operation_id: result.operationId, operationId: result.operationId, dispatch_state: "queued", reconciliation_required: false }, { status: 202 });
   if (result.status === "consent_refused") return Response.json({ code: "consent_refused", operation_id: result.operationId, operationId: result.operationId }, { status: 409 });
   if (result.status === "conflict") return new Response("Conflicting idempotency payload", { status: 409 });
   return new Response("Upstream service unavailable", { status: result.status === "in_progress" ? 409 : 503 });

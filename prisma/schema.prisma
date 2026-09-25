@@ -1158,6 +1158,7 @@ model ExternalTransportOperation {
   providerAccountId   String
   providerAccount     ProviderAccount @relation(fields: [organizationId, providerAccountId], references: [organizationId, id], onDelete: Restrict)
   callbackDeliveries  ExternalCallbackDelivery[]
+  consentHold         ExternalConsentHeldContent?
 
   @@unique([organizationId, applicationId, idempotencyKey])
   @@unique([organizationId, providerAccountId, providerMessageId])
@@ -1243,6 +1244,17 @@ model ExternalRecipientConsent {
   proofCiphertext     String?
   grantedAt           DateTime?
   refusedAt           DateTime?
+  // The request that is, or was last, pending. Its text is written by the
+  // client application and kept encrypted until it is sent.
+  requestTextCiphertext    String?
+  requestTtlSeconds        Int?
+  requestQueuedAt          DateTime?
+  requestSentAt            DateTime?
+  requestAttempts          Int       @default(0)
+  requestProviderMessageId String?
+  // Counted from the moment the request actually leaves, not from the command.
+  expiresAt                DateTime?
+  expiredAt                DateTime?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
 
@@ -1253,8 +1265,40 @@ model ExternalRecipientConsent {
   providerAccountId String
   providerAccount   ProviderAccount     @relation(fields: [organizationId, providerAccountId], references: [organizationId, id], onDelete: Cascade)
 
+  heldContents ExternalConsentHeldContent[]
+
   @@unique([organizationId, applicationId, providerAccountId, recipientHash])
+  @@index([status, expiresAt])
+  @@index([providerAccountId, status, requestSentAt])
   @@map("external_recipient_consent")
+}
+
+enum ExternalConsentHeldStatus {
+  HELD
+  RELEASED
+  CANCELLED
+  EXPIRED
+}
+
+// A command waiting for its recipient's consent. Once released, the operation
+// itself carries the delivery lifecycle.
+model ExternalConsentHeldContent {
+  id                String                    @id @default(cuid())
+  status            ExternalConsentHeldStatus @default(HELD)
+  payloadCiphertext String
+  releasedAt        DateTime?
+  settledAt         DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  consentId   String
+  consent     ExternalRecipientConsent   @relation(fields: [consentId], references: [id], onDelete: Cascade)
+  operationId String                     @unique
+  operation   ExternalTransportOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  @@index([consentId, status])
+  @@index([status, releasedAt])
+  @@map("external_consent_held_content")
 }
 
 model WebhookEndpoint {

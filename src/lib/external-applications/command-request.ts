@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { ExternalCommand, ExternalCommandContent } from "./command-types";
+import { MAX_CONSENT_REQUEST_LENGTH, consentTtlSeconds } from "./consent-policy";
 import { parseDocumentContent } from "./whatsapp-document";
 
 const PHONE = /^\+[1-9]\d{6,14}$/;
@@ -21,6 +22,12 @@ const contentSchema = z.discriminatedUnion("type", [
   }).strict(),
 ]);
 
+const consentSchema = z.object({
+  request: z.object({ text: z.string().trim().min(1).max(MAX_CONSENT_REQUEST_LENGTH) }).strict(),
+  expiresInSeconds: z.number().finite().optional(),
+  expires_in_seconds: z.number().finite().optional(),
+}).strict();
+
 /** The shape every client already sends. */
 const snakeCaseSchema = z.object({
   operation_key: KEY,
@@ -28,6 +35,7 @@ const snakeCaseSchema = z.object({
   recipient: z.object({ type: z.literal("phone"), value: z.string().regex(PHONE) }).strict(),
   content: contentSchema,
   metadata: z.object({ idempotency_key: KEY }).strict(),
+  consent: consentSchema.optional(),
 }).strict();
 
 /** The flatter shape of the published contract, accepted alongside. */
@@ -37,24 +45,39 @@ const camelCaseSchema = z.object({
   channel: z.literal("whatsapp").optional(),
   recipient: z.string().regex(PHONE),
   content: contentSchema,
+  consent: consentSchema.optional(),
 }).strict();
 
 /** Returns null for anything that is not a well-formed command: the caller answers 400. */
 export function parseExternalCommandRequest(body: unknown): ExternalCommand | null {
   const snake = snakeCaseSchema.safeParse(body);
   if (snake.success) {
-    return buildCommand(snake.data.operation_key, snake.data.metadata.idempotency_key, snake.data.recipient.value, snake.data.content);
+    return buildCommand(snake.data.operation_key, snake.data.metadata.idempotency_key, snake.data.recipient.value, snake.data.content, snake.data.consent);
   }
   const camel = camelCaseSchema.safeParse(body);
   if (camel.success) {
-    return buildCommand(camel.data.operationKey, camel.data.idempotencyKey, camel.data.recipient, camel.data.content);
+    return buildCommand(camel.data.operationKey, camel.data.idempotencyKey, camel.data.recipient, camel.data.content, camel.data.consent);
   }
   return null;
 }
 
-function buildCommand(operationKey: string, idempotencyKey: string, recipient: string, input: z.infer<typeof contentSchema>): ExternalCommand | null {
+function buildCommand(
+  operationKey: string,
+  idempotencyKey: string,
+  recipient: string,
+  input: z.infer<typeof contentSchema>,
+  consent: z.infer<typeof consentSchema> | undefined,
+): ExternalCommand | null {
   const content = normalizeContent(input);
-  return content ? { operationKey, idempotencyKey, recipient, content } : null;
+  if (!content) return null;
+  const command: ExternalCommand = { operationKey, idempotencyKey, recipient, content };
+  if (consent) {
+    command.consent = {
+      requestText: consent.request.text,
+      expiresInSeconds: consentTtlSeconds(consent.expiresInSeconds ?? consent.expires_in_seconds),
+    };
+  }
+  return command;
 }
 
 function normalizeContent(input: z.infer<typeof contentSchema>): ExternalCommandContent | null {
