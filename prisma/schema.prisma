@@ -173,6 +173,7 @@ model Organization {
   applicationTemplateConfigs ApplicationTemplateConfig[]
   externalTransportOperations ExternalTransportOperation[]
   externalConversationWindows ExternalConversationWindow[]
+  externalRecipientConsents ExternalRecipientConsent[]
   phoneVerifications PhoneVerification[]
 
   @@map("organization")
@@ -1017,6 +1018,7 @@ model ExternalApplication {
   templateConfigs     ApplicationTemplateConfig[]
   transportOperations ExternalTransportOperation[]
   conversationWindows ExternalConversationWindow[]
+  recipientConsents   ExternalRecipientConsent[]
 
   @@unique([organizationId, key])
   @@unique([organizationId, id])
@@ -1066,6 +1068,7 @@ model ProviderAccount {
   templateConfigs     ApplicationTemplateConfig[]
   transportOperations ExternalTransportOperation[]
   conversationWindows ExternalConversationWindow[]
+  recipientConsents   ExternalRecipientConsent[]
 
   @@unique([organizationId, channel, provider, externalAccountId])
   @@unique([organizationId, id])
@@ -1132,6 +1135,9 @@ model ExternalTransportOperation {
   leaseExpiresAt           DateTime?
   leaseAcquiredAt          DateTime?
   providerMessageId        String?
+  // Why a command was refused, so an idempotent retry is answered with the
+  // same code instead of a generic provider rejection.
+  rejectionCode            String?
   reconciliationDecision   String?
   reconciliationFollowUpAt DateTime?
   reconciliationFollowUpById String?
@@ -1217,6 +1223,38 @@ model ExternalConversationWindow {
   @@unique([organizationId, applicationId, providerAccountId, channel, recipientHash])
   @@index([organizationId, applicationId, providerAccountId, channel, expiresAt])
   @@map("external_conversation_window")
+}
+
+enum ExternalConsentStatus {
+  PENDING
+  GRANTED
+  REFUSED
+  EXPIRED
+}
+
+// One row per (application, sending account, recipient). The recipient is kept
+// both as a keyed hash, for lookups, and encrypted, for callbacks; the reply
+// that settled the decision is kept encrypted as proof.
+model ExternalRecipientConsent {
+  id                  String                @id @default(cuid())
+  recipientHash       String
+  recipientCiphertext String
+  status              ExternalConsentStatus
+  proofCiphertext     String?
+  grantedAt           DateTime?
+  refusedAt           DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  organizationId    String
+  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId     String
+  application       ExternalApplication @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Cascade)
+  providerAccountId String
+  providerAccount   ProviderAccount     @relation(fields: [organizationId, providerAccountId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, applicationId, providerAccountId, recipientHash])
+  @@map("external_recipient_consent")
 }
 
 model WebhookEndpoint {

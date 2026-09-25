@@ -98,8 +98,20 @@ test("an unconfigured Evolution endpoint is refused before an operation exists",
 
 test("a durable Baileys rejection is persisted before the caller is answered", () => {
   const rejected = commands.indexOf('if (submission.outcome === "rejected")');
-  const finalize = commands.indexOf('await finalizeOperation(operation.id, leaseToken, "REJECTED")');
+  const finalize = commands.indexOf("await finalizeOperation(operation.id, leaseToken, submission.rejectionCode)");
 
   assert.ok(rejected >= 0, "the submission outcome drives the rejection branch");
   assert.ok(finalize > rejected, "the operation is finalized before returning the rejection");
+});
+
+test("a refused recipient is answered before any window or transport gate", () => {
+  const refusal = commands.indexOf("await isRecipientRefused(application, provider.id, command.recipient)");
+  const confirmed = commands.indexOf("isProviderConfirmedOperationStatus(operation.status)");
+  const windowCheck = commands.indexOf("hasOpenConversationWindow(application, provider.id, command.recipient)");
+
+  assert.ok(refusal > confirmed, "an already delivered command is still reported as accepted");
+  assert.ok(windowCheck > refusal, "the refusal is checked before the service window");
+  assert.match(commands, /rejectPendingOperation\(operation\.id, CONSENT_REFUSED_CODE\)/);
+  // An idempotent retry of a refused command keeps the refusal code.
+  assert.match(commands, /operation\.rejectionCode === CONSENT_REFUSED_CODE\) return \{ status: "consent_refused"/);
 });

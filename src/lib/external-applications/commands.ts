@@ -7,6 +7,8 @@ import {
   type ExternalApplicationContext,
   type MetaProviderConfiguration,
 } from "@/lib/external-applications/application";
+import { isRecipientRefused } from "@/lib/external-applications/consent-gate";
+import { CONSENT_REFUSED_CODE } from "@/lib/external-applications/consent-policy";
 import { hasActiveExternalWhatsAppConversationWindow } from "@/lib/external-applications/conversation-window";
 import { isProviderConfirmedOperationStatus, isProviderRejectedOperationStatus } from "@/lib/external-applications/message-status";
 import { renderWhatsAppTextTemplate, requiresWhatsAppServiceWindow } from "@/lib/external-applications/whatsapp-transport-policy";
@@ -48,13 +50,23 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
   // Checked before the window gate: a delivered message must never be answered
   // with a rejection because its 24h window has since closed.
   if (isProviderConfirmedOperationStatus(operation.status)) return { status: "accepted" as const, operationId: operation.id };
-  if (isProviderRejectedOperationStatus(operation.status)) return { status: "rejected" as const, operationId: operation.id };
+  if (operation.rejectionCode === CONSENT_REFUSED_CODE) return { status: "consent_refused" as const, operationId: operation.id };
+  if (isProviderRejectedOperationStatus(operation.status)) {
+    return { status: "rejected" as const, operationId: operation.id, rejectionCode: operation.rejectionCode ?? undefined };
+  }
   if (operation.status === "SUBMISSION_UNKNOWN") return { status: "submission_unknown" as const, operationId: operation.id };
+
+  // Before any other gate: a refusal is the recipient's own decision and must
+  // hold whatever the content, the transport or the window.
+  if (await isRecipientRefused(application, provider.id, command.recipient)) {
+    await rejectPendingOperation(operation.id, CONSENT_REFUSED_CODE);
+    return { status: "consent_refused" as const, operationId: operation.id };
+  }
 
   if (requiresWhatsAppServiceWindow(provider.kind, command.content.type)) {
     const windowOpen = await hasOpenConversationWindow(application, provider.id, command.recipient);
     if (!windowOpen) {
-      await rejectPendingOperation(operation.id);
+      await rejectPendingOperation(operation.id, "whatsapp_service_window_closed");
       return { status: "rejected" as const, operationId: operation.id, rejectionCode: "whatsapp_service_window_closed" };
     }
   }
@@ -82,7 +94,7 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
       ? await submitMetaCommand(application, provider, payload, operation.id)
       : await submitBaileysCommand(application, provider, payload);
     if (submission.outcome === "rejected") {
-      await finalizeOperation(operation.id, leaseToken, "REJECTED");
+      await finalizeOperation(operation.id, leaseToken, submission.rejectionCode);
       return { status: "rejected" as const, operationId: operation.id, rejectionCode: submission.rejectionCode };
     }
     if (submission.outcome === "unknown") return { status: "submission_unknown" as const, operationId: operation.id };
@@ -104,7 +116,7 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
       : { status: "submission_unknown" as const, operationId: operation.id };
   } catch (error) {
     if (error instanceof MissingTemplateConfigurationError) {
-      await finalizeOperation(operation.id, leaseToken, "REJECTED");
+      await finalizeOperation(operation.id, leaseToken, "template_not_configured");
       return { status: "rejected" as const, operationId: operation.id, rejectionCode: "template_not_configured" };
     }
     return { status: "submission_unknown" as const, operationId: operation.id };
@@ -278,17 +290,17 @@ function parseCommandPayload(value: string) {
   throw new Error("Invalid external application operation payload.");
 }
 
-function finalizeOperation(id: string, leaseToken: string, status: "REJECTED") {
+function finalizeOperation(id: string, leaseToken: string, rejectionCode: string) {
   return prisma.externalTransportOperation.updateMany({
     where: { id, status: "SUBMISSION_UNKNOWN", leaseToken },
-    data: { status, failedAt: new Date(), leaseToken: null, leaseExpiresAt: null },
+    data: { status: "REJECTED", rejectionCode, failedAt: new Date(), leaseToken: null, leaseExpiresAt: null },
   });
 }
 
-function rejectPendingOperation(id: string) {
+function rejectPendingOperation(id: string, rejectionCode: string) {
   return prisma.externalTransportOperation.updateMany({
     where: { id, status: "PENDING" },
-    data: { status: "REJECTED", failedAt: new Date() },
+    data: { status: "REJECTED", rejectionCode, failedAt: new Date() },
   });
 }
 

@@ -16,6 +16,7 @@ import {
   snapshotExternalApplicationCallbackDeliveries,
 } from "@/lib/external-applications/callback";
 import { encryptExternalApplicationValue, hashExternalApplicationPayload } from "@/lib/external-applications/crypto";
+import { applyInboundConsentReply } from "@/lib/external-applications/consent-inbound";
 import { extendExternalWhatsAppConversationWindow } from "@/lib/external-applications/conversation-window";
 import {
   MESSAGE_STATUS_EVENT,
@@ -31,6 +32,8 @@ import { prisma } from "@/lib/prisma";
 import { hasValidMetaHmac } from "@/lib/external-applications/signatures";
 
 const INBOUND_EVENT = "whatsapp.inbound_message";
+/** A reply that settled a consent request is recorded for idempotency, never forwarded. */
+const CONSENT_REPLY_OPERATION_KEY = "whatsapp.consent_reply";
 const MAX_WEBHOOK_BODY_BYTES = 256 * 1024;
 const MAX_STATUS_UPDATES_PER_REQUEST = 100;
 const MAX_CALLBACK_ATTEMPTS = 8;
@@ -279,12 +282,23 @@ async function findOrCreateInboundOperation(application: ExternalApplicationCont
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       return await prisma.$transaction(async (tx) => {
+        // Rows are written under the namespaced key; the raw id is still read
+        // so messages recorded before the namespace existed stay deduplicated.
         const existing = await tx.externalTransportOperation.findFirst({
-          where: { organizationId: application.organizationId, applicationId: application.id, idempotencyKey: message.providerMessageId },
+          where: {
+            organizationId: application.organizationId,
+            applicationId: application.id,
+            idempotencyKey: { in: [inboundIdempotencyKey(message.providerMessageId), message.providerMessageId] },
+          },
         });
         if (existing) return existing;
 
-        const callbackDeliveries = await snapshotExternalApplicationCallbackDeliveries(tx, {
+        const consent = await applyInboundConsentReply(tx, {
+          organizationId: application.organizationId,
+          applicationId: application.id,
+          providerAccountId,
+        }, message, recordedAt);
+        const callbackDeliveries = consent.consumed ? [] : await snapshotExternalApplicationCallbackDeliveries(tx, {
           applicationId: application.id,
           providerAccountId,
           event: INBOUND_EVENT,
@@ -294,7 +308,7 @@ async function findOrCreateInboundOperation(application: ExternalApplicationCont
         const operation = await tx.externalTransportOperation.create({
           data: {
             direction: "INBOUND",
-            operationKey: "whatsapp.inbound_message",
+            operationKey: consent.consumed ? CONSENT_REPLY_OPERATION_KEY : INBOUND_EVENT,
             idempotencyKey: inboundIdempotencyKey(message.providerMessageId),
             payloadHash: hashExternalApplicationPayload(payload),
             payloadCiphertext: encryptExternalApplicationValue(payload),
