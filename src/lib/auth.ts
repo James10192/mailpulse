@@ -137,7 +137,7 @@ export const auth = betterAuth({
       expiresIn: CONNEXION_CODE_TTL_SECONDS,
       allowedAttempts: 5,
       storeOTP: "hashed",
-      // Per IP; several people behind one carrier or school IP share it.
+      // Per IP; several people behind one carrier or office IP share it.
       rateLimit: { window: 60, max: 5 },
       async sendVerificationOTP({ email, otp, type }) {
         if (type !== "sign-in") return;
