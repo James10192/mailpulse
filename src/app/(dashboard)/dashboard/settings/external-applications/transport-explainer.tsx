@@ -18,7 +18,7 @@ const TRANSPORT_COPY: Record<WhatsAppTransport, { summary: string; pros: string[
     ],
     cons: [
       "Chaque message sortant hors conversation exige un template approuvé par Meta.",
-      "Fenêtre de service de 24 h : passé ce délai, seul un template peut relancer le parent.",
+      "Fenêtre de service de 24 h : passé ce délai, seul un template peut relancer le destinataire.",
       "Vérification d'entreprise obligatoire avant la mise en production.",
     ],
   },
@@ -26,7 +26,7 @@ const TRANSPORT_COPY: Record<WhatsAppTransport, { summary: string; pros: string[
     summary: "Session WhatsApp Web pilotée par Evolution API, non officielle.",
     pros: [
       "Aucun template à faire approuver : le corps du message est libre.",
-      "Aucune fenêtre de 24 h, vous relancez un parent à tout moment.",
+      "Aucune fenêtre de 24 h, vous relancez un destinataire à tout moment.",
       "Mise en service immédiate, sans vérification d'entreprise.",
     ],
     cons: [

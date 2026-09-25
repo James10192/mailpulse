@@ -1,6 +1,6 @@
 /**
  * Transport-shaped decisions for the external application WhatsApp rail, kept
- * dependency-free so the rules that decide what a parent finally reads are
+ * dependency-free so the rules that decide what a recipient finally reads are
  * directly testable without a database or an HTTP client.
  */
 
@@ -39,7 +39,7 @@ export function requiresWhatsAppServiceWindow(providerKind: WhatsAppTransportKin
 /**
  * Baileys has no approved-template concept, so the configured template id is
  * read as a body carrying {{1}}, {{2}}... markers. Any mismatch between markers
- * and parameters fails the whole render: a parent must never receive a message
+ * and parameters fails the whole render: a recipient must never receive a message
  * still showing its own placeholder syntax.
  */
 export function renderWhatsAppTextTemplate(body: string, parameters: readonly string[]): WhatsAppTemplateRender {

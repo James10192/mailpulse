@@ -222,8 +222,8 @@ async function upsertMetaProviderAccount(organizationId: string, applicationId: 
     select: { id: true, applicationId: true },
   });
 
-  // Silently re-parenting the account would break the previous application's
-  // outbound path and reroute its parents' inbound messages to this one.
+  // Silently moving the account would break the previous application's
+  // outbound path and reroute its recipients' inbound messages to this one.
   if (existing?.applicationId && existing.applicationId !== applicationId && !values["reassign-provider-account"]) {
     throw new Error(
       `Le compte fournisseur ${existing.id} (WABA ${waba}) appartient déjà à l'application ${existing.applicationId}. Relancez avec --reassign-provider-account pour le transférer en connaissance de cause.`,

@@ -258,8 +258,8 @@ function getInboundTextMessages(payload: unknown, senderId: string, now = new Da
 /**
  * Inbound and outbound operations share one uniqueness constraint, and on a
  * WhatsApp Web session the provider message id is chosen by the sender's own
- * device. Without this namespace a parent could send a message whose id equals
- * a school's outbound idempotency key and permanently block that notification.
+ * device. Without this namespace a sender could send a message whose id equals
+ * a client application's outbound idempotency key and permanently block that notification.
  */
 function inboundIdempotencyKey(providerMessageId: string) {
   return `in:${providerMessageId}`;
