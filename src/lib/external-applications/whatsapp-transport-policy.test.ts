@@ -90,6 +90,8 @@ test("only Meta free-form text is gated behind the 24h service window", () => {
   // transport would have delivered.
   assert.equal(requiresWhatsAppServiceWindow("meta", "text"), true);
   assert.equal(requiresWhatsAppServiceWindow("meta", "template"), false);
+  assert.equal(requiresWhatsAppServiceWindow("meta", "document"), true);
+  assert.equal(requiresWhatsAppServiceWindow("baileys", "document"), false);
   assert.equal(requiresWhatsAppServiceWindow("baileys", "text"), false);
   assert.equal(requiresWhatsAppServiceWindow("baileys", "template"), false);
 });

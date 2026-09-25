@@ -1,22 +1,8 @@
-import { z } from "zod";
-
 import { resolveCommandCredential, resolveExternalApplication } from "@/lib/external-applications/application";
+import { parseExternalCommandRequest } from "@/lib/external-applications/command-request";
 import { dispatchExternalApplicationCommand } from "@/lib/external-applications/commands";
 import { decryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import { hasValidVersionedSignature, isFreshExternalApplicationTimestamp, parseVersionedSignature } from "@/lib/external-applications/signatures";
-
-const commandSchema = z.object({
-  operation_key: z.string().trim().min(1).max(128),
-  channel: z.literal("whatsapp"),
-  recipient: z.object({ type: z.literal("phone"), value: z.string().regex(/^\+[1-9]\d{6,14}$/) }).strict(),
-  content: z.discriminatedUnion("type", [
-    // 4096 is the WhatsApp text body limit. A tighter bound here would reject
-    // legitimate long replies with an opaque 400.
-    z.object({ type: z.literal("text"), text: z.string().trim().min(1).max(4096) }).strict(),
-    z.object({ type: z.literal("template"), locale: z.string().trim().min(2).max(20), parameters: z.array(z.string().trim().min(1).max(512)).max(10).default([]) }).strict(),
-  ]),
-  metadata: z.object({ idempotency_key: z.string().trim().min(1).max(128) }).strict(),
-}).strict();
 
 export const runtime = "nodejs";
 
@@ -42,11 +28,11 @@ export async function POST(request: Request, context: { params: Promise<{ applic
   }
   if (!hasValidVersionedSignature(signature, credential.keyId, secret, timestamp!, rawBody)) return new Response("Unauthorized", { status: 401 });
 
-  const parsed = commandSchema.safeParse(parseJson(rawBody));
-  if (!parsed.success) return Response.json({ error: "Invalid payload" }, { status: 400 });
+  const command = parseExternalCommandRequest(parseJson(rawBody));
+  if (!command) return Response.json({ error: "Invalid payload" }, { status: 400 });
   let result;
   try {
-    result = await dispatchExternalApplicationCommand(application, normalizeCommand(parsed.data));
+    result = await dispatchExternalApplicationCommand(application, command);
   } catch {
     return new Response("Service unavailable", { status: 503 });
   }
@@ -56,17 +42,6 @@ export async function POST(request: Request, context: { params: Promise<{ applic
   if (result.status === "consent_refused") return Response.json({ code: "consent_refused", operation_id: result.operationId, operationId: result.operationId }, { status: 409 });
   if (result.status === "conflict") return new Response("Conflicting idempotency payload", { status: 409 });
   return new Response("Upstream service unavailable", { status: result.status === "in_progress" ? 409 : 503 });
-}
-
-function normalizeCommand(input: z.infer<typeof commandSchema>) {
-  return {
-    operationKey: input.operation_key,
-    idempotencyKey: input.metadata.idempotency_key,
-    recipient: input.recipient.value,
-    content: input.content.type === "text"
-      ? { type: "text" as const, text: input.content.text }
-      : { type: "template" as const, locale: input.content.locale, parameters: input.content.parameters },
-  };
 }
 
 function parseJson(value: string): unknown | null {

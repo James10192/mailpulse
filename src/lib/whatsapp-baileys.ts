@@ -303,6 +303,37 @@ export async function sendMedia(
   );
 }
 
+/**
+ * A file sent as a WhatsApp document, with its real name and media type. The
+ * generic `sendMedia` above guesses both from the media kind, which shows every
+ * file as `file.pdf` on the recipient's phone.
+ */
+export async function sendDocument(
+  instanceName: string,
+  to: string,
+  document: { url: string; filename: string; mimeType: string; caption?: string },
+) {
+  const number = normalizePhone(to);
+  if (!number) {
+    throw new Error("Numéro WhatsApp requis.");
+  }
+
+  return evoFetch<SendMessageResult>(
+    `/message/sendMedia/${instanceName}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        number,
+        mediatype: "document",
+        mimetype: document.mimeType,
+        media: document.url,
+        fileName: document.filename,
+        ...(document.caption ? { caption: document.caption } : {}),
+      }),
+    },
+  );
+}
+
 // ─── Webhook ────────────────────────────────────────────
 
 export async function setWebhook(

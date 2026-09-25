@@ -26,12 +26,14 @@ const TEMPLATE_REJECTION_CODES: Record<WhatsAppTemplateRenderReason, string> = {
 const PLACEHOLDER = /\{\{([^{}]*)\}\}/g;
 
 /**
- * Meta refuses free-form text outside the 24h service window. A Baileys session
+ * Meta refuses free-form content outside the 24h service window. A Baileys session
  * is a WhatsApp Web client with no such window, so applying the gate there would
  * silently drop replies the transport would have delivered.
  */
-export function requiresWhatsAppServiceWindow(providerKind: WhatsAppTransportKind, contentType: "text" | "template") {
-  return providerKind === "meta" && contentType === "text";
+export function requiresWhatsAppServiceWindow(providerKind: WhatsAppTransportKind, contentType: "text" | "template" | "document") {
+  // A document is free-form content too: only an approved template may open
+  // a conversation on Meta.
+  return providerKind === "meta" && contentType !== "template";
 }
 
 /**
