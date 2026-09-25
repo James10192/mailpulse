@@ -114,35 +114,33 @@ function TimelinePanel() {
 }
 
 function FlowPanel() {
-  const node = "flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 font-mono text-[12px]";
+  const row = "grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-lg border border-white/[0.08] px-3 py-2.5 font-mono text-[12px]";
+  const RETOURS = [
+    { evt: "Rebond définitif", effet: "contact désabonné", Icon: Mail },
+    { evt: "Plainte pour spam", effet: "contact exclu", Icon: Mail },
+    { evt: "Lien de désabonnement", effet: "désabonné en 1 clic", Icon: Tag },
+  ];
   return (
-    <div className="flex flex-col items-center gap-2">
-      <span className={cn(node, "border-white/[0.08] text-zinc-200")}>
-        <Mail aria-hidden className="size-3.5 text-zinc-400" /> Campagne envoyée
-      </span>
-      <span aria-hidden className="h-4 w-px bg-white/[0.1]" />
-      <span className={cn(node, "border-white/[0.08] text-zinc-200")}>
-        <Timer aria-hidden className="size-3.5 text-zinc-400" /> Attendre 2 jours
-      </span>
-      <span aria-hidden className="h-4 w-px bg-white/[0.1]" />
-      <span className={cn(node, "border-white/[0.08] text-zinc-200")}>
-        <GitBranch aria-hidden className="size-3.5 text-zinc-400" /> Ouvert ?
-      </span>
-      <div className="grid w-full max-w-[360px] grid-cols-2 gap-3 pt-2">
-        <div className="flex flex-col items-center gap-2">
-          <span className="font-mono text-[11px] text-orange-300">non · 612</span>
-          <span className={cn(node, "w-full justify-center border-orange-500/40 bg-orange-500/10 text-orange-100")}>
-            <Mail aria-hidden className="size-3.5" /> Relance
+    <div className="flex flex-col gap-2.5">
+      {RETOURS.map(({ evt, effet, Icon }) => (
+        <div key={evt} className={row}>
+          <span className="flex min-w-0 items-center gap-2 text-zinc-200">
+            <Icon aria-hidden className="size-3.5 shrink-0 text-zinc-400" />
+            <span className="truncate">{evt}</span>
           </span>
+          <GitBranch aria-hidden className="size-3.5 text-zinc-600" />
+          <span className="truncate text-right text-orange-300">{effet}</span>
         </div>
-        <div className="flex flex-col items-center gap-2">
-          <span className="font-mono text-[11px] text-zinc-500">oui · 1 706</span>
-          <span className={cn(node, "w-full justify-center border-white/[0.08] text-zinc-300")}>
-            <Tag aria-hidden className="size-3.5" /> Tag « engagé »
-          </span>
-        </div>
+      ))}
+      <div className={cn(row, "border-orange-500/35 bg-orange-500/[0.06]")}>
+        <span className="flex min-w-0 items-center gap-2 text-zinc-200">
+          <Timer aria-hidden className="size-3.5 shrink-0 text-zinc-400" />
+          <span className="truncate">message.delivered</span>
+        </span>
+        <GitBranch aria-hidden className="size-3.5 text-zinc-600" />
+        <span className="truncate text-right text-orange-200">webhook signé</span>
       </div>
-      <p className="mt-3 text-center font-mono text-[11px] text-zinc-500">Un webhook signé prévient votre application.</p>
+      <p className="mt-2 text-center font-mono text-[11px] text-zinc-400">Aucune action manuelle.</p>
     </div>
   );
 }
@@ -158,7 +156,7 @@ const STEPS = [
   {
     n: "02",
     title: "Composez une fois",
-    text: "Un message, des variables, un segment. Choisissez l'e-mail, WhatsApp ou le SMS selon ce que vos contacts lisent vraiment.",
+    text: "Un message, des variables, un segment. Choisissez l'e-mail ou WhatsApp pour la campagne, le SMS sur demande.",
     window: "Campagnes / Nouvelle campagne",
     Panel: ComposePanel,
   },
@@ -171,9 +169,9 @@ const STEPS = [
   },
   {
     n: "04",
-    title: "Réagissez automatiquement",
-    text: "Pas ouvert après deux jours ? Une relance part toute seule. Un rebond définitif ou un désabonnement met le contact à jour.",
-    window: "Automatisations / Relance",
+    title: "Laissez les retours travailler",
+    text: "Un rebond définitif, une plainte ou un désabonnement met le contact à jour tout seul, et un webhook signé prévient votre application.",
+    window: "Contacts / Mises à jour",
     Panel: FlowPanel,
   },
 ];
@@ -199,12 +197,12 @@ function StepText({
   const { Panel } = step;
 
   return (
-    <div ref={ref} className="min-w-0 lg:flex lg:min-h-[70vh] lg:items-center">
+    <div ref={ref} className="min-w-0 lg:flex lg:min-h-[55vh] lg:items-center">
       <div className="max-w-[460px]">
         <span
           className={cn(
             "font-mono text-sm transition-colors duration-200",
-            active ? "text-orange-400" : "text-zinc-600",
+            active ? "text-orange-400" : "text-zinc-500",
           )}
         >
           {step.n}

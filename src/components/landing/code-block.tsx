@@ -90,7 +90,7 @@ const TOKEN_CLASS: Record<NonNullable<Token["c"]>, string> = {
   str: "text-orange-300",
   key: "text-zinc-300",
   punct: "text-zinc-500",
-  dim: "text-zinc-600",
+  dim: "text-zinc-500",
   fn: "text-zinc-100",
 };
 

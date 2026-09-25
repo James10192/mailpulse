@@ -54,7 +54,7 @@ const FREE_CONTACTS = formatNumber(PLAN_LIMITS.FREE.contacts);
 const INFRA = [
   { Icon: Mail, label: "Envoi e-mail via Resend" },
   { Icon: MessageCircle, label: "WhatsApp Cloud API (Meta)" },
-  { Icon: MessageSquareText, label: "SMS Orange" },
+  { Icon: MessageSquareText, label: "SMS (Côte d'Ivoire, sur demande)" },
   { Icon: Webhook, label: "Webhooks signés HMAC SHA-256" },
   { Icon: KeyRound, label: "Clés d'API par organisation" },
   { Icon: ShieldCheck, label: "Désabonnement en un clic" },
@@ -104,7 +104,7 @@ const PLANS: {
   highlighted: boolean;
 }[] = [
   { tier: "FREE", name: PLAN_LIMITS.FREE.label, desc: "Pour démarrer", cta: "Commencer gratuitement", href: "/login", highlighted: false },
-  { tier: "PRO", name: PLAN_LIMITS.PRO.label, desc: "Pour les équipes", cta: "Choisir Pro", href: "/login", highlighted: true },
+  { tier: "PRO", name: PLAN_LIMITS.PRO.label, desc: "Pour les équipes", cta: "Choisir Pro", href: "/login?callbackUrl=%2Fdashboard%2Fsettings%2Fbilling", highlighted: true },
   {
     tier: "ENTERPRISE",
     name: "Entreprise",
@@ -134,7 +134,7 @@ const FAQ = [
   },
   {
     q: "Puis-je envoyer des codes de vérification ?",
-    a: "Oui, par WhatsApp. MailPulse génère le code à 6 chiffres, l'envoie, gère l'expiration après 10 minutes et bloque après 5 essais. Votre application ne voit jamais le code.",
+    a: "Oui, par WhatsApp, via un numéro connecté par QR code. MailPulse génère le code à 6 chiffres, l'envoie, gère l'expiration après 10 minutes et bloque après 5 essais. Votre application ne voit jamais le code.",
   },
   {
     q: "Que se passe-t-il si j'atteins une limite de mon plan ?",
@@ -194,7 +194,7 @@ function Hero() {
             <span className="rounded-full bg-orange-500/15 px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-orange-300">
               Nouveau
             </span>
-            <span className="truncate">WhatsApp et SMS dans le même flux</span>
+            <span className="truncate">E-mail et WhatsApp dans le même suivi</span>
             <ArrowRight aria-hidden className="size-3.5 shrink-0" />
           </Link>
 
@@ -203,7 +203,7 @@ function Hero() {
             Chaque message part. Vous voyez où il arrive.
           </h1>
           <p className="mt-6 text-pretty text-[17px] leading-[1.5] tracking-[-0.01em] text-zinc-400 md:mx-auto md:max-w-[640px] md:text-xl">
-            E-mail, WhatsApp et SMS depuis une seule plateforme. Campagnes, automatisations et codes de
+            E-mail et WhatsApp depuis une seule plateforme, SMS sur demande. Campagnes, segments et codes de
             vérification, avec le suivi de chaque ouverture, chaque clic et chaque réponse, en direct.
           </p>
 
@@ -219,8 +219,8 @@ function Hero() {
               Voir la documentation API
             </Link>
           </div>
-          <p className="mt-4 text-[13px] text-zinc-500">
-            Gratuit jusqu&apos;à {FREE_CONTACTS} contacts · Sans carte bancaire · Tarifs en FCFA
+          <p className="mt-4 text-[13px] text-zinc-400">
+            Gratuit en e-mail jusqu&apos;à {FREE_CONTACTS} contacts · Sans carte bancaire · Tarifs en FCFA
           </p>
         </div>
 
@@ -253,7 +253,7 @@ function InfraStrip() {
   return (
     <section aria-labelledby="infra-title" className="border-y border-white/[0.06] py-8">
       <Container>
-        <p id="infra-title" className="text-center text-[13px] text-zinc-500">
+        <p id="infra-title" className="text-center text-[13px] text-zinc-400">
           Construit sur une infrastructure que vous connaissez déjà
         </p>
       </Container>
@@ -326,7 +326,7 @@ function Platform() {
           <BentoCard
             className="md:col-span-2 lg:col-span-4 lg:row-span-2"
             title="Un message, trois canaux"
-            text="Écrivez une fois. Envoyez par e-mail, WhatsApp ou SMS selon ce que chaque contact lit vraiment."
+            text="Écrivez une fois. Choisissez pour chaque campagne l'e-mail, WhatsApp ou le SMS, avec les mêmes variables et le même suivi."
           >
             <ChannelsMock />
           </BentoCard>
@@ -347,7 +347,7 @@ function Platform() {
           <BentoCard
             className="lg:col-span-3"
             title="Des parcours, pas des listes"
-            text="Déclencheur, délai, condition, action. Dessinez le parcours, MailPulse l'exécute."
+            text="Déclencheur, délai, condition, action : dessinez vos parcours dès aujourd'hui. Leur exécution automatique arrive prochainement."
           >
             <AutomationMock />
           </BentoCard>
@@ -394,7 +394,7 @@ function Developers() {
             <Eyebrow>Pour les développeurs</Eyebrow>
             <H2 className="mt-4">Une requête pour envoyer. Un webhook pour tout savoir.</H2>
             <Lead className="mt-5">
-              API REST, clés par organisation, webhooks signés. La même API alimente notre propre interface.
+              API REST, clés par organisation, webhooks signés, requêtes idempotentes.
             </Lead>
             <ul className="mt-8 space-y-3">
               {DEV_POINTS.map((point) => (
@@ -521,7 +521,7 @@ function Pricing() {
             );
           })}
         </Stagger>
-        <p className="mt-8 text-center text-[13px] text-zinc-500">
+        <p className="mt-8 text-center text-[13px] text-zinc-400">
           Tarifs par organisation. Une question sur les volumes ?{" "}
           <Link href="/contact" className="text-zinc-300 underline underline-offset-4 hover:text-zinc-50">
             Écrivez-nous
@@ -586,7 +586,7 @@ function FinalCta() {
               className="mp-breathe pointer-events-none absolute -bottom-40 left-1/2 h-[320px] w-[720px] max-w-[160vw] -translate-x-1/2 rounded-full bg-orange-500 opacity-[0.1] blur-[100px]"
             />
             <div className="relative mx-auto max-w-[640px]">
-              <H2>Votre prochain envoi peut partir dans dix minutes.</H2>
+              <H2>Créez votre compte en deux minutes.</H2>
               <Lead className="mx-auto mt-5">Créez un compte, importez une liste, envoyez. On s&apos;occupe du suivi.</Lead>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
                 <LandingCTATracker location="footer_cta">
@@ -599,7 +599,7 @@ function FinalCta() {
                   Parler à l&apos;équipe
                 </Link>
               </div>
-              <p className="mt-4 text-[13px] text-zinc-500">Sans carte bancaire · Interface en français</p>
+              <p className="mt-4 text-[13px] text-zinc-400">Sans carte bancaire · Interface en français</p>
             </div>
           </div>
         </Reveal>
@@ -653,8 +653,8 @@ function Footer() {
         <div className="grid gap-10 lg:grid-cols-[1.4fr_repeat(4,1fr)]">
           <div className="max-w-[280px]">
             <Logo />
-            <p className="mt-3 text-[13px] leading-[1.6] text-zinc-500">
-              E-mail, WhatsApp et SMS depuis une seule plateforme, avec le suivi de chaque message.
+            <p className="mt-3 text-[13px] leading-[1.6] text-zinc-400">
+              E-mail et WhatsApp depuis une seule plateforme, SMS sur demande, avec le suivi de chaque message.
             </p>
           </div>
           <nav aria-label="Pied de page" className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4 lg:col-span-4">
@@ -666,7 +666,7 @@ function Footer() {
                     <li key={link.label}>
                       <Link
                         href={link.href}
-                        className="inline-flex min-h-11 items-center text-[13px] text-zinc-500 transition-colors hover:text-zinc-200 sm:min-h-9"
+                        className="inline-flex min-h-11 items-center text-[13px] text-zinc-400 transition-colors hover:text-zinc-200 sm:min-h-9"
                       >
                         {link.label}
                       </Link>
@@ -677,7 +677,7 @@ function Footer() {
             ))}
           </nav>
         </div>
-        <div className="mt-12 flex flex-col gap-2 border-t border-white/[0.06] py-6 text-[13px] text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-12 flex flex-col gap-2 border-t border-white/[0.06] py-6 text-[13px] text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} MailPulse</p>
           <p>Prix en FCFA · Interface en français</p>
         </div>

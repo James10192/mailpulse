@@ -51,7 +51,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     snippets: -1,
     segments: -1,
     domains: -1,
-    label: "Enterprise",
+    label: "Entreprise",
     priceFCFA: -1,
   },
 };
@@ -66,21 +66,21 @@ export const PLAN_CATALOG: Record<PlanTier, { features: readonly string[] }> = {
   FREE: {
     features: [
       "1 000 contacts",
-      "5 000 emails par mois",
+      "5 000 e-mails par mois",
       "3 campagnes actives",
-      "1 automation, 3 segments et 10 snippets",
+      "1 automatisation, 3 segments et 10 blocs réutilisables",
       "1 domaine d’envoi",
-      "Analytics essentiels",
+      "Statistiques essentielles",
     ],
   },
   PRO: {
     features: [
       "25 000 contacts",
-      "Emails, campagnes, automations, segments et snippets illimités",
+      "E-mails, campagnes, automatisations, segments et blocs réutilisables illimités",
       "Domaines d’envoi illimités",
       "Campagnes WhatsApp",
       "API et webhooks",
-      "Recouvrements et support prioritaire",
+      "Relances de paiement (recouvrement)",
     ],
   },
   ENTERPRISE: {

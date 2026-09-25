@@ -69,9 +69,9 @@ const TABS = [
 ] as const;
 
 const PREFS = [
-  { name: "Awa K.", channel: "whatsapp" },
-  { name: "Karim T.", channel: "email" },
-  { name: "Mariam D.", channel: "sms" },
+  { name: "Rappel rendez-vous", channel: "whatsapp" },
+  { name: "Lettre de mars", channel: "email" },
+  { name: "Alerte échéance", channel: "sms" },
 ] as const;
 
 export function ChannelsMock() {
@@ -122,7 +122,7 @@ export function ChannelsMock() {
             <span>{current === "sms" ? "96 / 918 car." : "Aperçu à droite"}</span>
           </p>
           <div className="mt-auto border-t border-white/[0.06] pt-3">
-            <p className="text-zinc-500">Canal préféré par contact</p>
+            <p className="text-zinc-400">Canal de la campagne</p>
             <ul className="mt-2 space-y-1">
               {PREFS.map((pref) => (
                 <li
