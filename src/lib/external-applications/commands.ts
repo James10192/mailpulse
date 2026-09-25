@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { decryptExternalApplicationValue, encryptExternalApplicationValue, hashExternalApplicationPayload } from "@/lib/external-applications/crypto";
-import { resolveWhatsAppProvider, type ExternalApplicationContext } from "@/lib/external-applications/application";
+import { resolveWhatsAppProvider, type ExternalApplicationContext, type ExternalWhatsAppProvider } from "@/lib/external-applications/application";
 import type { ExternalCommand } from "@/lib/external-applications/command-types";
 import {
   MissingTemplateConfigurationError,
@@ -65,12 +65,25 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
     }
   }
 
+  return submitOperation(application, provider, operation);
+}
+
+/**
+ * Claims the operation and submits it once. Shared by the immediate path and by
+ * the paced queue, which claims a consent-released command from QUEUED.
+ */
+export async function submitOperation(
+  application: ExternalApplicationContext,
+  provider: ExternalWhatsAppProvider,
+  operation: { id: string; payloadCiphertext: string | null },
+  claimableStatus: "PENDING" | typeof QUEUED_STATUS = "PENDING",
+) {
   const leaseToken = randomUUID();
   const now = new Date();
   const claimed = await prisma.externalTransportOperation.updateMany({
     where: {
       id: operation.id,
-      OR: [{ status: "PENDING" }, { status: "PROCESSING", leaseExpiresAt: { lt: now } }],
+      OR: [{ status: claimableStatus }, { status: "PROCESSING", leaseExpiresAt: { lt: now } }],
     },
     data: { status: "PROCESSING", leaseToken, leaseAcquiredAt: now, leaseExpiresAt: new Date(now.getTime() + LEASE_DURATION_MS) },
   });

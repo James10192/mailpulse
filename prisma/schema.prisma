@@ -174,6 +174,7 @@ model Organization {
   externalTransportOperations ExternalTransportOperation[]
   externalConversationWindows ExternalConversationWindow[]
   externalRecipientConsents ExternalRecipientConsent[]
+  externalSenderPacings ExternalSenderPacing[]
   phoneVerifications PhoneVerification[]
 
   @@map("organization")
@@ -1069,6 +1070,7 @@ model ProviderAccount {
   transportOperations ExternalTransportOperation[]
   conversationWindows ExternalConversationWindow[]
   recipientConsents   ExternalRecipientConsent[]
+  senderPacing        ExternalSenderPacing?
 
   @@unique([organizationId, channel, provider, externalAccountId])
   @@unique([organizationId, id])
@@ -1271,6 +1273,29 @@ model ExternalRecipientConsent {
   @@index([status, expiresAt])
   @@index([providerAccountId, status, requestSentAt])
   @@map("external_recipient_consent")
+}
+
+// Per sending account: when it may write next, and how much. The lease keeps
+// two overlapping queue runs from sending on the same account at once.
+model ExternalSenderPacing {
+  id                       String    @id @default(cuid())
+  dailyConsentRequestLimit Int       @default(40)
+  quietHoursStart          Int       @default(21)
+  quietHoursEnd            Int       @default(7)
+  timeZone                 String    @default("Africa/Abidjan")
+  nextSendAt               DateTime?
+  leaseToken               String?
+  leaseExpiresAt           DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  organizationId    String
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerAccountId String
+  providerAccount   ProviderAccount @relation(fields: [organizationId, providerAccountId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, providerAccountId])
+  @@map("external_sender_pacing")
 }
 
 enum ExternalConsentHeldStatus {
