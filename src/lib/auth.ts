@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { emailOTP, organization } from "better-auth/plugins";
 import { dash } from "@better-auth/infra";
@@ -7,7 +8,12 @@ import { prisma } from "./prisma";
 import { sendEmail } from "./resend";
 import { CONNEXION_CODE_TTL_SECONDS, courrielConnexion, lienConnexion } from "./email/connexion";
 
-const BASE_URL = (process.env.BETTER_AUTH_URL || "http://localhost:3000").trim();
+// Sign-in links are built from this: in production without BETTER_AUTH_URL
+// they must not point to localhost.
+const BASE_URL = (
+  process.env.BETTER_AUTH_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")
+).trim();
 
 const rpID = (() => {
   try { return new URL(BASE_URL).hostname; }
@@ -27,9 +33,40 @@ export const auth = betterAuth({
     provider: "postgresql",
   }),
 
+  // Passwordless only. Leaving password sign-up open let anyone register a
+  // victim's address with a password first: the victim's later code sign-in
+  // would land in that account and the attacker's password would keep working.
   emailAndPassword: {
-    enabled: true,
-    minPasswordLength: 8,
+    enabled: false,
+  },
+
+  rateLimit: {
+    enabled: process.env.NODE_ENV === "production",
+    storage: "database",
+  },
+
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/email-otp/send-verification-otp") return;
+      const email = String(ctx.body?.email ?? "").trim().toLowerCase();
+      if (email && !(await autoriserEnvoiCode(email))) {
+        throw new APIError("TOO_MANY_REQUESTS", {
+          message: "Trop de codes demandés pour cette adresse. Réessayez dans une heure.",
+        });
+      }
+    }),
+  },
+
+  databaseHooks: {
+    user: {
+      create: {
+        // Code sign-in creates the account with an empty name. Give it the
+        // part before the @ so every screen and the activity feed have one.
+        before: async (user) => ({
+          data: { ...user, name: user.name?.trim() || user.email.split("@")[0] },
+        }),
+      },
+    },
   },
 
   socialProviders: {
@@ -46,7 +83,9 @@ export const auth = betterAuth({
   account: {
     accountLinking: {
       enabled: true,
-      trustedProviders: ["google", "github"],
+      // Google only: GitHub can return an unverified primary email, and a
+      // trusted provider links without checking it.
+      trustedProviders: ["google"],
     },
   },
 
@@ -63,7 +102,8 @@ export const auth = betterAuth({
       expiresIn: CONNEXION_CODE_TTL_SECONDS,
       allowedAttempts: 5,
       storeOTP: "hashed",
-      rateLimit: { window: 60, max: 3 },
+      // Per IP; several people behind one carrier or school IP share it.
+      rateLimit: { window: 60, max: 5 },
       async sendVerificationOTP({ email, otp, type }) {
         if (type !== "sign-in") return;
         const message = courrielConnexion({ email, code: otp, lien: lienConnexion(BASE_URL, email, otp) });
@@ -94,3 +134,30 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24, // 1 day
   },
 });
+
+const CODES_PAR_ADRESSE = 5;
+const FENETRE_ADRESSE_MS = 60 * 60 * 1000;
+
+/**
+ * Per-address cap on sign-in codes, whatever the IP: stops an inbox from
+ * being flooded, and stops fresh codes from locking someone out by replacing
+ * theirs over and over.
+ */
+async function autoriserEnvoiCode(email: string): Promise<boolean> {
+  if (process.env.NODE_ENV !== "production") return true;
+  const key = `otp-email:${email}`;
+  const now = Date.now();
+  const courant = await prisma.rateLimit.findUnique({ where: { key } });
+
+  if (!courant || now - Number(courant.lastRequest) > FENETRE_ADRESSE_MS) {
+    await prisma.rateLimit.upsert({
+      where: { key },
+      create: { key, count: 1, lastRequest: BigInt(now) },
+      update: { count: 1, lastRequest: BigInt(now) },
+    });
+    return true;
+  }
+  if (courant.count >= CODES_PAR_ADRESSE) return false;
+  await prisma.rateLimit.update({ where: { key }, data: { count: { increment: 1 } } });
+  return true;
+}

@@ -12,6 +12,7 @@ import { authClient, signIn } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 import { CasesCode, LONGUEUR_CODE } from "./cases-code";
+import { memoriserDemande, oublierDemande } from "./demande-connexion";
 
 const DELAI_RENVOI_S = 45;
 
@@ -67,10 +68,13 @@ export function ConnexionEmail({
   destination,
   emailInitial = "",
   codeInitial = "",
+  saisieDepuisLien = false,
 }: {
   destination: string;
   emailInitial?: string;
   codeInitial?: string;
+  /** Opened from an email link this browser did not request: type the code. */
+  saisieDepuisLien?: boolean;
 }) {
   const router = useRouter();
   const posthog = usePostHog();
@@ -78,7 +82,7 @@ export function ConnexionEmail({
   const id = useId();
   const arriveeParLien = codeInitial.length === LONGUEUR_CODE && emailValide(emailInitial);
 
-  const [etape, setEtape] = useState<Etape>(arriveeParLien ? "code" : "email");
+  const [etape, setEtape] = useState<Etape>(arriveeParLien || (saisieDepuisLien && emailValide(emailInitial)) ? "code" : "email");
   const [email, setEmail] = useState(emailInitial);
   const [emailTouche, setEmailTouche] = useState(false);
   const [envoi, setEnvoi] = useState(false);
@@ -86,9 +90,13 @@ export function ConnexionEmail({
   const [etatCode, setEtatCode] = useState<EtatCode>("normal");
   const [secousse, setSecousse] = useState(0);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(arriveeParLien ? "Code reconnu depuis votre e-mail. Confirmez pour vous connecter." : null);
+  const [info, setInfo] = useState<string | null>(
+    arriveeParLien
+      ? "Code reconnu depuis votre e-mail. Confirmez pour vous connecter."
+      : null,
+  );
   const [codeEpuise, setCodeEpuise] = useState(false);
-  const [attente, setAttente] = useState(arriveeParLien ? 0 : DELAI_RENVOI_S);
+  const [attente, setAttente] = useState(arriveeParLien || saisieDepuisLien ? 0 : DELAI_RENVOI_S);
   const [fournisseur, setFournisseur] = useState<Fournisseur | null>(null);
 
   const titre = useRef<HTMLHeadingElement>(null);
@@ -106,6 +114,12 @@ export function ConnexionEmail({
     if (etape === "email" && window.matchMedia("(pointer: fine)").matches) champEmail.current?.focus();
     if (etape === "code" && !arriveeParLien) champCode.current?.focus();
   }, [etape, arriveeParLien]);
+
+  // After a wrong code, focus back to the field once it is enabled again:
+  // focusing it while still disabled does nothing.
+  useEffect(() => {
+    if (etatCode === "erreur") champCode.current?.focus();
+  }, [etatCode, secousse]);
 
   useEffect(() => {
     if (etape !== "code" || attente <= 0) return;
@@ -131,6 +145,7 @@ export function ConnexionEmail({
           : "L'envoi du code a échoué. Réessayez dans un instant.");
         return;
       }
+      memoriserDemande(email, destination);
       setCode("");
       setEtatCode("normal");
       setCodeEpuise(false);
@@ -155,6 +170,7 @@ export function ConnexionEmail({
         setEtatCode("succes");
         setInfo("C'est bon. On vous connecte…");
         posthog?.capture(EVENTS.USER_LOGGED_IN, { method: "email_otp" });
+        oublierDemande();
         router.replace(destination);
         router.refresh();
         return;
@@ -173,16 +189,20 @@ export function ConnexionEmail({
         setErreur("Trop d'essais. Demandez un nouveau code pour continuer.");
       } else if (error.status === 429) {
         setErreur("Trop de tentatives rapprochées. Patientez une minute.");
+      } else if (arriveeParLien) {
+        // A link that no longer matches has been used or replaced by a newer
+        // code: offer a new one rather than a dead end.
+        setCodeEpuise(true);
+        setErreur("Ce lien a déjà servi ou a été remplacé par un code plus récent.");
       } else {
         setErreur("Ce code ne correspond pas. Vérifiez le dernier e-mail reçu.");
       }
-      champCode.current?.focus();
     } catch {
       enVol.current = false;
       setEtatCode("normal");
       setErreur("Connexion interrompue. Vérifiez votre réseau puis réessayez.");
     }
-  }, [destination, email, posthog, router]);
+  }, [arriveeParLien, destination, email, posthog, router]);
 
   function saisirCode(valeur: string) {
     setCode(valeur);
@@ -275,7 +295,7 @@ export function ConnexionEmail({
               >
                 {envoi ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Envoi du code…
+                    <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Envoi du code…
                   </>
                 ) : (
                   <>
@@ -317,11 +337,16 @@ export function ConnexionEmail({
               <Mail className="h-5 w-5" />
             </div>
             <h1 ref={titre} tabIndex={-1} className="text-balance text-[28px] font-semibold leading-tight tracking-[-0.03em] text-zinc-50 outline-none">
-              {etatCode === "succes" ? "C'est bon." : arriveeParLien ? "Confirmez votre connexion" : "Vérifiez votre boîte de réception"}
+              {etatCode === "succes" ? "C'est bon." : arriveeParLien ? "Confirmez votre connexion" : saisieDepuisLien ? "Saisissez votre code" : "Vérifiez votre boîte de réception"}
             </h1>
             <p className="mt-2 text-pretty text-[15px] leading-relaxed text-zinc-400">
               {arriveeParLien ? (
                 <>Connexion à MailPulse avec <span className="font-medium text-zinc-200">{email}</span>.</>
+              ) : saisieDepuisLien ? (
+                <>
+                  Pour votre sécurité, ce lien s&apos;ouvre dans un autre navigateur que celui de la demande. Saisissez le code à 6 chiffres
+                  de l&apos;e-mail envoyé à <span className="font-medium text-zinc-200">{email}</span>.
+                </>
               ) : (
                 <>Nous avons envoyé un code à 6 chiffres à <span className="font-medium text-zinc-200">{email}</span>. Il expire dans 10 minutes.</>
               )}
@@ -353,7 +378,11 @@ export function ConnexionEmail({
                 idDescription={`${id}-code-aide`}
               />
               <p id={`${id}-code-aide`} className="mt-4 text-[13px] text-zinc-500">
-                {arriveeParLien ? "Le code vient du lien de votre e-mail." : "Ou cliquez sur le lien dans l'e-mail : le code se remplira tout seul."}
+                {arriveeParLien
+                  ? "Le code vient du lien de votre e-mail."
+                  : saisieDepuisLien
+                    ? "Ce n'est pas votre adresse ? Choisissez « Modifier l'adresse »."
+                    : "Ou cliquez sur le lien dans l'e-mail : le code se remplira tout seul."}
               </p>
 
               <button
@@ -369,7 +398,7 @@ export function ConnexionEmail({
               >
                 {etatCode === "verification" ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Vérification du code…
+                    <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Vérification du code…
                   </>
                 ) : arriveeParLien ? "Me connecter" : "Vérifier"}
               </button>
@@ -390,7 +419,7 @@ export function ConnexionEmail({
                 disabled={envoi}
                 className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-orange-500 text-sm font-semibold text-zinc-950 hover:bg-orange-400 disabled:opacity-70"
               >
-                {envoi && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />} Recevoir un nouveau code
+                {envoi && <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />} Recevoir un nouveau code
               </button>
             ) : !arriveeParLien && etatCode !== "succes" ? (
               <>
@@ -457,7 +486,7 @@ function BoutonFournisseur({ onClick, occupe, libelle, icone }: { onClick: () =>
       aria-busy={occupe}
       className="flex h-12 items-center justify-center gap-2.5 rounded-[10px] border border-white/[0.08] bg-transparent px-4 text-sm font-medium text-zinc-200 transition-[border-color,background-color,transform] duration-200 hover:border-white/[0.16] hover:bg-white/[0.03] active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
     >
-      {occupe ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : icone}
+      {occupe ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : icone}
       {occupe ? `Redirection vers ${libelle}…` : `Continuer avec ${libelle}`}
     </button>
   );

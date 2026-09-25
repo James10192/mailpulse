@@ -72,7 +72,7 @@ export const CasesCode = forwardRef<
                 etat === "succes" && "border-emerald-400",
               )}
             >
-              {chiffres[i] ?? (courante ? <span className="h-6 w-px animate-pulse bg-orange-400" /> : null)}
+              {chiffres[i] ?? (courante ? <span className="h-6 w-px animate-pulse bg-orange-400 motion-reduce:animate-none" /> : null)}
             </div>
           );
         })}

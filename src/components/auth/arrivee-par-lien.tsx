@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+
+import { destinationSure } from "@/lib/auth-destination";
 
 import { nettoyerCode, LONGUEUR_CODE } from "./cases-code";
 import { ConnexionEmail } from "./connexion-email";
+import { demandeEnCours } from "./demande-connexion";
+
+type Lu = { email: string; code: string; destination: string | null };
 
 /**
  * Reads `#email=…&code=…` from the email link, then wipes it from the address
@@ -12,16 +17,23 @@ import { ConnexionEmail } from "./connexion-email";
  * The fragment never reached the server.
  */
 export function ArriveeParLien() {
-  const [lu, setLu] = useState<{ email: string; code: string } | null | undefined>(undefined);
+  const [lu, setLu] = useState<Lu | null | undefined>(undefined);
+  // The fragment is wiped on first read. Keep what was read so a second run of
+  // the effect (React StrictMode in development) does not see an empty hash.
+  const lecture = useRef<Lu | null | undefined>(undefined);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.hash.slice(1));
-    const email = params.get("email") ?? "";
-    const code = nettoyerCode(params.get("code") ?? "");
-    window.history.replaceState(null, "", window.location.pathname);
+    if (lecture.current === undefined) {
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      const email = params.get("email") ?? "";
+      const code = nettoyerCode(params.get("code") ?? "");
+      window.history.replaceState(null, "", window.location.pathname);
+      lecture.current = email && code.length === LONGUEUR_CODE
+        ? { email, code, destination: demandeEnCours(email)?.destination ?? null }
+        : null;
+    }
     // Read once, after mount: the fragment only exists in the browser.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLu(email && code.length === LONGUEUR_CODE ? { email, code } : null);
+    setLu(lecture.current);
   }, []);
 
   if (lu === undefined) return <div className="min-h-[320px]" aria-busy="true" />;
@@ -43,5 +55,12 @@ export function ArriveeParLien() {
     );
   }
 
-  return <ConnexionEmail destination="/dashboard" emailInitial={lu.email} codeInitial={lu.code} />;
+  // Same browser that asked for the code: one tap, back to where the visitor
+  // was going. Any other browser: the code must be typed, see
+  // demande-connexion.ts.
+  if (lu.destination) {
+    return <ConnexionEmail destination={destinationSure(lu.destination)} emailInitial={lu.email} codeInitial={lu.code} />;
+  }
+
+  return <ConnexionEmail destination="/dashboard" emailInitial={lu.email} saisieDepuisLien />;
 }
