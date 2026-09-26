@@ -2,102 +2,20 @@
 // Docs: https://doc.evolution-api.com
 
 import { retryAfterSeconds } from "@/lib/http-status";
+import { EVOLUTION_DEFAULT_TIMEOUT_MS, sendTimeoutMs, typingDelayMs, type BaileysSendPriority } from "@/lib/whatsapp/baileys-typing";
+import { EvolutionApiError, evolutionApiError, isEvolutionInstanceMissing } from "@/lib/whatsapp/evolution-error";
 import { isTimeoutError, statusFailureReason, type IWhatsAppProvider, type WhatsAppFailureReason, type WhatsAppSendResult } from "@/lib/whatsapp/types";
+
+export { EvolutionApiError };
+export type { BaileysSendPriority };
 
 const EVO_URL = process.env.EVOLUTION_API_URL || "";
 const EVO_KEY = process.env.EVOLUTION_API_KEY || "";
 
-type EvolutionMessageError = {
-  exists?: boolean;
-  jid?: string;
-  number?: string;
-};
-
-type EvolutionErrorBody = {
-  message?: unknown;
-  response?: {
-    message?: unknown;
-  };
-};
-
-/**
- * Carries the HTTP status so callers can tell a definitive refusal from an
- * ambiguous failure. Without it a wrong phone number and a network timeout look
- * identical, and every unreachable recipient lands in manual reconciliation.
- */
-export class EvolutionApiError extends Error {
-  readonly status: number;
-  readonly recipientUnreachable: boolean;
-  readonly retryAfterSeconds: number | null;
-
-  constructor(message: string, status: number, recipientUnreachable: boolean, retryAfterSeconds: number | null = null) {
-    super(message);
-    this.name = "EvolutionApiError";
-    this.status = status;
-    this.recipientUnreachable = recipientUnreachable;
-    this.retryAfterSeconds = retryAfterSeconds;
-  }
-
-  /**
-   * Allow-list, never a status range. Evolution answers 400 both for "this
-   * number has no WhatsApp account" and for "the session is currently
-   * disconnected", and treating the second as final would permanently drop
-   * every notification sent while the sender's phone was offline.
-   */
-  get deterministic() {
-    return this.recipientUnreachable;
-  }
-}
-
-function isRecipientUnreachable(body: string) {
-  try {
-    const parsed = JSON.parse(body) as EvolutionErrorBody;
-    const messages = parsed.response?.message ?? parsed.message;
-    const firstMessage = Array.isArray(messages) ? messages[0] : messages;
-    return (
-      !!firstMessage
-      && typeof firstMessage === "object"
-      && "exists" in firstMessage
-      && (firstMessage as EvolutionMessageError).exists === false
-    );
-  } catch {
-    return false;
-  }
-}
-
-function getEvolutionErrorMessage(status: number, body: string) {
-  try {
-    const parsed = JSON.parse(body) as EvolutionErrorBody;
-    const messages = parsed.response?.message ?? parsed.message;
-    const firstMessage = Array.isArray(messages) ? messages[0] : messages;
-
-    if (
-      firstMessage &&
-      typeof firstMessage === "object" &&
-      "exists" in firstMessage
-    ) {
-      const error = firstMessage as EvolutionMessageError;
-      if (error.exists === false) {
-        const recipient = error.number ?? error.jid?.replace("@s.whatsapp.net", "");
-        return recipient
-          ? `Le numéro ${recipient} n'est pas enregistré sur WhatsApp. Vérifiez le numéro ou utilisez un autre contact.`
-          : "Ce numéro n'est pas enregistré sur WhatsApp. Vérifiez le numéro ou utilisez un autre contact.";
-      }
-    }
-
-    if (typeof firstMessage === "string" && firstMessage.trim()) {
-      return firstMessage;
-    }
-  } catch {
-    // Keep the original body below when Evolution returns a non-JSON error.
-  }
-
-  return body ? `Evolution API ${status}: ${body}` : `Evolution API ${status}`;
-}
-
 async function evoFetch<T = unknown>(
   path: string,
   options: RequestInit = {},
+  timeoutMs: number = EVOLUTION_DEFAULT_TIMEOUT_MS,
 ): Promise<T> {
   if (!EVO_URL || !EVO_KEY) {
     throw new Error("Evolution API non configurée.");
@@ -114,7 +32,7 @@ async function evoFetch<T = unknown>(
     ...options,
     // Evolution proxies a WhatsApp Web session that can hang through a
     // reconnection, and the caller holds a lease while it waits.
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(timeoutMs),
     headers: {
       "Content-Type": "application/json",
       apikey: EVO_KEY,
@@ -124,12 +42,7 @@ async function evoFetch<T = unknown>(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new EvolutionApiError(
-      getEvolutionErrorMessage(res.status, body),
-      res.status,
-      isRecipientUnreachable(body),
-      retryAfterSeconds(res.headers),
-    );
+    throw evolutionApiError(res.status, body, retryAfterSeconds(res.headers));
   }
 
   const text = await res.text();
@@ -186,24 +99,62 @@ export async function getQrCode(instanceName: string) {
   );
 }
 
+type SessionState = "open" | "close" | "connecting";
+
 interface ConnectionState {
   instance?: {
-    instanceName: string;
-    state: "open" | "close" | "connecting";
+    instanceName?: string;
+    state?: unknown;
   };
   instanceName?: string;
-  state?: "open" | "close" | "connecting";
+  state?: unknown;
 }
 
+function isSessionState(value: unknown): value is SessionState {
+  return value === "open" || value === "close" || value === "connecting";
+}
+
+/**
+ * Throws unless Evolution itself answered with a session state. A page served
+ * by anything else in front of it (a wrong DNS answer, a proxy error page) is
+ * not a state, and reading it as "close" would record a healthy session as down.
+ */
 export async function getConnectionState(instanceName: string) {
-  const result = await evoFetch<ConnectionState>(
+  const result = await evoFetch<ConnectionState | string>(
     `/instance/connectionState/${instanceName}`,
   );
+  const answer = typeof result === "object" ? result : {};
+  const state = answer.instance?.state ?? answer.state;
+  if (!isSessionState(state)) {
+    throw new Error("Réponse inattendue du serveur WhatsApp : l'état de la session est illisible.");
+  }
 
   return {
-    instanceName: result.instance?.instanceName ?? result.instanceName ?? instanceName,
-    state: result.instance?.state ?? result.state ?? "close",
+    instanceName: answer.instance?.instanceName ?? answer.instanceName ?? instanceName,
+    state,
   };
+}
+
+/**
+ * - state: Evolution answered with the session state.
+ * - missing: Evolution itself says this instance does not exist. The only
+ *   outcome that justifies creating a new one.
+ * - unreachable: anything else (network error, timeout, 5xx, a non-Evolution
+ *   response). Says nothing about the session, which must be left untouched.
+ */
+export type InstanceProbe =
+  | { kind: "state"; state: SessionState }
+  | { kind: "missing" }
+  | { kind: "unreachable"; error: string };
+
+export async function probeInstance(instanceName: string): Promise<InstanceProbe> {
+  try {
+    const { state } = await getConnectionState(instanceName);
+    return { kind: "state", state };
+  } catch (error) {
+    if (isEvolutionInstanceMissing(error, instanceName)) return { kind: "missing" };
+    return { kind: "unreachable", error: error instanceof Error ? error.message : "Serveur WhatsApp injoignable." };
+  }
 }
 
 interface InstanceInfo {
@@ -231,16 +182,14 @@ export async function restartInstance(instanceName: string) {
   return evoFetch(`/instance/restart/${instanceName}`, { method: "PUT" });
 }
 
-export async function recreateInstance(instanceName: string) {
-  await logoutInstance(instanceName).catch(() => {});
-  await deleteInstance(instanceName).catch(() => {});
-  return createInstance(instanceName);
-}
-
 // ─── Helpers ───────────────────────────────────────────
 
 function normalizePhone(to: string) {
-  return to.replace(/\D/g, "");
+  const number = to.replace(/\D/g, "");
+  if (!number) {
+    throw new Error("Numéro WhatsApp requis.");
+  }
+  return number;
 }
 
 // ─── Messaging ──────────────────────────────────────────
@@ -252,27 +201,39 @@ interface SendMessageResult {
   status: string;
 }
 
+export type BaileysSendOptions = {
+  /** Default "bulk". See `BaileysSendPriority`. */
+  priority?: BaileysSendPriority;
+  /** Source of randomness for the typing delay, in [0, 1). */
+  random?: () => number;
+};
+
+/**
+ * Posts a send with a simulated typing delay sized on the visible text, and a
+ * timeout that outlasts it: Evolution only answers once the delay is over.
+ */
+function postMessage(path: string, body: Record<string, unknown>, visibleText: string, options: BaileysSendOptions) {
+  const delay = typingDelayMs(visibleText.length, options.priority ?? "bulk", options.random);
+  return evoFetch<SendMessageResult>(
+    path,
+    { method: "POST", body: JSON.stringify({ ...body, delay }) },
+    sendTimeoutMs(delay),
+  );
+}
+
 export async function sendText(
   instanceName: string,
   to: string,
   text: string,
+  options: BaileysSendOptions = {},
 ) {
-  const number = normalizePhone(to);
-  if (!number) {
-    throw new Error("Numéro WhatsApp requis.");
-  }
-
-  return evoFetch<SendMessageResult>(
+  return postMessage(
     `/message/sendText/${instanceName}`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        number,
-        text,
-        delay: 500,
-        presence: "composing",
-      }),
-    },
+    // Without `linkPreview: false`, Evolution fetches every URL of the text
+    // from its own IP to build a preview, which no human sender does.
+    { number: normalizePhone(to), text, linkPreview: false },
+    text,
+    options,
   );
 }
 
@@ -282,24 +243,19 @@ export async function sendMedia(
   mediaUrl: string,
   caption: string,
   mediaType: "image" | "video" | "document" = "image",
+  options: BaileysSendOptions = {},
 ) {
-  const number = normalizePhone(to);
-  if (!number) {
-    throw new Error("Numéro WhatsApp requis.");
-  }
-
-  return evoFetch<SendMessageResult>(
+  return postMessage(
     `/message/sendMedia/${instanceName}`,
     {
-      method: "POST",
-      body: JSON.stringify({
-        number,
-        mediatype: mediaType,
-        media: mediaUrl,
-        caption,
-        fileName: `file.${mediaType === "document" ? "pdf" : mediaType === "video" ? "mp4" : "jpg"}`,
-      }),
+      number: normalizePhone(to),
+      mediatype: mediaType,
+      media: mediaUrl,
+      caption,
+      fileName: `file.${mediaType === "document" ? "pdf" : mediaType === "video" ? "mp4" : "jpg"}`,
     },
+    caption,
+    options,
   );
 }
 
@@ -312,25 +268,20 @@ export async function sendDocument(
   instanceName: string,
   to: string,
   document: { url: string; filename: string; mimeType: string; caption?: string },
+  options: BaileysSendOptions = {},
 ) {
-  const number = normalizePhone(to);
-  if (!number) {
-    throw new Error("Numéro WhatsApp requis.");
-  }
-
-  return evoFetch<SendMessageResult>(
+  return postMessage(
     `/message/sendMedia/${instanceName}`,
     {
-      method: "POST",
-      body: JSON.stringify({
-        number,
-        mediatype: "document",
-        mimetype: document.mimeType,
-        media: document.url,
-        fileName: document.filename,
-        ...(document.caption ? { caption: document.caption } : {}),
-      }),
+      number: normalizePhone(to),
+      mediatype: "document",
+      mimetype: document.mimeType,
+      media: document.url,
+      fileName: document.filename,
+      ...(document.caption ? { caption: document.caption } : {}),
     },
+    document.caption ?? "",
+    options,
   );
 }
 
@@ -392,14 +343,16 @@ function evolutionFailure(error: unknown) {
 
 export class BaileysProvider implements IWhatsAppProvider {
   private readonly instanceName: string;
+  private readonly options: BaileysSendOptions;
 
-  constructor(instanceName: string) {
+  constructor(instanceName: string, priority: BaileysSendPriority = "bulk") {
     this.instanceName = instanceName;
+    this.options = { priority };
   }
 
   async sendText(to: string, text: string): Promise<WhatsAppSendResult> {
     try {
-      const result = await sendText(this.instanceName, to, text);
+      const result = await sendText(this.instanceName, to, text, this.options);
       return {
         success: true,
         messageId: result.key.id,
@@ -419,7 +372,7 @@ export class BaileysProvider implements IWhatsAppProvider {
 
   async sendImage(to: string, imageUrl: string, caption?: string): Promise<WhatsAppSendResult> {
     try {
-      const result = await sendMedia(this.instanceName, to, imageUrl, caption ?? "", "image");
+      const result = await sendMedia(this.instanceName, to, imageUrl, caption ?? "", "image", this.options);
       return {
         success: true,
         messageId: result.key.id,

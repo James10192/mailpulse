@@ -2,7 +2,7 @@
 // based on the organization's whatsappMode setting.
 
 import type { IWhatsAppProvider, WhatsAppFailureReason, WhatsAppProviderConfig } from "@/lib/whatsapp/types";
-import { BaileysProvider } from "@/lib/whatsapp-baileys";
+import { BaileysProvider, type BaileysSendPriority } from "@/lib/whatsapp-baileys";
 import { MetaProvider } from "@/lib/whatsapp-meta";
 import * as baileys from "@/lib/whatsapp-baileys";
 import * as meta from "@/lib/whatsapp-meta";
@@ -41,10 +41,10 @@ interface OrgWhatsAppConfig {
   metaAccessToken: string | null;
 }
 
-function createProvider(config: WhatsAppProviderConfig): IWhatsAppProvider {
+function createProvider(config: WhatsAppProviderConfig, priority: BaileysSendPriority): IWhatsAppProvider {
   switch (config.mode) {
     case "BAILEYS":
-      return new BaileysProvider(config.instanceName);
+      return new BaileysProvider(config.instanceName, priority);
     case "META":
       return new MetaProvider(config.phoneNumberId, config.accessToken);
   }
@@ -75,6 +75,11 @@ export type SendWhatsAppOptions = {
    * ownership of that exact number, or a code could reach someone else.
    */
   fallbacks?: boolean;
+  /**
+   * Sizes the simulated typing of a Baileys send. Default "bulk"; "interactive"
+   * only when the recipient is waiting for this very message.
+   */
+  priority?: BaileysSendPriority;
 };
 
 export async function sendWhatsApp(
@@ -88,7 +93,7 @@ export async function sendWhatsApp(
   }
 
   const config = resolveProviderConfig(org);
-  const provider = createProvider(config);
+  const provider = createProvider(config, options.priority ?? "bulk");
   const candidates = options.fallbacks === false ? [to] : getWhatsAppPhoneCandidates(to);
   let result = await provider.sendText(candidates[0] ?? to, text);
 
@@ -115,7 +120,7 @@ export async function sendWhatsAppImage(
   }
 
   const config = resolveProviderConfig(org);
-  const provider = createProvider(config);
+  const provider = createProvider(config, "bulk");
   const candidates = getWhatsAppPhoneCandidates(to);
   let result = await provider.sendImage(candidates[0] ?? to, imageUrl, caption);
 
