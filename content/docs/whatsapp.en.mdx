@@ -52,10 +52,16 @@ To receive delivery and read receipts, the Evolution session must send the
 
 ## Sending precautions on WhatsApp Web
 
-Every message leaves after simulated typing, as a person would type it: 2 to 10
-seconds depending on the text length, and at most 4 seconds for a verification
-code, which the recipient is waiting for. Links are sent without a preview: the
-server no longer fetches the pages they point to.
+Every message leaves after simulated typing, as a person would type it:
+
+- 2 to 10 seconds depending on the text length for a message from the API or
+  from an external application;
+- at most 4 seconds for a verification code, which the recipient is waiting for;
+- 0.5 to 1.5 seconds for campaigns, recovery sequences and dashboard sends,
+  which leave one after another.
+
+Links are sent without a preview: the server no longer fetches the pages they
+point to.
 
 No precaution makes WhatsApp Web safe for bulk sends to recipients who do not
 know you. For that, use Meta Cloud API.
