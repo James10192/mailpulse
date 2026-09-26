@@ -49,7 +49,7 @@ try {
            pa."applicationId" AS "applicationId",
            pa.active AS "active"
     FROM organization o
-    JOIN provider_account pa ON pa."externalAccountId" = o."evoInstanceName"
+    JOIN provider_account pa ON pa."externalAccountId" = o."evoInstanceName" AND pa.channel = 'WHATSAPP'
     ORDER BY o."evoInstanceName"`;
 
   if (rows.length === 0) {
