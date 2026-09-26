@@ -52,6 +52,20 @@ change the status: the message stays `sent` while the provider retries.
 ]
 ```
 
+### Replaying a request
+
+Replaying `POST /api/v1/messages` with the same `Idempotency-Key` and body never
+creates a second message. The response describes the message as it is now, not
+the first response: a `queued` message resumes its dispatch, a message already
+submitted or settled is only read back, with no new provider call and no new
+webhook event.
+
+### How long a WhatsApp Web send takes
+
+On WhatsApp Web, every message is preceded by 2 to 10 seconds of simulated
+typing, proportional to the text length, and MailPulse answers once the message
+is sent. Allow a client timeout of at least 20 seconds. Links get no preview.
+
 ## External applications
 
 ```txt

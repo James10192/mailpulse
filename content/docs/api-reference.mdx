@@ -76,6 +76,21 @@ le fournisseur réessaie.
 ]
 ```
 
+### Rejouer une requête
+
+Rejouer `POST /api/v1/messages` avec la même `Idempotency-Key` et le même corps
+ne crée jamais de second message. La réponse décrit l'état actuel du message, pas
+celui de la première réponse : un message `queued` reprend son envoi, un message
+déjà soumis ou terminé est seulement relu, sans nouvel appel au fournisseur ni
+nouvel évènement webhook.
+
+### Durée d'un envoi WhatsApp Web
+
+Sur WhatsApp Web, chaque message est précédé d'une saisie simulée de 2 à
+10 secondes, proportionnelle à la longueur du texte : MailPulse ne répond
+qu'après l'envoi. Prévoyez un délai d'attente d'au moins 20 secondes côté client.
+Les liens ne génèrent pas d'aperçu.
+
 ## Vérification de numéro
 
 ```txt

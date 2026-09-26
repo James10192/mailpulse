@@ -40,3 +40,16 @@ Meta WhatsApp Cloud API requires WABA, phone number, token, and approved templat
 Baileys and Evolution API rely on WhatsApp Web. It is convenient, but unofficial, fragile, and risky at volume.
 
 MailPulse resources help when users do not yet have a domain or phone number, but remain subject to platform limits.
+
+## Shared WhatsApp instances
+
+An Evolution instance can serve both an organization's dashboard and an external
+application. Before any manual intervention that could disconnect, delete or
+rename an instance, list the shared ones:
+
+```bash
+pnpm check:shared-whatsapp-instances
+```
+
+The script only reads. It exits with code 2 when it finds a shared instance:
+leave it alone without explicit agreement.
