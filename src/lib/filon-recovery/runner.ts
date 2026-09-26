@@ -166,7 +166,7 @@ function resolveWhatsAppOrg(step: RecoveryStep) {
 }
 
 async function sendWhatsAppStep(step: RecoveryStep) {
-  await sendWhatsApp(resolveWhatsAppOrg(step), resolveWhatsAppTarget(step), step.body);
+  await sendWhatsApp(resolveWhatsAppOrg(step), resolveWhatsAppTarget(step), step.body, { priority: "inline_batch" });
 }
 
 async function markStepSuccess(step: RecoveryStep, now: Date, status: StepStatus = "SENT") {

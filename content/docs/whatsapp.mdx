@@ -50,3 +50,27 @@ et n'est pas soumis à cette file.
 Pour recevoir les accusés de réception et de lecture, la session Evolution doit
 envoyer les évènements `MESSAGES_UPDATE` en plus de `MESSAGES_UPSERT`.
 
+## Précautions d'envoi sur WhatsApp Web
+
+Chaque message part après une saisie simulée, comme le ferait une personne :
+
+- de 2 à 10 secondes selon la longueur du texte pour un message de l'API ou d'une
+  application externe ;
+- au plus 4 secondes pour un code de vérification, que le destinataire attend ;
+- de 0,5 à 1,5 seconde pour les campagnes, les relances et les envois depuis le
+  tableau de bord, qui partent les uns après les autres.
+
+Les liens sont envoyés sans aperçu : le serveur ne va plus chercher les pages
+citées.
+
+Aucune précaution ne rend WhatsApp Web sûr pour des envois en masse à des
+destinataires qui ne vous connaissent pas. Pour ce besoin, utilisez Meta Cloud API.
+
+## Session et QR code
+
+La page WhatsApp ne recrée la session que si le serveur WhatsApp confirme qu'elle
+n'existe plus. Un serveur momentanément injoignable affiche une erreur et laisse
+la session intacte : réessayez quelques instants plus tard.
+
+Un numéro également utilisé par une application externe ne peut être ni
+déconnecté ni réinitialisé depuis cette page, pour ne pas couper l'application.

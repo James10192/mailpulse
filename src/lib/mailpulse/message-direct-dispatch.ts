@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/resend";
 import { meta, sendWhatsApp } from "@/lib/whatsapp";
+import type { BaileysSendPriority } from "@/lib/whatsapp-baileys";
 import { canReceiveChannel } from "./consent";
 import { directProvider } from "./direct-provider";
 import { compileMetaTemplateDispatch } from "./template-parameters";
@@ -21,28 +22,37 @@ export type MailPulseMessageOrganization = {
   metaAccessToken: string | null;
 };
 
-export async function dispatchQueuedMessage(
-  messageId: string,
-  options: {
-    organization?: MailPulseMessageOrganization;
-    defaultEmailSenderId?: string | null;
-  } = {},
-) {
+type DispatchOptions = {
+  organization?: MailPulseMessageOrganization;
+  defaultEmailSenderId?: string | null;
+};
+
+/**
+ * `claimed` is true only when this call took the message and moved it forward.
+ * A caller announces the outcome (webhook, live mirror) only then: another
+ * request that finds the message already claimed or settled must not announce
+ * it a second time.
+ */
+export async function dispatchQueuedMessage(messageId: string, options: DispatchOptions = {}) {
   const message = await prisma.communicationMessage.findUnique({
     where: { id: messageId },
     include: { template: true },
   });
   if (!message) throw new Error("Message introuvable apres creation.");
-  if (!["QUEUED", "PROCESSING"].includes(message.status) || message.channel === "SMS") return message;
+  if (!["QUEUED", "PROCESSING"].includes(message.status) || message.channel === "SMS") return { message, claimed: false };
 
   const claimedMessage = await claimDirectDispatch(message.id, new Date());
   if (!claimedMessage) {
-    return prisma.communicationMessage.findUniqueOrThrow({
+    const current = await prisma.communicationMessage.findUniqueOrThrow({
       where: { id: message.id },
       include: { template: true },
     });
+    return { message: current, claimed: false };
   }
+  return { message: await dispatchClaimedMessage(claimedMessage, options), claimed: true };
+}
 
+async function dispatchClaimedMessage(claimedMessage: CommunicationMessageWithTemplate, options: DispatchOptions) {
   if (claimedMessage.channel === "EMAIL") {
     if (!canReceiveChannel(await findMessageContact(claimedMessage.contactId), "EMAIL")) {
       return markMessageFailed(claimedMessage.id, "consent_denied", "Le destinataire a refuse les emails.", claimedMessage.processingToken);
@@ -72,7 +82,9 @@ export async function dispatchQueuedMessage(
   try {
     const result = preparedMessage.contentType === "TEMPLATE"
       ? await sendWhatsAppTemplate(options.organization, preparedMessage)
-      : await sendWhatsApp(options.organization, preparedMessage.recipientValue, preparedMessage.text ?? "");
+      : await sendWhatsApp(options.organization, preparedMessage.recipientValue, preparedMessage.text ?? "", {
+        priority: whatsAppPriority(preparedMessage.origin),
+      });
 
     return completeDirectDispatch(preparedMessage, {
       status: "SENT",
@@ -85,6 +97,14 @@ export async function dispatchQueuedMessage(
     const errorMessage = error instanceof Error ? error.message : "Echec de l'envoi WhatsApp.";
     return settleProviderFailure(preparedMessage, errorMessage);
   }
+}
+
+/**
+ * An API message is the only send of its request. Dashboard and campaign
+ * messages are sent one after another inside a single request.
+ */
+function whatsAppPriority(origin: CommunicationMessageWithTemplate["origin"]): BaileysSendPriority {
+  return origin === "API" ? "bulk" : "inline_batch";
 }
 
 async function claimDirectDispatch(messageId: string, now: Date): Promise<CommunicationMessageWithTemplate | null> {

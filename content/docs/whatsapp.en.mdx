@@ -50,3 +50,27 @@ this queue.
 To receive delivery and read receipts, the Evolution session must send the
 `MESSAGES_UPDATE` events in addition to `MESSAGES_UPSERT`.
 
+## Sending precautions on WhatsApp Web
+
+Every message leaves after simulated typing, as a person would type it:
+
+- 2 to 10 seconds depending on the text length for a message from the API or
+  from an external application;
+- at most 4 seconds for a verification code, which the recipient is waiting for;
+- 0.5 to 1.5 seconds for campaigns, recovery sequences and dashboard sends,
+  which leave one after another.
+
+Links are sent without a preview: the server no longer fetches the pages they
+point to.
+
+No precaution makes WhatsApp Web safe for bulk sends to recipients who do not
+know you. For that, use Meta Cloud API.
+
+## Session and QR code
+
+The WhatsApp page only recreates the session when the WhatsApp server confirms
+it no longer exists. A server briefly out of reach shows an error and leaves the
+session untouched: try again a few moments later.
+
+A number also used by an external application can be neither disconnected nor
+reset from this page, so the application is never cut off.

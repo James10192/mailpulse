@@ -43,7 +43,7 @@ export function whatsAppVerificationTransport(org: OrganizationWhatsApp): Verifi
   return {
     provider: directProvider("WHATSAPP", org.whatsappMode),
     async send(to, text) {
-      const result = await sendWhatsApp(org, to, text, { fallbacks: false });
+      const result = await sendWhatsApp(org, to, text, { fallbacks: false, priority: "interactive" });
       return { messageId: result.messageId ?? null };
     },
   };

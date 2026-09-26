@@ -161,8 +161,8 @@ export async function GET(request: NextRequest) {
           if (!contact.phone) continue;
           const text = personalizeText(whatsappText, contact);
           const sent = campaign.whatsappImageUrl
-            ? await sendWhatsAppImage(campaign.organization, contact.phone, campaign.whatsappImageUrl, text)
-            : await sendWhatsApp(campaign.organization, contact.phone, text);
+            ? await sendWhatsAppImage(campaign.organization, contact.phone, campaign.whatsappImageUrl, text, "inline_batch")
+            : await sendWhatsApp(campaign.organization, contact.phone, text, { priority: "inline_batch" });
 
           await prisma.communicationMessage.create({
             data: {

@@ -66,11 +66,14 @@ export async function POST(request: Request) {
 
   // The claim is committed before provider dispatch. A replay therefore resumes
   // a still-queued message, while a claimed or terminal message is only observed.
+  // Either way the answer below is recomputed from the message as it is now,
+  // never the body stored by the first request.
   await dispatchIdempotentCommunicationMessage({
     messageId,
     organizationId: auth.organizationId,
     organization: auth.organization,
     defaultEmailSenderId: auth.defaultEmailSenderId,
+    replay: result.type === "replay",
   });
   const response = await storeIdempotentCommunicationMessageResponse({
     organizationId: auth.organizationId,

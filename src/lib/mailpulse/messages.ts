@@ -127,8 +127,10 @@ export async function dispatchIdempotentCommunicationMessage(params: {
   organizationId: string;
   organization?: MailPulseMessageOrganization;
   defaultEmailSenderId?: string | null;
+  /** A replay resumes a message still waiting for its dispatch, and announces nothing else. */
+  replay: boolean;
 }) {
-  return dispatchAndPublishMessage(params.messageId, params.organization, params.defaultEmailSenderId ?? null);
+  return dispatchAndPublishMessage(params.messageId, params.organization, params.defaultEmailSenderId ?? null, params.replay);
 }
 
 export async function storeIdempotentCommunicationMessageResponse(params: {
@@ -228,16 +230,23 @@ async function createMessageRecord(db: MessageDatabase, params: CreateCommunicat
   });
 }
 
+/**
+ * The first request for a message always announces it, even when it was
+ * settled at creation (refused consent, template required). A replay announces
+ * only what it moved forward itself, so a message is never announced twice.
+ */
 async function dispatchAndPublishMessage(
   messageId: string,
   organization: MailPulseMessageOrganization | undefined,
   defaultEmailSenderId: string | null,
+  replay = false,
 ) {
-  const dispatchedMessage = await dispatchQueuedMessage(messageId, {
+  const { message: dispatchedMessage, claimed } = await dispatchQueuedMessage(messageId, {
     organization,
     defaultEmailSenderId,
   });
   const response = serializeMessage(dispatchedMessage);
+  if (replay && !claimed) return response;
   await syncLiveMessage(dispatchedMessage.organizationId, response);
   await emitWebhookEvent({
     organizationId: dispatchedMessage.organizationId,

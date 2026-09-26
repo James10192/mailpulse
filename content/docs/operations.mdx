@@ -40,3 +40,16 @@ Meta WhatsApp Cloud API impose WABA, numéro, token et templates approuvés hors
 Baileys et Evolution API reposent sur WhatsApp Web. C’est pratique, mais non officiel, fragile et risqué en volume.
 
 Les ressources MailPulse sont utiles quand l’utilisateur n’a pas encore de domaine ou numéro, mais elles restent soumises aux limites plateforme.
+
+## Instances WhatsApp partagées
+
+Une instance Evolution peut servir à la fois le tableau de bord d'une organisation
+et une application externe. Avant toute intervention manuelle qui pourrait
+déconnecter, supprimer ou renommer une instance, listez celles qui sont partagées :
+
+```bash
+pnpm check:shared-whatsapp-instances
+```
+
+Le script ne fait qu'une lecture. Il se termine avec le code 2 s'il trouve une
+instance partagée : n'y touchez pas sans accord explicite.

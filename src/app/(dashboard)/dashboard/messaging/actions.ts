@@ -9,6 +9,7 @@ import type { WhatsAppMode } from "@/lib/whatsapp";
 import type { ActionState } from "@/types/action-state";
 import { normalizeContactPhone } from "@/lib/phone-numbers";
 import { createCommunicationMessage } from "@/lib/mailpulse/messages";
+import { assertInstanceNotShared } from "@/lib/whatsapp/shared-instance";
 
 // ─── Helpers ────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ function freshInstanceName(orgId: string) {
 }
 
 async function createFreshBaileysInstance(orgId: string, previousInstanceName?: string | null) {
+  await assertInstanceNotShared(prisma, previousInstanceName);
   if (previousInstanceName) {
     await baileys.logoutInstance(previousInstanceName).catch(() => {});
     await baileys.deleteInstance(previousInstanceName).catch(() => {});
@@ -108,17 +110,20 @@ export async function getQrCode(): Promise<{
   if (!orgWa?.evoInstanceName) return { error: "Instance non créée." };
 
   try {
-    // Check if already connected
-    let state: { state: string };
-    try {
-      state = await baileys.getConnectionState(orgWa.evoInstanceName);
-    } catch {
-      // Instance doesn't exist on server (e.g. after server migration) — recreate it
+    const probe = await baileys.probeInstance(orgWa.evoInstanceName);
+    // Only Evolution saying this instance does not exist justifies a new one.
+    // A timeout, a 5xx or a page from anything standing in front of Evolution
+    // says nothing about the session: recreating then would drop a healthy
+    // pairing and switch the organization to an empty instance.
+    if (probe.kind === "unreachable") {
+      return { error: "Le serveur WhatsApp ne répond pas pour le moment. Réessayez dans quelques instants." };
+    }
+    if (probe.kind === "missing") {
       await createFreshBaileysInstance(org.id, orgWa.evoInstanceName);
       return { state: "reconnecting" };
     }
 
-    if (state.state === "open") {
+    if (probe.state === "open") {
       if (orgWa.evoInstanceStatus !== "open") {
         await prisma.organization.update({
           where: { id: org.id },
@@ -445,6 +450,7 @@ export async function disconnectWhatsApp(): Promise<ActionState> {
   const orgWa = await getOrgWhatsApp(org.id);
 
   try {
+    await assertInstanceNotShared(prisma, orgWa?.evoInstanceName);
     if (orgWa?.evoInstanceName) {
       await baileys.logoutInstance(orgWa.evoInstanceName).catch(() => {});
       await baileys.deleteInstance(orgWa.evoInstanceName).catch(() => {});
