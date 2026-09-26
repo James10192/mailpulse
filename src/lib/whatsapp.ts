@@ -114,13 +114,14 @@ export async function sendWhatsAppImage(
   to: string,
   imageUrl: string,
   caption?: string,
+  priority: BaileysSendPriority = "bulk",
 ) {
   if (!org.whatsappEnabled) {
     throw new Error("WhatsApp non active pour cette organisation.");
   }
 
   const config = resolveProviderConfig(org);
-  const provider = createProvider(config, "bulk");
+  const provider = createProvider(config, priority);
   const candidates = getWhatsAppPhoneCandidates(to);
   let result = await provider.sendImage(candidates[0] ?? to, imageUrl, caption);
 

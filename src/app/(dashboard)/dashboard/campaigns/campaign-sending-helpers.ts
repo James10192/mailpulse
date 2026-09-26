@@ -300,8 +300,8 @@ export async function sendWhatsAppToRecipients(
     try {
       const messageText = personalizeText(text, contact);
       const sent = campaign.whatsappImageUrl
-        ? await sendWhatsAppImage(orgWa, contact.phone, campaign.whatsappImageUrl, messageText)
-        : await sendWhatsApp(orgWa, contact.phone, messageText);
+        ? await sendWhatsAppImage(orgWa, contact.phone, campaign.whatsappImageUrl, messageText, "inline_batch")
+        : await sendWhatsApp(orgWa, contact.phone, messageText, { priority: "inline_batch" });
       await prisma.campaignRecipient.update({
         where: { id: recipientId },
         data: { sentAt: new Date() },

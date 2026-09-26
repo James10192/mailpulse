@@ -7,18 +7,23 @@
 // indicator as an abuse signal, so every send carries one.
 
 /**
- * - interactive: the recipient is waiting (a verification code, a reply in a
- *   conversation they opened). Short typing, since the caller holds the request.
- * - bulk: everything else (campaigns, scheduled sends, the messages API, recovery
- *   sequences, application invitations).
+ * - interactive: the recipient is waiting for this very message. Short typing,
+ *   since the caller holds the request. Today: verification codes.
+ * - bulk: one send per request or per queued job (the messages API, external
+ *   application commands and invitations). Full human typing.
+ * - inline_batch: sends made one after another inside a single request
+ *   (campaign send, scheduled campaigns, recovery sequences, dashboard
+ *   messages). Short typing, so the loop still fits in its request until these
+ *   sends move to a paced queue.
  */
-export type BaileysSendPriority = "interactive" | "bulk";
+export type BaileysSendPriority = "interactive" | "bulk" | "inline_batch";
 
 const TYPING_BOUNDS_MS: Record<BaileysSendPriority, { min: number; max: number }> = {
   // The typing presence expires after about 10 s on WhatsApp's side: a longer
   // delay would show the indicator vanish before the message arrives.
   bulk: { min: 2_000, max: 10_000 },
   interactive: { min: 1_000, max: 4_000 },
+  inline_batch: { min: 500, max: 1_500 },
 };
 
 /**
@@ -47,3 +52,6 @@ export function typingDelayMs(textLength: number, priority: BaileysSendPriority,
 export function sendTimeoutMs(typingDelay: number) {
   return typingDelay + EVOLUTION_REQUEST_MARGIN_MS;
 }
+
+/** The longest any single Baileys send can hold its caller, whatever its priority. */
+export const MAX_SEND_TIMEOUT_MS = sendTimeoutMs(Math.max(...Object.values(TYPING_BOUNDS_MS).map((bounds) => bounds.max)));

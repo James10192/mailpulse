@@ -18,8 +18,16 @@ import {
 } from "@/lib/external-applications/pacing-policy";
 import { prisma } from "@/lib/prisma";
 import { isConfigured as isEvolutionConfigured } from "@/lib/whatsapp-baileys";
+import { MAX_SEND_TIMEOUT_MS } from "@/lib/whatsapp/baileys-typing";
 
-export const CONSENT_QUEUE_DEADLINE_MS = 50_000;
+/** The `maxDuration` of the cron route that runs this queue. */
+const CONSENT_QUEUE_RUN_BUDGET_MS = 60_000;
+/**
+ * The deadline is only checked before a send, so the last send started must
+ * still finish inside the run: its whole timeout is reserved, plus a margin for
+ * recording its outcome.
+ */
+export const CONSENT_QUEUE_DEADLINE_MS = CONSENT_QUEUE_RUN_BUDGET_MS - MAX_SEND_TIMEOUT_MS - 2_000;
 const ACCOUNT_LEASE_MS = 2 * 60_000;
 /** A request that could not leave within a week is abandoned rather than kept forever. */
 const MAX_UNSENT_REQUEST_AGE_MS = 7 * 24 * 60 * 60_000;
