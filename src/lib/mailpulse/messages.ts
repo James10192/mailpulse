@@ -16,6 +16,7 @@ import { normalizeContactPhone } from "@/lib/phone-numbers";
 import { requestHash } from "./idempotency";
 import { dispatchQueuedMessage, type MailPulseMessageOrganization } from "./message-direct-dispatch";
 import { responseForMessage, type ApiMessageResponse } from "./message-response";
+import { replayResumesDispatch } from "./replay-dispatch";
 import { canReceiveChannel } from "./consent";
 export { responseForMessage, responseForSerializedMessage, type MessageDispatchState } from "./message-response";
 
@@ -127,7 +128,16 @@ export async function dispatchIdempotentCommunicationMessage(params: {
   organizationId: string;
   organization?: MailPulseMessageOrganization;
   defaultEmailSenderId?: string | null;
+  /** A replay only resumes a message still waiting for its dispatch. */
+  replay: boolean;
 }) {
+  if (params.replay) {
+    const current = await prisma.communicationMessage.findUnique({
+      where: { id: params.messageId },
+      select: { status: true, channel: true },
+    });
+    if (!current || !replayResumesDispatch(current)) return null;
+  }
   return dispatchAndPublishMessage(params.messageId, params.organization, params.defaultEmailSenderId ?? null);
 }
 
