@@ -13,7 +13,7 @@ afterEach(() => { globalThis.fetch = originalFetch; });
 
 type Call = { url: string; body: Record<string, unknown> | null; signal: AbortSignal | null };
 
-function stubEvolution(respond: () => Response | Promise<Response>) {
+function stubEvolution(respond: (url: string) => Response | Promise<Response>) {
   const calls: Call[] = [];
   globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     calls.push({
@@ -21,7 +21,7 @@ function stubEvolution(respond: () => Response | Promise<Response>) {
       body: init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : null,
       signal: init?.signal ?? null,
     });
-    return respond();
+    return respond(String(url));
   }) as typeof fetch;
   return calls;
 }
@@ -32,9 +32,31 @@ const evolutionInstanceMissing = (name: string) => () => Response.json(
   { status: 404 },
 );
 
-test("Evolution saying the instance does not exist is the only 'missing' answer", async () => {
-  stubEvolution(evolutionInstanceMissing(INSTANCE));
+/** Evolution's own list of instances, read from its database. */
+const listing = (...names: string[]) => Response.json(names.map((name) => ({ name, connectionStatus: "open" })));
+
+/** Routes the connection-state call and the instance-list call separately. */
+function byRoute(state: () => Response, list: () => Response) {
+  return (url: string) => url.endsWith("/instance/fetchInstances") ? list() : state();
+}
+
+test("Evolution saying the instance does not exist, confirmed by its list, is 'missing'", async () => {
+  const calls = stubEvolution(byRoute(evolutionInstanceMissing(INSTANCE), () => listing("mp-org-b")));
   assert.deepEqual(await probeInstance(INSTANCE), { kind: "missing" });
+  assert.deepEqual(calls.map((call) => new URL(call.url).pathname), [
+    `/instance/connectionState/${INSTANCE}`,
+    "/instance/fetchInstances",
+  ]);
+});
+
+test("a 'does not exist' contradicted by Evolution's own list is not trusted", async () => {
+  stubEvolution(byRoute(evolutionInstanceMissing(INSTANCE), () => listing(INSTANCE)));
+  assert.equal((await probeInstance(INSTANCE)).kind, "unreachable");
+});
+
+test("a 'does not exist' whose confirmation fails is not trusted either", async () => {
+  stubEvolution(byRoute(evolutionInstanceMissing(INSTANCE), () => new Response("<html>502</html>", { status: 502 })));
+  assert.equal((await probeInstance(INSTANCE)).kind, "unreachable");
 });
 
 test("an HTML 404 from a host standing in for Evolution never reads as a missing instance", async () => {

@@ -75,6 +75,13 @@ export function evolutionApiError(status: number, body: string, retryAfterSecond
 }
 
 /**
+ * The wording of Evolution 2.3.7's instance guard (src/api/guards/instance.guard.ts).
+ * A future version that rewords it makes this check fail safe: the instance is
+ * then reported unreachable, never recreated.
+ */
+const instanceMissingMessage = (instanceName: string) => `The "${instanceName}" instance does not exist`;
+
+/**
  * True only when Evolution itself says this exact instance does not exist. It
  * is the one answer that justifies creating a new instance: a timeout, a 5xx,
  * or a 404 from anything standing in front of Evolution says nothing about the
@@ -83,7 +90,7 @@ export function evolutionApiError(status: number, body: string, retryAfterSecond
 export function isEvolutionInstanceMissing(error: unknown, instanceName: string) {
   return error instanceof EvolutionApiError
     && error.status === 404
-    && error.evolutionMessages.includes(`The "${instanceName}" instance does not exist`);
+    && error.evolutionMessages.includes(instanceMissingMessage(instanceName));
 }
 
 function parseBody(body: string): EvolutionErrorEnvelope | null {

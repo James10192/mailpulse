@@ -137,8 +137,9 @@ export async function getConnectionState(instanceName: string) {
 
 /**
  * - state: Evolution answered with the session state.
- * - missing: Evolution itself says this instance does not exist. The only
- *   outcome that justifies creating a new one.
+ * - missing: Evolution itself says this instance does not exist, and its own
+ *   list of instances confirms it. The only outcome that justifies creating a
+ *   new one.
  * - unreachable: anything else (network error, timeout, 5xx, a non-Evolution
  *   response). Says nothing about the session, which must be left untouched.
  */
@@ -152,13 +153,30 @@ export async function probeInstance(instanceName: string): Promise<InstanceProbe
     const { state } = await getConnectionState(instanceName);
     return { kind: "state", state };
   } catch (error) {
-    if (isEvolutionInstanceMissing(error, instanceName)) return { kind: "missing" };
+    if (isEvolutionInstanceMissing(error, instanceName) && await isAbsentFromInstanceList(instanceName)) return { kind: "missing" };
     return { kind: "unreachable", error: error instanceof Error ? error.message : "Serveur WhatsApp injoignable." };
   }
 }
 
+/**
+ * Second, independent reading. Evolution's per-instance guard answers "does not
+ * exist" from its memory and cache, which can briefly miss a real instance
+ * (while Evolution starts, or after its cache was flushed). The instance list
+ * comes from its database: only an absence there is final.
+ */
+async function isAbsentFromInstanceList(instanceName: string) {
+  try {
+    const instances = await fetchInstances();
+    return Array.isArray(instances) && !instances.some((instance) => instance.name === instanceName || instance.instanceName === instanceName);
+  } catch {
+    return false;
+  }
+}
+
+/** Evolution 2.x names an instance `name`; `instanceName` is the 1.x field. */
 interface InstanceInfo {
-  instanceName: string;
+  name?: string;
+  instanceName?: string;
   instanceId: string;
   owner?: string;
   profileName?: string;

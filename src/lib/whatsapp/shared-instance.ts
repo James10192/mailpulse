@@ -6,7 +6,7 @@
 export type ProviderAccountReader = {
   providerAccount: {
     findFirst(args: {
-      where: { externalAccountId: string };
+      where: { channel: "WHATSAPP"; externalAccountId: string };
       select: { id: true };
     }): Promise<{ id: string } | null>;
   };
@@ -22,7 +22,7 @@ export const SHARED_INSTANCE_REFUSAL =
  */
 export async function isInstanceSharedWithProviderAccount(db: ProviderAccountReader, instanceName: string) {
   const account = await db.providerAccount.findFirst({
-    where: { externalAccountId: instanceName },
+    where: { channel: "WHATSAPP", externalAccountId: instanceName },
     select: { id: true },
   });
   return account !== null;
