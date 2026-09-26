@@ -12,6 +12,7 @@ import type { ActionState } from "@/types/action-state";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
 import { resolveScheduleTargets, type ScheduleTargets } from "@/lib/campaigns/tenant-scope";
 import { prismaCampaignDb } from "@/lib/campaigns/prisma-campaign-db";
+import { cancelQueuedCampaignMessages } from "@/lib/campaigns/campaign-messages";
 
 const SCHEDULE_TARGET_ERRORS: Record<Extract<ScheduleTargets, { ok: false }>["reason"], string> = {
   sender_not_found: "Expéditeur introuvable.",
@@ -101,7 +102,12 @@ export async function deleteCampaign(campaignId: string): Promise<ActionState> {
       select: { name: true, organizationId: true, userId: true },
     });
     if (!campaign) return { error: "Campagne introuvable." };
-    const { count } = await prisma.campaign.deleteMany({ where: { id: campaignId, organizationId: org.id } });
+    // One transaction: a campaign gone with its messages still queued would be
+    // sent anyway by the queue worker, to recipients no longer on record.
+    const count = await prisma.$transaction(async (tx) => {
+      await cancelQueuedCampaignMessages(tx, org.id, campaignId, new Date());
+      return (await tx.campaign.deleteMany({ where: { id: campaignId, organizationId: org.id } })).count;
+    });
     if (count === 0) return { error: "Campagne introuvable." };
 
     trackServerEvent(campaign.userId, EVENTS.CAMPAIGN_DELETED, { campaign_name: campaign.name }, campaign.organizationId);

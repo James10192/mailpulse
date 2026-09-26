@@ -10,6 +10,7 @@ import { htmlToPlainText } from "@/lib/message-content";
 import { personalizeHtml } from "@/lib/email-utils";
 import { canReceiveChannel } from "@/lib/mailpulse/consent";
 import { parseCampaignAudience } from "@/lib/campaigns/audience";
+import { campaignMessageKey } from "@/lib/campaigns/campaign-messages";
 import {
   generateTrackingToken,
   injectTrackingPixel,
@@ -190,7 +191,7 @@ export async function sendEmailsToRecipients(
           unsubscribeUrl,
         });
         await prisma.communicationMessage.upsert({
-          where: { organizationId_idempotencyKey: { organizationId: campaign.organizationId, idempotencyKey: `campaign:${campaign.id}:${recipientId}` } },
+          where: { organizationId_idempotencyKey: { organizationId: campaign.organizationId, idempotencyKey: campaignMessageKey(campaign.id, recipientId) } },
           create: {
             organizationId: campaign.organizationId,
             origin: "CAMPAIGN",
@@ -205,7 +206,7 @@ export async function sendEmailsToRecipients(
             status: "SENT",
             sentAt: new Date(),
             metadata: { campaignId: campaign.id, recipientId },
-            idempotencyKey: `campaign:${campaign.id}:${recipientId}`,
+            idempotencyKey: campaignMessageKey(campaign.id, recipientId),
           },
           update: {},
         });
@@ -216,7 +217,7 @@ export async function sendEmailsToRecipients(
         sentCount++;
       } catch (error) {
         await prisma.communicationMessage.upsert({
-          where: { organizationId_idempotencyKey: { organizationId: campaign.organizationId, idempotencyKey: `campaign:${campaign.id}:${recipientId}` } },
+          where: { organizationId_idempotencyKey: { organizationId: campaign.organizationId, idempotencyKey: campaignMessageKey(campaign.id, recipientId) } },
           create: {
             organizationId: campaign.organizationId,
             origin: "CAMPAIGN",
@@ -232,7 +233,7 @@ export async function sendEmailsToRecipients(
             errorCode: "campaign_send_failed",
             errorMessage: error instanceof Error ? error.message : "Échec de l’envoi de campagne.",
             metadata: { campaignId: campaign.id, recipientId },
-            idempotencyKey: `campaign:${campaign.id}:${recipientId}`,
+            idempotencyKey: campaignMessageKey(campaign.id, recipientId),
           },
           update: {},
         });
@@ -306,7 +307,7 @@ export async function sendWhatsAppToRecipients(
         data: { sentAt: new Date() },
       });
       await prisma.communicationMessage.upsert({
-        where: { organizationId_idempotencyKey: { organizationId: orgId, idempotencyKey: `campaign:${campaign.id}:${recipientId}` } },
+        where: { organizationId_idempotencyKey: { organizationId: orgId, idempotencyKey: campaignMessageKey(campaign.id, recipientId) } },
         create: {
           organizationId: orgId,
           origin: "CAMPAIGN",
@@ -327,7 +328,7 @@ export async function sendWhatsAppToRecipients(
               ? { whatsappImageUrl: campaign.whatsappImageUrl, whatsappImageName: campaign.whatsappImageName }
               : {}),
           },
-          idempotencyKey: `campaign:${campaign.id}:${recipientId}`,
+          idempotencyKey: campaignMessageKey(campaign.id, recipientId),
         },
         update: {},
       });
@@ -381,7 +382,7 @@ export async function queueSmsForRecipients(
         contentType: "TEXT" as const,
         text: personalizeText(text, contact),
         metadata: { campaignId: campaign.id, recipientId },
-        idempotencyKey: `campaign:${campaign.id}:${recipientId}`,
+        idempotencyKey: campaignMessageKey(campaign.id, recipientId),
         status: "QUEUED" as const,
       }];
     });
