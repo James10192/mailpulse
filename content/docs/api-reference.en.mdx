@@ -66,8 +66,16 @@ sends from another number instead. A recipient who answered NO or STOP to the
 application's number receives nothing more from it, whether the message comes
 from the API or a signed command: `error_code` `consent_refused`.
 
-Verification codes (`/api/v1/verifications`) still leave from the organization's
-number.
+Verification codes (`/api/v1/verifications`) follow the same rule: they leave
+from the key's application number, otherwise from the organization's. Only a
+WhatsApp Web number can send a code; a disabled, ambiguous or Meta number
+answers `whatsapp_indisponible`. For an application number, the WhatsApp Web
+session is not checked beforehand: a disconnected session shows up at send time,
+as a send failure.
+
+A key is attached to an application in Platform, API keys and integrations tab,
+Application column, which also shows the sending number. Only the
+organization's owners and admins can change a key, a sender or a number.
 
 The number used is recorded on the message when it is created: a replay leaves
 from that number, and the history does not change if the application's number

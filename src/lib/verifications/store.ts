@@ -8,7 +8,7 @@ import type { RecentSend } from "./policy";
 
 export type NewVerification = Pick<
   PhoneVerification,
-  "organizationId" | "apiKeyId" | "phoneNumber" | "locale" | "reference" | "codeHash" | "expiresAt" | "createdAt"
+  "organizationId" | "apiKeyId" | "senderAccountId" | "phoneNumber" | "locale" | "reference" | "codeHash" | "expiresAt" | "createdAt"
 >;
 
 /** Reads and writes made while the organization's send lock is held. */

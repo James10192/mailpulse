@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
+import { canManageOrganization } from "@/lib/access/roles";
+import { APPLICATION_WHATSAPP_ACCOUNTS, summarizeWhatsAppSender } from "@/lib/messaging/whatsapp-sender";
 import { PlanReadOnlyNotice } from "@/components/dashboard/plan-read-only-notice";
 import { serializeMessage, serializeTemplate } from "@/lib/mailpulse/serializers";
 import { buildMessageWhere, countByOutcome, normalizeMessageFilters } from "./message-filters";
@@ -51,8 +53,10 @@ export default async function PlatformPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { org } = await getCurrentUserAndOrg();
-  const canManage = org ? canAccessFeature(org.plan as PlanTier, "api_access") : false;
+  const { org, memberRole, isPlatformAdmin } = await getCurrentUserAndOrg();
+  const canUseApi = org ? canAccessFeature(org.plan as PlanTier, "api_access") : false;
+  // Keys decide which number speaks for the organization: managers only.
+  const canManage = canUseApi && canManageOrganization({ memberRole, isPlatformAdmin });
   const orgId = org?.id ?? "";
   const params = await searchParams;
   const filters = normalizeMessageFilters(params);
@@ -76,6 +80,7 @@ export default async function PlatformPage({
     recentMessages,
     emailSenders,
     verifiedDomains,
+    applications,
   ] = await Promise.all([
     prisma.integrationApiKey.findMany({ where: { organizationId: orgId, provider: "MAILPULSE" }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.communicationMessage.groupBy({ by: ["apiKeyId"], where: { organizationId: orgId, apiKeyId: { not: null }, createdAt: { gte: sinceKeyActivity } }, _count: { _all: true } }),
@@ -99,7 +104,20 @@ export default async function PlatformPage({
     prisma.communicationMessage.findMany({ where: { ...monitoringWhere, createdAt: { gte: sinceFortnight } }, select: { createdAt: true } }),
     prisma.emailSender.findMany({ where: { organizationId: orgId }, orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }], select: { id: true, name: true, email: true, isDefault: true } }),
     prisma.sendingDomain.findMany({ where: { organizationId: orgId, verified: true, status: "verified" }, select: { domain: true } }),
+    prisma.externalApplication.findMany({
+      where: { organizationId: orgId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, key: true, active: true, providerAccounts: APPLICATION_WHATSAPP_ACCOUNTS },
+    }),
   ]);
+  // Credentials stay on the server: the client only learns where messages leave from.
+  const applicationOptions = applications.map((application) => ({
+    id: application.id,
+    name: application.name,
+    key: application.key,
+    active: application.active,
+    whatsapp: summarizeWhatsAppSender(application.providerAccounts),
+  }));
   // Same rule as the key actions: a sender is usable only on a verified domain.
   const verifiedDomainSet = new Set(verifiedDomains.map((item) => item.domain.toLowerCase()));
   const senderOptions = emailSenders.map((sender) => ({ ...sender, verified: verifiedDomainSet.has(sender.email.split("@")[1]?.toLowerCase() ?? "") }));
@@ -140,7 +158,7 @@ export default async function PlatformPage({
           <h1 className="text-balance text-2xl font-semibold text-foreground">Plateforme</h1>
           <p className="mt-1 max-w-2xl text-pretty text-sm text-muted-foreground">Suivez chaque message envoyé en direct ou par l&apos;API, et gérez les clés des applications qui les envoient.</p>
         </div>
-        {canManage ? (
+        {canUseApi ? (
           <Button asChild className="min-h-11 shrink-0"><Link href="/dashboard/messaging"><Send className="size-4" />Envoyer un message</Link></Button>
         ) : (
           <Button className="min-h-11 shrink-0" disabled title="Disponible avec le plan Pro"><Send className="size-4" />Envoyer un message</Button>
@@ -174,7 +192,7 @@ export default async function PlatformPage({
         verifications={<VerificationsPanel organizationId={orgId} />}
         integrations={
           <>
-            {!canManage ? <PlanReadOnlyNotice feature="Les clés API, webhooks et intégrations" /> : null}
+            {!canUseApi ? <PlanReadOnlyNotice feature="Les clés API, webhooks et intégrations" /> : null}
             <section className="grid gap-4 lg:grid-cols-3">
               <Metric label="Clés actives" value={activeKeys.toLocaleString("fr-FR")} icon={KeyRound} />
               <Metric label="Webhooks actifs" value={activeWebhooks.toLocaleString("fr-FR")} icon={Webhook} />
@@ -182,8 +200,10 @@ export default async function PlatformPage({
             </section>
             <ApiKeysPanel
               canManage={canManage}
-              apiKeys={apiKeys.map((key) => ({ id: key.id, name: key.name, keyPrefix: key.keyPrefix, environment: key.environment, defaultEmailSenderId: key.defaultEmailSenderId, lastUsedAt: key.lastUsedAt?.toISOString() ?? null, createdAt: key.createdAt.toISOString(), revokedAt: key.revokedAt?.toISOString() ?? null, recentMessages: recentByKey.get(key.id) ?? 0 }))}
+              disabledReason={canUseApi ? "Réservé aux propriétaires et administrateurs" : "Disponible avec le plan Pro"}
+              apiKeys={apiKeys.map((key) => ({ id: key.id, name: key.name, keyPrefix: key.keyPrefix, environment: key.environment, defaultEmailSenderId: key.defaultEmailSenderId, applicationId: key.applicationId, lastUsedAt: key.lastUsedAt?.toISOString() ?? null, createdAt: key.createdAt.toISOString(), revokedAt: key.revokedAt?.toISOString() ?? null, recentMessages: recentByKey.get(key.id) ?? 0 }))}
               emailSenders={senderOptions}
+              applications={applicationOptions}
             />
             <div className="grid gap-4 xl:grid-cols-2">
               <Card className="overflow-hidden"><CardHeader><CardTitle>Webhooks</CardTitle><CardDescription>Endpoints sortants et signés par organisation.</CardDescription></CardHeader><CardContent className="px-0 pb-0"><div className="overflow-x-auto"><Table className="min-w-[580px]"><TableHeader><TableRow><TableHead>Nom</TableHead><TableHead>URL</TableHead><TableHead>Événements</TableHead><TableHead>État</TableHead></TableRow></TableHeader><TableBody>{webhooks.length === 0 ? <TableRow><TableCell colSpan={4} className="h-28 text-center text-sm text-muted-foreground">Aucun webhook configuré.</TableCell></TableRow> : webhooks.map((webhook) => <TableRow key={webhook.id}><TableCell className="max-w-36 truncate font-medium">{webhook.name}</TableCell><TableCell className="max-w-56 truncate font-mono text-xs">{webhook.url}</TableCell><TableCell className="font-mono text-xs tabular-nums">{webhook.events.length}</TableCell><TableCell><Badge variant={webhook.active ? "success" : "secondary"}>{webhook.active ? "Actif" : "Inactif"}</Badge></TableCell></TableRow>)}</TableBody></Table></div></CardContent></Card>

@@ -75,7 +75,8 @@ that: `429 {"error":"trop_de_demandes","retry_after":42}` with a `Retry-After`
 header. Two simultaneous sends for one organization do not wait for each other:
 the second one also gets a `429`, with `retry_after` set to 1 second.
 
-Other errors: `409 whatsapp_indisponible`, `422 Validation failed` (a doubtful
+Other errors: `409 destinataire_refuse` (the recipient answered NO or STOP to the
+key's application number; no code is created), `409 whatsapp_indisponible`, `422 Validation failed` (a doubtful
 number is reported under `field_errors.to`),
 `502 envoi_echoue` (definite provider refusal: no WhatsApp account or an HTTP 4xx
 other than 408 and 429; nothing was sent and the verification is stored as

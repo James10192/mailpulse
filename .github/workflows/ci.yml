@@ -95,6 +95,9 @@ jobs:
       - name: Messaging sender routing tests
         run: pnpm test:messaging
 
+      - name: Access tests
+        run: pnpm test:access
+
       - name: Delivery tests
         run: pnpm test:delivery
 

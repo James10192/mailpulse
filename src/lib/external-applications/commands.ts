@@ -45,6 +45,15 @@ export async function dispatchExternalApplicationCommand(application: ExternalAp
   if (operation.status === CONSENT_PENDING_STATUS) return { status: "consent_pending" as const, operationId: operation.id };
   if (operation.status === QUEUED_STATUS) return { status: "queued" as const, operationId: operation.id };
 
+  // A retry after the application changed numbers: the operation never left
+  // (PENDING, or a claim that expired before the provider), so it moves to the current number before any gate,
+  // and its row, its consent and its status webhooks all name the number it
+  // actually leaves from. Never sent through one number while recorded on another.
+  if (operation.providerAccountId !== provider.id) {
+    const rebound = await rebindPendingOperation(operation.id, operation.providerAccountId, provider.id);
+    if (!rebound) return { status: "in_progress" as const, operationId: operation.id };
+  }
+
   // Before any other gate: a refusal is the recipient's own decision and must
   // hold whatever the content, the transport or the window.
   const consent = await applyConsentGate(application, provider, operation, command, () => hasOpenConversationWindow(application, provider.id, command.recipient));
@@ -105,6 +114,9 @@ async function submitClaimedOperation(
   const claimed = await prisma.externalTransportOperation.updateMany({
     where: {
       id: operation.id,
+      // Claimed only for the number it is recorded on: a request that resolved
+      // the application's previous number cannot send it from there.
+      providerAccountId: provider.id,
       OR: [{ status: claimableStatus }, { status: "PROCESSING", leaseExpiresAt: { lt: now } }],
     },
     data: { status: "PROCESSING", leaseToken, leaseAcquiredAt: now, leaseExpiresAt: new Date(now.getTime() + LEASE_DURATION_MS) },
@@ -174,6 +186,23 @@ async function findOrCreateOperation(application: ExternalApplicationContext, pr
       where: { organizationId: application.organizationId, applicationId: application.id, idempotencyKey },
     });
   }
+}
+
+/**
+ * Moves an operation that never left to the application's current number.
+ * Never left: PENDING, or PROCESSING with an expired lease (the claim crashed
+ * before the provider boundary, which the claim itself treats as resumable).
+ */
+async function rebindPendingOperation(id: string, fromProviderAccountId: string, toProviderAccountId: string) {
+  const rebound = await prisma.externalTransportOperation.updateMany({
+    where: {
+      id,
+      providerAccountId: fromProviderAccountId,
+      OR: [{ status: "PENDING" }, { status: "PROCESSING", leaseExpiresAt: { lt: new Date() } }],
+    },
+    data: { providerAccountId: toProviderAccountId },
+  });
+  return rebound.count === 1;
 }
 
 function finalizeOperation(id: string, leaseToken: string, rejectionCode: string) {

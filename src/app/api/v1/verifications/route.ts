@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { errorResponse, startVerificationResponse, startVerificationSchema, verificationSecretOrResponse } from "@/lib/verifications/api";
 import { startVerification } from "@/lib/verifications/service";
 import { createPrismaVerificationStore } from "@/lib/verifications/store";
-import { canSendVerificationCodes, whatsAppVerificationTransport } from "@/lib/verifications/transport";
+import { verificationTransportFor } from "@/lib/verifications/transport";
+import { recipientRefusedApplicationNumber } from "@/lib/messaging/whatsapp-sender";
 
 const store = createPrismaVerificationStore(prisma);
 
@@ -18,7 +19,18 @@ export async function POST(request: Request) {
 
   const secret = verificationSecretOrResponse();
   if (secret instanceof Response) return secret;
-  if (!canSendVerificationCodes(auth.organization)) return errorResponse("whatsapp_indisponible", 409);
+  const transport = await verificationTransportFor(auth.organizationId, auth.applicationId, auth.organization);
+  if (!transport) return errorResponse("whatsapp_indisponible", 409);
+  // A STOP given to the application's number binds its codes too: nothing is
+  // created and nothing leaves, so the attempt costs no send.
+  if (transport.senderAccountId && auth.applicationId && await recipientRefusedApplicationNumber({
+    organizationId: auth.organizationId,
+    applicationId: auth.applicationId,
+    providerAccountId: transport.senderAccountId,
+    recipient: parsed.data.to,
+  })) {
+    return errorResponse("destinataire_refuse", 409);
+  }
 
   try {
     const result = await startVerification({ store, now: () => new Date(), secret }, {
@@ -27,7 +39,7 @@ export async function POST(request: Request) {
       phoneNumber: parsed.data.to,
       locale: parsed.data.locale ?? "fr",
       reference: parsed.data.reference ?? null,
-      transport: whatsAppVerificationTransport(auth.organization),
+      transport,
     });
 
     return startVerificationResponse(result, new Date());

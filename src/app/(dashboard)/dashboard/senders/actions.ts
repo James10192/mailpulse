@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { managerOnlyRefusal } from "@/lib/access/manager-only";
 import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { z } from "zod";
 import type { ActionState } from "@/types/action-state";
@@ -25,8 +26,11 @@ export async function createSender(
   });
   if (!result.success) return { error: "Données invalides." };
 
-  const { user, org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { user, org } = context;
   if (!user || !org) return { error: "Non authentifié." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   try {
     const existingCount = await prisma.emailSender.count({
@@ -68,8 +72,11 @@ export async function updateSender(
   });
   if (!result.success) return { error: "Données invalides." };
 
-  const { user, org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { user, org } = context;
   if (!user || !org) return { error: "Non authentifié." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   try {
     await prisma.emailSender.update({
@@ -91,8 +98,11 @@ export async function updateSender(
 }
 
 export async function setDefaultSender(id: string): Promise<ActionState> {
-  const { org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { org } = context;
   if (!org) return { error: "Non authentifié." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   const sender = await prisma.emailSender.findUnique({
     where: { id, organizationId: org.id },
@@ -118,8 +128,11 @@ export async function setDefaultSender(id: string): Promise<ActionState> {
 }
 
 export async function deleteSender(id: string): Promise<ActionState> {
-  const { user, org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { user, org } = context;
   if (!user || !org) return { error: "Non authentifié." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   try {
     // Delete and promote the next default together, so the organization never

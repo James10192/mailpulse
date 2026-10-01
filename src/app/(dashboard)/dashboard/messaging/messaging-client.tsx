@@ -61,6 +61,7 @@ export function MessagingClient({
   baileysAvailable,
   mailpulseWhatsAppAvailable,
   canManage,
+  canConfigure,
 }: {
   contactsWithPhone: number;
   contactOptions: MessagingContactOption[];
@@ -74,7 +75,10 @@ export function MessagingClient({
   baileysAvailable: boolean;
   mailpulseWhatsAppAvailable: boolean;
   canManage: boolean;
+  /** Pairing, replacing or disconnecting the number: owners and admins only. */
+  canConfigure: boolean;
 }) {
+  const configureTitle = canConfigure ? undefined : "Réservé aux propriétaires et administrateurs";
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [phone, setPhone] = useState("");
   const [body, setBody] = useState("");
@@ -226,7 +230,7 @@ export function MessagingClient({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <HelpButton onClick={() => setHelpOpen(true)} />
-          <Button type="button" variant="outline" className="min-h-10" onClick={() => setShowMetaConfig(true)} disabled={!canManage} title={!canManage ? "Disponible avec le plan Pro" : undefined}>
+          <Button type="button" variant="outline" className="min-h-10" onClick={() => setShowMetaConfig(true)} disabled={!canManage || !canConfigure} title={!canManage ? "Disponible avec le plan Pro" : configureTitle}>
             <Settings2 className="size-4" />
             Configurer Meta
           </Button>
@@ -267,7 +271,8 @@ export function MessagingClient({
                   type="button"
                   variant="outline"
                   onClick={handleActivateBaileys}
-                  disabled={activating || !baileysAvailable}
+                  disabled={activating || !baileysAvailable || !canConfigure}
+                  title={configureTitle}
                   className="h-auto min-h-24 flex-col items-start justify-start p-4 text-left transition-[scale,color,background-color,box-shadow] active:scale-[0.99]"
                 >
                   <span className="mb-2 flex items-center gap-2 text-sm font-semibold">
@@ -288,6 +293,8 @@ export function MessagingClient({
                   type="button"
                   variant="outline"
                   onClick={() => setShowMetaConfig(true)}
+                  disabled={!canConfigure}
+                  title={configureTitle}
                   className="h-auto min-h-24 flex-col items-start justify-start p-4 text-left transition-[scale,color,background-color,box-shadow] active:scale-[0.99]"
                 >
                   <span className="mb-2 flex items-center gap-2 text-sm font-semibold">
@@ -314,7 +321,7 @@ export function MessagingClient({
                   ) : (
                     <div className="space-y-3 text-center">
                       <QrCode className="mx-auto size-14 text-zinc-400" />
-                      <Button type="button" onClick={pollQrCode} disabled={pollingQr}>
+                      <Button type="button" onClick={pollQrCode} disabled={pollingQr || !canConfigure} title={configureTitle}>
                         {pollingQr ? <Loader2 className="size-4 animate-spin" /> : <QrCode className="size-4" />}
                         Afficher le QR
                       </Button>
@@ -327,11 +334,11 @@ export function MessagingClient({
                     Ouvrez WhatsApp, Appareils liés, puis liez un appareil. Si la liaison échoue, réinitialisez la session.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" onClick={pollQrCode} disabled={pollingQr} className="min-h-10">
+                    <Button type="button" variant="outline" onClick={pollQrCode} disabled={pollingQr || !canConfigure} title={configureTitle} className="min-h-10">
                       <RefreshCw className={pollingQr ? "size-4 animate-spin" : "size-4"} />
                       Rafraîchir
                     </Button>
-                    <Button type="button" variant="outline" onClick={handleResetBaileys} disabled={resettingQr || pollingQr} className="min-h-10">
+                    <Button type="button" variant="outline" onClick={handleResetBaileys} disabled={resettingQr || pollingQr || !canConfigure} title={configureTitle} className="min-h-10">
                       {resettingQr ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                       Réinitialiser
                     </Button>
@@ -351,7 +358,7 @@ export function MessagingClient({
                   <p>{contactsWithPhone} contact{contactsWithPhone !== 1 ? "s" : ""} avec un numéro.</p>
                   {whatsappPhone ? <p className="font-mono text-xs">{whatsappPhone}</p> : null}
                 </div>
-                <Button type="button" variant="outline" onClick={handleDisconnect} className="min-h-10 sm:self-start">
+                <Button type="button" variant="outline" onClick={handleDisconnect} disabled={!canConfigure} title={configureTitle} className="min-h-10 sm:self-start">
                   <Unplug className="size-4" />
                   Déconnecter
                 </Button>
@@ -498,7 +505,7 @@ export function MessagingClient({
                 </p>
               </div>
             </div>
-            <Button type="button" variant="outline" className="min-h-10" onClick={() => setShowMetaConfig(true)}>
+            <Button type="button" variant="outline" className="min-h-10" onClick={() => setShowMetaConfig(true)} disabled={!canConfigure} title={configureTitle}>
               Configurer
             </Button>
           </CardContent>

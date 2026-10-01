@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { managerOnlyRefusal } from "@/lib/access/manager-only";
 import { canAccessFeature, checkContactLimit, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plans";
 import { baileys } from "@/lib/whatsapp";
 import type { WhatsAppMode } from "@/lib/whatsapp";
@@ -75,9 +76,12 @@ function getContactDisplayName(contact: {
 // ─── Activation (Baileys) ───────────────────────────────
 
 export async function activateBaileys(): Promise<ActionState> {
-  const { user, org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { user, org } = context;
   if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifié." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   if (!baileys.isConfigured()) {
     return { error: "Le service WhatsApp n'est pas configuré sur cette instance." };
@@ -103,8 +107,11 @@ export async function getQrCode(): Promise<{
   state?: string;
   error?: string;
 }> {
-  const { user, org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { user, org } = context;
   if (!user || !org) return { error: "Non authentifié." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   const orgWa = await getOrgWhatsApp(org.id);
   if (!orgWa?.evoInstanceName) return { error: "Instance non créée." };
@@ -149,9 +156,12 @@ export async function getQrCode(): Promise<{
 // ─── Check Status ───────────────────────────────────────
 
 export async function resetBaileysConnection(): Promise<ActionState> {
-  const { user, org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { user, org } = context;
   if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifié." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   if (!baileys.isConfigured()) {
     return { error: "Le service WhatsApp n'est pas configuré sur cette instance." };
@@ -296,9 +306,12 @@ export async function saveMetaConfig(
   accessToken: string,
   phone: string,
 ): Promise<ActionState> {
-  const { user, org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { user, org } = context;
   if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifie." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   if (!wabaId || !phoneNumberId || !accessToken) {
     return { error: "Tous les champs sont requis." };
@@ -323,9 +336,12 @@ export async function saveMetaConfig(
 // ─── Switch Mode ────────────────────────────────────────
 
 export async function switchWhatsAppMode(mode: WhatsAppMode): Promise<ActionState> {
-  const { user, org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { user, org } = context;
   if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifie." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   await prisma.organization.update({
     where: { id: org.id },
@@ -443,9 +459,12 @@ export async function sendBulkMessages(
 // ─── Disconnect / Reset ─────────────────────────────────
 
 export async function disconnectWhatsApp(): Promise<ActionState> {
-  const { user, org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { user, org } = context;
   if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifie." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   const orgWa = await getOrgWhatsApp(org.id);
 
