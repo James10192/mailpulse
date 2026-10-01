@@ -92,6 +92,9 @@ jobs:
       - name: Platform tests
         run: pnpm test:platform
 
+      - name: Messaging sender routing tests
+        run: pnpm test:messaging
+
       - name: Delivery tests
         run: pnpm test:delivery
 
