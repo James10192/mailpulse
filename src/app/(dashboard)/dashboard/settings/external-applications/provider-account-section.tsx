@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MessageSquare, Pencil, Plus, Power, PowerOff } from "lucide-react";
+import { MessageSquare, Pencil, Plus, Power, PowerOff, QrCode } from "lucide-react";
 
 import {
   AlertDialog,
@@ -20,6 +20,7 @@ import { KeyNameEditor } from "@/components/dashboard/api-keys/key-name-editor";
 import { renameProviderAccount, setProviderAccountActive } from "./baileys-actions";
 import { BaileysAccountDialog } from "./baileys-account-dialog";
 import { MetaAccountDialog } from "./meta-account-dialog";
+import { WhatsAppPairingDialog } from "./whatsapp-pairing-dialog";
 import { TRANSPORT_LABEL, TransportExplainer } from "./transport-explainer";
 import type { ProviderAccountView, WhatsAppTransport } from "./types";
 
@@ -44,6 +45,7 @@ export function ProviderAccountSection({
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [pairing, setPairing] = useState(false);
 
   const metaAccount = accounts.find((account) => account.transport === "META") ?? null;
   const baileysAccount = accounts.find((account) => account.transport === "BAILEYS") ?? null;
@@ -86,6 +88,14 @@ export function ProviderAccountSection({
         </h3>
         {canManage ? (
           <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              className="h-11 w-full sm:w-auto"
+              disabled={activeTransport === "META"}
+              onClick={() => setPairing(true)}
+            >
+              <QrCode className="h-3.5 w-3.5" />
+              {baileysAccount ? "Remplacer le numéro" : "Connecter un numéro WhatsApp"}
+            </Button>
             {transportButton("META", metaAccount)}
             {transportButton("BAILEYS", baileysAccount)}
           </div>
@@ -209,6 +219,13 @@ export function ProviderAccountSection({
         onOpenChange={(next) => setEditing(next ? "BAILEYS" : null)}
         onSaved={markSaved}
       />
+      {pairing ? (
+        <WhatsAppPairingDialog
+          applicationId={applicationId}
+          replacing={baileysAccount !== null}
+          onClose={() => setPairing(false)}
+        />
+      ) : null}
     </section>
   );
 }

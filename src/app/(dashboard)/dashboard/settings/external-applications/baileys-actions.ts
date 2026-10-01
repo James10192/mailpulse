@@ -17,6 +17,8 @@ import {
   toActionError,
   WHATSAPP_PROVIDERS,
 } from "./guards";
+import { pointInstanceAtApplication } from "./pairing-webhook";
+import { isPairingInstanceOf } from "@/lib/external-applications/whatsapp-pairing";
 
 const PAGE_PATH = "/dashboard/settings/external-applications";
 const INBOUND_PURPOSE = "INBOUND_FORWARD" as const;
@@ -188,6 +190,11 @@ export async function rotateInboundToken(applicationId: string) {
       });
     });
 
+    // Instances MailPulse paired for this application present the token
+    // themselves: hand them the new one, so revoking the old one later does not
+    // silently cut the replies. Instances linked by hand are the operator's.
+    await repointPairedInstances(org.id, applicationId);
+
     revalidatePath(PAGE_PATH);
     return { keyId: material.keyId, secret: material.secret, version: credential.version };
   } catch (error) {
@@ -210,5 +217,18 @@ export async function revokeInboundToken(applicationId: string, credentialId: st
     return { success: true };
   } catch (error) {
     return toActionError(error);
+  }
+}
+
+async function repointPairedInstances(organizationId: string, applicationId: string) {
+  const accounts = await prisma.providerAccount.findMany({
+    where: { organizationId, applicationId, channel: "WHATSAPP", provider: BAILEYS_PROVIDER },
+    select: { externalAccountId: true },
+  });
+  for (const { externalAccountId } of accounts) {
+    if (!isPairingInstanceOf(externalAccountId, applicationId)) continue;
+    await pointInstanceAtApplication(externalAccountId, applicationId).catch((error: unknown) => {
+      console.error("[external-applications] webhook non repointé", { applicationId, error: error instanceof Error ? error.message : "unknown" });
+    });
   }
 }

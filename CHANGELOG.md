@@ -5,6 +5,8 @@ All notable changes to MailPulse will be documented in this file.
 ## [Unreleased]
 
 ### Added
+
+- **One WhatsApp number per external application, paired by QR code**: Settings › External applications › « Connecter un numéro WhatsApp » creates the Evolution instance, points its inbound webhook at the application, and records the number as the application's active sender once scanned. « Remplacer le numéro » logs the previous instance out only after the new one is linked.
 - **Named API keys**: a key gets a name at creation (the application that will use it) and can be renamed in place from the list. The secret is shown once, in a dialog that only closes on an explicit click.
 - **Messages linked to their API key**: every message sent through `POST /api/v1/messages` records the key that submitted it (`communication_message.apiKeyId`, migration `20260923120000_link_communication_message_to_api_key`). The key list shows each key's traffic over 30 days, linked to the registry filtered on that key.
 - **Message registry**: outcome counters (delivered, sent, in progress, failed, cancelled) that filter on click, period and API key filters, statuses in French, failure reason under the status, relative dates, and a delivery timeline in the message sheet.
