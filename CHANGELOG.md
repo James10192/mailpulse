@@ -32,6 +32,7 @@ All notable changes to MailPulse will be documented in this file.
 - Webhook URLs must be public HTTPS addresses: local, internal and private addresses are refused at creation and before every call, every address a name resolves to is checked at connection time, and redirects are not followed. Existing `http://` endpoints stop receiving and are flagged in Platform › Webhooks. Members who do not manage the organization see only a webhook's domain.
 
 ### Fixed
+- Resend events for one message arriving together (sent, delivered, opened within seconds) could conflict: the losing one answered 500 and waited for Resend's retry. It is now replayed at once, after a short random wait, and all serializable transactions replay that way.
 - An unreachable webhook receiver could hold a message dispatch indefinitely: calls had no timeout. A failed delivery was also never retried.
 - A signed command retried after its application changed numbers was sent from the new number while still recorded on the old one; it now moves to the current number before any gate, and only while it has never left.
 - A WhatsApp template without a Meta template id failed as an unknown submission after a provider call that never happened; it now fails as `template_not_configured` before any call.

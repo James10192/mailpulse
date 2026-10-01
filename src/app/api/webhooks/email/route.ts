@@ -4,8 +4,8 @@ import { NextRequest } from "next/server";
 import { recalculateCampaignAnalytics } from "@/lib/campaign-analytics";
 import { convexServer } from "@/lib/convex-server";
 import { parseResendWebhookPayload, type ResendEventType } from "@/lib/mailpulse/resend-webhook-payload";
-import { processResendDelivery, type ResendDelivery } from "@/lib/mailpulse/resend-webhook-processing";
-import { prisma } from "@/lib/prisma";
+import type { ResendDelivery } from "@/lib/mailpulse/resend-webhook-processing";
+import { applyResendDelivery } from "@/lib/mailpulse/resend-webhook-transaction";
 import { resend } from "@/lib/resend";
 import { api } from "../../../../../convex/_generated/api";
 
@@ -65,10 +65,7 @@ function readDelivery(payload: unknown, deliveryId: string): ResendDelivery | Re
 }
 
 async function processDelivery(delivery: ResendDelivery) {
-  const result = await prisma.$transaction(
-    (tx) => processResendDelivery(tx, delivery),
-    { isolationLevel: "Serializable" },
-  );
+  const result = await applyResendDelivery(delivery);
   if (result.changed) await syncExternalEffects(delivery.event.type, result.organizationId, result.campaignId);
 }
 

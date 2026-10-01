@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isSerializationFailure, isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { convexServer } from "@/lib/convex-server";
 import { api } from "../../../convex/_generated/api";
 import type { z } from "zod";
@@ -120,8 +121,8 @@ export async function createIdempotentCommunicationMessage(params: CreateCommuni
         return { type: "created", ...response, messageId: message.id };
       }, { isolationLevel: "Serializable" });
     } catch (error) {
-      if (isSerializationConflict(error) && attempt < IDEMPOTENCY_TRANSACTION_MAX_RETRIES - 1) continue;
-      if (!isUniqueConstraintError(error)) throw error;
+      if (isSerializationFailure(error) && attempt < IDEMPOTENCY_TRANSACTION_MAX_RETRIES - 1) continue;
+      if (!isUniqueConstraintViolation(error)) throw error;
 
       // A competing request may have committed the claim while this transaction
       // was rolling back. If an older interrupted request left only a message,
@@ -373,17 +374,9 @@ async function recoverIdempotentMessageResponse(params: CreateCommunicationMessa
     });
     return { type: "replay" as const, ...response, messageId: message.id };
   } catch (error) {
-    if (!isUniqueConstraintError(error)) throw error;
+    if (!isUniqueConstraintViolation(error)) throw error;
     return findStoredMessageResponse(params, expectedRequestHash);
   }
-}
-
-function isUniqueConstraintError(error: unknown) {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
-}
-
-function isSerializationConflict(error: unknown) {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "P2034";
 }
 
 async function findContact(db: MessageDatabase, organizationId: string, recipientType: "EMAIL" | "PHONE", recipientValue: string) {
