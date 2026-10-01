@@ -8,7 +8,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
-    "test:delivery": "node --experimental-strip-types --import ./scripts/test-hooks/register.mjs --test src/lib/mailpulse/delivery-core.test.ts src/lib/mailpulse/direct-provider.test.ts src/lib/mailpulse/resend-message-status.test.ts src/lib/mailpulse/resend-webhook-payload.test.ts src/lib/mailpulse/resend-webhook-processing.test.ts",
+    "test:delivery": "node --experimental-strip-types --import ./scripts/test-hooks/register.mjs --test src/lib/mailpulse/delivery-core.test.ts src/lib/mailpulse/direct-provider.test.ts src/lib/mailpulse/resend-message-status.test.ts src/lib/mailpulse/resend-webhook-payload.test.ts src/lib/mailpulse/resend-webhook-processing.test.ts src/lib/mailpulse/resend-webhook-transaction.db.test.ts",
     "test:platform": "node --experimental-strip-types --import ./scripts/test-hooks/register.mjs --test src/lib/mailpulse/api-key-name.test.ts src/lib/mailpulse/message-outcomes.test.ts src/lib/mailpulse/direct-dispatch-claim.test.ts src/lib/platform/*.test.ts",
     "test:platform-registry": "node --experimental-transform-types --import ./scripts/test-hooks/register.mjs --test \"src/app/(dashboard)/dashboard/platform/*.test.ts\"",
     "test:webhooks": "node --experimental-transform-types --import ./scripts/test-hooks/register.mjs --test src/lib/mailpulse/webhook-policy.test.ts src/lib/mailpulse/webhook-transport.test.ts src/lib/mailpulse/webhook-delivery.db.test.ts",
