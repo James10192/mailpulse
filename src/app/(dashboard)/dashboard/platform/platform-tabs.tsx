@@ -5,17 +5,18 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
-export type PlatformTab = "overview" | "messages" | "verifications" | "integrations";
+export type PlatformTab = "overview" | "messages" | "webhooks" | "verifications" | "integrations";
 
 const LABELS: Record<PlatformTab, string> = {
   overview: "Vue d'ensemble",
   messages: "Messages",
+  webhooks: "Webhooks",
   verifications: "Vérifications",
   integrations: "Clés API et intégrations",
 };
 
 // Filters that belong to one tab only; the period is shared on purpose.
-const TAB_SCOPED = ["message", "page", "outcome", "status", "query", "channel", "origin", "key", "application", "sender"];
+const TAB_SCOPED = ["message", "page", "outcome", "status", "query", "channel", "origin", "key", "application", "sender", "endpoint", "deliveryStatus"];
 
 /**
  * The active tab lives in the URL (`?tab=`), so a link opens the right tab and

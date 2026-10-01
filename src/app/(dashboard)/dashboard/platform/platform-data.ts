@@ -147,3 +147,80 @@ export async function loadIntegrationsTab(organizationId: string, now: Date) {
     applicationOptions: applications.map((application) => ({ id: application.id, name: application.name, key: application.key, active: application.active, whatsapp: summarizeWhatsAppSender(application.providerAccounts) })),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Webhooks
+
+const WEBHOOK_STATUSES = ["PENDING", "RETRYING", "DELIVERED", "FAILED"] as const;
+export type WebhookStatusFilter = (typeof WEBHOOK_STATUSES)[number] | "";
+const WEBHOOK_HEALTH_DAYS = 7;
+
+export function readWebhookFilters(params: Record<string, string | string[] | undefined>) {
+  const endpoint = typeof params.endpoint === "string" && IDENTIFIER.test(params.endpoint) ? params.endpoint : "";
+  const raw = typeof params.deliveryStatus === "string" ? params.deliveryStatus.toUpperCase() : "";
+  const status = (WEBHOOK_STATUSES as readonly string[]).includes(raw) ? (raw as WebhookStatusFilter) : "";
+  const page = Math.max(1, Number.parseInt(typeof params.page === "string" ? params.page : "", 10) || 1);
+  return { endpoint, status, page };
+}
+
+export async function loadWebhooksTab(organizationId: string, filters: ReturnType<typeof readWebhookFilters>, now: Date) {
+  const since = new Date(now.getTime() - WEBHOOK_HEALTH_DAYS * 24 * 60 * 60 * 1000);
+  const where: Prisma.WebhookDeliveryWhereInput = {
+    organizationId,
+    ...(filters.endpoint ? { endpointId: filters.endpoint } : {}),
+    ...(filters.status ? { status: filters.status } : {}),
+  };
+  const [endpoints, health, lastDelivered, deliveries, total, statusCounts] = await Promise.all([
+    prisma.webhookEndpoint.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, name: true, url: true, events: true, active: true, secretPreview: true, previousSecretExpiresAt: true, createdAt: true },
+    }),
+    prisma.webhookDelivery.groupBy({ by: ["endpointId", "status"], where: { organizationId, createdAt: { gte: since } }, _count: { _all: true } }),
+    prisma.webhookDelivery.groupBy({ by: ["endpointId"], where: { organizationId, status: "DELIVERED" }, _max: { deliveredAt: true } }),
+    prisma.webhookDelivery.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (filters.page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      select: { id: true, eventType: true, status: true, attempts: true, lastError: true, nextRetryAt: true, deliveredAt: true, createdAt: true, messageId: true, endpoint: { select: { id: true, name: true } } },
+    }),
+    prisma.webhookDelivery.count({ where }),
+    prisma.webhookDelivery.groupBy({ by: ["status"], where: { organizationId, ...(filters.endpoint ? { endpointId: filters.endpoint } : {}) }, _count: { _all: true } }),
+  ]);
+
+  const lastByEndpoint = new Map(lastDelivered.map((row) => [row.endpointId, row._max.deliveredAt]));
+  return {
+    endpoints: endpoints.map((endpoint) => {
+      const count = (status: string) => health.find((row) => row.endpointId === endpoint.id && row.status === status)?._count._all ?? 0;
+      return {
+        id: endpoint.id,
+        name: endpoint.name,
+        url: endpoint.url,
+        events: endpoint.events,
+        active: endpoint.active,
+        secretPreview: endpoint.secretPreview,
+        rotationEndsAt: endpoint.previousSecretExpiresAt && endpoint.previousSecretExpiresAt > now ? endpoint.previousSecretExpiresAt.toISOString() : null,
+        lastDeliveredAt: lastByEndpoint.get(endpoint.id)?.toISOString() ?? null,
+        week: { delivered: count("DELIVERED"), failed: count("FAILED"), waiting: count("PENDING") + count("RETRYING") },
+      };
+    }),
+    deliveries: deliveries.map((delivery) => ({
+      id: delivery.id,
+      endpointName: delivery.endpoint.name,
+      eventType: delivery.eventType,
+      status: delivery.status,
+      attempts: delivery.attempts,
+      lastError: delivery.lastError,
+      nextRetryAt: delivery.status === "RETRYING" ? delivery.nextRetryAt?.toISOString() ?? null : null,
+      deliveredAt: delivery.deliveredAt?.toISOString() ?? null,
+      createdAt: delivery.createdAt.toISOString(),
+      messageId: delivery.messageId,
+    })),
+    total,
+    pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    statusCounts: Object.fromEntries(WEBHOOK_STATUSES.map((status) => [status, statusCounts.find((row) => row.status === status)?._count._all ?? 0])) as Record<(typeof WEBHOOK_STATUSES)[number], number>,
+  };
+}
+
+export type WebhooksTabData = Awaited<ReturnType<typeof loadWebhooksTab>>;

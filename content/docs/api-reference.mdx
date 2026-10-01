@@ -162,6 +162,7 @@ service WhatsApp lorsqu’elle existe.
 POST /api/v1/webhooks
 GET /api/v1/webhooks
 DELETE /api/v1/webhooks/{webhook_id}
+POST /api/v1/webhooks/{webhook_id}/rotate-secret
 ```
 
 Chaque webhook sortant contient :
@@ -186,6 +187,38 @@ mailpulse-signature: v1=<signature>
 
 La signature se calcule sur `timestamp + "." + rawBody` avec le secret affiché
 une seule fois lors de la création du webhook.
+
+### Rotation du secret
+
+```txt
+POST /api/v1/webhooks/{webhook_id}/rotate-secret
+```
+
+La réponse contient le nouveau secret (`signing_secret`), affiché une seule
+fois. Pendant 24 heures, chaque requête porte deux signatures, avec le nouveau
+secret puis l'ancien :
+
+```txt
+mailpulse-signature: v1=<signature_nouveau>,v1=<signature_ancien>
+```
+
+Séparez l'en-tête sur les virgules et acceptez la requête si l'une des
+signatures correspond à votre secret : vous changez de secret sans perdre
+d'événement. Une seconde rotation dans ces 24 heures remplace l'ancien secret
+par le précédent nouveau.
+
+### Livraison et nouvelles tentatives
+
+- L'adresse doit être en HTTPS et publique : une adresse locale, interne ou
+  privée est refusée, et les redirections ne sont pas suivies.
+- Votre serveur doit répondre en 2xx en moins de 10 secondes.
+- Un délai dépassé, une erreur réseau, une réponse 408, 429 ou 5xx est retentée
+  après 1 min, 5 min, 30 min, 2 h puis 6 h, soit six tentatives au total.
+  Toute autre réponse arrête la livraison.
+- Une nouvelle tentative renvoie le même `event_id` : utilisez-le pour ignorer
+  un doublon.
+- Les livraisons sont consultables, et renvoyables par un administrateur, dans
+  **Plateforme › Webhooks**.
 
 ## Applications externes
 

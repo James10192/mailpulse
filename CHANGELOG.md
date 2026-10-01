@@ -15,6 +15,10 @@ All notable changes to MailPulse will be documented in this file.
 - Verification codes leave from the key's application number, like messages, and each verification records that number. A recipient who answered NO or STOP to that number gets `409 destinataire_refuse` instead of a code.
 - **Platform overview**, the new default tab: messages, success rate, failures and in-progress over 24 hours, 7 or 30 days, each compared with the previous period and linked to the registry already filtered on what it counts. Health per channel and per WhatsApp number (the organization's and each application's), failure causes in French with what to do, and a short list of what changed (failure rate up, volume down, new failure cause, failing number). Signed commands from external applications are counted alongside API and direct messages.
 - Registry filters by application and by WhatsApp number, and a shareable link to one message (`?message=`). The message sheet shows the number it left from.
+- **Reliable webhooks**: a failed delivery is retried after 1 min, 5 min, 30 min, 2 h and 6 h (timeouts, network errors, 408, 429 and 5xx only), each call times out after 10 seconds, and a delivery interrupted by a crash is picked up again. New cron `POST /api/cron/process-webhooks`, run every 5 minutes.
+- **Webhook secret rotation** without losing events: `POST /api/v1/webhooks/{id}/rotate-secret` returns a new secret once, and for 24 hours each request carries both signatures (`v1=<new>,v1=<old>`).
+- **Platform › Webhooks** tab: health of each receiving endpoint over 7 days, delivery log filterable by endpoint and status with the next retry time, manual resend of a failed delivery, enable or disable an endpoint, and secret rotation; actions reserved to owners and admins.
+- The overview, the message registry and the webhook log refresh every 30 seconds while the page is in front of you; a switch turns it off.
 
 ### Changed
 - Creating, renaming or revoking an API key (MailPulse or Filon), changing an email sender and configuring or pairing the organization's WhatsApp are reserved to owners and admins; other members keep sending.
@@ -24,7 +28,11 @@ All notable changes to MailPulse will be documented in this file.
 - In the message registry, recipients, contact details, message contents, metadata and provider error texts are masked for members who do not manage the organization, as in the SMS history; they search by message identifier only. Owners and admins see everything unchanged. A link to the registry without a tab still opens the registry.
 - Every dashboard screen uses the shadcn/ui components instead of hand-made controls: contacts (list, detail, add panel, CSV import), segments, tags, custom fields, senders, domains, capture pages, automations and the workflow editor, campaign creation and sending, onboarding, notifications, theme toggle and the rich editor toolbar. New shared components: Checkbox, Slider, ScrollArea, Progress, plus PageHint, FormDialog, TypedSelect and SingleChoiceGroup. Page explanations that used blue info banners, outside the MailPulse palette, are now neutral notes (`PageHint`, announced as a note, not an alert); compact buttons keep a 44px touch target on mobile; missing French accents were restored.
 
+### Security
+- Webhook URLs must be public HTTPS addresses: local, internal and private addresses are refused at creation and before every call, and redirects are not followed. Members who do not manage the organization see only a webhook's domain.
+
 ### Fixed
+- An unreachable webhook receiver could hold a message dispatch indefinitely: calls had no timeout. A failed delivery was also never retried.
 - A signed command retried after its application changed numbers was sent from the new number while still recorded on the old one; it now moves to the current number before any gate, and only while it has never left.
 - A WhatsApp template without a Meta template id failed as an unknown submission after a provider call that never happened; it now fails as `template_not_configured` before any call.
 - Creating an API key failed with "Expéditeur invalide" when the default sender's domain was not verified; unverified senders are now shown disabled and never preselected.

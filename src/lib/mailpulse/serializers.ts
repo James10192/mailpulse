@@ -116,6 +116,8 @@ export function serializeWebhook(endpoint: WebhookEndpoint) {
     url: endpoint.url,
     events: endpoint.events,
     secret_preview: endpoint.secretPreview,
+    // Until then, deliveries also carry a signature made with the previous secret.
+    previous_secret_expires_at: endpoint.previousSecretExpiresAt && endpoint.previousSecretExpiresAt > new Date() ? endpoint.previousSecretExpiresAt.toISOString() : null,
     active: endpoint.active,
     created_at: endpoint.createdAt.toISOString(),
     updated_at: endpoint.updatedAt.toISOString(),
@@ -130,6 +132,7 @@ export function serializeWebhookDelivery(delivery: WebhookDelivery) {
     status: delivery.status.toLowerCase(),
     attempts: delivery.attempts,
     last_error: delivery.lastError,
+    next_retry_at: delivery.status === "RETRYING" ? delivery.nextRetryAt?.toISOString() ?? null : null,
     delivered_at: delivery.deliveredAt?.toISOString() ?? null,
     created_at: delivery.createdAt.toISOString(),
   };

@@ -21,10 +21,15 @@ export function NewKeySecretDialog({
   secret,
   keyName,
   onClose,
+  title,
+  warning,
 }: {
   secret: string | null;
   keyName: string;
   onClose: () => void;
+  /** Defaults to an API key's wording. */
+  title?: string;
+  warning?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -47,12 +52,12 @@ export function NewKeySecretDialog({
         onEscapeKeyDown={(event) => event.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Clé « {keyName} » créée</DialogTitle>
+          <DialogTitle>{title ?? `Clé « ${keyName} » créée`}</DialogTitle>
           <DialogDescription>Copiez-la maintenant et gardez-la en lieu sûr.</DialogDescription>
         </DialogHeader>
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <p>MailPulse ne pourra plus l&apos;afficher. Si vous la perdez, créez-en une nouvelle et révoquez celle-ci.</p>
+          <p>{warning ?? "MailPulse ne pourra plus l'afficher. Si vous la perdez, créez-en une nouvelle et révoquez celle-ci."}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <code className="min-w-0 flex-1 select-all break-all rounded-md border bg-muted/40 px-3 py-2 font-mono text-xs">
