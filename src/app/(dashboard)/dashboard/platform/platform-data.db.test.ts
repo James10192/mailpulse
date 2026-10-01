@@ -13,7 +13,7 @@ const run = randomUUID().slice(0, 8);
 const organizationId = `org-registry-${run}`;
 const otherOrganizationId = `org-registry-other-${run}`;
 const now = new Date("2026-10-01T12:00:00Z");
-const ids = { account: "", fromAccount: "", fromOrganization: "", foreign: "" };
+const ids = { account: "", fromAccount: "", fromOrganization: "", foreign: "", campaign: "" };
 
 async function message(data: { organization?: string; senderAccountId?: string | null; snapshot?: object; at: Date; origin?: "API" | "CAMPAIGN" }) {
   const created = await prisma.communicationMessage.create({
@@ -51,7 +51,7 @@ before(async () => {
   ids.fromAccount = await message({ senderAccountId: account.id, snapshot: { source: "application", provider: "BAILEYS_WHATSAPP", label: "École A", address: null }, at: new Date("2026-10-01T08:00:00Z") });
   ids.fromOrganization = await message({ at: new Date("2026-09-29T23:30:00Z") });
   await message({ at: new Date("2026-09-29T00:10:00Z") });
-  await message({ at: new Date("2026-09-29T10:00:00Z"), origin: "CAMPAIGN" });
+  ids.campaign = await message({ at: new Date("2026-09-29T10:00:00Z"), origin: "CAMPAIGN" });
   ids.foreign = await message({ organization: otherOrganizationId, at: new Date("2026-10-01T08:00:00Z") });
 });
 
@@ -90,6 +90,8 @@ test("the sender filter separates an application's number from the organization'
 test("a shared link opens its message, never another organization's", { skip: !hasDatabase }, async () => {
   assert.equal((await load({}, { messageId: ids.fromOrganization })).linkedMessage?.id, ids.fromOrganization);
   assert.equal((await load({}, { messageId: ids.foreign })).linkedMessage, null);
+  // Campaigns have their own space: the registry never opens one.
+  assert.equal((await load({}, { messageId: ids.campaign })).linkedMessage, null);
 });
 
 test("a member who does not manage sees no recipient and no content", { skip: !hasDatabase }, async () => {
@@ -97,4 +99,10 @@ test("a member who does not manage sees no recipient and no content", { skip: !h
   const serialized = JSON.stringify([masked.messages, masked.linkedMessage]);
   assert.ok(!serialized.includes("0701020304"));
   assert.ok(!serialized.includes("123456"));
+});
+
+test("a member who does not manage cannot look someone up by number", { skip: !hasDatabase }, async () => {
+  assert.equal((await load({ query: "0701020304" })).total, 3);
+  assert.equal((await load({ query: "0701020304" }, { canSeePersonalData: false })).total, 0);
+  assert.equal((await load({ query: ids.fromAccount }, { canSeePersonalData: false })).total, 1);
 });

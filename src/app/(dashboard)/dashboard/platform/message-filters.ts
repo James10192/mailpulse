@@ -80,7 +80,7 @@ export function buildMessageWhere(
   organizationId: string,
   filters: MessageFilters,
   now: Date,
-  { withStatus = true }: { withStatus?: boolean } = {},
+  { withStatus = true, personalSearch = true }: { withStatus?: boolean; personalSearch?: boolean } = {},
 ): Prisma.CommunicationMessageWhereInput {
   const conditions: Prisma.CommunicationMessageWhereInput[] = [
     // Campaign messages live in their own space.
@@ -106,7 +106,11 @@ export function buildMessageWhere(
     if (filters.status) conditions.push({ status: filters.status.toUpperCase() as MessageStatusCode as MessageStatus });
   }
 
-  if (filters.query) {
+  // Searching by number, address or name would tell a member who cannot see
+  // recipients whether someone was messaged: they search by identifier only.
+  if (filters.query && !personalSearch) {
+    conditions.push({ OR: [{ id: filters.query }, { providerMessageId: filters.query }] });
+  } else if (filters.query) {
     conditions.push({
       OR: [
         { recipientValue: { contains: filters.query, mode: "insensitive" } },

@@ -9,6 +9,9 @@ const message = {
   content: { type: "text", text: "Votre code est 123456", variables: { code: "123456" } },
   contact: { email: "awa.kone@example.ci", phone: "+2250701020304", first_name: "Awa", last_name: "Koné" },
   metadata: { student: "Awa" },
+  error_code: "recipient_not_activated",
+  error_message: "Le numéro +2250701020304 n'est pas enregistré sur WhatsApp.",
+  provider_message_id: "wamid.HBgMMjI1MDcwMTAyMDMwNBUCABEYEjQ1",
 };
 
 test("a manager sees the message untouched", () => {
@@ -18,8 +21,10 @@ test("a manager sees the message untouched", () => {
 test("anyone else never receives the address, the content or the metadata", () => {
   const masked = presentRegistryMessage(message, false);
   const serialized = JSON.stringify(masked);
-  for (const secret of ["0701020304", "awa.kone", "123456", "student", "Koné", "\"Awa\""]) assert.ok(!serialized.includes(secret), `${secret} a fuité`);
+  for (const secret of ["0701020304", "awa.kone", "123456", "student", "Koné", "\"Awa\"", "MjI1MDcwMTAy"]) assert.ok(!serialized.includes(secret), `${secret} a fuité`);
   assert.equal(masked.recipient.value, "Numéro masqué · **04");
+  assert.equal(masked.error_message, "Numéro sans WhatsApp");
+  assert.equal(masked.provider_message_id, "wamid.HBgMMj…");
   assert.equal(masked.contact?.email, "a•••@example.ci");
   assert.equal(masked.status, "delivered");
   assert.equal(masked.id, "m1");

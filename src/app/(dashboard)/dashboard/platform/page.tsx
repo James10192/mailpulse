@@ -57,7 +57,9 @@ export default async function PlatformPage({
   const canManage = canUseApi && isManager;
   const orgId = org?.id ?? "";
   const params = await searchParams;
-  const tab = TABS.find((value) => value === params.tab) ?? "overview";
+  // An older link to the registry (filters, no tab) keeps opening the registry.
+  const registryParams = ["message", "outcome", "status", "query", "channel", "origin", "key", "application", "sender", "page"];
+  const tab = TABS.find((value) => value === params.tab) ?? (registryParams.some((name) => params[name]) ? "messages" : "overview");
   const now = new Date();
 
   let content: React.ReactNode = null;

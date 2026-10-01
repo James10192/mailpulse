@@ -159,3 +159,11 @@ test("channels: SMS disabled reads as unavailable, WhatsApp as failing", { skip:
   const health = Object.fromEntries(overview.channels.map((channel) => [channel.channel, channel.health]));
   assert.deepEqual(health, { EMAIL: "healthy", WHATSAPP: "failing", SMS: "unavailable" });
 });
+
+test("signed commands are told apart, since the registry does not list them", { skip: !hasDatabase }, async () => {
+  const overview = await loadPlatformOverview(organizationId, "7d", now);
+  assert.deepEqual(overview.commands, { total: 5, failed: 2 });
+  const yakro = overview.senders.find((sender) => sender.key === accounts.yakro);
+  assert.equal(yakro?.commands, 5);
+  assert.equal(overview.senders.find((sender) => sender.key === accounts.abidjan)?.commands, 0);
+});

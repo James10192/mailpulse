@@ -1200,6 +1200,7 @@ model ExternalTransportOperation {
   @@unique([organizationId, applicationId, idempotencyKey])
   @@unique([organizationId, providerAccountId, providerMessageId])
   @@index([organizationId, status, createdAt])
+  @@index([organizationId, direction, createdAt])
   @@index([applicationId, status, leaseExpiresAt])
   @@index([applicationId, status, nextCallbackAttemptAt])
   @@index([providerAccountId, createdAt])

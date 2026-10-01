@@ -11,6 +11,7 @@ import {
   ORGANIZATION_SENDER,
   compare,
   countBySender,
+  countOutcomes,
   detectChanges,
   emptyCounts,
   healthOf,
@@ -45,6 +46,8 @@ export type SenderHealth = {
   provider: "META" | "BAILEYS";
   active: boolean;
   counts: OutcomeCounts;
+  /** Of those, signed commands: counted here, not listed in the registry. */
+  commands: number;
   successRate: number | null;
   health: HealthState;
 };
@@ -56,6 +59,8 @@ export type PlatformOverview = {
   /** Null on a side with nothing settled: no rate rather than a false 0 %. */
   successRate: { current: number | null; previous: number | null };
   failed: Comparison;
+  /** Signed commands in the figures above; the registry lists messages only. */
+  commands: { total: number; failed: number };
   channels: ChannelHealth[];
   failures: FailureGroup[];
   senders: SenderHealth[];
@@ -186,6 +191,7 @@ export async function loadPlatformOverview(organizationId: string, period: Overv
       provider: organization.whatsappMode,
       active: organizationAvailable,
       counts: organizationCounts,
+      commands: 0,
       successRate: successRate(organizationCounts),
       health: healthOf(organizationCounts, { available: organizationAvailable }),
     });
@@ -200,10 +206,16 @@ export async function loadPlatformOverview(organizationId: string, period: Overv
       provider: account.provider === "META_WHATSAPP" ? "META" : "BAILEYS",
       active: account.active,
       counts,
+      commands: 0,
       successRate: successRate(counts),
       health: healthOf(counts, { available: account.active }),
     });
   }
+
+  const commandCounts = countOutcomes(current.operations.map((row) => ({ status: row.status, count: row._count._all })), operationOutcome);
+  const commandsBySender = new Map<string, number>();
+  for (const row of current.operations) commandsBySender.set(row.providerAccountId, (commandsBySender.get(row.providerAccountId) ?? 0) + row._count._all);
+  for (const sender of senders) sender.commands = commandsBySender.get(sender.key) ?? 0;
 
   const currentFailures = failures(current);
   return {
@@ -212,6 +224,7 @@ export async function loadPlatformOverview(organizationId: string, period: Overv
     volume: compare(totalOf(currentTotals), totalOf(previousTotals)),
     successRate: { current: successRate(currentTotals), previous: successRate(previousTotals) },
     failed: compare(currentTotals.failed, previousTotals.failed),
+    commands: { total: totalOf(commandCounts), failed: commandCounts.failed },
     channels,
     failures: currentFailures,
     senders,

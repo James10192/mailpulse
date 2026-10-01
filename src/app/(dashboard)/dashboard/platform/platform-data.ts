@@ -60,12 +60,12 @@ async function volumeByDay(organizationId: string, now: Date) {
 
 export async function loadMessagesTab(organizationId: string, filters: MessageFilters, options: { now: Date; canSeePersonalData: boolean; messageId: string | null }) {
   const { now, canSeePersonalData } = options;
-  const messageWhere = buildMessageWhere(organizationId, filters, now);
-  const outcomeWhere = buildMessageWhere(organizationId, filters, now, { withStatus: false });
+  const messageWhere = buildMessageWhere(organizationId, filters, now, { personalSearch: canSeePersonalData });
+  const outcomeWhere = buildMessageWhere(organizationId, filters, now, { withStatus: false, personalSearch: canSeePersonalData });
   const allTime = buildMessageWhere(organizationId, { ...filters, query: "", channel: "", origin: "", outcome: "", status: "", key: "", application: "", sender: "", period: "all", page: 1 }, now);
   const linkedId = options.messageId && IDENTIFIER.test(options.messageId) ? options.messageId : null;
 
-  const [messages, total, outcomeRows, channelCounts, volume, apiKeys, applications, whatsappAccounts, organization, linked] = await Promise.all([
+  const [messages, total, outcomeRows, channelCounts, volume, apiKeys, applications, whatsappAccounts, linked] = await Promise.all([
     prisma.communicationMessage.findMany({ where: messageWhere, include: MESSAGE_INCLUDE, orderBy: { createdAt: "desc" }, skip: (filters.page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     prisma.communicationMessage.count({ where: messageWhere }),
     prisma.communicationMessage.groupBy({ by: ["status"], where: outcomeWhere, _count: { _all: true } }),
@@ -78,13 +78,14 @@ export async function loadMessagesTab(organizationId: string, filters: MessageFi
       orderBy: { createdAt: "asc" },
       select: { id: true, label: true, senderId: true, externalAccountId: true, application: { select: { name: true } } },
     }),
-    prisma.organization.findUnique({ where: { id: organizationId }, select: { whatsappEnabled: true } }),
     // A shared link opens its message even when it is not on the current page; scoped to the organization.
-    linkedId ? prisma.communicationMessage.findFirst({ where: { id: linkedId, organizationId }, include: MESSAGE_INCLUDE }) : null,
+    linkedId ? prisma.communicationMessage.findFirst({ where: { AND: [allTime, { id: linkedId }] }, include: MESSAGE_INCLUDE }) : null,
   ]);
 
+  // The organization's number is always an option: every WhatsApp message sent
+  // before numbers were pinned left from it, even if WhatsApp is now disabled.
   const senderOptions = [
-    ...(organization?.whatsappEnabled ? [{ key: ORGANIZATION_SENDER_FILTER, label: "Numéro de l'organisation" }] : []),
+    { key: ORGANIZATION_SENDER_FILTER, label: "Numéro de l'organisation" },
     ...whatsappAccounts.map((account) => ({ key: account.id, label: account.application ? `${senderAccountLabel(account)} · ${account.application.name}` : senderAccountLabel(account) })),
   ];
 

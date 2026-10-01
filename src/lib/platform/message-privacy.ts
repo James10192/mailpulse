@@ -4,6 +4,7 @@
 // There is no client-side unmask: the full values never leave the server.
 
 import { maskPhoneNumber } from "../sms/message-privacy";
+import { describeFailure } from "./failure-reasons";
 
 const MASKED_CONTENT = "Contenu masqué";
 
@@ -22,7 +23,13 @@ type PrivateMessage = {
   content: { text: string | null; variables: unknown };
   contact: { email: string; phone: string | null; first_name: string | null; last_name: string | null } | null;
   metadata: unknown;
+  error_code: string | null;
+  error_message: string | null;
+  provider_message_id: string | null;
 };
+
+// A Meta message id (wamid.…) is base64 and embeds the recipient's number.
+const PROVIDER_ID_VISIBLE = 12;
 
 export function presentRegistryMessage<T extends PrivateMessage>(message: T, canSeePersonalData: boolean): T {
   if (canSeePersonalData) return message;
@@ -40,6 +47,12 @@ export function presentRegistryMessage<T extends PrivateMessage>(message: T, can
         }
       : null,
     metadata: null,
+    // Provider texts quote the recipient (« Le numéro +225… n'est pas
+    // enregistré ») or a raw response body: only the classified reading is shown.
+    error_message: message.error_message === null ? null : describeFailure(message.error_code).label,
+    provider_message_id: message.provider_message_id && message.provider_message_id.length > PROVIDER_ID_VISIBLE
+      ? `${message.provider_message_id.slice(0, PROVIDER_ID_VISIBLE)}…`
+      : message.provider_message_id,
   };
 }
 

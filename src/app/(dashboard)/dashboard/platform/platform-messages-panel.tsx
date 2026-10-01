@@ -151,7 +151,7 @@ export function PlatformMessagesPanel({
           <div className="grid gap-2 lg:grid-cols-[minmax(14rem,1fr)_11rem_13rem_9rem_10.5rem]">
             <form className="relative" onSubmit={submitSearch} role="search">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input value={query} onChange={(event) => setQuery(event.target.value)} className="h-10 pl-9" placeholder="Destinataire, contact ou identifiant" aria-label="Rechercher un message" />
+              <Input value={query} onChange={(event) => setQuery(event.target.value)} className="h-10 pl-9" placeholder={personalDataMasked ? "Identifiant du message" : "Destinataire, contact ou identifiant"} aria-label="Rechercher un message" />
             </form>
             <Select value={filters.period} onValueChange={(value) => updateFilters({ period: value as MessageFilters["period"], page: 1 })}>
               <SelectTrigger className="h-10" aria-label="Période"><SelectValue /></SelectTrigger>

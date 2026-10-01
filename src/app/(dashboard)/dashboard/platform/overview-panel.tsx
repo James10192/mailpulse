@@ -118,6 +118,14 @@ export function OverviewPanel({ overview }: { overview: PlatformOverview }) {
         </Kpi>
       </section>
 
+      {overview.commands.total > 0 ? (
+        <p className="-mt-2 text-xs text-muted-foreground">
+          Dont {number.format(overview.commands.total)} commande{overview.commands.total > 1 ? "s" : ""} signée{overview.commands.total > 1 ? "s" : ""} des applications externes
+          {overview.commands.failed > 0 ? <> ({number.format(overview.commands.failed)} en échec)</> : null}, absentes du registre des messages :{" "}
+          <Link href="/dashboard/settings/external-applications" className="underline underline-offset-2 hover:text-foreground">voir Applications externes</Link>.
+        </p>
+      ) : null}
+
       <section aria-labelledby="overview-channels-title" className="space-y-3">
         <h2 id="overview-channels-title" className="text-base font-semibold">Santé des canaux</h2>
         <div className="grid gap-4 lg:grid-cols-3">
@@ -184,7 +192,10 @@ export function OverviewPanel({ overview }: { overview: PlatformOverview }) {
                       <TableRow key={sender.key}>
                         <TableCell className="max-w-56">
                           <Link href={registryHref(period, { channel: "whatsapp", sender: sender.key })} className="block truncate font-medium hover:underline">{sender.label}</Link>
-                          <p className="truncate text-xs text-muted-foreground">{sender.application ?? "Messages sans application"} · {sender.provider === "META" ? "Cloud API" : "Evolution"}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {sender.application ?? "Messages sans application"} · {sender.provider === "META" ? "Cloud API" : "Evolution"}
+                            {sender.commands > 0 ? ` · dont ${number.format(sender.commands)} commande${sender.commands > 1 ? "s" : ""} signée${sender.commands > 1 ? "s" : ""}` : null}
+                          </p>
                         </TableCell>
                         <TableCell><HealthBadge state={sender.health} /></TableCell>
                         <TableCell className="text-right font-mono text-xs tabular-nums">{number.format(sender.counts.delivered + sender.counts.sent + sender.counts.pending + sender.counts.failed + sender.counts.closed)}</TableCell>
@@ -201,7 +212,6 @@ export function OverviewPanel({ overview }: { overview: PlatformOverview }) {
 
       <p className="text-xs text-muted-foreground">
         Les chiffres comptent les messages directs, ceux de l&apos;API et les commandes signées des applications externes ; les campagnes ont leur propre suivi.
-        Le registre des messages ne liste que les messages directs et API : le détail des commandes signées est dans Applications externes.
       </p>
     </div>
   );
