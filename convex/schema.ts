@@ -93,7 +93,9 @@ export default defineSchema({
       v.literal("cancelled"),
       v.literal("template_required")
     ),
-    recipient: v.string(),
+    // No longer written: rows from before are cleared by clearLiveMessageRecipients,
+    // then this field can be dropped.
+    recipient: v.optional(v.string()),
     updatedAt: v.number(),
   })
     .index("by_messageId", ["messageId"])

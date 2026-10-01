@@ -445,7 +445,6 @@ async function syncLiveMessage(organizationId: string, message: ReturnType<typeo
       messageId: message.id,
       channel: message.channel,
       status: message.status,
-      recipient: message.recipient.value,
       updatedAt: Date.now(),
     });
   } catch {
