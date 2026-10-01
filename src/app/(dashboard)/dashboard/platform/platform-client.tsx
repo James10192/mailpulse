@@ -34,7 +34,14 @@ import { CreateKeyDialog } from "@/components/dashboard/api-keys/create-key-dial
 import { KeyNameEditor } from "@/components/dashboard/api-keys/key-name-editor";
 import { NewKeySecretDialog } from "@/components/dashboard/api-keys/new-key-secret-dialog";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
-import { generateMailPulseApiKey, renameMailPulseApiKey, revokeMailPulseApiKey, updateMailPulseApiKeySender } from "./actions";
+import type { WhatsAppSenderSummary } from "@/lib/messaging/whatsapp-sender";
+import {
+  generateMailPulseApiKey,
+  renameMailPulseApiKey,
+  revokeMailPulseApiKey,
+  updateMailPulseApiKeyApplication,
+  updateMailPulseApiKeySender,
+} from "./actions";
 
 export type ApiKeyRow = {
   id: string;
@@ -42,6 +49,7 @@ export type ApiKeyRow = {
   keyPrefix: string;
   environment: "LIVE" | "TEST";
   defaultEmailSenderId: string | null;
+  applicationId: string | null;
   lastUsedAt: string | null;
   createdAt: string;
   revokedAt: string | null;
@@ -50,7 +58,35 @@ export type ApiKeyRow = {
 
 type EmailSenderOption = { id: string; name: string; email: string; isDefault: boolean; verified: boolean };
 
+export type ApplicationOption = { id: string; name: string; key: string; active: boolean; whatsapp: WhatsAppSenderSummary };
+
 const INHERIT = "inherit";
+const NO_APPLICATION = "none";
+const APPLICATION_BY_NAME = "auto";
+
+/** Where the key's WhatsApp messages leave from, said in one line under its application. */
+function WhatsAppLine({ application }: { application: ApplicationOption | undefined }) {
+  const summary = application?.whatsapp ?? { state: "organization" as const };
+  if (summary.state === "own") {
+    return <p className="mt-1 truncate text-xs text-muted-foreground">WhatsApp : {summary.label}</p>;
+  }
+  if (summary.state === "organization") {
+    return <p className="mt-1 text-xs text-muted-foreground">WhatsApp : numéro de l&apos;organisation</p>;
+  }
+  return (
+    <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+      WhatsApp indisponible : {summary.reason === "disabled" ? "numéro désactivé" : "plusieurs numéros actifs"}, messages refusés
+    </p>
+  );
+}
+
+function ApplicationItems({ applications }: { applications: ApplicationOption[] }) {
+  return applications.map((application) => (
+    <SelectItem key={application.id} value={application.id} disabled={!application.active}>
+      {application.name}{application.active ? "" : " (désactivée)"}
+    </SelectItem>
+  ));
+}
 
 function SenderItem({ sender }: { sender: EmailSenderOption }) {
   return (
@@ -72,7 +108,19 @@ function Moment({ value, empty }: { value: string | null; empty: string }) {
   );
 }
 
-export function ApiKeysPanel({ apiKeys, emailSenders, canManage = true }: { apiKeys: ApiKeyRow[]; emailSenders: EmailSenderOption[]; canManage?: boolean }) {
+export function ApiKeysPanel({
+  apiKeys,
+  emailSenders,
+  applications,
+  canManage = true,
+  disabledReason = "Disponible avec le plan Pro",
+}: {
+  apiKeys: ApiKeyRow[];
+  emailSenders: EmailSenderOption[];
+  applications: ApplicationOption[];
+  canManage?: boolean;
+  disabledReason?: string;
+}) {
   const [secret, setSecret] = useState<{ value: string; name: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<ApiKeyRow | null>(null);
@@ -114,6 +162,17 @@ export function ApiKeysPanel({ apiKeys, emailSenders, canManage = true }: { apiK
     });
   }
 
+  function updateApplication(keyId: string, applicationId: string) {
+    const data = new FormData();
+    data.set("keyId", keyId);
+    data.set("applicationId", applicationId);
+    startTransition(async () => {
+      const result = await updateMailPulseApiKeyApplication(data);
+      if ("error" in result && result.error) toast.error(result.error);
+      else toast.success("Application de la clé mise à jour.");
+    });
+  }
+
   function updateSender(keyId: string, senderId: string) {
     const data = new FormData();
     data.set("keyId", keyId);
@@ -139,7 +198,7 @@ export function ApiKeysPanel({ apiKeys, emailSenders, canManage = true }: { apiK
             triggerLabel="Nouvelle clé"
             namePlaceholder="Ex. Application mobile"
             disabled={!canManage}
-            disabledReason="Disponible avec le plan Pro"
+            disabledReason={disabledReason}
             onCreate={create}
           >
             <fieldset className="grid gap-2">
@@ -159,6 +218,20 @@ export function ApiKeysPanel({ apiKeys, emailSenders, canManage = true }: { apiK
                 ))}
               </RadioGroup>
             </fieldset>
+            <div className="grid gap-2">
+              <Label htmlFor="key-application">Application</Label>
+              <Select name="applicationId" defaultValue={APPLICATION_BY_NAME}>
+                <SelectTrigger id="key-application" aria-describedby="key-application-hint"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={APPLICATION_BY_NAME}>Selon le nom de la clé</SelectItem>
+                  <SelectItem value={NO_APPLICATION}>Aucune · numéro de l&apos;organisation</SelectItem>
+                  <ApplicationItems applications={applications} />
+                </SelectContent>
+              </Select>
+              <p id="key-application-hint" className="text-xs text-muted-foreground">
+                Les messages WhatsApp partent du numéro de l&apos;application. Par défaut, une clé portant le nom d&apos;une clé déjà rattachée rejoint son application.
+              </p>
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="key-sender">Expéditeur des e-mails</Label>
               <Select name="defaultEmailSenderId" defaultValue={defaultSenderId}>
@@ -181,13 +254,14 @@ export function ApiKeysPanel({ apiKeys, emailSenders, canManage = true }: { apiK
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <Table className="min-w-[860px]">
+            <Table className="min-w-[1080px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Nom</TableHead>
                   <TableHead>Clé</TableHead>
                   <TableHead className="text-right">Messages, 30 j</TableHead>
-                  <TableHead>Expéditeur</TableHead>
+                  <TableHead>Application</TableHead>
+                  <TableHead>Expéditeur e-mail</TableHead>
                   <TableHead>Dernier usage</TableHead>
                   <TableHead>Créée</TableHead>
                   <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
@@ -220,6 +294,16 @@ export function ApiKeysPanel({ apiKeys, emailSenders, canManage = true }: { apiK
                         >
                           {key.recentMessages.toLocaleString("fr-FR")}
                         </Link>
+                      </TableCell>
+                      <TableCell className="min-w-56 max-w-64">
+                        <Select value={key.applicationId ?? NO_APPLICATION} onValueChange={(value) => updateApplication(key.id, value)} disabled={!canManage || isPending || revoked}>
+                          <SelectTrigger className="h-11 sm:h-9" aria-label={`Application de la clé ${key.name}`}><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NO_APPLICATION}>Aucune</SelectItem>
+                            <ApplicationItems applications={applications} />
+                          </SelectContent>
+                        </Select>
+                        <WhatsAppLine application={applications.find((application) => application.id === key.applicationId)} />
                       </TableCell>
                       <TableCell className="min-w-56">
                         <Select value={key.defaultEmailSenderId ?? INHERIT} onValueChange={(value) => updateSender(key.id, value)} disabled={!canManage || isPending || revoked}>

@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { setProviderAccountActive } from "./baileys-actions";
+import { KeyNameEditor } from "@/components/dashboard/api-keys/key-name-editor";
+import { renameProviderAccount, setProviderAccountActive } from "./baileys-actions";
 import { BaileysAccountDialog } from "./baileys-account-dialog";
 import { MetaAccountDialog } from "./meta-account-dialog";
 import { TRANSPORT_LABEL, TransportExplainer } from "./transport-explainer";
@@ -42,6 +43,7 @@ export function ProviderAccountSection({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const metaAccount = accounts.find((account) => account.transport === "META") ?? null;
   const baileysAccount = accounts.find((account) => account.transport === "BAILEYS") ?? null;
@@ -119,6 +121,22 @@ export function ProviderAccountSection({
               className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                <div className="min-w-40 max-w-64">
+                  <p className="text-xs uppercase text-zinc-500 dark:text-zinc-400">Nom du numéro</p>
+                  <div className="mt-0.5 text-sm">
+                    <KeyNameEditor
+                      name={account.label ?? "Sans nom"}
+                      subject="le numéro"
+                      editing={renamingId === account.id}
+                      onEditingChange={(next) => setRenamingId(next ? account.id : null)}
+                      onRename={async (label) => {
+                        const result = await renameProviderAccount(applicationId, account.id, label);
+                        return "error" in result && result.error ? result.error : null;
+                      }}
+                      disabled={!canManage}
+                    />
+                  </div>
+                </div>
                 <div>
                   <p className="text-xs uppercase text-zinc-500 dark:text-zinc-400">
                     {IDENTIFIER_LABEL[account.transport]}

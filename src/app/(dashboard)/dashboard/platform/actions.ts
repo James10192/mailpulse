@@ -5,6 +5,7 @@ import { normalizeApiKeyName } from "@/lib/mailpulse/api-key-name";
 import { createMailPulseApiKey, keyHash, keyPreview, renameIntegrationApiKey, type MailPulseApiEnvironment } from "@/lib/mailpulse/api-keys";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { managerOnlyRefusal } from "@/lib/access/manager-only";
 import { canAccessFeature, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plan-catalog";
 
 async function getVerifiedSenderId(organizationId: string, senderId: string) {
@@ -29,9 +30,12 @@ async function getVerifiedSenderId(organizationId: string, senderId: string) {
 }
 
 export async function generateMailPulseApiKey(formData: FormData) {
-  const { org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { org } = context;
   if (org && !canAccessFeature(org.plan as PlanTier, "api_access")) return { error: getFeatureUpgradeMessage("api_access") };
   if (!org) return { error: "Organisation introuvable." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   const name = normalizeApiKeyName(formData.get("name"));
   if (!name.ok) return { error: name.error };
@@ -47,8 +51,10 @@ export async function generateMailPulseApiKey(formData: FormData) {
     return { error: "Expéditeur invalide ou domaine non vérifié." };
   }
 
+  const application = await requestedApplication(org.id, formData.get("applicationId"), name.name);
+  if ("error" in application) return application;
+
   const key = createMailPulseApiKey(environment);
-  const applicationId = await applicationOfKeysNamed(org.id, name.name);
 
   await prisma.integrationApiKey.create({
     data: {
@@ -56,7 +62,7 @@ export async function generateMailPulseApiKey(formData: FormData) {
       provider: "MAILPULSE",
       environment,
       name: name.name,
-      applicationId,
+      applicationId: application.id,
       defaultEmailSenderId,
       keyHash: keyHash(key),
       keyPrefix: keyPreview(key),
@@ -68,9 +74,12 @@ export async function generateMailPulseApiKey(formData: FormData) {
 }
 
 export async function renameMailPulseApiKey(formData: FormData) {
-  const { org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { org } = context;
   if (org && !canAccessFeature(org.plan as PlanTier, "api_access")) return { error: getFeatureUpgradeMessage("api_access") };
   if (!org) return { error: "Organisation introuvable." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   const result = await renameIntegrationApiKey({
     organizationId: org.id,
@@ -85,9 +94,12 @@ export async function renameMailPulseApiKey(formData: FormData) {
 }
 
 export async function updateMailPulseApiKeySender(formData: FormData) {
-  const { org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { org } = context;
   if (org && !canAccessFeature(org.plan as PlanTier, "api_access")) return { error: getFeatureUpgradeMessage("api_access") };
   if (!org) return { error: "Organisation introuvable." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   const keyId = String(formData.get("keyId") ?? "");
   const requestedSenderId = String(formData.get("defaultEmailSenderId") ?? "");
@@ -111,8 +123,11 @@ export async function updateMailPulseApiKeySender(formData: FormData) {
 }
 
 export async function revokeMailPulseApiKey(formData: FormData) {
-  const { org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { org } = context;
   if (!org) return { error: "Organisation introuvable." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   const keyId = String(formData.get("keyId") ?? "");
   if (!keyId) return { error: "Clé introuvable." };
@@ -125,6 +140,58 @@ export async function revokeMailPulseApiKey(formData: FormData) {
 
   revalidatePath("/dashboard/platform");
   return { success: true };
+}
+
+/**
+ * Attaches a key to an application, or detaches it ("none"): its WhatsApp
+ * messages then leave from that application's number, or the organization's.
+ */
+export async function updateMailPulseApiKeyApplication(formData: FormData) {
+  const context = await getCurrentUserAndOrg();
+  const { org } = context;
+  if (org && !canAccessFeature(org.plan as PlanTier, "api_access")) return { error: getFeatureUpgradeMessage("api_access") };
+  if (!org) return { error: "Organisation introuvable." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
+
+  const keyId = String(formData.get("keyId") ?? "");
+  const raw = String(formData.get("applicationId") ?? "");
+  const applicationId = raw === NO_APPLICATION ? null : await activeApplicationId(org.id, raw);
+  if (raw !== NO_APPLICATION && !applicationId) return { error: "Application introuvable ou désactivée." };
+
+  const result = await prisma.integrationApiKey.updateMany({
+    where: { id: keyId, organizationId: org.id, provider: "MAILPULSE", revokedAt: null },
+    data: { applicationId },
+  });
+  if (result.count === 0) return { error: "Clé introuvable." };
+
+  revalidatePath("/dashboard/platform");
+  return { success: true };
+}
+
+const NO_APPLICATION = "none";
+const APPLICATION_BY_NAME = "auto";
+
+/**
+ * The application a new key speaks for: the one chosen, none, or by default
+ * the application of the keys already carrying its name.
+ */
+async function requestedApplication(organizationId: string, raw: FormDataEntryValue | null, name: string): Promise<{ id: string | null } | { error: string }> {
+  const value = typeof raw === "string" && raw ? raw : APPLICATION_BY_NAME;
+  if (value === NO_APPLICATION) return { id: null };
+  if (value === APPLICATION_BY_NAME) return { id: await applicationOfKeysNamed(organizationId, name) };
+  const id = await activeApplicationId(organizationId, value);
+  return id ? { id } : { error: "Application introuvable ou désactivée." };
+}
+
+/** Only an active application of the organization: a disabled one would refuse the key. */
+async function activeApplicationId(organizationId: string, applicationId: string) {
+  if (!applicationId) return null;
+  const application = await prisma.externalApplication.findFirst({
+    where: { id: applicationId, organizationId, active: true },
+    select: { id: true },
+  });
+  return application?.id ?? null;
 }
 
 /**

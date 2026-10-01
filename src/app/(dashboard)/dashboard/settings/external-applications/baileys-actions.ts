@@ -131,6 +131,33 @@ export async function setProviderAccountActive(applicationId: string, accountId:
   }
 }
 
+const ACCOUNT_LABEL_MAX_LENGTH = 80;
+
+/**
+ * Names the number ("ESBTP Yakro"): shown wherever messages are traced and
+ * copied into each message's sender snapshot. An empty name clears it.
+ */
+export async function renameProviderAccount(applicationId: string, accountId: string, rawLabel: string) {
+  try {
+    const { org } = await requireOrganizationManager();
+    await requireApplication(org.id, applicationId);
+
+    const label = rawLabel.replace(/\s+/g, " ").trim();
+    if (label.length > ACCOUNT_LABEL_MAX_LENGTH) return { error: `Le nom du numéro ne doit pas dépasser ${ACCOUNT_LABEL_MAX_LENGTH} caractères.` };
+
+    const updated = await prisma.providerAccount.updateMany({
+      where: { id: accountId, applicationId, organizationId: org.id, channel: "WHATSAPP", provider: { in: WHATSAPP_PROVIDERS } },
+      data: { label: label || null },
+    });
+    if (updated.count === 0) return { error: "Compte WhatsApp introuvable pour cette application." };
+
+    revalidatePath(PAGE_PATH);
+    return { success: true };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
 /**
  * Evolution posts its webhooks without an HMAC signature, so this token carried
  * in the URL query is the only thing authenticating inbound traffic.

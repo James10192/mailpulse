@@ -39,6 +39,12 @@ export type WhatsAppSender =
   | { kind: "account"; account: WhatsAppSenderAccount }
   | { kind: "unavailable" };
 
+/** What a screen says about where an application's WhatsApp messages leave from. */
+export type WhatsAppSenderSummary =
+  | { state: "own"; label: string }
+  | { state: "organization" }
+  | { state: "unavailable"; reason: "disabled" | "ambiguous" };
+
 /** Identity frozen on a message when it is created. */
 export type SenderSnapshot = {
   source: "organization" | "application";
@@ -47,15 +53,6 @@ export type SenderSnapshot = {
   address: string | null;
 };
 
-const ACCOUNT_SELECT = {
-  id: true,
-  provider: true,
-  active: true,
-  label: true,
-  senderId: true,
-  externalAccountId: true,
-  credentialsCiphertext: true,
-} as const;
 
 /**
  * Every WhatsApp account the application ever had, active or not: a disabled
@@ -68,16 +65,38 @@ export function chooseWhatsAppSender(applicationAccounts: WhatsAppSenderAccount[
   return active.length === 1 ? { kind: "account", account: active[0] } : { kind: "unavailable" };
 }
 
+export function summarizeWhatsAppSender(applicationAccounts: WhatsAppSenderAccount[]): WhatsAppSenderSummary {
+  const sender = chooseWhatsAppSender(applicationAccounts);
+  if (sender.kind === "organization") return { state: "organization" };
+  if (sender.kind === "account") {
+    const { account } = sender;
+    return { state: "own", label: account.label ?? account.senderId ?? account.externalAccountId };
+  }
+  return {
+    state: "unavailable",
+    reason: applicationAccounts.some((account) => account.active) ? "ambiguous" : "disabled",
+  };
+}
+
+/** The application's WhatsApp accounts, active or not, as chooseWhatsAppSender reads them. */
+export const APPLICATION_WHATSAPP_ACCOUNTS = {
+  where: { channel: "WHATSAPP" as const, provider: { in: [META_WHATSAPP_PROVIDER, BAILEYS_WHATSAPP_PROVIDER] } },
+  select: {
+    id: true,
+    provider: true,
+    active: true,
+    label: true,
+    senderId: true,
+    externalAccountId: true,
+    credentialsCiphertext: true,
+  } as const,
+};
+
 export async function resolveWhatsAppSender(organizationId: string, applicationId: string | null): Promise<WhatsAppSender> {
   if (!applicationId) return { kind: "organization" };
   const accounts = await prisma.providerAccount.findMany({
-    where: {
-      organizationId,
-      applicationId,
-      channel: "WHATSAPP",
-      provider: { in: [META_WHATSAPP_PROVIDER, BAILEYS_WHATSAPP_PROVIDER] },
-    },
-    select: ACCOUNT_SELECT,
+    where: { organizationId, applicationId, ...APPLICATION_WHATSAPP_ACCOUNTS.where },
+    select: APPLICATION_WHATSAPP_ACCOUNTS.select,
   });
   return chooseWhatsAppSender(accounts);
 }
@@ -104,7 +123,7 @@ export async function recipientRefusedApplicationNumber(scope: {
 export function findSenderAccount(organizationId: string, accountId: string): Promise<WhatsAppSenderAccount | null> {
   return prisma.providerAccount.findFirst({
     where: { organizationId, id: accountId, channel: "WHATSAPP" },
-    select: ACCOUNT_SELECT,
+    select: APPLICATION_WHATSAPP_ACCOUNTS.select,
   });
 }
 

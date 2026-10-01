@@ -15,6 +15,8 @@ export type ProviderAccountView = {
   transport: WhatsAppTransport;
   /** Meta: the WABA id. Baileys: the Evolution instance name. */
   externalAccountId: string;
+  /** The name people know the number by; null until someone names it. */
+  label: string | null;
   maskedSenderId: string | null;
   active: boolean;
   updatedAt: string;

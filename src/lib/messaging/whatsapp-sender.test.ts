@@ -7,6 +7,7 @@ const { encryptExternalApplicationValue } = await import("../external-applicatio
 const {
   accountSnapshot,
   messageRouting,
+  summarizeWhatsAppSender,
   chooseWhatsAppSender,
   organizationSnapshot,
   providerConfigForAccount,
@@ -109,4 +110,12 @@ test("a Meta number decides the WhatsApp rules, not the organization's mode", ()
 
 test("other channels record no WhatsApp identity", () => {
   assert.deepEqual(messageRouting(null, ORGANIZATION), { refused: false, mode: "BAILEYS", senderAccountId: null, senderSnapshot: null });
+});
+
+test("a screen says which number an application's messages leave from", () => {
+  assert.deepEqual(summarizeWhatsAppSender([]), { state: "organization" });
+  assert.deepEqual(summarizeWhatsAppSender([baileys()]), { state: "own", label: "ESBTP Yakro" });
+  assert.deepEqual(summarizeWhatsAppSender([baileys({ label: null })]), { state: "own", label: "2250700000002" });
+  assert.deepEqual(summarizeWhatsAppSender([baileys({ active: false })]), { state: "unavailable", reason: "disabled" });
+  assert.deepEqual(summarizeWhatsAppSender([baileys(), meta()]), { state: "unavailable", reason: "ambiguous" });
 });

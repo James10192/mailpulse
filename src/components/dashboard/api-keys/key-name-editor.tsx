@@ -16,12 +16,15 @@ export function KeyNameEditor({
   onEditingChange,
   onRename,
   disabled,
+  subject = "la clé",
 }: {
   name: string;
   editing: boolean;
   onEditingChange: (editing: boolean) => void;
   onRename: (name: string) => Promise<string | null>;
   disabled?: boolean;
+  /** What is renamed, for the button's accessible name ("la clé", "le numéro"). */
+  subject?: string;
 }) {
   if (!editing) {
     return (
@@ -34,7 +37,7 @@ export function KeyNameEditor({
             size="icon"
             className="size-8 shrink-0 text-muted-foreground opacity-60 group-hover/name:opacity-100 focus-visible:opacity-100"
             onClick={() => onEditingChange(true)}
-            aria-label={`Renommer la clé ${name}`}
+            aria-label={`Renommer ${subject} ${name}`}
           >
             <Pencil aria-hidden="true" />
           </Button>
