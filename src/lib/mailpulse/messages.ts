@@ -17,6 +17,13 @@ import { requestHash } from "./idempotency";
 import { dispatchQueuedMessage, type MailPulseMessageOrganization } from "./message-direct-dispatch";
 import { responseForMessage, type ApiMessageResponse } from "./message-response";
 import { canReceiveChannel } from "./consent";
+import {
+  messageRouting,
+  resolveWhatsAppSender,
+  SENDER_UNAVAILABLE_CODE,
+  SENDER_UNAVAILABLE_MESSAGE,
+  type WhatsAppSender,
+} from "@/lib/messaging/whatsapp-sender";
 export { responseForMessage, responseForSerializedMessage, type MessageDispatchState } from "./message-response";
 
 type CreateMessageInput = z.infer<typeof createMessageSchema>;
@@ -25,7 +32,7 @@ const WHATSAPP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const IDEMPOTENCY_TRANSACTION_MAX_RETRIES = 3;
 
 export async function createCommunicationMessage(params: CreateCommunicationMessageParams) {
-  const message = await createMessageRecord(prisma, params);
+  const message = await createMessageRecord(prisma, params, await resolveMessageSender(params));
   return dispatchAndPublishMessage(message.id, params.organization, params.defaultEmailSenderId ?? null);
 }
 
@@ -38,6 +45,8 @@ type CreateCommunicationMessageParams = {
   defaultEmailSenderId?: string | null;
   /** The API key that submitted the message; absent outside the public API. */
   apiKeyId?: string | null;
+  /** The application the key speaks for; its number sends the message. */
+  applicationId?: string | null;
 };
 
 type MessageDatabase = Pick<Prisma.TransactionClient,
@@ -72,6 +81,7 @@ export async function createIdempotentCommunicationMessage(params: CreateCommuni
   const expectedRequestHash = requestHash(params.requestBody);
   const replay = await findStoredMessageResponse(params, expectedRequestHash);
   if (replay) return replay;
+  const sender = await resolveMessageSender(params);
 
   for (let attempt = 0; attempt < IDEMPOTENCY_TRANSACTION_MAX_RETRIES; attempt += 1) {
     try {
@@ -90,7 +100,7 @@ export async function createIdempotentCommunicationMessage(params: CreateCommuni
           return storedIdempotentMessageResult(tx, existing, params.organizationId, params.idempotencyKey, expectedRequestHash);
         }
 
-        const message = await createMessageRecord(tx, params);
+        const message = await createMessageRecord(tx, params, sender);
         const response = responseForMessage(message);
         await tx.idempotencyRecord.create({
           data: {
@@ -159,7 +169,13 @@ export async function storeIdempotentCommunicationMessageResponse(params: {
   return response;
 }
 
-async function createMessageRecord(db: MessageDatabase, params: CreateCommunicationMessageParams) {
+/** Only WhatsApp has more than one identity to choose from; null for the other channels. */
+function resolveMessageSender(params: CreateCommunicationMessageParams) {
+  if (toChannel(params.input.channel) !== "WHATSAPP") return Promise.resolve(null);
+  return resolveWhatsAppSender(params.organizationId, params.applicationId ?? null);
+}
+
+async function createMessageRecord(db: MessageDatabase, params: CreateCommunicationMessageParams, sender: WhatsAppSender | null) {
   const channel = toChannel(params.input.channel);
   const recipientType = toRecipientType(params.input.recipient.type);
   const rawRecipientValue = params.input.recipient.value.trim();
@@ -193,20 +209,29 @@ async function createMessageRecord(db: MessageDatabase, params: CreateCommunicat
         })
       : null;
 
+  const routing = messageRouting(sender, params.organization);
   const compliance = evaluateCompliance({
     channel,
     contentType,
-    whatsappMode: params.organization?.whatsappMode ?? "META",
+    whatsappMode: routing.mode,
     serviceWindowExpiresAt: conversation.serviceWindowExpiresAt,
     templateStatus: template?.status ?? null,
   });
   const consentAllowed = canReceiveChannel(contact, channel);
+  const outcome = routing.refused
+    ? { status: "FAILED" as const, errorCode: SENDER_UNAVAILABLE_CODE, errorMessage: SENDER_UNAVAILABLE_MESSAGE }
+    : consentAllowed
+      ? compliance
+      : { status: "FAILED" as const, errorCode: "consent_denied", errorMessage: "Le destinataire a refuse les messages sur ce canal." };
 
   return db.communicationMessage.create({
     data: {
       organizationId: params.organizationId,
       origin: params.origin,
       apiKeyId: params.apiKeyId ?? null,
+      applicationId: params.applicationId ?? null,
+      senderAccountId: routing.senderAccountId,
+      senderSnapshot: routing.senderSnapshot ? toPrismaJson(routing.senderSnapshot) : undefined,
       contactId: contact?.id ?? null,
       conversationId: conversation.id,
       templateId: template?.id ?? null,
@@ -223,9 +248,9 @@ async function createMessageRecord(db: MessageDatabase, params: CreateCommunicat
       externalEventId,
       externalTenantId,
       idempotencyKey: params.idempotencyKey ?? params.input.idempotency_key ?? null,
-      status: consentAllowed ? compliance.status : "FAILED",
-      errorCode: consentAllowed ? compliance.errorCode : "consent_denied",
-      errorMessage: consentAllowed ? compliance.errorMessage : "Le destinataire a refuse les messages sur ce canal.",
+      status: outcome.status,
+      errorCode: outcome.errorCode,
+      errorMessage: outcome.errorMessage,
     },
   });
 }

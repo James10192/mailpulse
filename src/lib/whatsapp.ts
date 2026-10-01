@@ -1,5 +1,5 @@
-// Unified WhatsApp client — routes to Baileys (Evolution API) or Meta Cloud API
-// based on the organization's whatsappMode setting.
+// Unified WhatsApp client — routes to Baileys (Evolution API) or Meta Cloud API,
+// from the organization's own number or from an explicit provider config.
 
 import type { IWhatsAppProvider, WhatsAppFailureReason, WhatsAppProviderConfig } from "@/lib/whatsapp/types";
 import { BaileysProvider, type BaileysSendPriority } from "@/lib/whatsapp-baileys";
@@ -50,7 +50,7 @@ function createProvider(config: WhatsAppProviderConfig, priority: BaileysSendPri
   }
 }
 
-function resolveProviderConfig(org: OrgWhatsAppConfig): WhatsAppProviderConfig {
+export function resolveProviderConfig(org: OrgWhatsAppConfig): WhatsAppProviderConfig {
   if (org.whatsappMode === "META") {
     if (!org.metaPhoneNumberId || !org.metaAccessToken) {
       throw new Error("Meta Cloud API non configure pour cette organisation.");
@@ -92,7 +92,16 @@ export async function sendWhatsApp(
     throw new Error("WhatsApp non active pour cette organisation.");
   }
 
-  const config = resolveProviderConfig(org);
+  return sendWhatsAppWith(resolveProviderConfig(org), to, text, options);
+}
+
+/** Same as sendWhatsApp, from an explicit identity rather than the organization's. */
+export async function sendWhatsAppWith(
+  config: WhatsAppProviderConfig,
+  to: string,
+  text: string,
+  options: SendWhatsAppOptions = {},
+) {
   const provider = createProvider(config, options.priority ?? "bulk");
   const candidates = options.fallbacks === false ? [to] : getWhatsAppPhoneCandidates(to);
   let result = await provider.sendText(candidates[0] ?? to, text);
@@ -106,6 +115,21 @@ export async function sendWhatsApp(
     throw new WhatsAppSendError(result.error, result.reason, result.retryAfterSeconds ?? null);
   }
 
+  return result;
+}
+
+/** An approved Meta template; Baileys has none and refuses. */
+export async function sendWhatsAppTemplateWith(
+  config: WhatsAppProviderConfig,
+  to: string,
+  templateName: string,
+  languageCode: string,
+  parameters: string[] = [],
+) {
+  const result = await createProvider(config, "bulk").sendTemplate(to, templateName, languageCode, parameters);
+  if (!result.success) {
+    throw new WhatsAppSendError(result.error, result.reason, result.retryAfterSeconds ?? null);
+  }
   return result;
 }
 
