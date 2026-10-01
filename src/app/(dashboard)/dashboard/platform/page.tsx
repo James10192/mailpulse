@@ -14,7 +14,9 @@ import { PlanReadOnlyNotice } from "@/components/dashboard/plan-read-only-notice
 import { serializeTemplate } from "@/lib/mailpulse/serializers";
 import { countByOutcome, normalizeMessageFilters } from "./message-filters";
 import { OverviewPanel } from "./overview-panel";
-import { loadIntegrationsTab, loadMessagesTab } from "./platform-data";
+import { loadIntegrationsTab, loadMessagesTab, loadWebhooksTab, readWebhookFilters } from "./platform-data";
+import { LiveRefresh } from "./live-refresh";
+import { WebhooksPanel } from "./webhooks-panel";
 import { DeliveryByChannelChart, MessageVolumeChart } from "./platform-charts";
 import { ApiKeysPanel } from "./platform-client";
 import { PlatformMessagesPanel } from "./platform-messages-panel";
@@ -23,7 +25,7 @@ import { VerificationsPanel } from "./verifications-panel";
 
 export const dynamic = "force-dynamic";
 
-const TABS: PlatformTab[] = ["overview", "messages", "verifications", "integrations"];
+const TABS: PlatformTab[] = ["overview", "messages", "webhooks", "verifications", "integrations"];
 
 function statusVariant(status: string) {
   if (["DELIVERED", "SENT", "READ", "APPROVED"].includes(status)) return "success" as const;
@@ -44,6 +46,14 @@ function Metric({ label, value, icon: Icon }: { label: string; value: string | n
   );
 }
 
+function originOf(url: string) {
+  try {
+    return `${new URL(url).origin}/…`;
+  } catch {
+    return "Adresse masquée";
+  }
+}
+
 export default async function PlatformPage({
   searchParams,
 }: {
@@ -59,7 +69,9 @@ export default async function PlatformPage({
   const params = await searchParams;
   // An older link to the registry (filters, no tab) keeps opening the registry.
   const registryParams = ["message", "outcome", "status", "query", "channel", "origin", "key", "application", "sender", "page"];
-  const tab = TABS.find((value) => value === params.tab) ?? (registryParams.some((name) => params[name]) ? "messages" : "overview");
+  const webhookParams = ["endpoint", "deliveryStatus"];
+  const tab = TABS.find((value) => value === params.tab)
+    ?? (webhookParams.some((name) => params[name]) ? "webhooks" : registryParams.some((name) => params[name]) ? "messages" : "overview");
   const now = new Date();
 
   let content: React.ReactNode = null;
@@ -94,6 +106,22 @@ export default async function PlatformPage({
         </section>
       </>
     );
+  } else if (tab === "webhooks") {
+    const webhookFilters = readWebhookFilters(params);
+    const data = await loadWebhooksTab(orgId, webhookFilters, now);
+    // A receiver's URL may carry its own token: members who do not manage see the domain only.
+    const visible = isManager ? data : { ...data, endpoints: data.endpoints.map((endpoint) => ({ ...endpoint, url: originOf(endpoint.url) })) };
+    content = (
+      <>
+        {!canAccessFeature((org?.plan ?? "FREE") as PlanTier, "webhooks") ? <PlanReadOnlyNotice feature="Les webhooks" /> : null}
+        <WebhooksPanel
+          data={visible}
+          filters={webhookFilters}
+          canManage={isManager && canAccessFeature((org?.plan ?? "FREE") as PlanTier, "webhooks")}
+          disabledReason={isManager ? "Disponible avec le plan Pro" : "Réservé aux propriétaires et administrateurs"}
+        />
+      </>
+    );
   } else if (tab === "verifications") {
     content = <VerificationsPanel organizationId={orgId} />;
   } else {
@@ -113,8 +141,7 @@ export default async function PlatformPage({
           emailSenders={data.senderOptions}
           applications={data.applicationOptions}
         />
-        <div className="grid gap-4 xl:grid-cols-2">
-          <Card className="overflow-hidden"><CardHeader><CardTitle>Webhooks</CardTitle><CardDescription>Endpoints sortants et signés par organisation.</CardDescription></CardHeader><CardContent className="px-0 pb-0"><div className="overflow-x-auto"><Table className="min-w-[580px]"><TableHeader><TableRow><TableHead>Nom</TableHead><TableHead>URL</TableHead><TableHead>Événements</TableHead><TableHead>État</TableHead></TableRow></TableHeader><TableBody>{data.webhooks.length === 0 ? <TableRow><TableCell colSpan={4} className="h-28 text-center text-sm text-muted-foreground">Aucun webhook configuré.</TableCell></TableRow> : data.webhooks.map((webhook) => <TableRow key={webhook.id}><TableCell className="max-w-36 truncate font-medium">{webhook.name}</TableCell><TableCell className="max-w-56 truncate font-mono text-xs">{webhook.url}</TableCell><TableCell className="font-mono text-xs tabular-nums">{webhook.events.length}</TableCell><TableCell><Badge variant={webhook.active ? "success" : "secondary"}>{webhook.active ? "Actif" : "Inactif"}</Badge></TableCell></TableRow>)}</TableBody></Table></div></CardContent></Card>
+        <div className="grid gap-4">
           <Card className="overflow-hidden"><CardHeader><CardTitle>Modèles</CardTitle><CardDescription>Références de modèles disponibles pour les intégrations.</CardDescription></CardHeader><CardContent className="px-0 pb-0"><div className="overflow-x-auto"><Table className="min-w-[520px]"><TableHeader><TableRow><TableHead>Clé</TableHead><TableHead>Canal</TableHead><TableHead>Locale</TableHead><TableHead>Statut</TableHead></TableRow></TableHeader><TableBody>{data.templates.length === 0 ? <TableRow><TableCell colSpan={4} className="h-28 text-center text-sm text-muted-foreground">Aucun modèle d’intégration.</TableCell></TableRow> : data.templates.map((template) => { const item = serializeTemplate(template); return <TableRow key={item.id}><TableCell className="max-w-44 truncate font-mono text-xs">{item.template_key}</TableCell><TableCell>{item.channel}</TableCell><TableCell className="font-mono text-xs">{item.locale}</TableCell><TableCell><Badge variant={statusVariant(item.status.toUpperCase())}>{item.status}</Badge></TableCell></TableRow>; })}</TableBody></Table></div></CardContent></Card>
         </div>
       </>
@@ -136,6 +163,7 @@ export default async function PlatformPage({
         )}
       </header>
 
+      {tab === "overview" || tab === "messages" || tab === "webhooks" ? <div className="-mb-2 flex justify-end"><LiveRefresh /></div> : null}
       <PlatformTabs tab={tab}>{content}</PlatformTabs>
     </div>
   );

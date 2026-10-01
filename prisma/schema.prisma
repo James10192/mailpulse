@@ -1370,6 +1370,10 @@ model WebhookEndpoint {
   signingSecret  String
   secretHash     String
   secretPreview  String
+  // The secret replaced by the last rotation keeps signing alongside the new
+  // one until it expires, so receivers can switch without losing events.
+  previousSigningSecret   String?
+  previousSecretExpiresAt DateTime?
   active         Boolean             @default(true)
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
@@ -1405,6 +1409,8 @@ model WebhookDelivery {
 
   @@unique([endpointId, eventId])
   @@index([organizationId, status, createdAt])
+  @@index([status, nextRetryAt])
+  @@index([endpointId, createdAt])
   @@map("webhook_delivery")
 }
 

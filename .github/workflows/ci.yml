@@ -96,6 +96,9 @@ jobs:
       - name: Platform registry tests
         run: pnpm test:platform-registry
 
+      - name: Outbound webhook tests
+        run: pnpm test:webhooks
+
       - name: Messaging sender routing tests
         run: pnpm test:messaging
 

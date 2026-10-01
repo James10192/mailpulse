@@ -7,6 +7,7 @@ import type {
   TemplateStatus,
 } from "@/generated/prisma";
 import { MAX_SMS_CHARACTERS } from "@/lib/sms";
+import { webhookUrlProblem } from "./webhook-policy";
 
 export const channelSchema = z.enum(["email", "whatsapp", "sms"]);
 export const recipientTypeSchema = z.enum(["email", "phone"]);
@@ -143,7 +144,11 @@ export const createMessageSchema = z.object({
 
 export const createWebhookSchema = z.object({
   name: z.string().min(1),
-  url: z.string().url(),
+  // Called from our servers: HTTPS only, never an internal or private address.
+  url: z.string().url().superRefine((value, context) => {
+    const problem = webhookUrlProblem(value);
+    if (problem) context.addIssue({ code: "custom", message: problem });
+  }),
   events: z.array(z.string().min(1)).min(1),
 });
 

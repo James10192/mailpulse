@@ -295,6 +295,7 @@ when available.
 POST /api/v1/webhooks
 GET /api/v1/webhooks
 DELETE /api/v1/webhooks/{webhook_id}
+POST /api/v1/webhooks/{webhook_id}/rotate-secret
 ```
 
 Events contain `event_id`, `type`, `tenant_id`, `created_at`, and `data`.
@@ -308,6 +309,38 @@ mailpulse-signature: v1=<signature>
 
 The signature is computed over `timestamp + "." + rawBody` with the webhook
 secret shown once at creation time.
+
+### Secret rotation
+
+```txt
+POST /api/v1/webhooks/{webhook_id}/rotate-secret
+```
+
+The response contains the new secret (`signing_secret`), shown once. For 24
+hours, every request carries two signatures, the new secret's first:
+
+```txt
+mailpulse-signature: v1=<new_signature>,v1=<old_signature>
+```
+
+Split the header on commas and accept the request if any signature matches
+your secret: you switch secrets without losing events.
+
+> **Before your first rotation**, make sure your application accepts a header
+> holding several signatures. A check that compares the whole header with
+> `v1=<signature>` would reject every delivery during the 24-hour overlap. A second rotation
+within those 24 hours replaces the old secret with the previous new one.
+
+### Delivery and retries
+
+- The URL must be public HTTPS: local, internal and private addresses are
+  refused, and redirects are not followed.
+- Your server must answer 2xx within 10 seconds.
+- A timeout, a network error, or a 408, 429 or 5xx response is retried after
+  1 min, 5 min, 30 min, 2 h then 6 h, six attempts in total. Any other response
+  stops the delivery.
+- A retry resends the same `event_id`: use it to ignore a duplicate.
+- Deliveries can be reviewed, and resent by an admin, in **Platform › Webhooks**.
 
 ## Client examples
 

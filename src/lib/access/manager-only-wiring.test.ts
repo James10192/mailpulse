@@ -13,6 +13,7 @@ const GUARDED: Record<string, string[]> = {
     "updateMailPulseApiKeyApplication",
     "revokeMailPulseApiKey",
   ],
+  "src/app/(dashboard)/dashboard/platform/webhook-actions.ts": ["rotateWebhookSigningSecret", "setWebhookActive", "resendWebhook"],
   "src/app/(dashboard)/dashboard/settings/integrations/actions.ts": [
     "generateFilonIntegrationKey",
     "revokeFilonIntegrationKey",
@@ -29,6 +30,13 @@ const GUARDED: Record<string, string[]> = {
   ],
 };
 
+test("the webhook actions' helper refuses non-managers", () => {
+  const source = readFileSync(resolve(process.cwd(), "src/app/(dashboard)/dashboard/platform/webhook-actions.ts"), "utf8");
+  const helper = source.slice(source.indexOf("async function managedOrganization("), source.indexOf("/** The new secret"));
+  assert.ok(helper.includes("managerOnlyRefusal(context)"));
+  assert.ok(helper.indexOf("if (refusal) return refusal;") < helper.indexOf("return { organizationId"));
+});
+
 for (const [file, actions] of Object.entries(GUARDED)) {
   const source = readFileSync(resolve(process.cwd(), file), "utf8");
   for (const action of actions) {
@@ -37,9 +45,12 @@ for (const [file, actions] of Object.entries(GUARDED)) {
       assert.ok(start >= 0, `${action} not found in ${file}`);
       const next = source.indexOf("\nexport async function ", start + 1);
       const body = source.slice(start, next === -1 ? undefined : next);
-      const guard = body.indexOf("managerOnlyRefusal(context)");
-      const write = body.search(/prisma\.\w+\.(create|update|updateMany|delete|deleteMany|upsert)\(|createFreshBaileysInstance|baileys\.\w+\(/);
+      // Either the guard itself, or this file's helper that applies it first.
+      const guard = Math.max(body.indexOf("managerOnlyRefusal(context)"), body.indexOf("managedOrganization()"));
+      // Direct writes, transaction writes, and the helpers that write for an action.
+      const write = body.search(/(prisma|tx)\.\w+\.(create|update|updateMany|delete|deleteMany|upsert)\(|prisma\.\$transaction\(|createFreshBaileysInstance|baileys\.\w+\(|renameIntegrationApiKey\(|rotateWebhookSecret\(|resendWebhookDelivery\(/);
       assert.ok(guard > 0, `${action} has no manager guard`);
+      assert.ok(write > 0, `${action}: no write found, the check would prove nothing`);
       assert.ok(write === -1 || guard < write, `${action} writes before checking the role`);
     });
   }

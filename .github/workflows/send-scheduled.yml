@@ -82,3 +82,20 @@ jobs:
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+  process-webhooks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Retry outbound webhooks
+        run: |
+          set -euo pipefail
+          APP_URL="$(printf '%s' "$APP_URL" | xargs)"
+          CRON_SECRET="$(printf '%s' "$CRON_SECRET" | xargs)"
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --silent --show-error -X POST "$APP_URL/api/cron/process-webhooks" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json"
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

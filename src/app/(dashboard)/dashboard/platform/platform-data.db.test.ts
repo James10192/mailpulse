@@ -106,3 +106,41 @@ test("a member who does not manage cannot look someone up by number", { skip: !h
   assert.equal((await load({ query: "0701020304" }, { canSeePersonalData: false })).total, 0);
   assert.equal((await load({ query: ids.fromAccount }, { canSeePersonalData: false })).total, 1);
 });
+
+test("the delivery log is scoped to the organization, filtered and counted", { skip: !hasDatabase }, async () => {
+  const { loadWebhooksTab, readWebhookFilters } = await import("./platform-data");
+  const endpoint = await prisma.webhookEndpoint.create({
+    data: { organizationId, name: "ERP", url: "https://hooks.example.com/x", events: ["message.delivered"], signingSecret: "whsec_a", secretHash: "h", secretPreview: "whsec_…a" },
+  });
+  const foreign = await prisma.webhookEndpoint.create({
+    data: { organizationId: otherOrganizationId, name: "Autre", url: "https://hooks.example.com/y", events: ["message.delivered"], signingSecret: "whsec_b", secretHash: "h", secretPreview: "whsec_…b" },
+  });
+  const delivery = (endpointId: string, organization: string, status: "DELIVERED" | "FAILED" | "RETRYING", index: number) => ({
+    organizationId: organization, endpointId, eventId: `evt-${run}-${status}-${index}-${endpointId}`, eventType: "message.delivered", payload: {}, status,
+    deliveredAt: status === "DELIVERED" ? now : null, createdAt: new Date(now.getTime() - index * 60_000),
+  });
+  await prisma.webhookDelivery.createMany({
+    data: [
+      delivery(endpoint.id, organizationId, "DELIVERED", 1),
+      delivery(endpoint.id, organizationId, "DELIVERED", 2),
+      delivery(endpoint.id, organizationId, "FAILED", 3),
+      delivery(endpoint.id, organizationId, "RETRYING", 4),
+      delivery(foreign.id, otherOrganizationId, "FAILED", 5),
+    ],
+  });
+
+  const all = await loadWebhooksTab(organizationId, readWebhookFilters({}), now);
+  assert.deepEqual(all.endpoints.map((item) => item.name), ["ERP"]);
+  assert.equal(all.total, 4);
+  assert.deepEqual(all.endpoints[0].week, { delivered: 2, failed: 1, waiting: 1 });
+  assert.equal(all.statusCounts.FAILED, 1);
+
+  const failed = await loadWebhooksTab(organizationId, readWebhookFilters({ deliveryStatus: "failed" }), now);
+  assert.equal(failed.total, 1);
+  // Another organization's endpoint id shows nothing.
+  const crossed = await loadWebhooksTab(organizationId, readWebhookFilters({ endpoint: foreign.id }), now);
+  assert.equal(crossed.total, 0);
+
+  await prisma.webhookDelivery.deleteMany({ where: { organizationId: { in: [organizationId, otherOrganizationId] } } });
+  await prisma.webhookEndpoint.deleteMany({ where: { id: { in: [endpoint.id, foreign.id] } } });
+});
