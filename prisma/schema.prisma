@@ -929,6 +929,8 @@ model CommunicationMessage {
   @@index([organizationId, channel, createdAt])
   @@index([organizationId, origin, createdAt])
   @@index([organizationId, apiKeyId, createdAt])
+  @@index([organizationId, applicationId, createdAt])
+  @@index([organizationId, senderAccountId, createdAt])
   @@index([conversationId, createdAt])
   @@index([externalEventId])
   @@unique([organizationId, channel, provider, providerMessageId])

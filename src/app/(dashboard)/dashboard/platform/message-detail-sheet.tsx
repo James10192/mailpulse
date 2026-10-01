@@ -63,6 +63,7 @@ function MessageDetailContent({ message }: { message: ApiMessageDetail }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <Metric label="Canal" value={message.channel === "whatsapp" ? "WhatsApp" : message.channel === "sms" ? "SMS" : "Email"} />
           <Metric label="Envoyé par" value={message.api_key ? `Clé « ${message.api_key.name} »` : messageOriginLabel(message.origin)} />
+          {message.sender ? <Metric label="Numéro d'envoi" value={message.sender} /> : null}
           <Metric label="Identifiant fournisseur" value={shortIdentifier(message.provider_message_id, 10, 6)} mono />
           <Metric label="Tentatives" value={String(message.retry_count)} />
         </div>

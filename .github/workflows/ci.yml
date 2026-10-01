@@ -92,6 +92,10 @@ jobs:
       - name: Platform tests
         run: pnpm test:platform
 
+      # The registry reads go through the serializers, whose SMS imports need type transforms.
+      - name: Platform registry tests
+        run: pnpm test:platform-registry
+
       - name: Messaging sender routing tests
         run: pnpm test:messaging
 

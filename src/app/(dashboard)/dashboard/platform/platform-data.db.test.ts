@@ -1,0 +1,100 @@
+// The registry tab's real queries against a database (DATABASE_URL, as in CI). Skipped without one.
+import assert from "node:assert/strict";
+import { after, before, test } from "node:test";
+import { randomUUID } from "node:crypto";
+
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+
+const { prisma } = await import("@/lib/prisma");
+const { loadMessagesTab } = await import("./platform-data");
+const { normalizeMessageFilters } = await import("./message-filters");
+
+const run = randomUUID().slice(0, 8);
+const organizationId = `org-registry-${run}`;
+const otherOrganizationId = `org-registry-other-${run}`;
+const now = new Date("2026-10-01T12:00:00Z");
+const ids = { account: "", fromAccount: "", fromOrganization: "", foreign: "" };
+
+async function message(data: { organization?: string; senderAccountId?: string | null; snapshot?: object; at: Date; origin?: "API" | "CAMPAIGN" }) {
+  const created = await prisma.communicationMessage.create({
+    data: {
+      organizationId: data.organization ?? organizationId,
+      channel: "WHATSAPP",
+      origin: data.origin ?? "API",
+      recipientType: "PHONE",
+      recipientValue: "+2250701020304",
+      contentType: "TEXT",
+      text: "Votre code est 123456",
+      status: "DELIVERED",
+      senderAccountId: data.senderAccountId ?? null,
+      senderSnapshot: data.snapshot,
+      createdAt: data.at,
+    },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+before(async () => {
+  if (!hasDatabase) return;
+  await prisma.organization.createMany({
+    data: [
+      { id: organizationId, name: "École", slug: `registre-${run}`, whatsappEnabled: true },
+      { id: otherOrganizationId, name: "Autre", slug: `registre-autre-${run}` },
+    ],
+  });
+  const application = await prisma.externalApplication.create({ data: { organizationId, key: "ecole", name: "École A" } });
+  const account = await prisma.providerAccount.create({
+    data: { organizationId, applicationId: application.id, channel: "WHATSAPP", provider: "BAILEYS_WHATSAPP", externalAccountId: `mp-${run}`, label: "École A" },
+  });
+  ids.account = account.id;
+  ids.fromAccount = await message({ senderAccountId: account.id, snapshot: { source: "application", provider: "BAILEYS_WHATSAPP", label: "École A", address: null }, at: new Date("2026-10-01T08:00:00Z") });
+  ids.fromOrganization = await message({ at: new Date("2026-09-29T23:30:00Z") });
+  await message({ at: new Date("2026-09-29T00:10:00Z") });
+  await message({ at: new Date("2026-09-29T10:00:00Z"), origin: "CAMPAIGN" });
+  ids.foreign = await message({ organization: otherOrganizationId, at: new Date("2026-10-01T08:00:00Z") });
+});
+
+after(async () => {
+  if (!hasDatabase) return;
+  for (const id of [organizationId, otherOrganizationId]) {
+    await prisma.communicationMessage.deleteMany({ where: { organizationId: id } });
+    await prisma.providerAccount.deleteMany({ where: { organizationId: id } });
+    await prisma.externalApplication.deleteMany({ where: { organizationId: id } });
+    await prisma.organization.delete({ where: { id } });
+  }
+  await prisma.$disconnect();
+});
+
+const load = (params: Record<string, string>, options: { canSeePersonalData?: boolean; messageId?: string | null } = {}) =>
+  loadMessagesTab(organizationId, normalizeMessageFilters({ period: "all", ...params }), { now, canSeePersonalData: options.canSeePersonalData ?? true, messageId: options.messageId ?? null });
+
+test("daily volume is counted by the database per UTC day, campaigns aside", { skip: !hasDatabase }, async () => {
+  const { volume } = await load({});
+  assert.equal(volume.length, 14);
+  assert.deepEqual(volume.slice(-3).map((day) => day.messages), [2, 0, 1]);
+  assert.equal(volume.reduce((sum, day) => sum + day.messages, 0), 3);
+});
+
+test("the sender filter separates an application's number from the organization's", { skip: !hasDatabase }, async () => {
+  const ofAccount = await load({ sender: ids.account });
+  assert.deepEqual(ofAccount.messages.map((item) => item.id), [ids.fromAccount]);
+  assert.equal(ofAccount.messages[0].sender, "École A");
+
+  const ofOrganization = await load({ sender: "organization" });
+  assert.equal(ofOrganization.total, 2);
+  assert.ok(!ofOrganization.messages.some((item) => item.id === ids.fromAccount));
+  assert.deepEqual(ofOrganization.senderOptions.map((option) => option.key), ["organization", ids.account]);
+});
+
+test("a shared link opens its message, never another organization's", { skip: !hasDatabase }, async () => {
+  assert.equal((await load({}, { messageId: ids.fromOrganization })).linkedMessage?.id, ids.fromOrganization);
+  assert.equal((await load({}, { messageId: ids.foreign })).linkedMessage, null);
+});
+
+test("a member who does not manage sees no recipient and no content", { skip: !hasDatabase }, async () => {
+  const masked = await load({}, { canSeePersonalData: false, messageId: ids.fromAccount });
+  const serialized = JSON.stringify([masked.messages, masked.linkedMessage]);
+  assert.ok(!serialized.includes("0701020304"));
+  assert.ok(!serialized.includes("123456"));
+});

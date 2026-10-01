@@ -70,12 +70,17 @@ export function summarizeWhatsAppSender(applicationAccounts: WhatsAppSenderAccou
   if (sender.kind === "account") {
     const { account } = sender;
     // Shown to every member: a number without a name is masked, never printed whole.
-    return { state: "own", label: account.label ?? maskedAddress(account.senderId) ?? account.externalAccountId };
+    return { state: "own", label: senderAccountLabel(account) };
   }
   return {
     state: "unavailable",
     reason: applicationAccounts.some((account) => account.active) ? "ambiguous" : "disabled",
   };
+}
+
+/** How a number is named on screen: its label, else its masked address, never the whole number. */
+export function senderAccountLabel(account: Pick<WhatsAppSenderAccount, "label" | "senderId" | "externalAccountId">) {
+  return account.label ?? maskedAddress(account.senderId) ?? account.externalAccountId;
 }
 
 /** The application's WhatsApp accounts, active or not, as chooseWhatsAppSender reads them. */
@@ -183,6 +188,15 @@ export function messageRouting(
     senderAccountId: null,
     senderSnapshot: sender?.kind === "organization" && organization ? organizationSnapshot(organization) : null,
   };
+}
+
+/** How a message's frozen sender reads in the history; null for a message that recorded none. */
+export function senderSnapshotLabel(snapshot: unknown): string | null {
+  if (typeof snapshot !== "object" || snapshot === null) return null;
+  const { source, label, address } = snapshot as Partial<SenderSnapshot>;
+  if (source === "organization") return "Numéro de l'organisation";
+  if (source !== "application") return null;
+  return (typeof label === "string" && label) || maskedAddress(typeof address === "string" ? address : null) || "Numéro de l'application";
 }
 
 /** Unreadable credentials (wrong key, damaged value) make the account unusable, not the request fail. */
