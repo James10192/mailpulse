@@ -7,7 +7,8 @@ process.env.EXTERNAL_APPLICATION_KEK ??= Buffer.alloc(32, 7).toString("base64");
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 const { prisma } = await import("@/lib/prisma");
-const { messageRouting, resolveWhatsAppSender } = await import("./whatsapp-sender");
+const { messageRouting, recipientRefusedApplicationNumber, resolveWhatsAppSender } = await import("./whatsapp-sender");
+const { hashExternalApplicationRecipient } = await import("../external-applications/crypto");
 
 const run = randomUUID().slice(0, 8);
 const ids = { organization: `org-${run}`, otherOrganization: `org-other-${run}` };
@@ -56,6 +57,7 @@ after(async () => {
   if (!hasDatabase) return;
   for (const organizationId of [ids.organization, ids.otherOrganization]) {
     await prisma.communicationMessage.deleteMany({ where: { organizationId } });
+    await prisma.externalRecipientConsent.deleteMany({ where: { organizationId } });
     await prisma.conversation.deleteMany({ where: { organizationId } });
     await prisma.integrationApiKey.deleteMany({ where: { organizationId } });
     await prisma.providerAccount.deleteMany({ where: { organizationId } });
@@ -105,25 +107,20 @@ test("a school whose number is disabled is refused, never given another number",
   }
 });
 
-test("a message keeps its number when the school's number is relabelled later", { skip: !hasDatabase }, async () => {
-  const routing = await route(created.abidjan);
-  const message = await prisma.communicationMessage.create({
+test("a NON sent to a school's number binds API messages from that number only", { skip: !hasDatabase }, async () => {
+  await prisma.externalRecipientConsent.create({
     data: {
       organizationId: ids.organization,
-      applicationId: created.abidjan,
-      senderAccountId: routing.senderAccountId,
-      senderSnapshot: routing.senderSnapshot ?? undefined,
-      channel: "WHATSAPP",
-      recipientType: "PHONE",
-      recipientValue: "+2250707123456",
-      contentType: "TEXT",
-      text: "Bonjour",
+      applicationId: created.yakro,
+      providerAccountId: created.yakroAccount,
+      recipientHash: hashExternalApplicationRecipient("+2250707123456"),
+      recipientCiphertext: "unused",
+      status: "REFUSED",
     },
   });
-  await prisma.providerAccount.update({ where: { id: created.abidjanAccount }, data: { label: "Nouveau nom" } });
-  const stored = await prisma.communicationMessage.findUniqueOrThrow({ where: { id: message.id } });
-  assert.equal(stored.senderAccountId, created.abidjanAccount);
-  assert.equal((stored.senderSnapshot as { label: string }).label, "ESBTP abidjan");
+  const scope = { organizationId: ids.organization, recipient: "+2250707123456" };
+  assert.equal(await recipientRefusedApplicationNumber({ ...scope, applicationId: created.yakro, providerAccountId: created.yakroAccount }), true);
+  assert.equal(await recipientRefusedApplicationNumber({ ...scope, applicationId: created.abidjan, providerAccountId: created.abidjanAccount }), false);
 });
 
 test("neither a key nor a message can point at another organization's application or number", { skip: !hasDatabase }, async () => {
@@ -135,7 +132,7 @@ test("neither a key nor a message can point at another organization's applicatio
       keyHash: `hash-${run}`,
       keyPrefix: "mp_live",
     },
-  }));
+  }), { code: "P2003" });
   await assert.rejects(prisma.communicationMessage.create({
     data: {
       organizationId: ids.otherOrganization,
@@ -145,5 +142,5 @@ test("neither a key nor a message can point at another organization's applicatio
       recipientValue: "+2250707123456",
       contentType: "TEXT",
     },
-  }));
+  }), { code: "P2003" });
 });

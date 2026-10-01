@@ -44,8 +44,8 @@ export async function POST(request: Request) {
     }
   }
 
-  // The key's own sender wins, then its application's: a rotated key inherits
-  // the application's sender without anyone setting it again.
+  // The key's own sender wins, then its application's: a key created under the
+  // name of an attached key joins its application and inherits that sender.
   const defaultEmailSenderId = auth.defaultEmailSenderId ?? auth.application?.defaultEmailSenderId ?? null;
   const result = await createIdempotentCommunicationMessage({
     organizationId: auth.organizationId,

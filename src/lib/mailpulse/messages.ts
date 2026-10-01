@@ -18,7 +18,10 @@ import { dispatchQueuedMessage, type MailPulseMessageOrganization } from "./mess
 import { responseForMessage, type ApiMessageResponse } from "./message-response";
 import { canReceiveChannel } from "./consent";
 import {
+  CONSENT_REFUSED_CODE,
+  CONSENT_REFUSED_MESSAGE,
   messageRouting,
+  recipientRefusedApplicationNumber,
   resolveWhatsAppSender,
   SENDER_UNAVAILABLE_CODE,
   SENDER_UNAVAILABLE_MESSAGE,
@@ -169,13 +172,27 @@ export async function storeIdempotentCommunicationMessageResponse(params: {
   return response;
 }
 
-/** Only WhatsApp has more than one identity to choose from; null for the other channels. */
-function resolveMessageSender(params: CreateCommunicationMessageParams) {
-  if (toChannel(params.input.channel) !== "WHATSAPP") return Promise.resolve(null);
-  return resolveWhatsAppSender(params.organizationId, params.applicationId ?? null);
+type MessageSender = { sender: WhatsAppSender; recipientRefused: boolean } | null;
+
+/**
+ * Only WhatsApp has more than one identity to choose from; null for the other
+ * channels. Resolved before the idempotency transaction, which reads nothing
+ * outside the message tables.
+ */
+async function resolveMessageSender(params: CreateCommunicationMessageParams): Promise<MessageSender> {
+  if (toChannel(params.input.channel) !== "WHATSAPP") return null;
+  const applicationId = params.applicationId ?? null;
+  const sender = await resolveWhatsAppSender(params.organizationId, applicationId);
+  const recipientRefused = sender.kind === "account" && applicationId !== null && await recipientRefusedApplicationNumber({
+    organizationId: params.organizationId,
+    applicationId,
+    providerAccountId: sender.account.id,
+    recipient: normalizeContactPhone(params.input.recipient.value.trim()),
+  });
+  return { sender, recipientRefused };
 }
 
-async function createMessageRecord(db: MessageDatabase, params: CreateCommunicationMessageParams, sender: WhatsAppSender | null) {
+async function createMessageRecord(db: MessageDatabase, params: CreateCommunicationMessageParams, resolved: MessageSender) {
   const channel = toChannel(params.input.channel);
   const recipientType = toRecipientType(params.input.recipient.type);
   const rawRecipientValue = params.input.recipient.value.trim();
@@ -209,7 +226,7 @@ async function createMessageRecord(db: MessageDatabase, params: CreateCommunicat
         })
       : null;
 
-  const routing = messageRouting(sender, params.organization);
+  const routing = messageRouting(resolved?.sender ?? null, params.organization);
   const compliance = evaluateCompliance({
     channel,
     contentType,
@@ -220,7 +237,9 @@ async function createMessageRecord(db: MessageDatabase, params: CreateCommunicat
   const consentAllowed = canReceiveChannel(contact, channel);
   const outcome = routing.refused
     ? { status: "FAILED" as const, errorCode: SENDER_UNAVAILABLE_CODE, errorMessage: SENDER_UNAVAILABLE_MESSAGE }
-    : consentAllowed
+    : resolved?.recipientRefused
+      ? { status: "FAILED" as const, errorCode: CONSENT_REFUSED_CODE, errorMessage: CONSENT_REFUSED_MESSAGE }
+      : consentAllowed
       ? compliance
       : { status: "FAILED" as const, errorCode: "consent_denied", errorMessage: "Le destinataire a refuse les messages sur ce canal." };
 

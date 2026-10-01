@@ -88,7 +88,7 @@ async function attachByName(organizationRef: string | null) {
     const plan = planApplicationsForKeys(keys, existing.map((application) => application.key));
     console.log(`\n${organization.name} (${organization.id})`);
     for (const planned of plan) {
-      console.log(`  + application ${planned.key} « ${planned.name} » ← ${planned.apiKeyIds.length} clé(s)`
+      console.log(`  + application ${planned.key} « ${planned.name} » ← clé(s) ${planned.apiKeyIds.join(", ")}`
         + (planned.defaultEmailSenderId ? `, expéditeur e-mail ${planned.defaultEmailSenderId}` : ""));
       if (!apply) continue;
 
@@ -123,9 +123,10 @@ async function attachExplicitly(pairs: string[]) {
 
     const apiKey = await prisma.integrationApiKey.findFirst({
       where: { id: keyId, provider: "MAILPULSE" },
-      select: { id: true, name: true, organizationId: true, applicationId: true },
+      select: { id: true, name: true, organizationId: true, applicationId: true, revokedAt: true },
     });
     if (!apiKey) throw new Error(`Clé introuvable : ${keyId}`);
+    if (apiKey.revokedAt) throw new Error(`Clé ${keyId} révoquée : elle n'envoie plus rien.`);
 
     // Looked up within the key's organization only: a key can never be
     // attached to another organization's application.
@@ -135,15 +136,27 @@ async function attachExplicitly(pairs: string[]) {
     });
     if (!application) throw new Error(`Application ${applicationKey} introuvable dans l'organisation de la clé.`);
     if (!application.active) throw new Error(`Application ${applicationKey} désactivée : ses clés seraient refusées.`);
+    if (apiKey.applicationId && apiKey.applicationId !== application.id) {
+      throw new Error(`Clé ${keyId} déjà rattachée à une autre application : la détacher d'abord, explicitement.`);
+    }
 
-    const account = await prisma.providerAccount.findFirst({
-      where: { organizationId: apiKey.organizationId, applicationId: application.id, channel: "WHATSAPP", active: true },
-      select: { label: true, senderId: true, externalAccountId: true },
-    });
-    const number = account ? (account.label ?? account.senderId ?? account.externalAccountId) : "numéro de l'organisation";
-    console.log(`  ${apiKey.name} (${apiKey.id}) → ${application.key} · WhatsApp : ${number}`);
+    console.log(`  ${apiKey.name} (${apiKey.id}) → ${application.key} · WhatsApp : ${await describeApplicationNumber(apiKey.organizationId, application.id)}`);
     if (!apply) continue;
 
     await prisma.integrationApiKey.update({ where: { id: apiKey.id }, data: { applicationId: application.id } });
   }
+}
+
+/** Says what src/lib/messaging/whatsapp-sender.ts will decide for this application. */
+async function describeApplicationNumber(organizationId: string, applicationId: string) {
+  const accounts = await prisma.providerAccount.findMany({
+    where: { organizationId, applicationId, channel: "WHATSAPP", provider: { in: ["META_WHATSAPP", "BAILEYS_WHATSAPP"] } },
+    select: { active: true, label: true, senderId: true, externalAccountId: true },
+  });
+  if (accounts.length === 0) return "numéro de l'organisation (l'application n'en a pas)";
+  const active = accounts.filter((account) => account.active);
+  if (active.length === 1) return active[0].label ?? active[0].senderId ?? active[0].externalAccountId;
+  return active.length === 0
+    ? "AUCUN : le numéro de l'application est désactivé, ses messages échoueront (sender_unavailable)"
+    : "AUCUN : l'application a plusieurs numéros actifs, ses messages échoueront (sender_unavailable)";
 }

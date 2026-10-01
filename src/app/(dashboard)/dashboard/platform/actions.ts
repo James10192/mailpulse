@@ -48,6 +48,7 @@ export async function generateMailPulseApiKey(formData: FormData) {
   }
 
   const key = createMailPulseApiKey(environment);
+  const applicationId = await applicationOfKeysNamed(org.id, name.name);
 
   await prisma.integrationApiKey.create({
     data: {
@@ -55,6 +56,7 @@ export async function generateMailPulseApiKey(formData: FormData) {
       provider: "MAILPULSE",
       environment,
       name: name.name,
+      applicationId,
       defaultEmailSenderId,
       keyHash: keyHash(key),
       keyPrefix: keyPreview(key),
@@ -123,4 +125,24 @@ export async function revokeMailPulseApiKey(formData: FormData) {
 
   revalidatePath("/dashboard/platform");
   return { success: true };
+}
+
+/**
+ * A key created under the name of an attached key joins the same application,
+ * so a rotation (new key, then revoke the old one) keeps the application's
+ * WhatsApp number instead of falling back to the organization's. Same grouping
+ * as scripts/attach-api-keys-to-applications.ts.
+ */
+async function applicationOfKeysNamed(organizationId: string, name: string) {
+  const sibling = await prisma.integrationApiKey.findFirst({
+    where: {
+      organizationId,
+      provider: "MAILPULSE",
+      applicationId: { not: null },
+      name: { equals: name, mode: "insensitive" },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { applicationId: true },
+  });
+  return sibling?.applicationId ?? null;
 }

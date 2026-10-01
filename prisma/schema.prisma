@@ -651,8 +651,9 @@ model IntegrationApiKey {
   organizationId String
   organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   // The application this key speaks for. Its WhatsApp number and default email
-  // sender belong to the application, not to the key: rotating a key moves
-  // nothing. Null for keys not yet attached, which use the organization's.
+  // sender belong to the application, not to the key: a key created under the
+  // name of an attached key joins its application, so a rotation moves nothing.
+  // Null for keys not yet attached, which use the organization's.
   applicationId  String?
   application    ExternalApplication? @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Restrict)
   messages       CommunicationMessage[]
@@ -923,8 +924,6 @@ model CommunicationMessage {
   @@index([organizationId, channel, createdAt])
   @@index([organizationId, origin, createdAt])
   @@index([organizationId, apiKeyId, createdAt])
-  @@index([organizationId, applicationId, createdAt])
-  @@index([organizationId, senderAccountId, createdAt])
   @@index([conversationId, createdAt])
   @@index([externalEventId])
   @@unique([organizationId, channel, provider, providerMessageId])

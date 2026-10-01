@@ -4,12 +4,13 @@ import { afterEach, test } from "node:test";
 // The Evolution client reads its configuration when first loaded.
 process.env.EVOLUTION_API_URL = "https://evolution.test";
 process.env.EVOLUTION_API_KEY = "test-key";
+process.env.EXTERNAL_APPLICATION_KEK = Buffer.alloc(32, 7).toString("base64");
 
 type Row = Record<string, unknown> & { id: string; status: string };
 type Account = { id: string; organizationId: string; provider: string; active: boolean; label: string | null; senderId: string | null; externalAccountId: string; credentialsCiphertext: string | null };
 
 /** Prisma stand-in: one message row and the organization's provider accounts. */
-function installDatabase(row: Row, accounts: Account[]) {
+function installDatabase(row: Row, accounts: Account[], refusedRecipients = false) {
   (globalThis as { prisma?: unknown }).prisma = {
     communicationMessage: {
       async findUnique() { return { ...row, template: null }; },
@@ -18,6 +19,9 @@ function installDatabase(row: Row, accounts: Account[]) {
         Object.assign(row, data);
         return { count: 1 };
       },
+    },
+    externalRecipientConsent: {
+      async findUnique() { return refusedRecipients ? { status: "REFUSED" } : null; },
     },
     providerAccount: {
       async findFirst({ where }: { where: { organizationId: string; id: string } }) {
@@ -121,4 +125,15 @@ test("a message without an application number still leaves from the organization
 
   assert.equal(row.status, "SENT");
   assert.ok(urls.every((url) => url.includes("/mp-organization")), urls.join(", "));
+});
+
+test("a recipient who answered NON to the application's number is not sent to", async () => {
+  const urls = stubEvolution();
+  const row = installDatabase(message({ senderAccountId: "pa-yakro", applicationId: "app-yakro" }), [YAKRO], true);
+
+  await dispatchQueuedMessage("msg-1", { organization: ORGANIZATION });
+
+  assert.equal(row.status, "FAILED");
+  assert.equal(row.errorCode, "consent_refused");
+  assert.deepEqual(urls, []);
 });

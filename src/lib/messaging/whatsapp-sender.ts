@@ -10,6 +10,7 @@
 // There is no fallback between numbers: an application whose number is
 // disabled or ambiguous gets `unavailable`, never another brand's number.
 
+import { consentWhere } from "@/lib/external-applications/consent-store";
 import { decryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import { prisma } from "@/lib/prisma";
 import type { WhatsAppProviderConfig } from "@/lib/whatsapp/types";
@@ -20,6 +21,8 @@ export const BAILEYS_WHATSAPP_PROVIDER = "BAILEYS_WHATSAPP";
 
 export const SENDER_UNAVAILABLE_CODE = "sender_unavailable";
 export const SENDER_UNAVAILABLE_MESSAGE = "Le numéro WhatsApp de cette application est indisponible.";
+export const CONSENT_REFUSED_CODE = "consent_refused";
+export const CONSENT_REFUSED_MESSAGE = "Le destinataire a refusé les messages de ce numéro.";
 
 export type WhatsAppSenderAccount = {
   id: string;
@@ -77,6 +80,24 @@ export async function resolveWhatsAppSender(organizationId: string, applicationI
     select: ACCOUNT_SELECT,
   });
   return chooseWhatsAppSender(accounts);
+}
+
+/**
+ * A NON or STOP sent to an application's number binds every message from that
+ * number, whichever rail asks: the signed commands refuse it, so must the API.
+ * Scoped like the commands' consent: application, number, recipient.
+ */
+export async function recipientRefusedApplicationNumber(scope: {
+  organizationId: string;
+  applicationId: string;
+  providerAccountId: string;
+  recipient: string;
+}) {
+  const consent = await prisma.externalRecipientConsent.findUnique({
+    where: { organizationId_applicationId_providerAccountId_recipientHash: consentWhere(scope) },
+    select: { status: true },
+  });
+  return consent?.status === "REFUSED";
 }
 
 /** The account a message was created for, scoped to its organization. */
