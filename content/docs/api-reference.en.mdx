@@ -324,7 +324,11 @@ mailpulse-signature: v1=<new_signature>,v1=<old_signature>
 ```
 
 Split the header on commas and accept the request if any signature matches
-your secret: you switch secrets without losing events. A second rotation
+your secret: you switch secrets without losing events.
+
+> **Before your first rotation**, make sure your application accepts a header
+> holding several signatures. A check that compares the whole header with
+> `v1=<signature>` would reject every delivery during the 24-hour overlap. A second rotation
 within those 24 hours replaces the old secret with the previous new one.
 
 ### Delivery and retries

@@ -1,18 +1,20 @@
 import { prisma } from "@/lib/prisma";
+import type { WebhookEndpoint } from "@/generated/prisma";
 import { randomUUID } from "node:crypto";
 import { previewSecret, randomSecret, sha256 } from "./crypto";
 import { toPrismaJson } from "./json";
 import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
 import {
+  WEBHOOK_INLINE_TIMEOUT_MS,
   WEBHOOK_LEASE_MS,
   WEBHOOK_SECRET_OVERLAP_MS,
   WEBHOOK_TIMEOUT_MS,
   decideAfterAttempt,
   describeAttempt,
   signatureHeader,
-  webhookUrlProblem,
   type AttemptResult,
 } from "./webhook-policy";
+import { webhookTransport } from "./webhook-transport";
 
 export type WebhookEventPayload = {
   event_id: string;
@@ -52,12 +54,16 @@ export async function createWebhookEndpoint(params: {
  * A new secret, shown once. The previous one keeps signing alongside it for
  * WEBHOOK_SECRET_OVERLAP_MS, so a receiver can switch without missing events.
  */
-export async function rotateWebhookSecret(organizationId: string, endpointId: string, now = new Date()) {
+type RotationResult = { endpoint: WebhookEndpoint; secret: string } | { conflict: true } | null;
+
+export async function rotateWebhookSecret(organizationId: string, endpointId: string, now = new Date()): Promise<RotationResult> {
   const endpoint = await prisma.webhookEndpoint.findFirst({ where: { id: endpointId, organizationId }, select: { id: true, signingSecret: true } });
   if (!endpoint) return null;
   const secret = createWebhookSecret();
-  const updated = await prisma.webhookEndpoint.update({
-    where: { id: endpoint.id },
+  // Written only if nobody rotated in between: two rotations at once must not
+  // hand out a secret that was never stored.
+  const written = await prisma.webhookEndpoint.updateMany({
+    where: { id: endpoint.id, organizationId, signingSecret: endpoint.signingSecret },
     data: {
       signingSecret: secret,
       secretHash: sha256(secret),
@@ -66,6 +72,8 @@ export async function rotateWebhookSecret(organizationId: string, endpointId: st
       previousSecretExpiresAt: new Date(now.getTime() + WEBHOOK_SECRET_OVERLAP_MS),
     },
   });
+  if (written.count !== 1) return { conflict: true };
+  const updated = await prisma.webhookEndpoint.findUniqueOrThrow({ where: { id: endpoint.id } });
   return { endpoint: updated, secret };
 }
 
@@ -115,28 +123,11 @@ export async function emitWebhookEvent(params: {
         },
         select: { id: true },
       });
-      await attemptDelivery(delivery.id);
+      // Short here: this runs inside the request that sent the message. A slow
+      // receiver gets its full time on the retry run instead.
+      await attemptDelivery(delivery.id, WEBHOOK_INLINE_TIMEOUT_MS);
     })
   );
-}
-
-/** One HTTP call. Never throws: every outcome is a result the log can read. */
-async function post(url: string, headers: Record<string, string>, body: string): Promise<AttemptResult> {
-  const problem = webhookUrlProblem(url);
-  if (problem) return { kind: "blocked", reason: problem };
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body,
-      // A redirect could lead anywhere, an internal address included.
-      redirect: "manual",
-      signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
-    });
-    return response.ok ? { kind: "delivered" } : { kind: "http", status: response.status };
-  } catch (error) {
-    return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError") ? { kind: "timeout" } : { kind: "network" };
-  }
 }
 
 /**
@@ -144,7 +135,7 @@ async function post(url: string, headers: Record<string, string>, body: string):
  * event is resent as stored, with its original event id: a receiver that saw
  * it already recognises the duplicate.
  */
-async function attemptDelivery(deliveryId: string, now = () => new Date()) {
+async function attemptDelivery(deliveryId: string, timeoutMs = WEBHOOK_TIMEOUT_MS, now = () => new Date()) {
   const delivery = await prisma.webhookDelivery.findUnique({
     where: { id: deliveryId },
     select: {
@@ -152,7 +143,7 @@ async function attemptDelivery(deliveryId: string, now = () => new Date()) {
       attempts: true,
       eventId: true,
       payload: true,
-      endpoint: { select: { url: true, active: true, signingSecret: true, previousSigningSecret: true, previousSecretExpiresAt: true } },
+      endpoint: { select: { url: true, active: true, signingSecret: true, previousSigningSecret: true, previousSecretExpiresAt: true, organization: { select: { plan: true } } } },
     },
   });
   if (!delivery) return null;
@@ -160,10 +151,14 @@ async function attemptDelivery(deliveryId: string, now = () => new Date()) {
   let result: AttemptResult;
   if (!delivery.endpoint.active) {
     result = { kind: "blocked", reason: "Webhook désactivé" };
+  } else if (!canAccessFeature(delivery.endpoint.organization.plan as PlanTier, "webhooks")) {
+    // Checked at every attempt, not only when the event was emitted: a plan
+    // that loses webhooks stops its retries too.
+    result = { kind: "blocked", reason: "Webhooks non inclus dans le plan" };
   } else {
     const body = JSON.stringify(delivery.payload);
     const timestamp = Math.floor(now().getTime() / 1000).toString();
-    result = await post(delivery.endpoint.url, {
+    result = await webhookTransport.post(delivery.endpoint.url, {
       "content-type": "application/json",
       "mailpulse-event-id": delivery.eventId,
       "mailpulse-timestamp": timestamp,
@@ -173,12 +168,12 @@ async function attemptDelivery(deliveryId: string, now = () => new Date()) {
         body,
         now(),
       ),
-    }, body);
+    }, body, timeoutMs);
   }
 
   const attempts = delivery.attempts + 1;
   const decision = decideAfterAttempt(result, attempts, now());
-  return prisma.webhookDelivery.update({
+  const updated = await prisma.webhookDelivery.update({
     where: { id: delivery.id },
     data: {
       attempts,
@@ -189,13 +184,14 @@ async function attemptDelivery(deliveryId: string, now = () => new Date()) {
     },
     select: { id: true, status: true, attempts: true, lastError: true, nextRetryAt: true },
   });
+  return { ...updated, unreachable: result.kind === "timeout" || result.kind === "network" };
 }
 
 /**
  * Takes a delivery for this run only if it is still in the state it was read
  * in: two runs reading the same row cannot both send it.
  */
-export async function claimWebhookDelivery(delivery: { id: string; status: "PENDING" | "RETRYING"; nextRetryAt: Date | null }, now: Date) {
+export async function claimWebhookDelivery(delivery: { id: string; status: "PENDING" | "RETRYING"; nextRetryAt: Date | null }, now = new Date()) {
   const result = await prisma.webhookDelivery.updateMany({
     where: { id: delivery.id, status: delivery.status, nextRetryAt: delivery.nextRetryAt },
     data: { status: "RETRYING", nextRetryAt: new Date(now.getTime() + WEBHOOK_LEASE_MS) },
@@ -203,26 +199,55 @@ export async function claimWebhookDelivery(delivery: { id: string; status: "PEND
   return result.count === 1;
 }
 
-/** The retry run: deliveries due again, and those whose sender died mid-attempt. */
-export async function processDueWebhookDeliveries(limit = 50, now = new Date()) {
-  const due = await prisma.webhookDelivery.findMany({
-    where: { status: { in: ["PENDING", "RETRYING"] }, nextRetryAt: { lte: now } },
-    orderBy: { nextRetryAt: "asc" },
-    take: Math.min(Math.max(limit, 1), 200),
-    select: { id: true, status: true, nextRetryAt: true },
+const RETRY_CONCURRENCY = 5;
+/** Stop claiming past this, to finish inside the route's 60 seconds. */
+const RETRY_RUN_BUDGET_MS = 40_000;
+
+/**
+ * The retry run: deliveries due again, and those whose sender died
+ * mid-attempt. A few at a time; a receiver that times out or cannot be reached
+ * is skipped for the rest of the run, so one dead endpoint cannot hold the
+ * queue of every organization.
+ */
+export async function processDueWebhookDeliveries(limit = 50, now = new Date(), deadline = Date.now() + RETRY_RUN_BUDGET_MS) {
+  // Secrets past their overlap are no longer needed anywhere: drop them.
+  await prisma.webhookEndpoint.updateMany({
+    where: { previousSecretExpiresAt: { lt: now } },
+    data: { previousSigningSecret: null, previousSecretExpiresAt: null },
   });
 
-  let delivered = 0;
-  let retrying = 0;
-  let failed = 0;
-  for (const delivery of due) {
-    if (!(await claimWebhookDelivery(delivery as { id: string; status: "PENDING" | "RETRYING"; nextRetryAt: Date | null }, now))) continue;
-    const outcome = await attemptDelivery(delivery.id);
-    if (outcome?.status === "DELIVERED") delivered += 1;
-    else if (outcome?.status === "RETRYING") retrying += 1;
-    else if (outcome?.status === "FAILED") failed += 1;
+  const due = await prisma.webhookDelivery.findMany({
+    where: {
+      OR: [
+        { status: { in: ["PENDING", "RETRYING"] }, nextRetryAt: { lte: now } },
+        // Written before deliveries were leased: no retry time at all.
+        { status: "PENDING", nextRetryAt: null, createdAt: { lt: new Date(now.getTime() - WEBHOOK_LEASE_MS) } },
+      ],
+    },
+    orderBy: { nextRetryAt: { sort: "asc", nulls: "first" } },
+    take: Math.min(Math.max(limit, 1), 200),
+    select: { id: true, status: true, nextRetryAt: true, endpointId: true },
+  });
+
+  const unreachable = new Set<string>();
+  const counts = { delivered: 0, retrying: 0, failed: 0, skipped: 0 };
+  const queue = [...due];
+  async function worker() {
+    for (let delivery = queue.shift(); delivery; delivery = queue.shift()) {
+      if (Date.now() > deadline || unreachable.has(delivery.endpointId)) {
+        counts.skipped += 1;
+        continue;
+      }
+      if (!(await claimWebhookDelivery(delivery as { id: string; status: "PENDING" | "RETRYING"; nextRetryAt: Date | null }, new Date()))) continue;
+      const outcome = await attemptDelivery(delivery.id);
+      if (outcome?.status === "DELIVERED") counts.delivered += 1;
+      else if (outcome?.status === "RETRYING") counts.retrying += 1;
+      else if (outcome?.status === "FAILED") counts.failed += 1;
+      if (outcome?.unreachable) unreachable.add(delivery.endpointId);
+    }
   }
-  return { examined: due.length, delivered, retrying, failed };
+  await Promise.all(Array.from({ length: RETRY_CONCURRENCY }, worker));
+  return { examined: due.length, ...counts };
 }
 
 /**

@@ -106,7 +106,7 @@ export function WebhooksPanel({
           <div className="grid gap-4 xl:grid-cols-2">
             {data.endpoints.map((endpoint) => {
               const counts = { delivered: endpoint.week.delivered, sent: 0, pending: endpoint.week.waiting, failed: endpoint.week.failed, closed: 0 };
-              const health = HEALTH_LABELS[healthOf(counts, { available: endpoint.active })];
+              const health = HEALTH_LABELS[healthOf(counts, { available: endpoint.active && !endpoint.urlProblem })];
               const settled = endpoint.week.delivered + endpoint.week.failed;
               return (
                 <Card key={endpoint.id} className="min-w-0">
@@ -127,8 +127,13 @@ export function WebhooksPanel({
                       <div><dt className="text-muted-foreground">Réussite</dt><dd className="font-mono text-sm tabular-nums">{settled === 0 ? "—" : percent.format(endpoint.week.delivered / settled)}</dd></div>
                     </dl>
                     <p className="break-words text-xs text-muted-foreground">
-                      Dernière livraison réussie : {formatDate(endpoint.lastDeliveredAt)} · {endpoint.events.length} événement{endpoint.events.length > 1 ? "s" : ""} · secret <span className="break-all font-mono">{endpoint.secretPreview}</span>
+                      Dernière livraison réussie : {endpoint.lastDeliveredAt ? formatDate(endpoint.lastDeliveredAt) : "aucune depuis 30 jours"} · {endpoint.events.length} événement{endpoint.events.length > 1 ? "s" : ""} · secret <span className="break-all font-mono">{endpoint.secretPreview}</span>
                     </p>
+                    {endpoint.urlProblem ? (
+                      <p className="rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                        Adresse refusée : {endpoint.urlProblem}. Ce webhook ne reçoit plus rien ; recréez-le avec une adresse HTTPS publique.
+                      </p>
+                    ) : null}
                     {endpoint.rotationEndsAt ? (
                       <p className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
                         Rotation en cours : l&apos;ancien secret signe encore jusqu&apos;au {formatDate(endpoint.rotationEndsAt)}.

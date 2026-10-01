@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { serializeMessage } from "@/lib/mailpulse/serializers";
 import { APPLICATION_WHATSAPP_ACCOUNTS, senderAccountLabel, senderSnapshotLabel, summarizeWhatsAppSender } from "@/lib/messaging/whatsapp-sender";
 import { presentRegistryMessage } from "@/lib/platform/message-privacy";
+import { webhookUrlProblem } from "@/lib/mailpulse/webhook-policy";
 import { buildMessageWhere, ORGANIZATION_SENDER_FILTER, type MessageFilters } from "./message-filters";
 import type { ApiMessageDetail } from "./message-types";
 
@@ -154,6 +155,7 @@ export async function loadIntegrationsTab(organizationId: string, now: Date) {
 const WEBHOOK_STATUSES = ["PENDING", "RETRYING", "DELIVERED", "FAILED"] as const;
 export type WebhookStatusFilter = (typeof WEBHOOK_STATUSES)[number] | "";
 const WEBHOOK_HEALTH_DAYS = 7;
+const LAST_DELIVERY_WINDOW_DAYS = 30;
 
 export function readWebhookFilters(params: Record<string, string | string[] | undefined>) {
   const endpoint = typeof params.endpoint === "string" && IDENTIFIER.test(params.endpoint) ? params.endpoint : "";
@@ -177,7 +179,8 @@ export async function loadWebhooksTab(organizationId: string, filters: ReturnTyp
       select: { id: true, name: true, url: true, events: true, active: true, secretPreview: true, previousSecretExpiresAt: true, createdAt: true },
     }),
     prisma.webhookDelivery.groupBy({ by: ["endpointId", "status"], where: { organizationId, createdAt: { gte: since } }, _count: { _all: true } }),
-    prisma.webhookDelivery.groupBy({ by: ["endpointId"], where: { organizationId, status: "DELIVERED" }, _max: { deliveredAt: true } }),
+    // Bounded: this view refreshes every 30 seconds, it must not scan the whole history.
+    prisma.webhookDelivery.groupBy({ by: ["endpointId"], where: { organizationId, status: "DELIVERED", createdAt: { gte: new Date(now.getTime() - LAST_DELIVERY_WINDOW_DAYS * 24 * 60 * 60 * 1000) } }, _max: { deliveredAt: true } }),
     prisma.webhookDelivery.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -197,6 +200,7 @@ export async function loadWebhooksTab(organizationId: string, filters: ReturnTyp
         id: endpoint.id,
         name: endpoint.name,
         url: endpoint.url,
+        urlProblem: webhookUrlProblem(endpoint.url),
         events: endpoint.events,
         active: endpoint.active,
         secretPreview: endpoint.secretPreview,

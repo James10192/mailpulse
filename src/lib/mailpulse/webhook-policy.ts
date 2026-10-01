@@ -9,6 +9,8 @@ import { isIP } from "node:net";
 export const WEBHOOK_RETRY_DELAYS_MS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 60 * 60_000, 6 * 60 * 60_000] as const;
 export const WEBHOOK_MAX_ATTEMPTS = WEBHOOK_RETRY_DELAYS_MS.length + 1;
 export const WEBHOOK_TIMEOUT_MS = 10_000;
+/** The first attempt runs inside the request that sent the message: kept short. */
+export const WEBHOOK_INLINE_TIMEOUT_MS = 3_000;
 /** A claimed delivery left behind by a crashed run becomes claimable again after this. */
 export const WEBHOOK_LEASE_MS = 5 * 60_000;
 /** How long the previous secret keeps signing after a rotation. */
@@ -36,7 +38,7 @@ export function describeAttempt(result: AttemptResult): string | null {
     case "http":
       return result.status >= 300 && result.status < 400 ? `HTTP ${result.status} (redirection non suivie)` : `HTTP ${result.status}`;
     case "timeout":
-      return `Délai dépassé (${WEBHOOK_TIMEOUT_MS / 1000} s)`;
+      return "Délai dépassé";
     case "network":
       return "Connexion impossible";
     case "blocked":
@@ -71,17 +73,44 @@ function privateIPv4(address: string) {
     || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 198 && (b === 18 || b === 19)) || a >= 224;
 }
 
-function privateIPv6(address: string) {
-  const value = address.toLowerCase();
-  if (value === "::" || value === "::1") return true;
-  if (value.startsWith("::ffff:")) {
-    const mapped = value.slice(7);
-    return isIP(mapped) === 4 ? privateIPv4(mapped) : true;
+/** The eight 16-bit groups of an IPv6 address, an embedded dotted IPv4 tail included. */
+function ipv6Groups(address: string): number[] | null {
+  let value = address.toLowerCase();
+  const tail = value.match(/(\d+\.\d+\.\d+\.\d+)$/);
+  if (tail) {
+    const [a, b, c, d] = tail[1].split(".").map(Number);
+    value = `${value.slice(0, -tail[1].length)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
   }
-  return /^(fc|fd|fe8|fe9|fea|feb|ff)/.test(value);
+  const [head, rest] = value.split("::");
+  const left = head ? head.split(":") : [];
+  const right = rest !== undefined && rest !== "" ? rest.split(":") : [];
+  const missing = 8 - left.length - right.length;
+  if (rest === undefined ? left.length !== 8 : missing < 1) return null;
+  const groups = [...left, ...Array(rest === undefined ? 0 : missing).fill("0"), ...right].map((group) => Number.parseInt(group, 16));
+  return groups.length === 8 && groups.every((group) => Number.isInteger(group) && group >= 0 && group <= 0xffff) ? groups : null;
 }
 
-export function isPrivateAddress(address: string) {
+function ipv4From(high: number, low: number) {
+  return `${high >> 8}.${high & 0xff}.${low >> 8}.${low & 0xff}`;
+}
+
+function privateIPv6(address: string): boolean {
+  const groups = ipv6Groups(address);
+  if (!groups) return true;
+  const zeroPrefix = (count: number) => groups.slice(0, count).every((group) => group === 0);
+  // Unspecified and loopback.
+  if (zeroPrefix(7) && groups[7] <= 1) return true;
+  // Addresses that carry an IPv4 one are judged by it: mapped (::ffff:0:0/96),
+  // compatible (::/96), NAT64 (64:ff9b::/96) and 6to4 (2002::/16).
+  if (zeroPrefix(5) && groups[5] === 0xffff) return isPrivateAddress(ipv4From(groups[6], groups[7]));
+  if (zeroPrefix(6)) return isPrivateAddress(ipv4From(groups[6], groups[7]));
+  if (groups[0] === 0x64 && groups[1] === 0xff9b && groups.slice(2, 6).every((group) => group === 0)) return isPrivateAddress(ipv4From(groups[6], groups[7]));
+  if (groups[0] === 0x2002) return isPrivateAddress(ipv4From(groups[1], groups[2]));
+  // Unique local (fc00::/7), link-local (fe80::/10), site-local (fec0::/10), multicast (ff00::/8).
+  return (groups[0] & 0xfe00) === 0xfc00 || (groups[0] & 0xffc0) === 0xfe80 || (groups[0] & 0xffc0) === 0xfec0 || (groups[0] & 0xff00) === 0xff00;
+}
+
+export function isPrivateAddress(address: string): boolean {
   const version = isIP(address);
   if (version === 4) return privateIPv4(address);
   if (version === 6) return privateIPv6(address);
@@ -98,7 +127,8 @@ export function webhookUrlProblem(value: string): string | null {
   }
   if (url.protocol !== "https:") return "L'adresse doit être en HTTPS";
   if (url.username || url.password) return "L'adresse ne doit pas contenir d'identifiants";
-  const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  // A trailing dot names the same host for every resolver: "localhost." is localhost.
+  const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase().replace(/\.+$/, "");
   if (BLOCKED_HOSTNAMES.has(hostname) || BLOCKED_SUFFIXES.some((suffix) => hostname.endsWith(suffix))) {
     return "Adresse interne refusée";
   }

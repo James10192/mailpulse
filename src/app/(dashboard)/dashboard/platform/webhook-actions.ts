@@ -6,6 +6,7 @@ import { canAccessFeature, getFeatureUpgradeMessage, type PlanTier } from "@/lib
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { resendWebhookDelivery, rotateWebhookSecret } from "@/lib/mailpulse/webhooks";
+import { webhookUrlProblem } from "@/lib/mailpulse/webhook-policy";
 
 // A webhook receives every message event, recipients included: deciding where
 // they go, and with which secret, is for the organization's managers.
@@ -29,6 +30,7 @@ export async function rotateWebhookSigningSecret(endpointId: string) {
 
   const rotated = await rotateWebhookSecret(access.organizationId, endpointId);
   if (!rotated) return { error: "Webhook introuvable." };
+  if ("conflict" in rotated) return { error: "Le secret vient d'être changé par quelqu'un d'autre. Réessayez." };
   revalidatePath("/dashboard/platform");
   return { secret: rotated.secret, previousExpiresAt: rotated.endpoint.previousSecretExpiresAt?.toISOString() ?? null };
 }
@@ -37,6 +39,12 @@ export async function setWebhookActive(endpointId: string, active: boolean) {
   const access = await managedOrganization();
   if ("error" in access) return access;
 
+  if (active) {
+    // Reactivating an endpoint whose address is refused would only fail every delivery.
+    const endpoint = await prisma.webhookEndpoint.findFirst({ where: { id: endpointId, organizationId: access.organizationId }, select: { url: true } });
+    const problem = endpoint ? webhookUrlProblem(endpoint.url) : null;
+    if (problem) return { error: `Adresse refusée : ${problem}. Recréez le webhook avec une adresse HTTPS publique.` };
+  }
   const updated = await prisma.webhookEndpoint.updateMany({ where: { id: endpointId, organizationId: access.organizationId }, data: { active } });
   if (updated.count !== 1) return { error: "Webhook introuvable." };
   revalidatePath("/dashboard/platform");

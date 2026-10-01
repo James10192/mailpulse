@@ -204,7 +204,12 @@ mailpulse-signature: v1=<signature_nouveau>,v1=<signature_ancien>
 
 Séparez l'en-tête sur les virgules et acceptez la requête si l'une des
 signatures correspond à votre secret : vous changez de secret sans perdre
-d'événement. Une seconde rotation dans ces 24 heures remplace l'ancien secret
+d'événement.
+
+> **Avant votre première rotation**, vérifiez que votre application accepte un
+> en-tête qui contient plusieurs signatures. Une vérification qui compare
+> l'en-tête entier à `v1=<signature>` refuserait toutes les livraisons pendant
+> les 24 heures de recouvrement. Une seconde rotation dans ces 24 heures remplace l'ancien secret
 par le précédent nouveau.
 
 ### Livraison et nouvelles tentatives

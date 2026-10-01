@@ -1,5 +1,5 @@
 // The delivery engine against a real database (DATABASE_URL, as in CI), with
-// the receiver simulated by a stubbed fetch. Skipped without a database.
+// the receiver simulated by a stubbed transport. Skipped without a database.
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import { createHmac, randomUUID } from "node:crypto";
@@ -8,30 +8,35 @@ const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 const { prisma } = await import("@/lib/prisma");
 const webhooks = await import("./webhooks");
-const { WEBHOOK_LEASE_MS, WEBHOOK_MAX_ATTEMPTS } = await import("./webhook-policy");
+const { WEBHOOK_LEASE_MS, WEBHOOK_MAX_ATTEMPTS, webhookUrlProblem } = await import("./webhook-policy");
+const { webhookTransport } = await import("./webhook-transport");
 
 const run = randomUUID().slice(0, 8);
 const organizationId = `org-webhooks-${run}`;
 const otherOrganizationId = `org-webhooks-other-${run}`;
-const realFetch = globalThis.fetch;
+const realPost = webhookTransport.post;
 
-type Call = { url: string; headers: Record<string, string>; body: string; redirect?: string };
+type Call = { url: string; headers: Record<string, string>; body: string; timeoutMs: number };
 let calls: Call[] = [];
 let respond: (call: Call) => Response | Promise<Response> = () => new Response("ok");
 
-function stubFetch() {
-  globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
-    const call = { url: String(input), headers: init?.headers as Record<string, string>, body: String(init?.body), redirect: init?.redirect };
+// The receiver, simulated: the URL check still runs, as in the real transport.
+function stubTransport() {
+  webhookTransport.post = async (url, headers, body, timeoutMs) => {
+    const problem = webhookUrlProblem(url);
+    if (problem) return { kind: "blocked", reason: problem };
+    const call = { url, headers, body, timeoutMs };
     calls.push(call);
-    return respond(call);
-  }) as typeof fetch;
+    const response = await respond(call);
+    return response.ok ? { kind: "delivered" } : { kind: "http", status: response.status };
+  };
 }
 
 let endpointId = "";
 
 before(async () => {
   if (!hasDatabase) return;
-  stubFetch();
+  stubTransport();
   await prisma.organization.createMany({
     data: [
       { id: organizationId, name: "École", slug: `wh-${run}`, plan: "PRO" },
@@ -49,7 +54,7 @@ beforeEach(async () => {
 });
 
 after(async () => {
-  globalThis.fetch = realFetch;
+  webhookTransport.post = realPost;
   if (!hasDatabase) return;
   for (const id of [organizationId, otherOrganizationId]) {
     await prisma.webhookDelivery.deleteMany({ where: { organizationId: id } });
@@ -74,7 +79,8 @@ test("a delivered event is signed as documented and recorded", { skip: !hasDatab
   const expected = createHmac("sha256", endpoint.signingSecret).update(`${call.headers["mailpulse-timestamp"]}.${call.body}`).digest("hex");
   assert.equal(call.headers["mailpulse-signature"], `v1=${expected}`);
   assert.equal(call.headers["mailpulse-event-id"], delivery.eventId);
-  assert.equal(call.redirect, "manual");
+  // Inside the request that sent the message, the attempt is kept short.
+  assert.equal(call.timeoutMs, 3_000);
 });
 
 test("a 503 is retried later, a 404 fails at once", { skip: !hasDatabase }, async () => {
@@ -188,11 +194,70 @@ test("after a rotation both secrets sign during the overlap", { skip: !hasDataba
   const before = await prisma.webhookEndpoint.findUniqueOrThrow({ where: { id: endpointId } });
   assert.equal(await webhooks.rotateWebhookSecret(otherOrganizationId, endpointId), null);
   const rotated = await webhooks.rotateWebhookSecret(organizationId, endpointId);
-  assert.ok(rotated?.secret.startsWith("whsec_"));
+  assert.ok(rotated && "secret" in rotated && rotated.secret.startsWith("whsec_"));
   assert.notEqual(rotated?.secret, before.signingSecret);
 
   await emit();
   const [call] = calls;
   const sign = (secret: string) => `v1=${createHmac("sha256", secret).update(`${call.headers["mailpulse-timestamp"]}.${call.body}`).digest("hex")}`;
-  assert.equal(call.headers["mailpulse-signature"], `${sign(rotated!.secret)},${sign(before.signingSecret)}`);
+  assert.equal(call.headers["mailpulse-signature"], `${sign(rotated.secret)},${sign(before.signingSecret)}`);
+});
+
+test("a plan that loses webhooks stops its retries", { skip: !hasDatabase }, async () => {
+  respond = () => new Response("", { status: 500 });
+  await emit();
+  const delivery = await onlyDelivery();
+  await prisma.organization.update({ where: { id: organizationId }, data: { plan: "FREE" } });
+  await prisma.webhookDelivery.update({ where: { id: delivery.id }, data: { nextRetryAt: new Date(Date.now() - 1000) } });
+  calls = [];
+  await webhooks.processDueWebhookDeliveries();
+  await prisma.organization.update({ where: { id: organizationId }, data: { plan: "PRO" } });
+  assert.equal(calls.length, 0);
+  const final = await prisma.webhookDelivery.findUniqueOrThrow({ where: { id: delivery.id } });
+  assert.equal(final.status, "FAILED");
+  assert.equal(final.lastError, "Webhooks non inclus dans le plan");
+});
+
+test("a delivery stuck from before leases existed is recovered", { skip: !hasDatabase }, async () => {
+  const stuck = await prisma.webhookDelivery.create({
+    data: { organizationId, endpointId, eventId: randomUUID(), eventType: "message.delivered", payload: {}, status: "PENDING", nextRetryAt: null, createdAt: new Date(Date.now() - WEBHOOK_LEASE_MS - 60_000) },
+  });
+  const fresh = await prisma.webhookDelivery.create({
+    data: { organizationId, endpointId, eventId: randomUUID(), eventType: "message.delivered", payload: {}, status: "PENDING", nextRetryAt: null },
+  });
+  await webhooks.processDueWebhookDeliveries();
+  assert.equal((await prisma.webhookDelivery.findUniqueOrThrow({ where: { id: stuck.id } })).status, "DELIVERED");
+  assert.equal((await prisma.webhookDelivery.findUniqueOrThrow({ where: { id: fresh.id } })).status, "PENDING", "peut-être encore en cours d'envoi");
+});
+
+test("a receiver that does not answer is skipped for the rest of the run", { skip: !hasDatabase }, async () => {
+  const due = new Date(Date.now() - 1000);
+  await prisma.webhookDelivery.createMany({
+    data: Array.from({ length: 8 }, () => ({ organizationId, endpointId, eventId: randomUUID(), eventType: "message.delivered", payload: {}, status: "RETRYING" as const, nextRetryAt: due })),
+  });
+  const realPostForTest = webhookTransport.post;
+  let attempts = 0;
+  webhookTransport.post = async () => { attempts += 1; return { kind: "timeout" }; };
+  const result = await webhooks.processDueWebhookDeliveries();
+  webhookTransport.post = realPostForTest;
+  stubTransport();
+  // Five workers start together, then the endpoint is known dead.
+  assert.ok(attempts <= 5, `${attempts} appels vers un point mort`);
+  assert.equal(result.skipped, 8 - attempts);
+});
+
+test("two rotations at once never hand out a secret that was not stored", { skip: !hasDatabase }, async () => {
+  const [first, second] = await Promise.all([webhooks.rotateWebhookSecret(organizationId, endpointId), webhooks.rotateWebhookSecret(organizationId, endpointId)]);
+  const stored = await prisma.webhookEndpoint.findUniqueOrThrow({ where: { id: endpointId } });
+  const handedOut = [first, second].filter((result) => result && "secret" in result).map((result) => (result as { secret: string }).secret);
+  assert.ok(handedOut.length >= 1);
+  for (const secret of handedOut) assert.equal(secret, stored.signingSecret, "un secret remis doit être celui enregistré");
+});
+
+test("a previous secret is dropped once its overlap is over", { skip: !hasDatabase }, async () => {
+  await prisma.webhookEndpoint.update({ where: { id: endpointId }, data: { previousSigningSecret: "whsec_old", previousSecretExpiresAt: new Date(Date.now() - 1000) } });
+  await webhooks.processDueWebhookDeliveries();
+  const endpoint = await prisma.webhookEndpoint.findUniqueOrThrow({ where: { id: endpointId } });
+  assert.equal(endpoint.previousSigningSecret, null);
+  assert.equal(endpoint.previousSecretExpiresAt, null);
 });

@@ -40,7 +40,7 @@ test("a resend past the retry budget is one more try, not a new series", () => {
 test("the log reads a classification, never a raw error", () => {
   assert.equal(describeAttempt({ kind: "http", status: 500 }), "HTTP 500");
   assert.equal(describeAttempt({ kind: "http", status: 302 }), "HTTP 302 (redirection non suivie)");
-  assert.equal(describeAttempt({ kind: "timeout" }), "Délai dépassé (10 s)");
+  assert.equal(describeAttempt({ kind: "timeout" }), "Délai dépassé");
   assert.equal(describeAttempt({ kind: "delivered" }), null);
 });
 
@@ -60,11 +60,20 @@ test("internal and private destinations are refused", () => {
     "https://printer.local/x",
     "https://intranet/x",
     "https://user:pass@hooks.example.com/x",
+    "https://localhost./x",
+    "https://metadata.google.internal./x",
+    "https://foo.internal./x",
+    "https://[::7f00:1]/x",
+    "https://[64:ff9b::a9fe:a9fe]/x",
+    "https://[2002:7f00:1::]/x",
+    "https://[fe80::1]/x",
+    "https://2130706433/x",
+    "https://0x7f.1/x",
     "pas une adresse",
   ]) {
     assert.ok(webhookUrlProblem(url), `${url} devrait être refusée`);
   }
-  for (const url of ["https://hooks.example.com/mailpulse", "https://esbtp-abidjan.klassci.com/api/v1/hooks", "https://8.8.8.8/x", "https://[2606:4700::1111]/x"]) {
+  for (const url of ["https://hooks.example.com/mailpulse", "https://esbtp-abidjan.klassci.com/api/v1/hooks", "https://8.8.8.8/x", "https://[2606:4700::1111]/x", "https://[2002:808:808::]/x", "https://[64:ff9b::808:808]/x"]) {
     assert.equal(webhookUrlProblem(url), null, url);
   }
   assert.equal(isPrivateAddress("100.64.0.1"), true);
