@@ -12,8 +12,8 @@ const send = (
   seconds: number,
   phoneNumber = "+2250700000000",
   apiKeyId = "key_a",
-  extra: Partial<Pick<RecentSend, "senderAccountId" | "errorCode" | "failedAt">> = {},
-): RecentSend => ({ createdAt: secondsAgo(seconds), phoneNumber, apiKeyId, senderAccountId: null, errorCode: null, failedAt: null, ...extra });
+  extra: Partial<Pick<RecentSend, "senderAccountId" | "errorCode" | "failedAt" | "mode">> = {},
+): RecentSend => ({ createdAt: secondsAgo(seconds), phoneNumber, apiKeyId, senderAccountId: null, errorCode: null, failedAt: null, mode: "OUTBOUND", ...extra });
 const limits = (
   organizationSends: RecentSend[],
   whatsAppMessageTimes: Date[] = [],

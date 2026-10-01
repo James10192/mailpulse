@@ -16,7 +16,7 @@ export function createMemoryStore() {
     async recentSends(organizationId, since) {
       return rows
         .filter((row) => row.organizationId === organizationId && row.createdAt >= since)
-        .map(({ createdAt, phoneNumber, apiKeyId, senderAccountId, errorCode, failedAt }) => ({ createdAt, phoneNumber, apiKeyId, senderAccountId, errorCode, failedAt }));
+        .map(({ createdAt, phoneNumber, apiKeyId, senderAccountId, errorCode, failedAt, mode }) => ({ createdAt, phoneNumber, apiKeyId, senderAccountId, errorCode, failedAt, mode }));
     },
     async whatsAppMessageTimes(organizationId, since) {
       return whatsAppMessages.filter((item) => item.organizationId === organizationId && item.createdAt >= since).map((item) => item.createdAt);
@@ -64,6 +64,12 @@ export function createMemoryStore() {
       } finally {
         heldLocks.delete(organizationId);
       }
+    },
+    async latestInbound({ organizationId, senderAccountId, phoneNumber, since }) {
+      const row = rows
+        .filter((item) => item.organizationId === organizationId && item.senderAccountId === senderAccountId && item.phoneNumber === phoneNumber && item.mode === "INBOUND" && item.createdAt >= since)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+      return row ? { ...row } : null;
     },
     async find(organizationId, id) {
       const row = rows.find((item) => item.id === id && item.organizationId === organizationId);

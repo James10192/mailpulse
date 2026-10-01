@@ -1,4 +1,4 @@
-import type { PhoneVerificationError, PhoneVerificationLocale, PhoneVerificationStatus } from "@/generated/prisma";
+import type { PhoneVerificationError, PhoneVerificationLocale, PhoneVerificationMode, PhoneVerificationStatus } from "@/generated/prisma";
 import { API_RATE_LIMITS, API_RATE_WINDOW_MS } from "@/lib/mailpulse/api-rate-limits";
 import type { WhatsAppFailureReason } from "@/lib/whatsapp/types";
 
@@ -75,6 +75,7 @@ export type RecentSend = {
   senderAccountId: string | null;
   errorCode: PhoneVerificationError | null;
   failedAt: Date | null;
+  mode: PhoneVerificationMode;
 };
 
 export type SendLimitDecision = { allowed: true } | { allowed: false; retryAfterSeconds: number };
@@ -117,6 +118,8 @@ export function evaluateSendLimits(input: {
   apiKeyId: string;
   senderAccountId: string | null;
   senderPairedAt: Date | null;
+  /** Default OUTBOUND. A code the person sends us skips the number's pace. */
+  mode?: PhoneVerificationMode;
   organizationSends: readonly RecentSend[];
   whatsAppMessageTimes: readonly Date[];
 }): SendLimitDecision {
@@ -124,7 +127,9 @@ export function evaluateSendLimits(input: {
   const byPhone = input.organizationSends.filter((send) => send.phoneNumber === input.phoneNumber).map((send) => send.createdAt);
   const byKey = input.organizationSends.filter((send) => send.apiKeyId === input.apiKeyId).map((send) => send.createdAt);
   const whatsApp = [...all, ...input.whatsAppMessageTimes];
-  const fromSender = input.organizationSends.filter((send) => send.senderAccountId === input.senderAccountId);
+  // A code the person sends to the number reaches no stranger: it never
+  // counts against the number's pace.
+  const fromSender = input.organizationSends.filter((send) => send.mode === "OUTBOUND" && send.senderAccountId === input.senderAccountId);
   // Only codes count here: they go to strangers. API messages from the same
   // number reach people who already know it, and have their own rate.
   const bySender = fromSender.map((send) => send.createdAt);
@@ -134,9 +139,10 @@ export function evaluateSendLimits(input: {
     ...SEND_LIMITS.perKey.map((limit) => retryAfter(byKey, limit, input.now)),
     ...SEND_LIMITS.perOrganization.map((limit) => retryAfter(all, limit, input.now)),
     ...SEND_LIMITS.whatsApp.map((limit) => retryAfter(whatsApp, limit, input.now)),
-    ...senderLimits(input.senderPairedAt, input.now).map((limit) => retryAfter(bySender, limit, input.now)),
-    cooldownDelay(fromSender, input.now),
   ];
+  if ((input.mode ?? "OUTBOUND") === "OUTBOUND") {
+    delays.push(...senderLimits(input.senderPairedAt, input.now).map((limit) => retryAfter(bySender, limit, input.now)), cooldownDelay(fromSender, input.now));
+  }
   const wait = Math.max(0, ...delays);
   return wait > 0 ? { allowed: false, retryAfterSeconds: wait } : { allowed: true };
 }
@@ -196,6 +202,45 @@ export function buildVerificationMessage(locale: VerificationLocale, code: strin
     return `Your verification code is ${code}. It expires in ${minutes} minutes. Do not share it with anyone.`;
   }
   return `Votre code de vérification est ${code}. Il expire dans ${minutes} minutes. Ne le partagez avec personne.`;
+}
+
+// ─── Reverse verification ───────────────────────────────
+
+/**
+ * The message the person sends from the wa.me link. The code ties it to one
+ * verification; the number it comes from is the proof.
+ */
+export function buildReverseVerificationMessage(locale: VerificationLocale, code: string) {
+  return locale === "en" ? `I confirm my WhatsApp number. Code: ${code}` : `Je confirme mon numéro WhatsApp. Code : ${code}`;
+}
+
+/** The link that opens WhatsApp on the number with the message already typed. */
+export function reverseVerificationLink(senderNumber: string, message: string) {
+  return `https://wa.me/${senderNumber.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`;
+}
+
+/** Six-digit runs of an inbound text, in order, without repeats. */
+export function codeCandidates(text: string) {
+  return [...new Set(text.match(/(?<!\d)\d{6}(?!\d)/g) ?? [])];
+}
+
+export type ReverseReply = "approved" | "wrong_code" | "closed";
+
+const REVERSE_REPLIES = {
+  fr: {
+    approved: "Merci, votre numéro est vérifié. Vous pouvez revenir sur la page d'inscription.",
+    wrong_code: "Ce code ne correspond pas. Renvoyez le message tel qu'il s'est affiché, sans le modifier.",
+    closed: "Ce code n'est plus valable. Revenez sur la page d'inscription pour en obtenir un nouveau.",
+  },
+  en: {
+    approved: "Thank you, your number is verified. You can go back to the registration page.",
+    wrong_code: "This code does not match. Send the message exactly as it appeared, without changing it.",
+    closed: "This code is no longer valid. Go back to the registration page to get a new one.",
+  },
+} as const satisfies Record<VerificationLocale, Record<ReverseReply, string>>;
+
+export function reverseReplyText(locale: PhoneVerificationLocale, reply: ReverseReply) {
+  return REVERSE_REPLIES[locale === "EN" ? "en" : "fr"][reply];
 }
 
 // ─── Send failures ──────────────────────────────────────

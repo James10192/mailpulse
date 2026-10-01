@@ -8,7 +8,7 @@ import type { RecentSend } from "./policy";
 
 export type NewVerification = Pick<
   PhoneVerification,
-  "organizationId" | "apiKeyId" | "senderAccountId" | "phoneNumber" | "locale" | "reference" | "codeHash" | "expiresAt" | "createdAt"
+  "organizationId" | "apiKeyId" | "senderAccountId" | "mode" | "phoneNumber" | "locale" | "reference" | "codeHash" | "expiresAt" | "createdAt"
 >;
 
 /** Reads and writes made while the organization's send lock is held. */
@@ -31,6 +31,8 @@ export interface VerificationStore {
    */
   withOrganizationLock<T>(organizationId: string, fn: (tx: VerificationSendTx) => Promise<T>): Promise<LockResult<T>>;
   find(organizationId: string, id: string): Promise<PhoneVerification | null>;
+  /** The latest code this person was asked to send to this number, created since `since`. */
+  latestInbound(input: { organizationId: string; senderAccountId: string; phoneNumber: string; since: Date }): Promise<PhoneVerification | null>;
   markSent(id: string, sent: { provider: string; providerMessageId: string | null }): Promise<PhoneVerification>;
   /** Records a definite refusal only while the verification is still pending, then returns its current state. */
   markFailed(id: string, failure: { provider: string; errorCode: PhoneVerificationError; failedAt: Date }): Promise<PhoneVerification | null>;
@@ -58,7 +60,7 @@ function sendTx(tx: Prisma.TransactionClient): VerificationSendTx {
     recentSends(organizationId, since) {
       return tx.phoneVerification.findMany({
         where: { organizationId, createdAt: { gte: since } },
-        select: { createdAt: true, phoneNumber: true, apiKeyId: true, senderAccountId: true, errorCode: true, failedAt: true },
+        select: { createdAt: true, phoneNumber: true, apiKeyId: true, senderAccountId: true, errorCode: true, failedAt: true, mode: true },
       });
     },
     async whatsAppMessageTimes(organizationId, since) {
@@ -93,6 +95,12 @@ export function createPrismaVerificationStore(client: PrismaClient): Verificatio
     },
     find(organizationId, id) {
       return client.phoneVerification.findFirst({ where: { id, organizationId } });
+    },
+    latestInbound({ organizationId, senderAccountId, phoneNumber, since }) {
+      return client.phoneVerification.findFirst({
+        where: { organizationId, senderAccountId, phoneNumber, mode: "INBOUND", createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+      });
     },
     markSent(id, sent) {
       return client.phoneVerification.update({ where: { id }, data: sent });

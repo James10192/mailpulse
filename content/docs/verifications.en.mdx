@@ -65,32 +65,34 @@ curl $MAILPULSE_URL/api/v1/verifications/cmf8x2k0p0000abcd1234efgh \
 
 Returns the current state. Another organization's verification answers `404`.
 
+## Reverse verification (recommended)
+
+A code sent by MailPulse goes to someone who never wrote to the number, the
+signal WhatsApp watches most on a WhatsApp Web number. In reverse mode the
+person sends the code to your application's number from a `wa.me` link:
+nothing leaves MailPulse, and the number the message comes from proves it is
+theirs.
+
+Send `"mode": "reverse"` with the usual body. The `201` response adds
+`message` (the text to send, code included) and `wa_link`, returned once. Show
+the link, then poll `GET /api/v1/verifications/{id}` until `approved`.
+MailPulse approves when the message arrives from the right number with the
+right code, answers the person, and does not forward that message to the
+application's chatbot. Only the application's own WhatsApp Web number can
+receive these codes (`409 inverse_indisponible` otherwise), and `check`
+refuses a reverse verification (`409 verification_inverse`).
+
 ## Resend and limits
 
-Resending is a new `POST` for the same number: the previous pending code is
-canceled. Limits: 1 send per minute and 5 per hour per number and organization,
-20 per hour per API key, 100 per hour per organization, and 30 per minute per
-organization shared with API WhatsApp messages (same sending number). Beyond
-that: `429 {"error":"trop_de_demandes","retry_after":42}` with a `Retry-After`
-header. Two simultaneous sends for one organization do not wait for each other:
-the second one also gets a `429`, with `retry_after` set to 1 second.
-
-Other errors: `409 destinataire_refuse` (the recipient answered NO or STOP to the
-key's application number; no code is created), `409 whatsapp_indisponible`, `422 Validation failed` (a doubtful
-number is reported under `field_errors.to`),
-`502 envoi_echoue` (definite provider refusal: no WhatsApp account or an HTTP 4xx
-other than 408 and 429; nothing was sent and the verification is stored as
-`failed`), `503 whatsapp_sature` (the provider is rate limiting; nothing was sent,
-the verification is `failed`, retry later, with `retry_after` and a `Retry-After`
-header when the provider gives a delay),
-`503 verification_indisponible` (service not configured).
-
-Codes come from a cryptographic generator, are stored only as a salted HMAC and
-compared in constant time. They expire after 10 minutes, allow 5 attempts and
-approve once. The code goes to the exact number only, never to a legacy variant,
-and a failed send stores a classified cause (no WhatsApp account, timeout or
-provider error), never the provider text. A refusal reported late never undoes a
-code already approved.
+Send again for the same number: the previous pending verification is
+canceled. Limits per recipient number and organization: 1 per minute, 3 per
+hour, 5 per day. Per sending number, codes sent by MailPulse only: 1 every
+5 s, 6 per minute, 80 per hour, 500 per day; 1 every 10 s, 3 per minute,
+30 per hour, 150 per day for a number paired by QR code less than 30 days
+ago; no code for 30 minutes after WhatsApp throttles the number. Also 20 per
+hour per API key, 100 per hour per organization, and 30 per minute per
+organization shared with API WhatsApp messages. Beyond them: `429` with
+`Retry-After`.
 
 ## WhatsApp Cloud API
 
