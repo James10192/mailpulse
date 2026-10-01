@@ -722,6 +722,10 @@ model PhoneVerification {
   // Keys are revoked, never deleted: SET NULL only covers a manual purge.
   apiKeyId          String?
   apiKey            IntegrationApiKey?       @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  // The application number the code left from; null when it left from the
+  // organization's own number.
+  senderAccountId   String?
+  senderAccount     ProviderAccount?         @relation(fields: [organizationId, senderAccountId], references: [organizationId, id], onDelete: Restrict)
 
   @@index([organizationId, phoneNumber, createdAt])
   @@index([organizationId, createdAt])
@@ -1091,6 +1095,7 @@ model ProviderAccount {
   application    ExternalApplication? @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Restrict)
 
   sentMessages        CommunicationMessage[]
+  sentVerifications   PhoneVerification[]
 
   forwardEndpoints    ApplicationForwardEndpoint[]
   templateConfigs     ApplicationTemplateConfig[]

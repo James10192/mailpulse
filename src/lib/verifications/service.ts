@@ -75,6 +75,7 @@ export async function startVerification(deps: VerificationServiceDeps, input: St
     const verification = await tx.create({
       organizationId: input.organizationId,
       apiKeyId: input.apiKeyId,
+      senderAccountId: input.transport.senderAccountId,
       phoneNumber: input.phoneNumber,
       locale: storedLocale(input.locale),
       reference: input.reference,

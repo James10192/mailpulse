@@ -21,6 +21,7 @@ function harness(
   const deps: VerificationServiceDeps = { store, now: () => now, secret: SECRET };
   const transport: VerificationTransport = {
     provider: "EVOLUTION_API",
+    senderAccountId: null,
     send: (to, text) => { sent.push({ to, text }); return send(to, text); },
   };
   const start = (overrides: Partial<{ organizationId: string; apiKeyId: string; phoneNumber: string }> = {}) =>

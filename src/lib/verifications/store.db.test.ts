@@ -61,7 +61,7 @@ after(async () => {
 
 const SECRET = "d".repeat(32);
 let lastCode = "";
-const transport = { provider: "EVOLUTION_API", send: async (_to: string, text: string) => { lastCode = /(\d{6})/.exec(text)?.[1] ?? ""; return { messageId: null }; } };
+const transport = { provider: "EVOLUTION_API", senderAccountId: null, send: async (_to: string, text: string) => { lastCode = /(\d{6})/.exec(text)?.[1] ?? ""; return { messageId: null }; } };
 const deps = () => ({ store, now: () => new Date(), secret: SECRET });
 const start = (phoneNumber: string) =>
   service.startVerification(deps(), { organizationId: ORG, apiKeyId: KEY, phoneNumber, locale: "fr", reference: null, transport });
