@@ -3,7 +3,7 @@ import type { PhoneVerification, PhoneVerificationStatus } from "@/generated/pri
 import { maskE164, parseStrictE164 } from "@/lib/phone-numbers";
 import { VERIFICATION_CODE_LENGTH, readVerificationSecret } from "./code";
 import { VERIFICATION_LOCALES, checkErrorCode, effectiveStatus, publicStatus } from "./policy";
-import type { StartVerificationResult } from "./service";
+import type { StartReverseVerificationResult, StartVerificationResult } from "./service";
 
 /** HTTP surface of /api/v1/verifications: bodies, responses, configuration guard. */
 
@@ -19,6 +19,9 @@ export const startVerificationSchema = z.object({
   }),
   locale: z.enum(VERIFICATION_LOCALES).optional(),
   reference: z.string().trim().min(1).max(191).optional(),
+  // "send": MailPulse sends the code. "reverse": the person sends it to the
+  // number from the returned wa.me link.
+  mode: z.enum(["send", "reverse"]).optional(),
 });
 
 export const checkVerificationSchema = z.object({
@@ -30,6 +33,7 @@ export function serializeVerification(verification: PhoneVerification, now: Date
     id: verification.id,
     status: publicStatus(effectiveStatus(verification, now)),
     channel: "whatsapp" as const,
+    mode: verification.mode === "INBOUND" ? ("reverse" as const) : ("send" as const),
     to_masked: maskE164(verification.phoneNumber),
     reference: verification.reference,
     expires_at: verification.expiresAt.toISOString(),
@@ -74,4 +78,16 @@ export function verificationSecretOrResponse(env: Record<string, string | undefi
   if (secret) return secret;
   console.error("[verifications] VERIFICATION_CODE_SECRET is missing or shorter than 32 characters");
   return errorResponse("verification_indisponible", 503);
+}
+
+/**
+ * 201 with the message and the wa.me link the person opens. Both are returned
+ * once: the code is stored hashed and cannot be read back.
+ */
+export function startReverseVerificationResponse(result: StartReverseVerificationResult, now: Date) {
+  if (result.type !== "created") {
+    const retryAfter = result.retryAfterSeconds;
+    return errorResponse("trop_de_demandes", 429, { retry_after: retryAfter }, { "Retry-After": String(retryAfter) });
+  }
+  return Response.json({ ...serializeVerification(result.verification, now), message: result.message, wa_link: result.link }, { status: 201 });
 }

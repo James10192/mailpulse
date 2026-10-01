@@ -123,12 +123,48 @@ Pour renvoyer un code, refaites un `POST /api/v1/verifications` pour le même
 numéro. La vérification en attente précédente passe en `canceled` et son code
 cesse de fonctionner.
 
+## Vérification inversée (recommandée)
+
+Un code envoyé par MailPulse part vers quelqu'un qui n'a jamais écrit au
+numéro : c'est le signal que WhatsApp surveille le plus sur un numéro WhatsApp
+Web. En mode inversé, c'est la personne qui envoie le code au numéro de votre
+application depuis un lien `wa.me`. Rien ne part de MailPulse, et le numéro
+d'où vient le message prouve qu'il lui appartient.
+
+```bash
+curl -X POST $MAILPULSE_URL/api/v1/verifications \
+  -H "Authorization: Bearer $MAILPULSE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "channel": "whatsapp", "to": "+2250700000000", "mode": "reverse" }'
+```
+
+Réponse `201` : l'objet habituel avec `"mode": "reverse"`, plus `message` (le
+texte que la personne enverra, code compris) et `wa_link`, le lien qui ouvre
+WhatsApp sur le numéro de l'application avec ce texte déjà saisi. Ces deux
+champs ne sont rendus qu'une fois.
+
+Affichez le lien, puis consultez la vérification (`GET`) toutes les quelques
+secondes jusqu'à `approved`. Quand le message arrive du bon numéro avec le bon
+code, MailPulse approuve la vérification et répond à la personne sur WhatsApp.
+Ce message n'est pas transmis au chatbot de l'application.
+
+- Seul le numéro WhatsApp Web propre à l'application peut recevoir ces codes :
+  sinon, `409 inverse_indisponible`.
+- `POST /verifications/{id}/check` refuse une vérification inversée
+  (`409 verification_inverse`) : le code a été affiché à celui qui l'a
+  demandé, le recopier ne prouve rien.
+- Un message du bon numéro avec un mauvais code consomme une tentative, comme
+  un code mal saisi.
+
 ## Limites
 
 | Limite | Portée |
 | --- | --- |
-| 1 envoi par minute | par numéro et par organisation |
-| 5 envois par heure | par numéro et par organisation |
+| 1 envoi par minute | par numéro destinataire et par organisation |
+| 3 envois par heure, 5 par jour | par numéro destinataire et par organisation |
+| 1 code toutes les 5 s, 6 par minute, 80 par heure, 500 par jour | par numéro expéditeur |
+| 1 code toutes les 10 s, 3 par minute, 30 par heure, 150 par jour | par numéro expéditeur connecté par QR code depuis moins de 30 jours |
+| 30 minutes sans code | par numéro expéditeur, après une limitation de WhatsApp |
 | 20 envois par heure | par clé API |
 | 100 envois par heure | par organisation |
 | 30 envois par minute | par organisation, partagés avec les messages WhatsApp de `POST /api/v1/messages` |
@@ -141,7 +177,9 @@ avec `retry_after` à 1 seconde.
 { "error": "trop_de_demandes", "retry_after": 42 }
 ```
 
-Chaque envoi compte, y compris un envoi en échec ou remplacé. Les codes partent
+Les limites par numéro expéditeur ne comptent que les codes envoyés par
+MailPulse : une vérification inversée n'en consomme aucune. Chaque envoi
+compte, y compris un envoi en échec ou remplacé. Les codes partent
 du même numéro WhatsApp que vos messages API : ils consomment la même limite par
 minute, pour ne pas exposer ce numéro à un blocage.
 
@@ -152,6 +190,8 @@ minute, pour ne pas exposer ce numéro à un blocage.
 | `401` | `Invalid API key` | Clé absente, révoquée ou plan sans accès API. |
 | `404` | `verification_introuvable` | Identifiant inconnu pour cette organisation. |
 | `409` | `whatsapp_indisponible` | Aucune instance Evolution connectée, ou organisation sur WhatsApp Cloud API. |
+| `409` | `inverse_indisponible` | Mode inversé demandé, mais la clé n'envoie pas depuis le numéro WhatsApp Web propre à son application. |
+| `409` | `verification_inverse` | Vérification de code sur une vérification inversée : elle ne s'approuve que par le message WhatsApp. |
 | `409` | `destinataire_refuse` | Le destinataire a répondu NON ou STOP au numéro de l'application de la clé. Aucun code n'est créé. |
 | `422` | `Validation failed` | Numéro absent, non international ou de longueur impossible : `field_errors.to`. |
 | `422` | `Validation failed` | Autre champ invalide, détail dans `field_errors`. |

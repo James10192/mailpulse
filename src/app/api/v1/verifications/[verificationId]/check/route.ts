@@ -19,6 +19,10 @@ export async function POST(request: Request, context: { params: Promise<{ verifi
   if (secret instanceof Response) return secret;
 
   const { verificationId } = await context.params;
+  // A reverse code was shown to whoever asked for it: typing it back proves
+  // nothing. Only the message from the number approves it.
+  const existing = await store.find(auth.organizationId, verificationId);
+  if (existing?.mode === "INBOUND") return errorResponse("verification_inverse", 409);
   try {
     const result = await checkVerification({ store, now: () => new Date(), secret }, { organizationId: auth.organizationId, id: verificationId, code: parsed.data.code });
     if (result.type === "not_found") return errorResponse("verification_introuvable", 404);

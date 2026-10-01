@@ -668,6 +668,11 @@ enum PhoneVerificationChannel {
   WHATSAPP
 }
 
+enum PhoneVerificationMode {
+  OUTBOUND
+  INBOUND
+}
+
 // Why a send did not go through cleanly, from the provider's structured signals.
 // RECIPIENT_UNREACHABLE, REJECTED and PROVIDER_RATE_LIMITED mean nothing was
 // sent (the verification fails); TIMEOUT and TRANSPORT are ambiguous (it stays
@@ -700,6 +705,9 @@ enum PhoneVerificationStatus {
 model PhoneVerification {
   id                String                   @id @default(cuid())
   channel           PhoneVerificationChannel @default(WHATSAPP)
+  // OUTBOUND: MailPulse sends the code. INBOUND: the person sends it to the
+  // number from a wa.me link, which proves the number is theirs.
+  mode              PhoneVerificationMode    @default(OUTBOUND)
   phoneNumber       String
   locale            PhoneVerificationLocale  @default(FR)
   reference         String?

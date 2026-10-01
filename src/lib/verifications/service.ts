@@ -1,10 +1,14 @@
-import type { PhoneVerification, PhoneVerificationStatus } from "@/generated/prisma";
+import type { PhoneVerification, PhoneVerificationMode, PhoneVerificationStatus } from "@/generated/prisma";
 import { generateVerificationCode, hashVerificationCode, verificationCodeMatches } from "./code";
 import {
   SEND_LIMIT_LOOKBACK_MS,
   VERIFICATION_MAX_ATTEMPTS,
   VERIFICATION_TTL_MS,
+  buildReverseVerificationMessage,
   buildVerificationMessage,
+  codeCandidates,
+  reverseVerificationLink,
+  type ReverseReply,
   classifySendError,
   effectiveStatus,
   evaluateSendLimits,
@@ -23,6 +27,8 @@ export type VerificationServiceDeps = {
 // A concurrent request holds the organization's send lock: it lasts a few
 // milliseconds, so the caller can retry almost at once.
 const LOCK_BUSY_RETRY_SECONDS = 1;
+
+const REVERSE_DUPLICATE_GRACE_MS = 30 * 60_000;
 
 // ─── Start ──────────────────────────────────────────────
 
@@ -52,12 +58,25 @@ async function recordSend(deps: VerificationServiceDeps, verification: PhoneVeri
   }
 }
 
+type ClaimInput = {
+  organizationId: string;
+  apiKeyId: string;
+  phoneNumber: string;
+  locale: VerificationLocale;
+  reference: string | null;
+  senderAccountId: string | null;
+  senderPairedAt: Date | null;
+  mode: PhoneVerificationMode;
+};
+
+type Claim = { type: "rate_limited"; retryAfterSeconds: number } | { type: "busy"; retryAfterSeconds: number } | { type: "created"; verification: PhoneVerification; code: string };
+
 /**
- * Creates a verification and sends its code. Limits, cancellation of the
- * previous pending code and creation happen under the organization's lock; the
- * provider call happens after it, so a slow transport never holds the lock.
+ * Limits, cancellation of the previous pending code and creation, under the
+ * organization's lock. Sending anything happens after it, so a slow transport
+ * never holds the lock.
  */
-export async function startVerification(deps: VerificationServiceDeps, input: StartVerificationInput): Promise<StartVerificationResult> {
+async function claimCode(deps: VerificationServiceDeps, input: ClaimInput): Promise<Claim> {
   const now = deps.now();
   const since = new Date(now.getTime() - SEND_LIMIT_LOOKBACK_MS);
 
@@ -70,20 +89,22 @@ export async function startVerification(deps: VerificationServiceDeps, input: St
       now,
       phoneNumber: input.phoneNumber,
       apiKeyId: input.apiKeyId,
-      senderAccountId: input.transport.senderAccountId,
-      senderPairedAt: input.transport.senderPairedAt,
+      senderAccountId: input.senderAccountId,
+      senderPairedAt: input.senderPairedAt,
+      mode: input.mode,
       organizationSends,
       whatsAppMessageTimes,
     });
     if (!decision.allowed) return { type: "rate_limited" as const, retryAfterSeconds: decision.retryAfterSeconds };
 
-    // Sending again for a number replaces its code: only the latest one works.
+    // A new code for a number replaces its previous one: only the latest works.
     await tx.cancelPending(input.organizationId, input.phoneNumber, now);
     const code = generateVerificationCode();
     const verification = await tx.create({
       organizationId: input.organizationId,
       apiKeyId: input.apiKeyId,
-      senderAccountId: input.transport.senderAccountId,
+      senderAccountId: input.senderAccountId,
+      mode: input.mode,
       phoneNumber: input.phoneNumber,
       locale: storedLocale(input.locale),
       reference: input.reference,
@@ -94,8 +115,22 @@ export async function startVerification(deps: VerificationServiceDeps, input: St
     return { type: "created" as const, verification, code };
   });
   if (!lock.acquired) return { type: "busy", retryAfterSeconds: LOCK_BUSY_RETRY_SECONDS };
-  const claim = lock.value;
-  if (claim.type === "rate_limited") return claim;
+  return lock.value;
+}
+
+/** Creates a verification and sends its code from the number. */
+export async function startVerification(deps: VerificationServiceDeps, input: StartVerificationInput): Promise<StartVerificationResult> {
+  const claim = await claimCode(deps, {
+    organizationId: input.organizationId,
+    apiKeyId: input.apiKeyId,
+    phoneNumber: input.phoneNumber,
+    locale: input.locale,
+    reference: input.reference,
+    senderAccountId: input.transport.senderAccountId,
+    senderPairedAt: input.transport.senderPairedAt,
+    mode: "OUTBOUND",
+  });
+  if (claim.type !== "created") return claim;
 
   const { verification, code } = claim;
   const { provider } = input.transport;
@@ -164,4 +199,89 @@ export async function checkVerification(
     return locked ? { type: "refused", id: verification.id, status: "MAX_ATTEMPTS" } : refuseWithCurrentState(deps, input.organizationId, input.id);
   }
   return { type: "refused", id: verification.id, status: "PENDING" };
+}
+
+// ─── Reverse: the person sends the code ─────────────────
+
+export type StartReverseVerificationInput = {
+  organizationId: string;
+  apiKeyId: string;
+  phoneNumber: string;
+  locale: VerificationLocale;
+  reference: string | null;
+  /** The application number the person writes to, and its digits for the link. */
+  sender: { accountId: string; number: string };
+};
+
+export type StartReverseVerificationResult =
+  | { type: "rate_limited"; retryAfterSeconds: number }
+  | { type: "busy"; retryAfterSeconds: number }
+  | { type: "created"; verification: PhoneVerification; message: string; link: string };
+
+/**
+ * Creates a verification the person completes by sending its code to the
+ * application number from a wa.me link. Nothing leaves MailPulse: the
+ * conversation starts on their side, which is what keeps a WhatsApp Web
+ * number safe, and the number the message comes from is the proof.
+ */
+export async function startReverseVerification(
+  deps: VerificationServiceDeps,
+  input: StartReverseVerificationInput,
+): Promise<StartReverseVerificationResult> {
+  const claim = await claimCode(deps, {
+    organizationId: input.organizationId,
+    apiKeyId: input.apiKeyId,
+    phoneNumber: input.phoneNumber,
+    locale: input.locale,
+    reference: input.reference,
+    senderAccountId: input.sender.accountId,
+    senderPairedAt: null,
+    mode: "INBOUND",
+  });
+  if (claim.type !== "created") return claim;
+  const message = buildReverseVerificationMessage(input.locale, claim.code);
+  return { type: "created", verification: claim.verification, message, link: reverseVerificationLink(input.sender.number, message) };
+}
+
+export type InboundCodeOutcome =
+  /** Not a reverse code: the message goes on to its usual destination. */
+  | { type: "not_a_code" }
+  /** A repeat of a message already handled: swallowed, nothing to answer. */
+  | { type: "duplicate" }
+  | { type: "handled"; reply: ReverseReply; verification: PhoneVerification };
+
+/**
+ * Reads an inbound message as a reverse code. Only a message from the very
+ * number a reverse verification was opened for, to the number it was opened
+ * on, is considered; anything else is left alone. A wrong code spends an
+ * attempt like a wrong code typed on a site.
+ */
+export async function receiveReverseCode(
+  deps: VerificationServiceDeps,
+  input: { organizationId: string; senderAccountId: string; phoneNumber: string; text: string },
+): Promise<InboundCodeOutcome> {
+  const candidates = codeCandidates(input.text);
+  if (candidates.length === 0) return { type: "not_a_code" };
+
+  const now = deps.now();
+  // A little past the lifetime, so a late duplicate of the approving message
+  // is still recognized and swallowed rather than forwarded.
+  const since = new Date(now.getTime() - VERIFICATION_TTL_MS - REVERSE_DUPLICATE_GRACE_MS);
+  const verification = await deps.store.latestInbound({ organizationId: input.organizationId, senderAccountId: input.senderAccountId, phoneNumber: input.phoneNumber, since });
+  if (!verification) return { type: "not_a_code" };
+
+  const matching = candidates.find((code) => verificationCodeMatches(deps.secret, code, verification.codeHash));
+  if (verification.status === "APPROVED") return matching ? { type: "duplicate" } : { type: "not_a_code" };
+
+  const status = effectiveStatus(verification, now);
+  if (status !== "PENDING") {
+    if (!matching) return { type: "not_a_code" };
+    if (status === "EXPIRED" || status === "MAX_ATTEMPTS") await deps.store.close(verification.id, status);
+    return { type: "handled", reply: "closed", verification };
+  }
+
+  const result = await checkVerification(deps, { organizationId: input.organizationId, id: verification.id, code: matching ?? candidates[0] });
+  if (result.type === "approved") return { type: "handled", reply: "approved", verification };
+  if (result.type === "refused" && result.status === "PENDING") return { type: "handled", reply: "wrong_code", verification };
+  return { type: "handled", reply: "closed", verification };
 }

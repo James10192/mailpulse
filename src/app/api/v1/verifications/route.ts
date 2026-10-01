@@ -1,8 +1,8 @@
 import { authenticateApiRequest } from "@/lib/mailpulse/api-keys";
 import { validationError } from "@/lib/mailpulse/schemas";
 import { prisma } from "@/lib/prisma";
-import { errorResponse, startVerificationResponse, startVerificationSchema, verificationSecretOrResponse } from "@/lib/verifications/api";
-import { startVerification } from "@/lib/verifications/service";
+import { errorResponse, startReverseVerificationResponse, startVerificationResponse, startVerificationSchema, verificationSecretOrResponse } from "@/lib/verifications/api";
+import { startReverseVerification, startVerification } from "@/lib/verifications/service";
 import { createPrismaVerificationStore } from "@/lib/verifications/store";
 import { verificationTransportFor } from "@/lib/verifications/transport";
 import { recipientRefusedApplicationNumber } from "@/lib/messaging/whatsapp-sender";
@@ -21,6 +21,27 @@ export async function POST(request: Request) {
   if (secret instanceof Response) return secret;
   const transport = await verificationTransportFor(auth.organizationId, auth.applicationId, auth.organization);
   if (!transport) return errorResponse("whatsapp_indisponible", 409);
+
+  if (parsed.data.mode === "reverse") {
+    // Inbound messages are only read for an application's own number, and the
+    // link needs that number's digits.
+    if (!transport.senderAccountId || !transport.senderNumber) return errorResponse("inverse_indisponible", 409);
+    try {
+      const result = await startReverseVerification({ store, now: () => new Date(), secret }, {
+        organizationId: auth.organizationId,
+        apiKeyId: auth.id,
+        phoneNumber: parsed.data.to,
+        locale: parsed.data.locale ?? "fr",
+        reference: parsed.data.reference ?? null,
+        sender: { accountId: transport.senderAccountId, number: transport.senderNumber },
+      });
+      return startReverseVerificationResponse(result, new Date());
+    } catch (error) {
+      console.error("[verifications] reverse start failed", { organizationId: auth.organizationId, error: error instanceof Error ? error.message : error });
+      return errorResponse("erreur_interne", 500);
+    }
+  }
+
   // A STOP given to the application's number binds its codes too: nothing is
   // created and nothing leaves, so the attempt costs no send.
   if (transport.senderAccountId && auth.applicationId && await recipientRefusedApplicationNumber({

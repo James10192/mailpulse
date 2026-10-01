@@ -11,6 +11,7 @@ import {
   recordInboundTextMessages,
 } from "@/lib/external-applications/meta-webhook";
 import { prisma } from "@/lib/prisma";
+import { takeReverseVerificationCodes } from "@/lib/verifications/inbound";
 
 /**
  * Evolution bridges a WhatsApp Web session, so its webhooks carry no provider
@@ -38,7 +39,11 @@ export async function receiveBaileysWebhookRequest(request: Request, application
     if (verdict === "unreadable") return new Response("Service unavailable", { status: 503 });
     if (verdict === "rejected") return new Response("Unauthorized", { status: 401 });
 
-    await recordInboundTextMessages(target.application, target.providerAccountId, getInboundTextMessages(payload));
+    const inbound = getInboundTextMessages(payload);
+    // A reverse verification code is settled here and never reaches the
+    // application's chatbot.
+    const codes = await takeReverseVerificationCodes({ organizationId: target.application.organizationId, providerAccountId: target.providerAccountId }, inbound);
+    await recordInboundTextMessages(target.application, target.providerAccountId, inbound.filter((message) => !codes.has(message.providerMessageId)));
     await applyBaileysStatusUpdates(target.application, target.providerAccountId, getBaileysStatusUpdates(payload));
     return new Response(null, { status: 200 });
   } catch (error) {

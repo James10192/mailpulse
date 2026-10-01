@@ -61,7 +61,7 @@ after(async () => {
 
 const SECRET = "d".repeat(32);
 let lastCode = "";
-const transport = { provider: "EVOLUTION_API", senderAccountId: null, senderPairedAt: null, send: async (_to: string, text: string) => { lastCode = /(\d{6})/.exec(text)?.[1] ?? ""; return { messageId: null }; } };
+const transport = { provider: "EVOLUTION_API", senderAccountId: null, senderPairedAt: null, senderNumber: null, send: async (_to: string, text: string) => { lastCode = /(\d{6})/.exec(text)?.[1] ?? ""; return { messageId: null }; } };
 // Each test starts a minute after the previous one, as a real caller would:
 // the sending number's pacing would otherwise refuse back-to-back codes.
 let clockOffsetMs = 0;

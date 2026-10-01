@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createMemoryStore } from "./memory-store.fixture";
-import { checkVerification, startVerification, type VerificationServiceDeps } from "./service";
+import { checkVerification, receiveReverseCode, startReverseVerification, startVerification, type VerificationServiceDeps } from "./service";
 import type { VerificationStore } from "./store";
 import type { VerificationTransport } from "./transport";
 
@@ -23,6 +23,7 @@ function harness(
     provider: "EVOLUTION_API",
     senderAccountId: null,
     senderPairedAt: null,
+    senderNumber: null,
     send: (to, text) => { sent.push({ to, text }); return send(to, text); },
   };
   const start = ({ senderAccountId, ...overrides }: Partial<{ organizationId: string; apiKeyId: string; phoneNumber: string; senderAccountId: string }> = {}) =>
@@ -288,4 +289,100 @@ test("the right fourth code approves even if a wrong fifth one locks first", asy
   assert.deepEqual(right, { type: "approved", id });
   assert.equal(h.rows[0].status, "APPROVED");
   assert.deepEqual(await h.check(id, code), { type: "refused", id, status: "APPROVED" });
+});
+
+// ─── Reverse ────────────────────────────────────────────
+
+function reverseHarness() {
+  const memory = createMemoryStore();
+  let now = new Date("2026-09-23T10:00:00.000Z");
+  const deps: VerificationServiceDeps = { store: memory.store, now: () => now, secret: SECRET };
+  const start = (phoneNumber = PHONE) =>
+    startReverseVerification(deps, {
+      organizationId: "org_a",
+      apiKeyId: "key_a",
+      phoneNumber,
+      locale: "fr",
+      reference: "demande-1",
+      sender: { accountId: "acct_school", number: "22541540178" },
+    });
+  const receive = (text: string, phoneNumber = PHONE, senderAccountId = "acct_school") =>
+    receiveReverseCode(deps, { organizationId: "org_a", senderAccountId, phoneNumber, text });
+  const advance = (ms: number) => { now = new Date(now.getTime() + ms); };
+  return { rows: memory.rows, start, receive, advance };
+}
+
+async function startedReverse(h: ReturnType<typeof reverseHarness>) {
+  const result = await h.start();
+  assert.equal(result.type, "created");
+  if (result.type !== "created") throw new Error("not created");
+  return { ...result, code: /(\d{6})/.exec(result.message)?.[1] ?? "" };
+}
+
+test("a reverse verification returns the message and a wa.me link to the school number, and sends nothing", async () => {
+  const h = reverseHarness();
+  const started = await startedReverse(h);
+  assert.equal(started.message, `Je confirme mon numéro WhatsApp. Code : ${started.code}`);
+  assert.equal(started.link, `https://wa.me/22541540178?text=${encodeURIComponent(started.message)}`);
+  assert.equal(h.rows[0].mode, "INBOUND");
+  assert.equal(h.rows[0].senderAccountId, "acct_school");
+  assert.equal(JSON.stringify(h.rows).includes(started.code), false);
+});
+
+test("the message from the right number with the right code approves, and a repeat is swallowed", async () => {
+  const h = reverseHarness();
+  const { code } = await startedReverse(h);
+  const outcome = await h.receive(`Je confirme mon numéro WhatsApp. Code : ${code}`);
+  assert.equal(outcome.type, "handled");
+  assert.equal(outcome.type === "handled" && outcome.reply, "approved");
+  assert.equal(h.rows[0].status, "APPROVED");
+  assert.deepEqual(await h.receive(`Code : ${code}`), { type: "duplicate" });
+});
+
+test("the code from another number, or to another number, approves nothing and is not taken", async () => {
+  const h = reverseHarness();
+  const { code } = await startedReverse(h);
+  assert.deepEqual(await h.receive(`Code : ${code}`, "+2250799999999"), { type: "not_a_code" });
+  assert.deepEqual(await h.receive(`Code : ${code}`, PHONE, "acct_other"), { type: "not_a_code" });
+  assert.equal(h.rows[0].status, "PENDING");
+});
+
+test("a text without six digits is left to the chatbot", async () => {
+  const h = reverseHarness();
+  await startedReverse(h);
+  assert.deepEqual(await h.receive("Bonjour, à quelle heure ouvre le secrétariat ?"), { type: "not_a_code" });
+  assert.equal(h.rows[0].attempts, 0);
+});
+
+test("a wrong code spends an attempt and is answered, five lock the verification", async () => {
+  const h = reverseHarness();
+  const { code } = await startedReverse(h);
+  const wrongCode = code === "000000" ? "111111" : "000000";
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    const outcome = await h.receive(`Code : ${wrongCode}`);
+    assert.equal(outcome.type === "handled" && outcome.reply, "wrong_code");
+  }
+  const fifth = await h.receive(`Code : ${wrongCode}`);
+  assert.equal(fifth.type === "handled" && fifth.reply, "closed");
+  assert.equal(h.rows[0].status, "MAX_ATTEMPTS");
+  const late = await h.receive(`Code : ${code}`);
+  assert.equal(late.type === "handled" && late.reply, "closed");
+  assert.equal(h.rows[0].status, "MAX_ATTEMPTS");
+});
+
+test("an expired reverse code is closed and answered, never approved", async () => {
+  const h = reverseHarness();
+  const { code } = await startedReverse(h);
+  h.advance(11 * 60_000);
+  const outcome = await h.receive(`Code : ${code}`);
+  assert.equal(outcome.type === "handled" && outcome.reply, "closed");
+  assert.equal(h.rows[0].status, "EXPIRED");
+});
+
+test("reverse codes never count against the number's pace", async () => {
+  const h = reverseHarness();
+  for (let index = 0; index < 8; index += 1) {
+    const result = await h.start(`+22507000010${index}`);
+    assert.equal(result.type, "created");
+  }
 });
