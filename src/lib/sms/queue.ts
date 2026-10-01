@@ -442,10 +442,7 @@ function webhookEventForStatus(status: CommunicationMessage["status"]) {
 
 async function syncLiveMessage(organizationId: string, message: ReturnType<typeof serializeMessage>) {
   try {
-    const convexApi = api as unknown as {
-      communication: { upsertMessage: Parameters<typeof convexServer.mutation>[0] };
-    };
-    await convexServer.mutation(convexApi.communication.upsertMessage, {
+    await convexServer.mutation(api.communication.upsertMessage, {
       organizationId,
       messageId: message.id,
       channel: message.channel,

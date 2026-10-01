@@ -1,45 +1,33 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useSession, useActiveOrganization } from "@/lib/auth-client";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 export function PresenceHeartbeat() {
-  const { data: session } = useSession();
-  const { data: org } = useActiveOrganization();
+  const { isAuthenticated } = useConvexAuth();
   const pathname = usePathname();
   const heartbeat = useMutation(api.presence.heartbeat);
 
   useEffect(() => {
-    if (!session?.user?.id || !org?.id) return;
+    if (!isAuthenticated) return;
 
+    // Identity comes from the Convex token; a failed heartbeat is only a missed presence ping.
     const send = () => {
-      heartbeat({
-        userId: session.user.id,
-        userName: session.user.name ?? session.user.email,
-        organizationId: org.id,
-        currentPage: pathname,
-      });
+      heartbeat({ currentPage: pathname }).catch(() => {});
     };
 
     send();
     const interval = setInterval(send, 30_000);
     return () => clearInterval(interval);
-  }, [session?.user?.id, session?.user?.name, session?.user?.email, org?.id, pathname, heartbeat]);
+  }, [isAuthenticated, pathname, heartbeat]);
 
   return null;
 }
 
 export function OnlineUsers() {
-  const { data: org } = useActiveOrganization();
-  const orgId = org?.id ?? "";
-
-  const users = useQuery(
-    api.presence.getOnlineUsers,
-    orgId ? { organizationId: orgId } : "skip"
-  );
+  const users = useQuery(api.presence.getOnlineUsers, {});
 
   if (!users || users.length === 0) return null;
 

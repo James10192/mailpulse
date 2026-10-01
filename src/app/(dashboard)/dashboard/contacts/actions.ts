@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { convexServer } from "@/lib/convex-server";
-import { api } from "../../../../../convex/_generated/api";
+import { logActivity } from "@/lib/convex-server";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { checkContactLimit, type PlanTier } from "@/lib/plans";
 import { z } from "zod";
@@ -76,7 +75,7 @@ export async function createContact(
     trackServerEvent(user.id, EVENTS.CONTACT_CREATED, { email: data.email }, org.id);
 
     // Sync to Convex activity feed
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: org.id,
       userId: user.id,
       userName: user.name ?? user.email,
@@ -156,7 +155,7 @@ export async function importContacts(
       total: contacts.length,
     }, org.id);
 
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: org.id,
       userId: user.id,
       userName: user.name ?? user.email,
@@ -193,7 +192,7 @@ export async function deleteContact(contactId: string): Promise<ActionState> {
     await prisma.contact.delete({ where: { id: contactId, organizationId: org.id } });
 
     trackServerEvent(contact.userId, EVENTS.CONTACT_DELETED, { email: contact.email }, contact.organizationId);
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: contact.organizationId,
       userId: contact.userId,
       userName: "System",

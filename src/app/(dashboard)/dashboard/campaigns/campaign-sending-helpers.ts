@@ -1,7 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { convexServer } from "@/lib/convex-server";
-import { api } from "../../../../../convex/_generated/api";
+import { logActivity } from "@/lib/convex-server";
 import { checkEmailLimit, type PlanTier } from "@/lib/plans";
 import { trackServerEvent } from "@/lib/analytics";
 import { sendCampaignEmail } from "@/lib/resend";
@@ -413,7 +412,7 @@ export async function completeCampaignSending(
       recipients: sentCount,
     }, orgId);
 
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: orgId,
       userId: user.id,
       userName: user.name ?? user.email,
@@ -451,7 +450,7 @@ export async function completeCampaignSending(
     recipients: sentCount,
   }, orgId);
 
-  convexServer.mutation(api.dashboard.logActivity, {
+  logActivity({
     organizationId: orgId,
     userId: user.id,
     userName: user.name ?? user.email,

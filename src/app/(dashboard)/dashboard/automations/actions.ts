@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { convexServer } from "@/lib/convex-server";
-import { api } from "../../../../../convex/_generated/api";
+import { logActivity } from "@/lib/convex-server";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { PLAN_LIMITS, checkAutomationLimit } from "@/lib/plans";
 import { retryOnSerializationFailure } from "@/lib/prisma-errors";
@@ -81,7 +80,7 @@ export async function createAutomation(
       trigger: result.data.trigger,
     }, org.id);
 
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: org.id,
       userId: user.id,
       userName: user.name ?? user.email,
@@ -184,7 +183,7 @@ export async function deleteAutomation(
     if (!automation) return { error: AUTOMATION_NOT_FOUND };
 
     trackServerEvent(user.id, EVENTS.AUTOMATION_DELETED, { automation_name: automation.name }, org.id);
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: org.id,
       userId: user.id,
       userName: user.name ?? user.email,

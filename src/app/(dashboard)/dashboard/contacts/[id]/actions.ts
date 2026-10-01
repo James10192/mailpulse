@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { convexServer } from "@/lib/convex-server";
-import { api } from "../../../../../../convex/_generated/api";
+import { logActivity } from "@/lib/convex-server";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { trackServerEvent, EVENTS } from "@/lib/analytics";
 import type { ActionState } from "@/types/action-state";
@@ -53,7 +52,7 @@ export async function toggleContactSubscription(
       org.id
     );
 
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: org.id,
       userId: user.id,
       userName: user.name ?? user.email,
@@ -210,7 +209,7 @@ export async function triggerAutomation(
       org.id
     );
 
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: org.id,
       userId: user.id,
       userName: user.name ?? user.email,

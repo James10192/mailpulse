@@ -24,11 +24,9 @@ const actionVariants: Record<string, "default" | "secondary" | "destructive" | "
   imported: "warning",
 };
 
-export function LiveActivityFeed({ organizationId }: { organizationId: string }) {
-  const activities = useQuery(
-    api.dashboard.getActivityFeed,
-    organizationId ? { organizationId, limit: 12 } : "skip",
-  );
+export function LiveActivityFeed() {
+  // The organization comes from the Convex token.
+  const activities = useQuery(api.dashboard.getActivityFeed, { limit: 12 });
 
   return (
     <Card>
@@ -43,11 +41,7 @@ export function LiveActivityFeed({ organizationId }: { organizationId: string })
         <Badge variant="success">Live</Badge>
       </CardHeader>
       <CardContent>
-        {!organizationId ? (
-          <div className="flex h-40 items-center justify-center text-center text-sm text-zinc-500">
-            Organisation introuvable.
-          </div>
-        ) : activities === undefined ? (
+        {activities === undefined ? (
           <div className="space-y-3">
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />

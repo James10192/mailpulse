@@ -152,7 +152,7 @@ export function toChannel(value: z.infer<typeof channelSchema>): CommunicationCh
 }
 
 export function fromChannel(value: CommunicationChannel) {
-  return value.toLowerCase();
+  return value.toLowerCase() as Lowercase<CommunicationChannel>;
 }
 
 export function toRecipientType(value: z.infer<typeof recipientTypeSchema>): RecipientType {
@@ -180,7 +180,7 @@ export function fromTemplateStatus(value: TemplateStatus) {
 }
 
 export function fromMessageStatus(value: MessageStatus) {
-  return value.toLowerCase();
+  return value.toLowerCase() as Lowercase<MessageStatus>;
 }
 
 export function validationError(error: z.ZodError) {

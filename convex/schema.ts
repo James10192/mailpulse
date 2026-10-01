@@ -85,12 +85,16 @@ export default defineSchema({
     channel: v.union(v.literal("email"), v.literal("whatsapp"), v.literal("sms")),
     status: v.union(
       v.literal("queued"),
+      v.literal("processing"),
       v.literal("retrying"),
+      v.literal("submission_unknown"),
       v.literal("sent"),
       v.literal("delivered"),
       v.literal("read"),
       v.literal("failed"),
       v.literal("cancelled"),
+      v.literal("reconciled"),
+      v.literal("duplicate_confirmed"),
       v.literal("template_required")
     ),
     // No longer written: rows from before are cleared by clearLiveMessageRecipients,

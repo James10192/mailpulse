@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as authIdentity from "../authIdentity.js";
 import type * as communication from "../communication.js";
 import type * as dashboard from "../dashboard.js";
 import type * as lib from "../lib.js";
@@ -21,6 +22,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  authIdentity: typeof authIdentity;
   communication: typeof communication;
   dashboard: typeof dashboard;
   lib: typeof lib;
