@@ -179,6 +179,9 @@ interface InstanceInfo {
   instanceName?: string;
   instanceId: string;
   owner?: string;
+  /** 2.x: the connected number as a JID, "225…@s.whatsapp.net". */
+  ownerJid?: string | null;
+  number?: string | null;
   profileName?: string;
   profilePictureUrl?: string;
   status: string;
@@ -186,6 +189,13 @@ interface InstanceInfo {
 
 export async function fetchInstances() {
   return evoFetch<InstanceInfo[]>("/instance/fetchInstances");
+}
+
+/** One instance as Evolution lists it, or null when it is not in the list. */
+export async function fetchInstance(instanceName: string) {
+  const instances = await evoFetch<InstanceInfo[]>(`/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`);
+  if (!Array.isArray(instances)) return null;
+  return instances.find((instance) => instance.name === instanceName || instance.instanceName === instanceName) ?? null;
 }
 
 export async function deleteInstance(instanceName: string) {
@@ -310,23 +320,26 @@ export async function setWebhook(
   webhookUrl: string,
   headers?: Record<string, string>,
 ) {
+  // Evolution 2.x reads the settings nested under `webhook` (checked on 2.3.7);
+  // a flat body is accepted and silently ignored.
   return evoFetch(`/webhook/set/${instanceName}`, {
     method: "POST",
     body: JSON.stringify({
-      url: webhookUrl,
-      // Carrying the inbound secret here keeps it out of the URL, where it would
-      // otherwise land in every access log along the way.
-      ...(headers ? { headers } : {}),
-      events: [
-        "SEND_MESSAGE",
-        "CONNECTION_UPDATE",
-        "MESSAGES_UPSERT",
-        // Delivery and read acknowledgements of the messages we sent.
-        "MESSAGES_UPDATE",
-        "QRCODE_UPDATED",
-      ],
-      webhook_by_events: false,
-      webhook_base64: false,
+      webhook: {
+        enabled: true,
+        url: webhookUrl,
+        // Carrying the inbound secret here keeps it out of the URL, where it
+        // would otherwise land in every access log along the way.
+        ...(headers ? { headers } : {}),
+        byEvents: false,
+        base64: false,
+        events: [
+          "CONNECTION_UPDATE",
+          "MESSAGES_UPSERT",
+          // Delivery and read acknowledgements of the messages we sent.
+          "MESSAGES_UPDATE",
+        ],
+      },
     }),
   });
 }
