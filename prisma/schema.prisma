@@ -650,10 +650,16 @@ model IntegrationApiKey {
 
   organizationId String
   organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // The application this key speaks for. Its WhatsApp number and default email
+  // sender belong to the application, not to the key: rotating a key moves
+  // nothing. Null for keys not yet attached, which use the organization's.
+  applicationId  String?
+  application    ExternalApplication? @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Restrict)
   messages       CommunicationMessage[]
   phoneVerifications PhoneVerification[]
 
   @@index([organizationId, provider, revokedAt])
+  @@index([organizationId, applicationId])
   @@map("integration_api_key")
 }
 
@@ -898,6 +904,15 @@ model CommunicationMessage {
   // pre-existing messages; a key is revoked, never deleted, so the link holds.
   apiKeyId              String?
   apiKey                IntegrationApiKey?   @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  // Who asked and from which identity it left. Both are fixed when the message
+  // is created, so a later change of the application's number never rewrites
+  // history and a replay leaves from the number it was accepted for.
+  applicationId         String?
+  application           ExternalApplication? @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Restrict)
+  senderAccountId       String?
+  senderAccount         ProviderAccount?     @relation(fields: [organizationId, senderAccountId], references: [organizationId, id], onDelete: Restrict)
+  // { source, provider, label, address }: what the sender was at send time.
+  senderSnapshot        Json?
 
   webhookDeliveries     WebhookDelivery[]
   smsDeliveryReceiptInboxEntries SmsDeliveryReceiptInbox[] @relation("SmsDeliveryReceiptMessage")
@@ -908,6 +923,8 @@ model CommunicationMessage {
   @@index([organizationId, channel, createdAt])
   @@index([organizationId, origin, createdAt])
   @@index([organizationId, apiKeyId, createdAt])
+  @@index([organizationId, applicationId, createdAt])
+  @@index([organizationId, senderAccountId, createdAt])
   @@index([conversationId, createdAt])
   @@index([externalEventId])
   @@unique([organizationId, channel, provider, providerMessageId])
@@ -1007,12 +1024,18 @@ model ExternalApplication {
   name           String
   active         Boolean      @default(true)
   metadata       Json?
+  // Email sender used when neither the request nor the key names one. Plain id,
+  // like IntegrationApiKey.defaultEmailSenderId: checked against the
+  // organization and its verified domains at send time.
+  defaultEmailSenderId String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  apiKeys             IntegrationApiKey[]
+  messages            CommunicationMessage[]
   credentials         ExternalApplicationCredential[]
   providerAccounts    ProviderAccount[]
   forwardEndpoints    ApplicationForwardEndpoint[]
@@ -1056,6 +1079,9 @@ model ProviderAccount {
   externalAccountId     String
   senderId              String?
   credentialsCiphertext String?
+  // Name people recognise the number by ("ESBTP Yakro"); copied into each
+  // message's sender snapshot.
+  label                 String?
   active                Boolean      @default(true)
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
@@ -1064,6 +1090,8 @@ model ProviderAccount {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   applicationId  String?
   application    ExternalApplication? @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Restrict)
+
+  sentMessages        CommunicationMessage[]
 
   forwardEndpoints    ApplicationForwardEndpoint[]
   templateConfigs     ApplicationTemplateConfig[]
