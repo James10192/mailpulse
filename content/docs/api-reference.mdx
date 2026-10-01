@@ -91,8 +91,15 @@ n'envoie jamais depuis un autre numéro à la place. Un destinataire qui a répo
 NON ou STOP au numéro de l'application ne reçoit plus rien de ce numéro, que le
 message vienne de l'API ou d'une commande signée : `error_code` `consent_refused`.
 
-Les codes de vérification (`/api/v1/verifications`) partent encore du numéro de
-l'organisation.
+Les codes de vérification (`/api/v1/verifications`) suivent la même règle : ils
+partent du numéro de l'application de la clé, sinon de celui de l'organisation.
+Seul un numéro WhatsApp Web peut envoyer un code ; un numéro désactivé, ambigu
+ou Meta répond `whatsapp_indisponible`.
+
+Le rattachement d'une clé à une application se fait dans Plateforme, onglet
+Clés API et intégrations, colonne Application, qui affiche aussi le numéro
+d'envoi. Seuls les propriétaires et administrateurs de l'organisation peuvent
+changer une clé, un expéditeur ou un numéro.
 
 Le numéro utilisé est enregistré sur le message au moment de sa création : un
 rejeu repart de ce numéro, et l'historique ne change pas si le numéro de
