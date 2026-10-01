@@ -132,3 +132,15 @@ test("a held command is answered as pending and never reaches the provider", () 
   assert.match(commands, /operation\.status === CONSENT_PENDING_STATUS\) return \{ status: "consent_pending"/);
   assert.match(commands, /operation\.status === QUEUED_STATUS\) return \{ status: "queued"/);
 });
+
+test("a retry after a number change moves the never-sent operation to the current number before any gate", () => {
+  const terminal = commands.indexOf("if (operation.status === QUEUED_STATUS)");
+  const rebind = commands.indexOf("rebindPendingOperation(operation.id, operation.providerAccountId, provider.id)");
+  const refusal = commands.indexOf("await applyConsentGate(application, provider, operation, command,");
+
+  assert.ok(rebind > terminal, "a sent, refused or held operation is answered as it stands, never moved");
+  assert.ok(refusal > rebind, "consent and window are judged on the number the operation will leave from");
+  // Only a PENDING operation still recorded on the old number may move.
+  assert.match(commands, /where: \{ id, status: "PENDING", providerAccountId: fromProviderAccountId \}/);
+  assert.match(commands, /if \(!rebound\) return \{ status: "in_progress"/);
+});
