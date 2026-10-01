@@ -49,10 +49,13 @@ export async function authenticateApiRequest(request: Request) {
           metaAccessToken: true,
         },
       },
+      application: { select: { active: true, defaultEmailSenderId: true } },
     },
   });
 
   if (!integrationKey) return null;
+  // Disabling an application stops every key that speaks for it.
+  if (integrationKey.application && !integrationKey.application.active) return null;
   if (!canAccessFeature(integrationKey.organization.plan as PlanTier, "api_access")) return null;
 
   await prisma.integrationApiKey.update({

@@ -44,14 +44,18 @@ export async function POST(request: Request) {
     }
   }
 
+  // The key's own sender wins, then its application's: a key created under the
+  // name of an attached key joins its application and inherits that sender.
+  const defaultEmailSenderId = auth.defaultEmailSenderId ?? auth.application?.defaultEmailSenderId ?? null;
   const result = await createIdempotentCommunicationMessage({
     organizationId: auth.organizationId,
     origin: "API",
     organization: auth.organization,
     input: parsed.data,
     idempotencyKey,
-    defaultEmailSenderId: auth.defaultEmailSenderId,
+    defaultEmailSenderId,
     apiKeyId: auth.id,
+    applicationId: auth.applicationId,
     method: "POST",
     path: "/api/v1/messages",
     requestBody: body,
@@ -72,7 +76,7 @@ export async function POST(request: Request) {
     messageId,
     organizationId: auth.organizationId,
     organization: auth.organization,
-    defaultEmailSenderId: auth.defaultEmailSenderId,
+    defaultEmailSenderId,
     replay: result.type === "replay",
   });
   const response = await storeIdempotentCommunicationMessageResponse({

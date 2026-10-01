@@ -2,7 +2,18 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/resend";
-import { meta, sendWhatsApp } from "@/lib/whatsapp";
+import { resolveProviderConfig, sendWhatsAppTemplateWith, sendWhatsAppWith } from "@/lib/whatsapp";
+import type { WhatsAppProviderConfig } from "@/lib/whatsapp/types";
+import {
+  accountMode,
+  CONSENT_REFUSED_CODE,
+  CONSENT_REFUSED_MESSAGE,
+  findSenderAccount,
+  recipientRefusedApplicationNumber,
+  providerConfigForAccount,
+  SENDER_UNAVAILABLE_CODE,
+  SENDER_UNAVAILABLE_MESSAGE,
+} from "@/lib/messaging/whatsapp-sender";
 import type { BaileysSendPriority } from "@/lib/whatsapp-baileys";
 import { canReceiveChannel } from "./consent";
 import { directProvider } from "./direct-provider";
@@ -64,25 +75,35 @@ async function dispatchClaimedMessage(claimedMessage: CommunicationMessageWithTe
   if (!canReceiveChannel(await findMessageContact(claimedMessage.contactId), "WHATSAPP")) {
     return markMessageFailed(claimedMessage.id, "consent_denied", "Le destinataire a refuse les messages WhatsApp.", claimedMessage.processingToken);
   }
-  if (!options.organization?.whatsappEnabled) {
-    return markMessageFailed(
-      claimedMessage.id,
-      "channel_not_configured",
-      "WhatsApp non configure pour cette organisation.",
-      claimedMessage.processingToken,
-    );
+  const identity = await whatsAppIdentity(claimedMessage, options.organization);
+  if (identity.kind === "refused") {
+    return markMessageFailed(claimedMessage.id, identity.errorCode, identity.errorMessage, claimedMessage.processingToken);
   }
 
-  const preparedMessage = await markSubmissionPending(
-    claimedMessage,
-    directProvider("WHATSAPP", options.organization.whatsappMode),
-  );
+  // Compiled before the provider boundary: a template the number cannot send
+  // never left, so it fails plainly instead of ending as an unknown submission.
+  let metaTemplate: ReturnType<typeof compileMetaTemplateDispatch> | null = null;
+  if (claimedMessage.contentType === "TEMPLATE" && identity.mode === "META") {
+    try {
+      metaTemplate = compileMetaTemplateDispatch(claimedMessage.template ?? {
+        providerTemplateId: null,
+        variables: null,
+        metadata: null,
+      }, claimedMessage.variables);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Modèle WhatsApp inutilisable.";
+      return markMessageFailed(claimedMessage.id, "template_not_configured", errorMessage, claimedMessage.processingToken);
+    }
+  }
+
+  const preparedMessage = await markSubmissionPending(claimedMessage, directProvider("WHATSAPP", identity.mode));
   if (!preparedMessage) return readMessage(claimedMessage.id);
 
   try {
+    const config = identity.config();
     const result = preparedMessage.contentType === "TEMPLATE"
-      ? await sendWhatsAppTemplate(options.organization, preparedMessage)
-      : await sendWhatsApp(options.organization, preparedMessage.recipientValue, preparedMessage.text ?? "", {
+      ? await sendWhatsAppTemplate(config, preparedMessage, metaTemplate)
+      : await sendWhatsAppWith(config, preparedMessage.recipientValue, preparedMessage.text ?? "", {
         priority: whatsAppPriority(preparedMessage.origin),
       });
 
@@ -97,6 +118,45 @@ async function dispatchClaimedMessage(claimedMessage: CommunicationMessageWithTe
     const errorMessage = error instanceof Error ? error.message : "Echec de l'envoi WhatsApp.";
     return settleProviderFailure(preparedMessage, errorMessage);
   }
+}
+
+type WhatsAppIdentity =
+  | { kind: "ready"; mode: "BAILEYS" | "META"; config: () => WhatsAppProviderConfig }
+  | { kind: "refused"; errorCode: string; errorMessage: string };
+
+/**
+ * A message created for an application's account leaves from that account or
+ * not at all: it never falls back to the organization's number. The others
+ * leave from the organization's number, as before applications had one.
+ */
+async function whatsAppIdentity(
+  message: CommunicationMessageWithTemplate,
+  organization: MailPulseMessageOrganization | undefined,
+): Promise<WhatsAppIdentity> {
+  if (message.senderAccountId) {
+    const account = await findSenderAccount(message.organizationId, message.senderAccountId);
+    const config = account ? providerConfigForAccount(account) : null;
+    if (!account || !config) {
+      return { kind: "refused", errorCode: SENDER_UNAVAILABLE_CODE, errorMessage: SENDER_UNAVAILABLE_MESSAGE };
+    }
+    // Checked again here: a NON may arrive between creation and dispatch.
+    if (message.applicationId && await recipientRefusedApplicationNumber({
+      organizationId: message.organizationId,
+      applicationId: message.applicationId,
+      providerAccountId: account.id,
+      recipient: message.recipientValue,
+    })) {
+      return { kind: "refused", errorCode: CONSENT_REFUSED_CODE, errorMessage: CONSENT_REFUSED_MESSAGE };
+    }
+    return { kind: "ready", mode: accountMode(account), config: () => config };
+  }
+
+  if (!organization?.whatsappEnabled) {
+    return { kind: "refused", errorCode: "channel_not_configured", errorMessage: "WhatsApp non configure pour cette organisation." };
+  }
+  // Resolved inside the send's try: a half-configured organization settles as
+  // a provider failure, as it always has.
+  return { kind: "ready", mode: organization.whatsappMode, config: () => resolveProviderConfig(organization) };
 }
 
 /**
@@ -254,27 +314,22 @@ async function findVerifiedSenderById(organizationId: string, senderId: string) 
 }
 
 async function sendWhatsAppTemplate(
-  organization: MailPulseMessageOrganization,
+  config: WhatsAppProviderConfig,
   message: CommunicationMessageWithTemplate,
+  metaTemplate: ReturnType<typeof compileMetaTemplateDispatch> | null,
 ) {
-  if (organization.whatsappMode === "META") {
-    const dispatch = compileMetaTemplateDispatch(message.template ?? {
-      providerTemplateId: null,
-      variables: null,
-      metadata: null,
-    }, message.variables);
-    const result = await meta.sendTemplate(
-      organization,
+  if (config.mode === "META" && metaTemplate) {
+    return sendWhatsAppTemplateWith(
+      config,
       message.recipientValue,
-      dispatch.providerTemplateId,
+      metaTemplate.providerTemplateId,
       message.locale ?? "fr",
-      dispatch.parameters,
+      metaTemplate.parameters,
     );
-    return { success: true, messageId: result.messages?.[0]?.id };
   }
 
   const body = renderTemplateBody(message.template?.body ?? "", message.variables);
-  return sendWhatsApp(organization, message.recipientValue, body);
+  return sendWhatsAppWith(config, message.recipientValue, body);
 }
 
 function emailDomain(email: string) {

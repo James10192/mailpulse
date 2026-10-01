@@ -76,6 +76,28 @@ le fournisseur réessaie.
 ]
 ```
 
+### Numéro WhatsApp d'envoi
+
+Un message WhatsApp part du numéro de l'application à laquelle la clé est
+rattachée. Une clé sans application, ou rattachée à une application qui n'a
+jamais eu de numéro, envoie depuis le numéro de l'organisation. Le numéro
+appartient à l'application, pas à la clé : une nouvelle clé créée sous le même
+nom qu'une clé rattachée rejoint la même application, et une rotation garde donc
+le numéro.
+
+Si le numéro de l'application est désactivé, ou si elle en a deux actifs, le
+message passe en `failed` avec `error_code` `sender_unavailable`. MailPulse
+n'envoie jamais depuis un autre numéro à la place. Un destinataire qui a répondu
+NON ou STOP au numéro de l'application ne reçoit plus rien de ce numéro, que le
+message vienne de l'API ou d'une commande signée : `error_code` `consent_refused`.
+
+Les codes de vérification (`/api/v1/verifications`) partent encore du numéro de
+l'organisation.
+
+Le numéro utilisé est enregistré sur le message au moment de sa création : un
+rejeu repart de ce numéro, et l'historique ne change pas si le numéro de
+l'application change ensuite.
+
 ### Rejouer une requête
 
 Rejouer `POST /api/v1/messages` avec la même `Idempotency-Key` et le même corps

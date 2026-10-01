@@ -52,6 +52,27 @@ change the status: the message stays `sent` while the provider retries.
 ]
 ```
 
+### WhatsApp sending number
+
+A WhatsApp message leaves from the number of the application the key is
+attached to. A key without an application, or attached to an application that
+never had a number, sends from the organization's number. The number belongs to
+the application, not to the key: a new key created under the same name as an
+attached key joins the same application, so a rotation keeps the number.
+
+If the application's number is disabled, or if it has two active numbers, the
+message becomes `failed` with `error_code` `sender_unavailable`. MailPulse never
+sends from another number instead. A recipient who answered NO or STOP to the
+application's number receives nothing more from it, whether the message comes
+from the API or a signed command: `error_code` `consent_refused`.
+
+Verification codes (`/api/v1/verifications`) still leave from the organization's
+number.
+
+The number used is recorded on the message when it is created: a replay leaves
+from that number, and the history does not change if the application's number
+changes later.
+
 ### Replaying a request
 
 Replaying `POST /api/v1/messages` with the same `Idempotency-Key` and body never
