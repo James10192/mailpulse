@@ -2,7 +2,6 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useSession } from "@/lib/auth-client";
 import { Bell, Check, CheckCheck, Send, AlertTriangle, UserPlus, Zap, Trophy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -20,17 +19,9 @@ const typeIcons: Record<string, { icon: React.ElementType; color: string }> = {
 };
 
 export function NotificationsDropdown() {
-  const { data: session } = useSession();
-  const userId = session?.user?.id ?? "";
-
-  const unreadCount = useQuery(
-    api.notifications.unreadCount,
-    userId ? { userId } : "skip"
-  );
-  const notifications = useQuery(
-    api.notifications.list,
-    userId ? { userId, limit: 10 } : "skip"
-  );
+  // The user comes from the Convex token.
+  const unreadCount = useQuery(api.notifications.unreadCount, {});
+  const notifications = useQuery(api.notifications.list, { limit: 10 });
   const markAsRead = useMutation(api.notifications.markAsRead);
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
 
@@ -66,7 +57,7 @@ export function NotificationsDropdown() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                if (userId) markAllAsRead({ userId });
+                markAllAsRead({}).catch(() => {});
               }}
               className="-mr-2 gap-1 text-orange-600 dark:text-orange-400"
             >
@@ -89,7 +80,7 @@ export function NotificationsDropdown() {
                   key={notif._id}
                   type="button"
                   onClick={() => {
-                    if (!notif.read) markAsRead({ notificationId: notif._id });
+                    if (!notif.read) markAsRead({ notificationId: notif._id }).catch(() => {});
                   }}
                   className={cn(
                     "block w-full border-b border-zinc-100 px-4 py-3 text-left transition-colors last:border-0 hover:bg-zinc-50 focus-visible:bg-zinc-50 focus-visible:outline-none dark:border-zinc-800 dark:hover:bg-zinc-800/50 dark:focus-visible:bg-zinc-800/50",

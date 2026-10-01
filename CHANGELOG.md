@@ -21,6 +21,9 @@ All notable changes to MailPulse will be documented in this file.
 - `truncate` never truncated a `<p>` or a heading: the global `text-wrap` rules were unlayered and reset the wrap mode. They now live in `@layer base`.
 - A bare `border` rendered black (Tailwind v4 uses `currentColor`); the theme border color is now the default, as in shadcn's base styles.
 
+### Security
+- **Live dashboard data requires a signed identity**: the real-time functions (stats, activity feed, notifications, presence, message mirror) took an organization or user id from the caller with no check, so anyone holding the public Convex URL could read another organization's feed and notifications or write into them. They now read the identity from a short-lived ES256 token signed by MailPulse (`/api/convex/token` for members, a server token for MailPulse's own writes); stats, activity, notifications and the message mirror can only be written by the server.
+
 ## [0.2.0] - 2026-03-28
 
 ### Added

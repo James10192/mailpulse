@@ -3,7 +3,6 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Mail, Users, MousePointerClick, AlertTriangle } from "lucide-react";
-import { useActiveOrganization } from "@/lib/auth-client";
 
 function StatCard({
   label,
@@ -37,13 +36,8 @@ export function LiveStats({
     bounceRate: string;
   };
 }) {
-  const { data: org } = useActiveOrganization();
-  const orgId = org?.id ?? "";
-
-  const stats = useQuery(
-    api.dashboard.getStats,
-    orgId ? { organizationId: orgId } : "skip"
-  );
+  // The organization comes from the Convex token; null until it is known.
+  const stats = useQuery(api.dashboard.getStats, {});
 
   if (!stats) {
     return (

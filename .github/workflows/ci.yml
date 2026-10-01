@@ -102,6 +102,9 @@ jobs:
           # in their own organization and delete it afterwards.
           VERIFICATION_TEST_DATABASE_URL: postgresql://mailpulse:mailpulse@localhost:5432/mailpulse
 
+      - name: Convex auth tests
+        run: pnpm test:convex-auth
+
       - name: Build
         run: pnpm build
 

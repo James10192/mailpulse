@@ -271,7 +271,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.85fr)]">
         <RecentCampaignsTable campaigns={data.recentCampaigns} />
-        <LiveActivityFeed organizationId={orgId} />
+        <LiveActivityFeed />
       </div>
 
       {isFreePlan && usage && emailUsage && (

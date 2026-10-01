@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { convexServer } from "@/lib/convex-server";
-import { api } from "../../../../../convex/_generated/api";
+import { logActivity } from "@/lib/convex-server";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
 import { canAccessFeature, checkCampaignLimit, getFeatureUpgradeMessage } from "@/lib/plans";
 import { redirect } from "next/navigation";
@@ -73,7 +72,7 @@ export async function createCampaign(
       campaign_name: result.data.name,
     }, org.id);
 
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: org.id,
       userId: user.id,
       userName: user.name ?? user.email,
@@ -111,7 +110,7 @@ export async function deleteCampaign(campaignId: string): Promise<ActionState> {
     if (count === 0) return { error: "Campagne introuvable." };
 
     trackServerEvent(campaign.userId, EVENTS.CAMPAIGN_DELETED, { campaign_name: campaign.name }, campaign.organizationId);
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: campaign.organizationId,
       userId: campaign.userId,
       userName: "System",
@@ -182,7 +181,7 @@ export async function scheduleCampaign(
       scheduled_at: scheduledAt,
     }, org.id);
 
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: org.id,
       userId: user.id,
       userName: user.name ?? user.email,
@@ -271,7 +270,7 @@ export async function cancelCampaign(campaignId: string): Promise<ActionState> {
       campaign_name: campaign.name,
     }, org.id);
 
-    convexServer.mutation(api.dashboard.logActivity, {
+    logActivity({
       organizationId: org.id,
       userId: user.id,
       userName: user.name ?? user.email,

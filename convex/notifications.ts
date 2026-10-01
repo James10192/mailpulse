@@ -1,27 +1,36 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertOrgExists } from "./lib";
+import { clampLimit, currentMember, requireMember, requireServer } from "./lib";
+
+// `userId` arguments are still accepted, and ignored, so that a tab opened
+// before this version keeps rendering. The user always comes from the token.
 
 export const list = query({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const member = await currentMember(ctx);
+    if (!member) return [];
+
     return await ctx.db
       .query("notifications")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user", (q) => q.eq("userId", member.userId))
       .order("desc")
-      .take(args.limit ?? 20);
+      .take(clampLimit(args.limit, 20));
   },
 });
 
 export const unreadCount = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const member = await currentMember(ctx);
+    if (!member) return 0;
+
     const unread = await ctx.db
       .query("notifications")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId).eq("read", false))
+      .withIndex("by_user", (q) => q.eq("userId", member.userId).eq("read", false))
       .collect();
     return unread.length;
   },
@@ -30,19 +39,24 @@ export const unreadCount = query({
 export const markAsRead = mutation({
   args: { notificationId: v.id("notifications") },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.notificationId, { read: true });
+    const member = await requireMember(ctx);
+    const notification = await ctx.db.get("notifications", args.notificationId);
+    // Same answer for « absent » and « someone else's »: ids are not probed.
+    if (!notification || notification.userId !== member.userId) return;
+    await ctx.db.patch("notifications", args.notificationId, { read: true });
   },
 });
 
 export const markAllAsRead = mutation({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const member = await requireMember(ctx);
     const unread = await ctx.db
       .query("notifications")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId).eq("read", false))
+      .withIndex("by_user", (q) => q.eq("userId", member.userId).eq("read", false))
       .collect();
 
-    await Promise.all(unread.map((n) => ctx.db.patch(n._id, { read: true })));
+    await Promise.all(unread.map((n) => ctx.db.patch("notifications", n._id, { read: true })));
   },
 });
 
@@ -64,7 +78,7 @@ export const create = mutation({
     metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    await assertOrgExists(ctx, args.organizationId);
+    await requireServer(ctx);
 
     return await ctx.db.insert("notifications", {
       ...args,

@@ -1,33 +1,41 @@
 import { internalMutation, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { requireServer } from "./lib";
 
 const channelValidator = v.union(v.literal("email"), v.literal("whatsapp"), v.literal("sms"));
-const statusValidator = v.union(
+// Every Prisma MessageStatus, lowercased: a status missing here made Convex
+// refuse the update, and the live mirror silently fell behind.
+export const liveMessageStatus = v.union(
   v.literal("queued"),
+  v.literal("processing"),
   v.literal("retrying"),
+  v.literal("submission_unknown"),
   v.literal("sent"),
   v.literal("delivered"),
   v.literal("read"),
   v.literal("failed"),
   v.literal("cancelled"),
+  v.literal("reconciled"),
+  v.literal("duplicate_confirmed"),
   v.literal("template_required")
 );
 
-// The live mirror keeps a message's state, never its recipient: Convex
-// functions are reachable by anyone who knows an organization id, so nothing
-// personal is stored here.
+// The live mirror keeps a message's state, never its recipient. Only the
+// MailPulse server writes it.
 export const upsertMessage = mutation({
   args: {
     organizationId: v.string(),
     messageId: v.string(),
     channel: channelValidator,
-    status: statusValidator,
+    status: liveMessageStatus,
     // Still accepted, and ignored, so that a deployment that sends it keeps working.
     recipient: v.optional(v.string()),
     updatedAt: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireServer(ctx);
+
     const existing = await ctx.db
       .query("liveMessages")
       .withIndex("by_messageId", (q) => q.eq("messageId", args.messageId))
