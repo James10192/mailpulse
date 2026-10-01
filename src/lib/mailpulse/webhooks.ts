@@ -209,15 +209,31 @@ const RETRY_RUN_BUDGET_MS = 40_000;
  * is skipped for the rest of the run, so one dead endpoint cannot hold the
  * queue of every organization.
  */
-export async function processDueWebhookDeliveries(limit = 50, now = new Date(), deadline = Date.now() + RETRY_RUN_BUDGET_MS) {
+export type RetryRunOptions = {
+  limit?: number;
+  now?: Date;
+  deadline?: number;
+  /** Restricts the run to these organizations. The cron leaves it unset: every organization. */
+  organizationIds?: string[];
+};
+
+export async function processDueWebhookDeliveries({
+  limit = 50,
+  now = new Date(),
+  deadline = Date.now() + RETRY_RUN_BUDGET_MS,
+  organizationIds,
+}: RetryRunOptions = {}) {
+  const inScope = organizationIds ? { organizationId: { in: organizationIds } } : {};
+
   // Secrets past their overlap are no longer needed anywhere: drop them.
   await prisma.webhookEndpoint.updateMany({
-    where: { previousSecretExpiresAt: { lt: now } },
+    where: { ...inScope, previousSecretExpiresAt: { lt: now } },
     data: { previousSigningSecret: null, previousSecretExpiresAt: null },
   });
 
   const due = await prisma.webhookDelivery.findMany({
     where: {
+      ...inScope,
       OR: [
         { status: { in: ["PENDING", "RETRYING"] }, nextRetryAt: { lte: now } },
         // Written before deliveries were leased: no retry time at all.

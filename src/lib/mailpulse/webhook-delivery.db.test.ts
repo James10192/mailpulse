@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import { createHmac, randomUUID } from "node:crypto";
+import type { RetryRunOptions } from "./webhooks";
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
@@ -64,6 +65,12 @@ after(async () => {
   await prisma.$disconnect();
 });
 
+// The retry run covers every organization; a test only looks at its own, so a
+// development database with other due deliveries (seeded demo data) cannot
+// change what it counts.
+const runRetries = (options: Omit<RetryRunOptions, "organizationIds"> = {}) =>
+  webhooks.processDueWebhookDeliveries({ ...options, organizationIds: [organizationId, otherOrganizationId] });
+
 const emit = () => webhooks.emitWebhookEvent({ organizationId, type: "message.delivered", data: { message: { id: "m1" } } });
 const onlyDelivery = async () => (await prisma.webhookDelivery.findMany({ where: { organizationId } }))[0];
 
@@ -108,7 +115,7 @@ test("the retry run sends what is due, once, even with two runs at the same time
 
   respond = () => new Response("ok");
   calls = [];
-  const [first, second] = await Promise.all([webhooks.processDueWebhookDeliveries(), webhooks.processDueWebhookDeliveries()]);
+  const [first, second] = await Promise.all([runRetries(), runRetries()]);
   assert.equal(calls.length, 1, "un seul envoi malgré deux passages simultanés");
   assert.equal(first.delivered + second.delivered, 1);
   const done = await prisma.webhookDelivery.findUniqueOrThrow({ where: { id: delivery.id } });
@@ -132,9 +139,9 @@ test("a delivery left mid-attempt by a crash is picked up after its lease", { sk
   const delivery = await prisma.webhookDelivery.create({
     data: { organizationId, endpointId, eventId: randomUUID(), eventType: "message.delivered", payload: { type: "message.delivered" }, status: "PENDING", nextRetryAt: new Date(Date.now() + WEBHOOK_LEASE_MS) },
   });
-  assert.equal((await webhooks.processDueWebhookDeliveries()).examined, 0, "pas avant la fin du bail");
+  assert.equal((await runRetries()).examined, 0, "pas avant la fin du bail");
   const later = new Date(Date.now() + WEBHOOK_LEASE_MS + 1000);
-  const result = await webhooks.processDueWebhookDeliveries(50, later);
+  const result = await runRetries({ now: later });
   assert.equal(result.delivered, 1);
   assert.equal((await prisma.webhookDelivery.findUniqueOrThrow({ where: { id: delivery.id } })).status, "DELIVERED");
 });
@@ -144,7 +151,7 @@ test("retries stop after the last attempt", { skip: !hasDatabase }, async () => 
   await emit();
   const delivery = await onlyDelivery();
   await prisma.webhookDelivery.update({ where: { id: delivery.id }, data: { attempts: WEBHOOK_MAX_ATTEMPTS - 1, nextRetryAt: new Date(Date.now() - 1000) } });
-  await webhooks.processDueWebhookDeliveries();
+  await runRetries();
   const final = await prisma.webhookDelivery.findUniqueOrThrow({ where: { id: delivery.id } });
   assert.equal(final.status, "FAILED");
   assert.equal(final.attempts, WEBHOOK_MAX_ATTEMPTS);
@@ -157,7 +164,7 @@ test("a disabled endpoint receives nothing more", { skip: !hasDatabase }, async 
   await prisma.webhookEndpoint.update({ where: { id: endpointId }, data: { active: false } });
   await prisma.webhookDelivery.update({ where: { id: delivery.id }, data: { nextRetryAt: new Date(Date.now() - 1000) } });
   calls = [];
-  await webhooks.processDueWebhookDeliveries();
+  await runRetries();
   await prisma.webhookEndpoint.update({ where: { id: endpointId }, data: { active: true } });
   assert.equal(calls.length, 0);
   const final = await prisma.webhookDelivery.findUniqueOrThrow({ where: { id: delivery.id } });
@@ -210,7 +217,7 @@ test("a plan that loses webhooks stops its retries", { skip: !hasDatabase }, asy
   await prisma.organization.update({ where: { id: organizationId }, data: { plan: "FREE" } });
   await prisma.webhookDelivery.update({ where: { id: delivery.id }, data: { nextRetryAt: new Date(Date.now() - 1000) } });
   calls = [];
-  await webhooks.processDueWebhookDeliveries();
+  await runRetries();
   await prisma.organization.update({ where: { id: organizationId }, data: { plan: "PRO" } });
   assert.equal(calls.length, 0);
   const final = await prisma.webhookDelivery.findUniqueOrThrow({ where: { id: delivery.id } });
@@ -225,7 +232,7 @@ test("a delivery stuck from before leases existed is recovered", { skip: !hasDat
   const fresh = await prisma.webhookDelivery.create({
     data: { organizationId, endpointId, eventId: randomUUID(), eventType: "message.delivered", payload: {}, status: "PENDING", nextRetryAt: null },
   });
-  await webhooks.processDueWebhookDeliveries();
+  await runRetries();
   assert.equal((await prisma.webhookDelivery.findUniqueOrThrow({ where: { id: stuck.id } })).status, "DELIVERED");
   assert.equal((await prisma.webhookDelivery.findUniqueOrThrow({ where: { id: fresh.id } })).status, "PENDING", "peut-être encore en cours d'envoi");
 });
@@ -238,7 +245,7 @@ test("a receiver that does not answer is skipped for the rest of the run", { ski
   const realPostForTest = webhookTransport.post;
   let attempts = 0;
   webhookTransport.post = async () => { attempts += 1; return { kind: "timeout" }; };
-  const result = await webhooks.processDueWebhookDeliveries();
+  const result = await runRetries();
   webhookTransport.post = realPostForTest;
   stubTransport();
   // Five workers start together, then the endpoint is known dead.
@@ -256,7 +263,7 @@ test("two rotations at once never hand out a secret that was not stored", { skip
 
 test("a previous secret is dropped once its overlap is over", { skip: !hasDatabase }, async () => {
   await prisma.webhookEndpoint.update({ where: { id: endpointId }, data: { previousSigningSecret: "whsec_old", previousSecretExpiresAt: new Date(Date.now() - 1000) } });
-  await webhooks.processDueWebhookDeliveries();
+  await runRetries();
   const endpoint = await prisma.webhookEndpoint.findUniqueOrThrow({ where: { id: endpointId } });
   assert.equal(endpoint.previousSigningSecret, null);
   assert.equal(endpoint.previousSecretExpiresAt, null);

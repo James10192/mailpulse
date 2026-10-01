@@ -15,6 +15,6 @@ export async function POST(request: Request) {
 
   const rawLimit = new URL(request.url).searchParams.get("limit");
   const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : 50;
-  const result = await processDueWebhookDeliveries(Number.isFinite(parsedLimit) ? parsedLimit : 50);
+  const result = await processDueWebhookDeliveries({ limit: Number.isFinite(parsedLimit) ? parsedLimit : 50 });
   return Response.json(result);
 }
