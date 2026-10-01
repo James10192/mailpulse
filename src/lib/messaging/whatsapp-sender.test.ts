@@ -11,6 +11,7 @@ const {
   chooseWhatsAppSender,
   organizationSnapshot,
   providerConfigForAccount,
+  senderSnapshotLabel,
 } = await import("./whatsapp-sender");
 
 type Account = Parameters<typeof chooseWhatsAppSender>[0][number];
@@ -118,4 +119,12 @@ test("a screen says which number an application's messages leave from", () => {
   assert.deepEqual(summarizeWhatsAppSender([baileys({ label: null })]), { state: "own", label: "•••• 0002" });
   assert.deepEqual(summarizeWhatsAppSender([baileys({ active: false })]), { state: "unavailable", reason: "disabled" });
   assert.deepEqual(summarizeWhatsAppSender([baileys(), meta()]), { state: "unavailable", reason: "ambiguous" });
+});
+
+test("the history names the frozen sender, never the whole number", () => {
+  assert.equal(senderSnapshotLabel({ source: "organization", provider: "BAILEYS_WHATSAPP", label: null, address: "+2250701020304" }), "Numéro de l'organisation");
+  assert.equal(senderSnapshotLabel({ source: "application", provider: "META_WHATSAPP", label: "ESBTP Yakro", address: "+2250701020304" }), "ESBTP Yakro");
+  assert.equal(senderSnapshotLabel({ source: "application", provider: "META_WHATSAPP", label: null, address: "+2250701020304" }), "•••• 0304");
+  assert.equal(senderSnapshotLabel(null), null);
+  assert.equal(senderSnapshotLabel({ source: "other" }), null);
 });

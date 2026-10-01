@@ -3,6 +3,8 @@ export type ApiMessageDetail = {
   origin: "api" | "platform" | "legacy";
   /** The named key that submitted the message, when it came through the API. */
   api_key: { id: string; name: string; environment: "LIVE" | "TEST"; revoked: boolean } | null;
+  /** Where a WhatsApp message left from, as frozen when it was created. */
+  sender: string | null;
   channel: string;
   direction: string;
   recipient: { type: string; value: string };

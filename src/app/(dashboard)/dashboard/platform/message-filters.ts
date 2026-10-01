@@ -19,6 +19,9 @@ const DEFAULT_PERIOD: MessagePeriod = "30d";
 
 const CHANNELS = new Set(["email", "whatsapp", "sms"]);
 const ORIGINS = new Set(["api", "platform", "legacy"]);
+const IDENTIFIER = /^[a-z0-9_-]{1,64}$/i;
+/** The organization's own WhatsApp number, which has no account of its own. */
+export const ORGANIZATION_SENDER_FILTER = "organization";
 
 export type MessageFilters = {
   query: string;
@@ -28,6 +31,10 @@ export type MessageFilters = {
   outcome: MessageOutcome | "";
   status: string;
   key: string;
+  /** An application id: messages it asked for, through any of its keys. */
+  application: string;
+  /** A WhatsApp number: an account id, or ORGANIZATION_SENDER_FILTER. */
+  sender: string;
   period: MessagePeriod;
   page: number;
 };
@@ -42,6 +49,8 @@ export function normalizeMessageFilters(searchParams: Record<string, string | st
   const outcome = readValue(searchParams.outcome).toLowerCase();
   const status = readValue(searchParams.status).toUpperCase();
   const period = readValue(searchParams.period);
+  const application = readValue(searchParams.application);
+  const sender = readValue(searchParams.sender);
 
   return {
     query: readValue(searchParams.query).slice(0, 160),
@@ -50,6 +59,8 @@ export function normalizeMessageFilters(searchParams: Record<string, string | st
     outcome: isMessageOutcome(outcome) ? outcome : "",
     status: status in MESSAGE_STATUSES ? status.toLowerCase() : "",
     key: readValue(searchParams.key).slice(0, 64),
+    application: IDENTIFIER.test(application) ? application : "",
+    sender: IDENTIFIER.test(sender) ? sender : "",
     period: period in MESSAGE_PERIODS ? (period as MessagePeriod) : DEFAULT_PERIOD,
     page: Math.max(1, Number.parseInt(readValue(searchParams.page), 10) || 1),
   };
@@ -69,7 +80,7 @@ export function buildMessageWhere(
   organizationId: string,
   filters: MessageFilters,
   now: Date,
-  { withStatus = true }: { withStatus?: boolean } = {},
+  { withStatus = true, personalSearch = true }: { withStatus?: boolean; personalSearch?: boolean } = {},
 ): Prisma.CommunicationMessageWhereInput {
   const conditions: Prisma.CommunicationMessageWhereInput[] = [
     // Campaign messages live in their own space.
@@ -81,6 +92,11 @@ export function buildMessageWhere(
   if (filters.origin === "legacy") conditions.push({ origin: null });
   if (filters.channel) conditions.push({ channel: filters.channel.toUpperCase() as CommunicationChannel });
   if (filters.key) conditions.push({ apiKeyId: filters.key });
+  if (filters.application) conditions.push({ applicationId: filters.application });
+  // A WhatsApp message with no pinned account left from the organization's
+  // number, messages sent before numbers were pinned included.
+  if (filters.sender === ORGANIZATION_SENDER_FILTER) conditions.push({ channel: "WHATSAPP", senderAccountId: null });
+  else if (filters.sender) conditions.push({ senderAccountId: filters.sender });
 
   const since = periodStart(filters.period, now);
   if (since) conditions.push({ createdAt: { gte: since } });
@@ -90,7 +106,11 @@ export function buildMessageWhere(
     if (filters.status) conditions.push({ status: filters.status.toUpperCase() as MessageStatusCode as MessageStatus });
   }
 
-  if (filters.query) {
+  // Searching by number, address or name would tell a member who cannot see
+  // recipients whether someone was messaged: they search by identifier only.
+  if (filters.query && !personalSearch) {
+    conditions.push({ OR: [{ id: filters.query }, { providerMessageId: filters.query }] });
+  } else if (filters.query) {
     conditions.push({
       OR: [
         { recipientValue: { contains: filters.query, mode: "insensitive" } },
