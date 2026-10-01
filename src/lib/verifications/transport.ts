@@ -18,6 +18,8 @@ export interface VerificationTransport {
   readonly provider: string;
   /** The application number the code leaves from; null for the organization's own. */
   readonly senderAccountId: string | null;
+  /** When that number was paired by QR code, which decides its rate. */
+  readonly senderPairedAt: Date | null;
   send(to: string, text: string): Promise<{ messageId: string | null }>;
 }
 
@@ -46,6 +48,7 @@ export function whatsAppVerificationTransport(org: OrganizationWhatsApp): Verifi
   return {
     provider: directProvider("WHATSAPP", org.whatsappMode),
     senderAccountId: null,
+    senderPairedAt: null,
     async send(to, text) {
       const result = await sendWhatsApp(org, to, text, { fallbacks: false, priority: "interactive" });
       return { messageId: result.messageId ?? null };
@@ -73,6 +76,7 @@ export async function verificationTransportFor(
   return {
     provider: directProvider("WHATSAPP", accountMode(sender.account)),
     senderAccountId: sender.account.id,
+    senderPairedAt: sender.account.pairedAt ?? null,
     async send(to, text) {
       const result = await sendWhatsAppWith(config, to, text, { fallbacks: false, priority: "interactive" });
       return { messageId: result.messageId ?? null };

@@ -32,6 +32,7 @@ export type WhatsAppSenderAccount = {
   senderId: string | null;
   externalAccountId: string;
   credentialsCiphertext: string | null;
+  pairedAt?: Date | null;
 };
 
 export type WhatsAppSender =
@@ -94,6 +95,7 @@ export const APPLICATION_WHATSAPP_ACCOUNTS = {
     senderId: true,
     externalAccountId: true,
     credentialsCiphertext: true,
+    pairedAt: true,
   } as const,
 };
 

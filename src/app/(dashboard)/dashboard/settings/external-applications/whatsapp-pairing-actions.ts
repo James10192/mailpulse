@@ -95,7 +95,7 @@ export async function pollApplicationWhatsAppPairing(applicationId: string, inst
         // already sent keep the snapshot taken when they were created.
         await tx.providerAccount.update({
           where: { id: current.id },
-          data: { externalAccountId: instanceName, senderId, active: true },
+          data: { externalAccountId: instanceName, senderId, active: true, pairedAt: new Date() },
         });
         return current.externalAccountId;
       }
@@ -108,6 +108,7 @@ export async function pollApplicationWhatsAppPairing(applicationId: string, inst
           externalAccountId: instanceName,
           senderId,
           credentialsCiphertext: null,
+          pairedAt: new Date(),
           active: true,
         },
       });

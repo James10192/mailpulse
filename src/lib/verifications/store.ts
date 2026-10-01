@@ -58,7 +58,7 @@ function sendTx(tx: Prisma.TransactionClient): VerificationSendTx {
     recentSends(organizationId, since) {
       return tx.phoneVerification.findMany({
         where: { organizationId, createdAt: { gte: since } },
-        select: { createdAt: true, phoneNumber: true, apiKeyId: true },
+        select: { createdAt: true, phoneNumber: true, apiKeyId: true, senderAccountId: true, errorCode: true, failedAt: true },
       });
     },
     async whatsAppMessageTimes(organizationId, since) {
