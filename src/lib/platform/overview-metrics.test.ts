@@ -121,6 +121,13 @@ test("changes: a failure reason is new only if absent before and frequent enough
     previousFailures: [{ label: "Refus du fournisseur", count: 1 }],
   });
   assert.deepEqual(changes.map((change) => change.message), ["Nouvelle cause d'échec : Modèle non approuvé (3)."]);
+  const several = detectChanges({
+    current: counts({}),
+    previous: null,
+    currentFailures: [{ label: "A", count: 5 }, { label: "B", count: 4 }],
+    previousFailures: [],
+  });
+  assert.deepEqual(several.map((change) => change.message), ["Nouvelles causes d'échec : A (5), B (4)."]);
 });
 
 test("changes: nothing is compared without a previous period", () => {

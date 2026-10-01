@@ -192,7 +192,7 @@ export function OverviewPanel({ overview }: { overview: PlatformOverview }) {
                       <TableRow key={sender.key}>
                         <TableCell className="max-w-56">
                           <Link href={registryHref(period, { channel: "whatsapp", sender: sender.key })} className="block truncate font-medium hover:underline">{sender.label}</Link>
-                          <p className="truncate text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             {sender.application ?? "Messages sans application"} · {sender.provider === "META" ? "Cloud API" : "Evolution"}
                             {sender.commands > 0 ? ` · dont ${number.format(sender.commands)} commande${sender.commands > 1 ? "s" : ""} signée${sender.commands > 1 ? "s" : ""}` : null}
                           </p>

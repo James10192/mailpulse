@@ -86,7 +86,11 @@ export async function loadMessagesTab(organizationId: string, filters: MessageFi
   // before numbers were pinned left from it, even if WhatsApp is now disabled.
   const senderOptions = [
     { key: ORGANIZATION_SENDER_FILTER, label: "Numéro de l'organisation" },
-    ...whatsappAccounts.map((account) => ({ key: account.id, label: account.application ? `${senderAccountLabel(account)} · ${account.application.name}` : senderAccountLabel(account) })),
+    ...whatsappAccounts.map((account) => {
+      const label = senderAccountLabel(account);
+      const application = account.application?.name;
+      return { key: account.id, label: application && application !== label ? `${label} · ${application}` : label };
+    }),
   ];
 
   const deliveryData = (["EMAIL", "WHATSAPP", "SMS"] as const).map((channel) => {

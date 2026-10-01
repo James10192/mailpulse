@@ -197,10 +197,11 @@ export function detectChanges(input: {
 
   if (input.previousFailures) {
     const before = new Set(input.previousFailures.filter((row) => row.count > 0).map((row) => row.label));
-    for (const failure of input.currentFailures) {
-      if (failure.count >= CHANGE_THRESHOLDS.newFailureMin && !before.has(failure.label)) {
-        changes.push({ kind: "new_failure", tone: "warning", message: `Nouvelle cause d'échec : ${failure.label} (${failure.count.toLocaleString("fr-FR")}).` });
-      }
+    const fresh = input.currentFailures.filter((failure) => failure.count >= CHANGE_THRESHOLDS.newFailureMin && !before.has(failure.label));
+    // One line for all of them: on a phone, five banners push the figures off the screen.
+    if (fresh.length > 0) {
+      const list = fresh.map((failure) => `${failure.label} (${failure.count.toLocaleString("fr-FR")})`).join(", ");
+      changes.push({ kind: "new_failure", tone: "warning", message: `${fresh.length > 1 ? "Nouvelles causes" : "Nouvelle cause"} d'échec : ${list}.` });
     }
   }
 

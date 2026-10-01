@@ -30,7 +30,7 @@ const REASONS: Record<string, Omit<FailureReason, "code">> = {
   template_not_configured: { family: "template", label: "Modèle non configuré", remediation: "Renseignez l'identifiant du modèle Meta." },
   whatsapp_template_required: { family: "template", label: "Modèle requis hors fenêtre de 24 h", remediation: "Envoyez un modèle approuvé : le destinataire n'a pas écrit depuis 24 h." },
   template_required: { family: "template", label: "Modèle requis hors fenêtre de 24 h", remediation: "Envoyez un modèle approuvé : le destinataire n'a pas écrit depuis 24 h." },
-  whatsapp_service_window_closed: { family: "template", label: "Fenêtre de 24 h fermée", remediation: "Envoyez un modèle approuvé : le destinataire n'a pas écrit depuis 24 h." },
+  whatsapp_service_window_closed: { family: "template", label: "Modèle requis hors fenêtre de 24 h", remediation: "Envoyez un modèle approuvé : le destinataire n'a pas écrit depuis 24 h." },
   provider_error: { family: "provider", label: "Refus du fournisseur", remediation: "Ouvrez un message pour lire la réponse du fournisseur." },
   provider_rejected: { family: "provider", label: "Refus du fournisseur", remediation: "Ouvrez un message pour lire la réponse du fournisseur." },
   provider_temporary_error: { family: "provider", label: "Fournisseur momentanément indisponible", remediation: null },
