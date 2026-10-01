@@ -125,7 +125,7 @@ export function ProviderAccountSection({
                   <p className="text-xs uppercase text-zinc-500 dark:text-zinc-400">Nom du numéro</p>
                   <div className="mt-0.5 text-sm">
                     <KeyNameEditor
-                      name={account.label ?? "Sans nom"}
+                      name={account.label ?? ""}
                       subject="le numéro"
                       editing={renamingId === account.id}
                       onEditingChange={(next) => setRenamingId(next ? account.id : null)}

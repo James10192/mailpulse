@@ -78,10 +78,14 @@ async function holdInTransaction(
       },
     });
   }
-  await tx.externalTransportOperation.updateMany({
-    where: { id: operation.id, status: "PENDING" },
+  // Held only on the number the consent belongs to: a concurrent retry may have
+  // moved the operation to the application's new number in the meantime, and
+  // then this whole hold is rolled back rather than tied to the wrong number.
+  const held = await tx.externalTransportOperation.updateMany({
+    where: { id: operation.id, status: "PENDING", providerAccountId: scope.providerAccountId },
     data: { status: CONSENT_PENDING_STATUS },
   });
+  if (held.count !== 1) throw new Error("Operation moved to another WhatsApp number while being held.");
   return "held";
 }
 

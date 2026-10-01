@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserAndOrg } from "@/lib/queries/get-current-context";
+import { managerOnlyRefusal } from "@/lib/access/manager-only";
 import { canAccessFeature, getFeatureUpgradeMessage, type PlanTier } from "@/lib/plan-catalog";
 import { normalizeApiKeyName } from "@/lib/mailpulse/api-key-name";
 import { renameIntegrationApiKey } from "@/lib/mailpulse/api-keys";
@@ -13,9 +14,12 @@ import {
 } from "@/lib/filon-recovery/auth";
 
 export async function generateFilonIntegrationKey(formData: FormData) {
-  const { org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { org } = context;
   if (org && !canAccessFeature(org.plan as PlanTier, "recoveries")) return { error: getFeatureUpgradeMessage("recoveries") };
   if (!org) return { error: "Organisation introuvable." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
   const name = normalizeApiKeyName(formData.get("name"));
   if (!name.ok) return { error: name.error };
 
@@ -35,8 +39,11 @@ export async function generateFilonIntegrationKey(formData: FormData) {
 }
 
 export async function revokeFilonIntegrationKey(keyId: string) {
-  const { org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { org } = context;
   if (!org) return { error: "Organisation introuvable." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   // Scoped to Filon keys: this screen must not be able to revoke a MailPulse API key.
   const result = await prisma.integrationApiKey.updateMany({
@@ -50,8 +57,11 @@ export async function revokeFilonIntegrationKey(keyId: string) {
 }
 
 export async function renameFilonIntegrationKey(formData: FormData) {
-  const { org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { org } = context;
   if (!org) return { error: "Organisation introuvable." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   const result = await renameIntegrationApiKey({
     organizationId: org.id,

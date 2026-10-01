@@ -730,6 +730,7 @@ model PhoneVerification {
   @@index([organizationId, phoneNumber, createdAt])
   @@index([organizationId, createdAt])
   @@index([apiKeyId, createdAt])
+  @@index([organizationId, senderAccountId])
   @@map("phone_verification")
 }
 

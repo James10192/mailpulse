@@ -13,9 +13,15 @@ const GUARDED: Record<string, string[]> = {
     "updateMailPulseApiKeyApplication",
     "revokeMailPulseApiKey",
   ],
+  "src/app/(dashboard)/dashboard/settings/integrations/actions.ts": [
+    "generateFilonIntegrationKey",
+    "revokeFilonIntegrationKey",
+    "renameFilonIntegrationKey",
+  ],
   "src/app/(dashboard)/dashboard/senders/actions.ts": ["createSender", "updateSender", "setDefaultSender", "deleteSender"],
   "src/app/(dashboard)/dashboard/messaging/actions.ts": [
     "activateBaileys",
+    "getQrCode",
     "resetBaileysConnection",
     "saveMetaConfig",
     "switchWhatsAppMode",

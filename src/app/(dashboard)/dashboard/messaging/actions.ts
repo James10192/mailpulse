@@ -107,8 +107,11 @@ export async function getQrCode(): Promise<{
   state?: string;
   error?: string;
 }> {
-  const { user, org } = await getCurrentUserAndOrg();
+  const context = await getCurrentUserAndOrg();
+  const { user, org } = context;
   if (!user || !org) return { error: "Non authentifié." };
+  const refusal = managerOnlyRefusal(context);
+  if (refusal) return refusal;
 
   const orgWa = await getOrgWhatsApp(org.id);
   if (!orgWa?.evoInstanceName) return { error: "Instance non créée." };

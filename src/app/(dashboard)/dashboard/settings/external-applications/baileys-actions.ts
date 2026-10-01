@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { API_KEY_NAME_MAX_LENGTH } from "@/lib/mailpulse/api-key-name";
 import { encryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import {
   assertInstanceNameUnambiguous,
@@ -131,7 +132,6 @@ export async function setProviderAccountActive(applicationId: string, accountId:
   }
 }
 
-const ACCOUNT_LABEL_MAX_LENGTH = 80;
 
 /**
  * Names the number ("ESBTP Yakro"): shown wherever messages are traced and
@@ -143,7 +143,8 @@ export async function renameProviderAccount(applicationId: string, accountId: st
     await requireApplication(org.id, applicationId);
 
     const label = rawLabel.replace(/\s+/g, " ").trim();
-    if (label.length > ACCOUNT_LABEL_MAX_LENGTH) return { error: `Le nom du numéro ne doit pas dépasser ${ACCOUNT_LABEL_MAX_LENGTH} caractères.` };
+    // Same cap as the shared name editor that submits it.
+    if (label.length > API_KEY_NAME_MAX_LENGTH) return { error: `Le nom du numéro ne doit pas dépasser ${API_KEY_NAME_MAX_LENGTH} caractères.` };
 
     const updated = await prisma.providerAccount.updateMany({
       where: { id: accountId, applicationId, organizationId: org.id, channel: "WHATSAPP", provider: { in: WHATSAPP_PROVIDERS } },

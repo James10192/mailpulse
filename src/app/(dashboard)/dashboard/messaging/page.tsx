@@ -4,11 +4,14 @@ import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { MessagingClient } from "./messaging-client";
 import { isConfigured } from "@/lib/whatsapp-baileys";
 import { canAccessFeature, type PlanTier } from "@/lib/plan-catalog";
+import { canManageOrganization } from "@/lib/access/roles";
 
 export default async function MessagingPage() {
   const ctx = await getCurrentUserAndOrg();
   const orgId = ctx.org?.id;
   const canManage = ctx.org ? canAccessFeature(ctx.org.plan as PlanTier, "whatsapp") : false;
+  // Every member may send; only managers choose the number that speaks.
+  const canConfigure = canManage && canManageOrganization({ memberRole: ctx.memberRole, isPlatformAdmin: ctx.isPlatformAdmin });
 
   const [contactsWithPhone, contactOptions, tags, org] = orgId
     ? await Promise.all([
@@ -74,6 +77,7 @@ export default async function MessagingPage() {
         baileysAvailable={isConfigured()}
         mailpulseWhatsAppAvailable={process.env.MAILPULSE_MANAGED_WHATSAPP_ENABLED === "true"}
         canManage={canManage}
+        canConfigure={canConfigure}
       />
     </>
   );

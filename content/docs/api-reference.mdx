@@ -94,7 +94,9 @@ message vienne de l'API ou d'une commande signée : `error_code` `consent_refuse
 Les codes de vérification (`/api/v1/verifications`) suivent la même règle : ils
 partent du numéro de l'application de la clé, sinon de celui de l'organisation.
 Seul un numéro WhatsApp Web peut envoyer un code ; un numéro désactivé, ambigu
-ou Meta répond `whatsapp_indisponible`.
+ou Meta répond `whatsapp_indisponible`. Pour un numéro d'application, la session
+WhatsApp Web n'est pas vérifiée à l'avance : une session déconnectée se révèle à
+l'envoi, comme un échec d'envoi.
 
 Le rattachement d'une clé à une application se fait dans Plateforme, onglet
 Clés API et intégrations, colonne Application, qui affiche aussi le numéro

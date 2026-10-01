@@ -140,7 +140,9 @@ test("a retry after a number change moves the never-sent operation to the curren
 
   assert.ok(rebind > terminal, "a sent, refused or held operation is answered as it stands, never moved");
   assert.ok(refusal > rebind, "consent and window are judged on the number the operation will leave from");
-  // Only a PENDING operation still recorded on the old number may move.
-  assert.match(commands, /where: \{ id, status: "PENDING", providerAccountId: fromProviderAccountId \}/);
+  // Only an operation that never left, still recorded on the old number, may move.
+  assert.match(commands, /providerAccountId: fromProviderAccountId,\n\s+OR: \[\{ status: "PENDING" \}, \{ status: "PROCESSING", leaseExpiresAt: \{ lt: new Date\(\) \} \}\]/);
+  // A request still holding the previous number can neither claim nor hold it.
+  assert.match(commands, /providerAccountId: provider\.id,\n\s+OR: \[\{ status: claimableStatus \}/);
   assert.match(commands, /if \(!rebound\) return \{ status: "in_progress"/);
 });

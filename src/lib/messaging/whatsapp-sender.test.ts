@@ -115,7 +115,7 @@ test("other channels record no WhatsApp identity", () => {
 test("a screen says which number an application's messages leave from", () => {
   assert.deepEqual(summarizeWhatsAppSender([]), { state: "organization" });
   assert.deepEqual(summarizeWhatsAppSender([baileys()]), { state: "own", label: "ESBTP Yakro" });
-  assert.deepEqual(summarizeWhatsAppSender([baileys({ label: null })]), { state: "own", label: "2250700000002" });
+  assert.deepEqual(summarizeWhatsAppSender([baileys({ label: null })]), { state: "own", label: "•••• 0002" });
   assert.deepEqual(summarizeWhatsAppSender([baileys({ active: false })]), { state: "unavailable", reason: "disabled" });
   assert.deepEqual(summarizeWhatsAppSender([baileys(), meta()]), { state: "unavailable", reason: "ambiguous" });
 });

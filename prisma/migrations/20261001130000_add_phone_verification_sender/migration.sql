@@ -5,5 +5,9 @@
 -- AlterTable
 ALTER TABLE "phone_verification" ADD COLUMN     "senderAccountId" TEXT;
 
+-- CreateIndex
+-- Backs the foreign key's checks when a provider account changes or goes.
+CREATE INDEX "phone_verification_organizationId_senderAccountId_idx" ON "phone_verification"("organizationId", "senderAccountId");
+
 -- AddForeignKey
 ALTER TABLE "phone_verification" ADD CONSTRAINT "phone_verification_organizationId_senderAccountId_fkey" FOREIGN KEY ("organizationId", "senderAccountId") REFERENCES "provider_account"("organizationId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;

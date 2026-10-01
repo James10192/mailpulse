@@ -29,7 +29,9 @@ export function KeyNameEditor({
   if (!editing) {
     return (
       <div className="group/name flex min-w-0 items-center gap-1">
-        <span className="truncate font-medium" title={name}>{name}</span>
+        {name
+          ? <span className="truncate font-medium" title={name}>{name}</span>
+          : <span className="truncate text-muted-foreground">Sans nom</span>}
         {disabled ? null : (
           <Button
             type="button"
@@ -37,7 +39,7 @@ export function KeyNameEditor({
             size="icon"
             className="size-8 shrink-0 text-muted-foreground opacity-60 group-hover/name:opacity-100 focus-visible:opacity-100"
             onClick={() => onEditingChange(true)}
-            aria-label={`Renommer ${subject} ${name}`}
+            aria-label={`Renommer ${subject} ${name || "sans nom"}`}
           >
             <Pencil aria-hidden="true" />
           </Button>
@@ -46,11 +48,11 @@ export function KeyNameEditor({
     );
   }
 
-  return <NameForm name={name} onDone={() => onEditingChange(false)} onRename={onRename} />;
+  return <NameForm name={name} subject={subject} onDone={() => onEditingChange(false)} onRename={onRename} />;
 }
 
 /** Mounted only while editing, so the draft always starts from the current name. */
-function NameForm({ name, onDone, onRename }: { name: string; onDone: () => void; onRename: (name: string) => Promise<string | null> }) {
+function NameForm({ name, subject, onDone, onRename }: { name: string; subject: string; onDone: () => void; onRename: (name: string) => Promise<string | null> }) {
   const [draft, setDraft] = useState(name);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -81,7 +83,7 @@ function NameForm({ name, onDone, onRename }: { name: string; onDone: () => void
           onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); onDone(); } }}
           maxLength={API_KEY_NAME_MAX_LENGTH}
           className="h-9 min-w-40"
-          aria-label="Nouveau nom de la clé"
+          aria-label={`Nouveau nom de ${subject}`}
           aria-invalid={error ? true : undefined}
           disabled={isPending}
         />

@@ -205,7 +205,8 @@ async function applicationOfKeysNamed(organizationId: string, name: string) {
     where: {
       organizationId,
       provider: "MAILPULSE",
-      applicationId: { not: null },
+      // A disabled application would refuse the new key on its first call.
+      application: { active: true },
       name: { equals: name, mode: "insensitive" },
     },
     orderBy: { createdAt: "desc" },

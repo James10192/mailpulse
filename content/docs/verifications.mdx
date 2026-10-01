@@ -152,6 +152,7 @@ minute, pour ne pas exposer ce numéro à un blocage.
 | `401` | `Invalid API key` | Clé absente, révoquée ou plan sans accès API. |
 | `404` | `verification_introuvable` | Identifiant inconnu pour cette organisation. |
 | `409` | `whatsapp_indisponible` | Aucune instance Evolution connectée, ou organisation sur WhatsApp Cloud API. |
+| `409` | `destinataire_refuse` | Le destinataire a répondu NON ou STOP au numéro de l'application de la clé. Aucun code n'est créé. |
 | `422` | `Validation failed` | Numéro absent, non international ou de longueur impossible : `field_errors.to`. |
 | `422` | `Validation failed` | Autre champ invalide, détail dans `field_errors`. |
 | `429` | `trop_de_demandes` | Limite atteinte, attendre `retry_after` secondes. |

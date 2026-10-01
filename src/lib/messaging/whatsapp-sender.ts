@@ -53,7 +53,6 @@ export type SenderSnapshot = {
   address: string | null;
 };
 
-
 /**
  * Every WhatsApp account the application ever had, active or not: a disabled
  * one still binds the application, so its messages are refused rather than
@@ -70,7 +69,8 @@ export function summarizeWhatsAppSender(applicationAccounts: WhatsAppSenderAccou
   if (sender.kind === "organization") return { state: "organization" };
   if (sender.kind === "account") {
     const { account } = sender;
-    return { state: "own", label: account.label ?? account.senderId ?? account.externalAccountId };
+    // Shown to every member: a number without a name is masked, never printed whole.
+    return { state: "own", label: account.label ?? maskedAddress(account.senderId) ?? account.externalAccountId };
   }
   return {
     state: "unavailable",
@@ -194,4 +194,10 @@ function readMetaAccessToken(ciphertext: string) {
   } catch {
     return null;
   }
+}
+
+function maskedAddress(address: string | null) {
+  if (!address) return null;
+  const digits = address.replace(/\D/g, "");
+  return digits.length > 4 ? `•••• ${digits.slice(-4)}` : null;
 }
