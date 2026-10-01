@@ -1088,6 +1088,10 @@ model ProviderAccount {
   // Name people recognise the number by ("ESBTP Yakro"); copied into each
   // message's sender snapshot.
   label                 String?
+  // When the number was linked by QR code in MailPulse. Verification codes
+  // follow a tighter rate for 30 days after it. Null for a number linked by
+  // hand, which predates this rule.
+  pairedAt              DateTime?
   active                Boolean      @default(true)
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt

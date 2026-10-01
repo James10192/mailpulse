@@ -16,7 +16,7 @@ export function createMemoryStore() {
     async recentSends(organizationId, since) {
       return rows
         .filter((row) => row.organizationId === organizationId && row.createdAt >= since)
-        .map(({ createdAt, phoneNumber, apiKeyId }) => ({ createdAt, phoneNumber, apiKeyId }));
+        .map(({ createdAt, phoneNumber, apiKeyId, senderAccountId, errorCode, failedAt }) => ({ createdAt, phoneNumber, apiKeyId, senderAccountId, errorCode, failedAt }));
     },
     async whatsAppMessageTimes(organizationId, since) {
       return whatsAppMessages.filter((item) => item.organizationId === organizationId && item.createdAt >= since).map((item) => item.createdAt);

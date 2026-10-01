@@ -61,13 +61,20 @@ after(async () => {
 
 const SECRET = "d".repeat(32);
 let lastCode = "";
-const transport = { provider: "EVOLUTION_API", senderAccountId: null, send: async (_to: string, text: string) => { lastCode = /(\d{6})/.exec(text)?.[1] ?? ""; return { messageId: null }; } };
-const deps = () => ({ store, now: () => new Date(), secret: SECRET });
-const start = (phoneNumber: string) =>
-  service.startVerification(deps(), { organizationId: ORG, apiKeyId: KEY, phoneNumber, locale: "fr", reference: null, transport });
+const transport = { provider: "EVOLUTION_API", senderAccountId: null, senderPairedAt: null, send: async (_to: string, text: string) => { lastCode = /(\d{6})/.exec(text)?.[1] ?? ""; return { messageId: null }; } };
+// Each test starts a minute after the previous one, as a real caller would:
+// the sending number's pacing would otherwise refuse back-to-back codes.
+let clockOffsetMs = 0;
+const deps = () => ({ store, now: () => new Date(Date.now() + clockOffsetMs), secret: SECRET });
+const nextMinute = () => { clockOffsetMs += 60_000; };
+const start = (phoneNumber: string, { sameMinute = false } = {}) => {
+  if (!sameMinute) nextMinute();
+  return service.startVerification(deps(), { organizationId: ORG, apiKeyId: KEY, phoneNumber, locale: "fr", reference: null, transport });
+};
 
 test("concurrent sends to one number create a single verification", { skip }, async () => {
-  const results = await Promise.all(Array.from({ length: 5 }, () => start("+2250700000001")));
+  nextMinute();
+  const results = await Promise.all(Array.from({ length: 5 }, () => start("+2250700000001", { sameMinute: true })));
   assert.equal(results.filter((result) => result.type === "sent").length, 1);
 });
 

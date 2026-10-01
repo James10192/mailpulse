@@ -22,10 +22,19 @@ function harness(
   const transport: VerificationTransport = {
     provider: "EVOLUTION_API",
     senderAccountId: null,
+    senderPairedAt: null,
     send: (to, text) => { sent.push({ to, text }); return send(to, text); },
   };
-  const start = (overrides: Partial<{ organizationId: string; apiKeyId: string; phoneNumber: string }> = {}) =>
-    startVerification(deps, { organizationId: "org_a", apiKeyId: "key_a", phoneNumber: PHONE, locale: "fr", reference: null, transport, ...overrides });
+  const start = ({ senderAccountId, ...overrides }: Partial<{ organizationId: string; apiKeyId: string; phoneNumber: string; senderAccountId: string }> = {}) =>
+    startVerification(deps, {
+      organizationId: "org_a",
+      apiKeyId: "key_a",
+      phoneNumber: PHONE,
+      locale: "fr",
+      reference: null,
+      transport: senderAccountId ? { ...transport, senderAccountId } : transport,
+      ...overrides,
+    });
   const startedId = async () => {
     const result = await start();
     assert.equal(result.type, "sent");
@@ -157,9 +166,10 @@ test("limits are per organization: another organization can send to the same num
 test("a key is capped at twenty sends an hour across numbers", async () => {
   const h = harness();
   for (let index = 0; index < 20; index += 1) {
-    h.advance(2_100);
+    h.advance(12_000);
     assert.equal((await h.start({ phoneNumber: `+22507000000${String(index).padStart(2, "0")}` })).type, "sent");
   }
+  h.advance(12_000);
   assert.equal((await h.start({ phoneNumber: "+2250700000099" })).type, "rate_limited");
   assert.equal((await h.start({ phoneNumber: "+2250700000099", apiKeyId: "key_b" })).type, "sent");
 });
@@ -167,11 +177,12 @@ test("a key is capped at twenty sends an hour across numbers", async () => {
 test("an organization is capped at one hundred sends an hour, whatever the keys", async () => {
   const h = harness();
   for (let index = 0; index < 100; index += 1) {
-    h.advance(2_100);
-    const result = await h.start({ phoneNumber: `+2250700000${String(index).padStart(3, "0")}`, apiKeyId: `key_${index % 10}` });
+    h.advance(12_000);
+    // Two numbers: a single one would reach its own hourly cap first.
+    const result = await h.start({ phoneNumber: `+2250700000${String(index).padStart(3, "0")}`, apiKeyId: `key_${index % 10}`, senderAccountId: `acct_${index % 2}` });
     assert.equal(result.type, "sent");
   }
-  assert.equal((await h.start({ phoneNumber: "+2250711111111", apiKeyId: "key_new" })).type, "rate_limited");
+  assert.equal((await h.start({ phoneNumber: "+2250711111111", apiKeyId: "key_new", senderAccountId: "acct_2" })).type, "rate_limited");
 });
 
 test("codes share the WhatsApp API rate with messages sent from the same number", async () => {

@@ -66,7 +66,15 @@ export async function startVerification(deps: VerificationServiceDeps, input: St
       tx.recentSends(input.organizationId, since),
       tx.whatsAppMessageTimes(input.organizationId, since),
     ]);
-    const decision = evaluateSendLimits({ now, phoneNumber: input.phoneNumber, apiKeyId: input.apiKeyId, organizationSends, whatsAppMessageTimes });
+    const decision = evaluateSendLimits({
+      now,
+      phoneNumber: input.phoneNumber,
+      apiKeyId: input.apiKeyId,
+      senderAccountId: input.transport.senderAccountId,
+      senderPairedAt: input.transport.senderPairedAt,
+      organizationSends,
+      whatsAppMessageTimes,
+    });
     if (!decision.allowed) return { type: "rate_limited" as const, retryAfterSeconds: decision.retryAfterSeconds };
 
     // Sending again for a number replaces its code: only the latest one works.
