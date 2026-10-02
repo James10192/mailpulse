@@ -28,7 +28,6 @@ import {
   Send,
   SendHorizonal,
   Settings,
-  Smartphone,
   Tag,
   UserMinus,
   Users,
@@ -131,8 +130,9 @@ const navigation: NavItem[] = [
       { name: "Désabonnements", href: "/dashboard/unsubscribes", icon: UserMinus },
     ],
   },
-  { name: "WhatsApp", href: "/dashboard/messaging", icon: MessageSquare, premiumFeature: "whatsapp", tourId: "nav-messaging" },
-  { name: "SMS", href: "/dashboard/sms", icon: Smartphone },
+  // WhatsApp, SMS and the sending numbers on one page; the WhatsApp tab itself
+  // says when the plan does not include it, SMS stays open to every plan.
+  { name: "Messagerie", href: "/dashboard/messaging", icon: MessageSquare, tourId: "nav-messaging" },
   { name: "Recouvrements", href: "/dashboard/recoveries", icon: HandCoins, premiumFeature: "recoveries" },
   { name: "Plateforme", href: "/dashboard/platform", icon: Network, premiumFeature: "api_access" },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, tourId: "nav-analytics" },

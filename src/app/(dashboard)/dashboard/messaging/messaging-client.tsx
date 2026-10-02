@@ -30,6 +30,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { WhatsAppMode } from "@/lib/whatsapp";
 import {
@@ -62,6 +64,7 @@ export function MessagingClient({
   mailpulseWhatsAppAvailable,
   canManage,
   canConfigure,
+  senderOptions,
 }: {
   contactsWithPhone: number;
   contactOptions: MessagingContactOption[];
@@ -77,12 +80,17 @@ export function MessagingClient({
   canManage: boolean;
   /** Pairing, replacing or disconnecting the number: owners and admins only. */
   canConfigure: boolean;
+  /** The applications' active numbers a send may leave from, beside the organization's. */
+  senderOptions: { id: string; label: string }[];
 }) {
   const configureTitle = canConfigure ? undefined : "Réservé aux propriétaires et administrateurs";
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [phone, setPhone] = useState("");
   const [body, setBody] = useState("");
   const [audience, setAudience] = useState<"all" | string>("all");
+  // "" is the organization's number; a disconnected one starts on the first application number.
+  const organizationReady = whatsappEnabled && ((whatsappMode === "BAILEYS" && evoStatus === "open") || (whatsappMode === "META" && metaConfigured));
+  const [senderAccountId, setSenderAccountId] = useState(organizationReady ? "" : senderOptions[0]?.id ?? "");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success?: boolean; error?: string } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -187,7 +195,8 @@ export function MessagingClient({
   async function handleSend() {
     setSending(true);
     setResult(null);
-    const res = mode === "single" ? await sendMessage(phone, body) : await sendBulkMessages(body, audience);
+    const from = senderAccountId || null;
+    const res = mode === "single" ? await sendMessage(phone, body, from) : await sendBulkMessages(body, audience, from);
     setSending(false);
     setResult(res);
     if (res?.success) {
@@ -350,11 +359,11 @@ export function MessagingClient({
             {isConnected ? (
               <div className="flex flex-col gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-1 text-sm text-emerald-800 dark:text-emerald-300">
-                  <p className="flex flex-wrap items-center gap-2 font-medium">
+                  <div className="flex flex-wrap items-center gap-2 font-medium">
                     <span className="size-2 rounded-full bg-emerald-500" />
                     WhatsApp connecté
                     <Badge variant="success">{providerLabel}</Badge>
-                  </p>
+                  </div>
                   <p>{contactsWithPhone} contact{contactsWithPhone !== 1 ? "s" : ""} avec un numéro.</p>
                   {whatsappPhone ? <p className="font-mono text-xs">{whatsappPhone}</p> : null}
                 </div>
@@ -432,7 +441,7 @@ export function MessagingClient({
 
       <WhatsAppHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
-      {isConnected ? (
+      {isConnected || senderOptions.length > 0 ? (
         <section className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Composer un message</h2>
@@ -464,6 +473,26 @@ export function MessagingClient({
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
+              {senderOptions.length > 0 ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="whatsapp-sender">Envoyer depuis</Label>
+                  <Select value={senderAccountId || "organization"} onValueChange={(value) => setSenderAccountId(value === "organization" ? "" : value)}>
+                    <SelectTrigger id="whatsapp-sender" className="h-11 w-full sm:w-80">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="organization" disabled={!isConnected}>
+                        Numéro de l&apos;organisation{isConnected ? "" : " (non connecté)"}
+                      </SelectItem>
+                      {senderOptions.map((option) => (
+                        <SelectItem key={option.id} value={option.id}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
               <Textarea
                 value={body}
                 onChange={(event) => setBody(event.target.value)}

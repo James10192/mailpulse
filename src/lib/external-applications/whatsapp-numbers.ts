@@ -117,10 +117,3 @@ export async function setNumberActive(tx: Tx, scope: Scope, accountId: string, a
   await tx.providerAccount.update({ where: { id: accountId }, data: active ? { active } : { active, isDefault: false } });
   await settleDefaultNumber(tx, scope);
 }
-
-/** The name people recognise the number by. Empty clears it; the masked number shows instead. */
-export async function renameNumber(tx: Tx, scope: Scope, accountId: string, label: string) {
-  await requireNumber(tx, scope, accountId);
-  const trimmed = label.trim().slice(0, 80);
-  await tx.providerAccount.update({ where: { id: accountId }, data: { label: trimmed || null } });
-}

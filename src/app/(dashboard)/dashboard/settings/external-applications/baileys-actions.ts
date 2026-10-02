@@ -22,6 +22,7 @@ import { pointInstanceAtApplication } from "./pairing-webhook";
 import { isPairingInstanceOf } from "@/lib/external-applications/whatsapp-pairing";
 
 const PAGE_PATH = "/dashboard/settings/external-applications";
+const NUMBERS_PATH = "/dashboard/messaging/numeros";
 const INBOUND_PURPOSE = "INBOUND_FORWARD" as const;
 
 const baileysAccountSchema = z.object({
@@ -102,6 +103,7 @@ export async function setBaileysProviderAccount(
 
     await prisma.$transaction((tx) => settleDefaultNumber(tx, { organizationId: org.id, applicationId }));
     revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
     return { success: true };
   } catch (error) {
     return toActionError(error);
@@ -118,6 +120,7 @@ export async function setProviderAccountActive(applicationId: string, accountId:
     await requireApplication(org.id, applicationId);
     await prisma.$transaction((tx) => setNumberActive(tx, { organizationId: org.id, applicationId }, accountId, active));
     revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
     return { success: true };
   } catch (error) {
     if (error instanceof WhatsAppNumberError) return { error: error.message };
@@ -132,6 +135,7 @@ export async function setDefaultProviderAccount(applicationId: string, accountId
     await requireApplication(org.id, applicationId);
     await prisma.$transaction((tx) => setDefaultNumber(tx, { organizationId: org.id, applicationId }, accountId));
     revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
     return { success: true };
   } catch (error) {
     if (error instanceof WhatsAppNumberError) return { error: error.message };
@@ -159,6 +163,7 @@ export async function renameProviderAccount(applicationId: string, accountId: st
     if (updated.count === 0) return { error: "Compte WhatsApp introuvable pour cette application." };
 
     revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
     return { success: true };
   } catch (error) {
     return toActionError(error);
@@ -200,6 +205,7 @@ export async function rotateInboundToken(applicationId: string) {
     await repointPairedInstances(org.id, applicationId);
 
     revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
     return { keyId: material.keyId, secret: material.secret, version: credential.version };
   } catch (error) {
     return toActionError(error);
@@ -218,6 +224,7 @@ export async function revokeInboundToken(applicationId: string, credentialId: st
     if (revoked.count === 0) return { error: "Ce jeton est introuvable ou déjà révoqué." };
 
     revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
     return { success: true };
   } catch (error) {
     return toActionError(error);

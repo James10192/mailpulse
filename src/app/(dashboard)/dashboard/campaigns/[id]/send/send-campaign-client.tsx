@@ -198,7 +198,7 @@ export function SendCampaignClient({
             ? "L’envoi SMS est mis en file d’attente pour Orange CI. Seuls les contacts actifs avec un numéro mobile seront ciblés."
             : "Envoi WhatsApp via la configuration de Messagerie. Seuls les contacts actifs avec un numéro WhatsApp seront ciblés."}
         </p>
-        <Link href={isSms ? "/dashboard/sms" : "/dashboard/messaging"} className="text-sm text-orange-500 hover:text-orange-400 font-medium">
+        <Link href={isSms ? "/dashboard/messaging/sms" : "/dashboard/messaging"} className="text-sm text-orange-500 hover:text-orange-400 font-medium">
           {isSms ? "Vérifier SMS" : "Vérifier WhatsApp"}
         </Link>
       </div>

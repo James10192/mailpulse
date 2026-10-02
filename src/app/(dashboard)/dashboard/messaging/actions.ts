@@ -352,15 +352,32 @@ export async function switchWhatsAppMode(mode: WhatsAppMode): Promise<ActionStat
   return { success: true };
 }
 
+/**
+ * The number a dashboard send leaves from: the organization's when none is
+ * chosen, else one of the organization's active application numbers. The
+ * application goes with it, so the send is routed and traced as the API's.
+ */
+async function resolveDashboardSender(organizationId: string, senderAccountId: string | null | undefined) {
+  if (!senderAccountId) return { ok: true as const, applicationId: undefined, senderId: undefined };
+  const account = await prisma.providerAccount.findFirst({
+    where: { organizationId, id: senderAccountId, channel: "WHATSAPP", active: true, applicationId: { not: null } },
+    select: { id: true, applicationId: true },
+  });
+  if (!account?.applicationId) return { ok: false as const, error: "Ce numéro n'est plus disponible. Choisissez-en un autre." };
+  return { ok: true as const, applicationId: account.applicationId, senderId: account.id };
+}
+
 // ─── Send Single Message ────────────────────────────────
 
-export async function sendMessage(to: string, body: string): Promise<ActionState> {
+export async function sendMessage(to: string, body: string, senderAccountId?: string | null): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
   if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifie." };
 
   const orgWa = await getOrgWhatsApp(org.id);
-  if (!orgWa?.whatsappEnabled) return { error: "WhatsApp non active." };
+  const sender = await resolveDashboardSender(org.id, senderAccountId);
+  if (!sender.ok) return { error: sender.error };
+  if (!orgWa || (!sender.senderId && !orgWa.whatsappEnabled)) return { error: "WhatsApp non active." };
 
   if (!to || !body) return { error: "Numero et message requis." };
 
@@ -372,10 +389,12 @@ export async function sendMessage(to: string, body: string): Promise<ActionState
       organizationId: org.id,
       origin: "PLATFORM",
       organization: orgWa,
+      applicationId: sender.applicationId,
       input: {
         channel: "whatsapp",
         recipient: { type: "phone", value: phone },
         content: { type: "text", text: body },
+        sender_id: sender.senderId,
       },
     });
 
@@ -395,13 +414,16 @@ export async function sendMessage(to: string, body: string): Promise<ActionState
 export async function sendBulkMessages(
   body: string,
   audience: "all" | string,
+  senderAccountId?: string | null,
 ): Promise<ActionState> {
   const { user, org } = await getCurrentUserAndOrg();
   if (org && !canAccessFeature(org.plan as PlanTier, "whatsapp")) return { error: getFeatureUpgradeMessage("whatsapp") };
   if (!user || !org) return { error: "Non authentifie." };
 
   const orgWa = await getOrgWhatsApp(org.id);
-  if (!orgWa?.whatsappEnabled) return { error: "WhatsApp non active." };
+  const sender = await resolveDashboardSender(org.id, senderAccountId);
+  if (!sender.ok) return { error: sender.error };
+  if (!orgWa || (!sender.senderId && !orgWa.whatsappEnabled)) return { error: "WhatsApp non active." };
   if (!body) return { error: "Le message est requis." };
 
   const withPhone = await prisma.contact.findMany({
@@ -430,10 +452,12 @@ export async function sendBulkMessages(
         organizationId: org.id,
         origin: "PLATFORM",
         organization: orgWa,
+        applicationId: sender.applicationId,
         input: {
           channel: "whatsapp",
           recipient: { type: "phone", value: contact.phone! },
           content: { type: "text", text: personalized },
+          sender_id: sender.senderId,
         },
       });
       if (message.status !== "failed" && message.status !== "template_required") sent++;

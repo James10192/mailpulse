@@ -94,6 +94,7 @@ export async function pollApplicationWhatsAppPairing(
     }
 
     revalidatePath(PAGE_PATH);
+    revalidatePath("/dashboard/messaging/numeros");
     return { state: "open", senderId };
   } catch (error) {
     if (error instanceof WhatsAppNumberError) return { error: error.message };
