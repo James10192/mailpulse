@@ -1,6 +1,9 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { decryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import { hasValidMetaHmac } from "@/lib/external-applications/signatures";
 import { prisma } from "@/lib/prisma";
+import { chooseWhatsAppSender } from "@/lib/messaging/whatsapp-sender";
 
 const META_PROVIDER = "META_WHATSAPP";
 
@@ -132,9 +135,44 @@ export async function resolveMetaProviderAccount(application: ExternalApplicatio
 }
 
 /**
- * An application is bound to exactly one active WhatsApp account, whichever
- * transport it runs on. Two accounts would make an outbound command ambiguous,
- * so the resolution fails closed rather than picking one.
+ * Meta's subscription check carries no sender id. With several Meta numbers on
+ * the application, the token must match one of them, timing-safe, never "the
+ * only one".
+ */
+export async function matchesMetaVerifyToken(application: ExternalApplicationContext, verifyToken: string) {
+  const accounts = await prisma.providerAccount.findMany({
+    where: {
+      organizationId: application.organizationId,
+      applicationId: application.id,
+      channel: "WHATSAPP",
+      provider: META_PROVIDER,
+      active: true,
+    },
+    select: { credentialsCiphertext: true },
+  });
+  let matched = false;
+  for (const account of accounts) {
+    if (!account.credentialsCiphertext) continue;
+    try {
+      const expected = parseMetaCredentials(decryptExternalApplicationValue(account.credentialsCiphertext)).verifyToken;
+      if (safeEqual(expected, verifyToken)) matched = true;
+    } catch {
+      // An unreadable account must not make another one fail.
+    }
+  }
+  return matched;
+}
+
+function safeEqual(a: string, b: string) {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+/**
+ * The number a signed command leaves from: the application's default, or its
+ * only active number, as for the API (chooseWhatsAppSender). Several active
+ * numbers with no default make the command ambiguous, so it fails closed.
  */
 export async function resolveWhatsAppProvider(application: ExternalApplicationContext): Promise<ExternalWhatsAppProvider | null> {
   const accounts = await prisma.providerAccount.findMany({
@@ -143,12 +181,11 @@ export async function resolveWhatsAppProvider(application: ExternalApplicationCo
       applicationId: application.id,
       channel: "WHATSAPP",
       provider: { in: [META_PROVIDER, BAILEYS_PROVIDER] },
-      active: true,
     },
-    select: { id: true, provider: true, senderId: true, externalAccountId: true, credentialsCiphertext: true },
-    take: 2,
+    select: { id: true, provider: true, senderId: true, externalAccountId: true, credentialsCiphertext: true, active: true, isDefault: true, label: true },
   });
-  const account = accounts.length === 1 ? accounts[0] : null;
+  const sender = chooseWhatsAppSender(accounts);
+  const account = sender.kind === "account" ? sender.account : null;
   if (!account) return null;
 
   if (account.provider === BAILEYS_PROVIDER) {

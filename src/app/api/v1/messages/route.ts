@@ -1,4 +1,5 @@
 import { authenticateApiRequest } from "@/lib/mailpulse/api-keys";
+import { isApplicationNumber } from "@/lib/messaging/whatsapp-sender";
 import { findIdempotentResponse, idempotentJson } from "@/lib/mailpulse/idempotency";
 import {
   createIdempotentCommunicationMessage,
@@ -15,6 +16,9 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = createMessageSchema.safeParse(body);
   if (!parsed.success) return validationError(parsed.error);
+  if (parsed.data.sender_id && !await isApplicationNumber(auth.organizationId, auth.applicationId, parsed.data.sender_id)) {
+    return Response.json({ error: "sender_id_inconnu" }, { status: 422 });
+  }
 
   const idempotencyKey = request.headers.get("idempotency-key")?.trim() ?? null;
   if (!idempotencyKey) {

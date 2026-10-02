@@ -79,29 +79,6 @@ const TRANSPORT_LABEL: Record<string, string> = {
 };
 
 /**
- * resolveWhatsAppProvider() binds an application to exactly one active WhatsApp
- * account and fails closed when a second one exists, so the conflict is refused
- * here rather than persisted as a silently broken configuration.
- */
-export async function assertSingleActiveWhatsAppAccount(applicationId: string, excludeAccountId?: string) {
-  const conflicting = await prisma.providerAccount.findFirst({
-    where: {
-      applicationId,
-      channel: "WHATSAPP",
-      provider: { in: WHATSAPP_PROVIDERS },
-      active: true,
-      ...(excludeAccountId ? { id: { not: excludeAccountId } } : {}),
-    },
-    select: { provider: true },
-  });
-  if (conflicting) {
-    throw new ActionGuardError(
-      `Cette application utilise déjà le transport ${TRANSPORT_LABEL[conflicting.provider] ?? conflicting.provider}. Désactivez ce compte avant d'en relier un autre : une application ne peut avoir qu'un seul compte WhatsApp actif.`,
-    );
-  }
-}
-
-/**
  * Evolution posts webhooks without a signature, so the instance name is the only
  * routing hint. Two active accounts sharing it would make inbound resolution
  * ambiguous and fail closed for both applications.

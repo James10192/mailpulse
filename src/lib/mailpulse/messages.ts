@@ -183,7 +183,7 @@ type MessageSender = { sender: WhatsAppSender; recipientRefused: boolean } | nul
 async function resolveMessageSender(params: CreateCommunicationMessageParams): Promise<MessageSender> {
   if (toChannel(params.input.channel) !== "WHATSAPP") return null;
   const applicationId = params.applicationId ?? null;
-  const sender = await resolveWhatsAppSender(params.organizationId, applicationId);
+  const sender = await resolveWhatsAppSender(params.organizationId, applicationId, params.input.sender_id);
   const recipientRefused = sender.kind === "account" && applicationId !== null && await recipientRefusedApplicationNumber({
     organizationId: params.organizationId,
     applicationId,

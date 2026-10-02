@@ -7,8 +7,12 @@
 // or an application that never had a number, leaves from the organization's
 // own number, as every message did before applications carried one.
 //
-// There is no fallback between numbers: an application whose number is
-// disabled or ambiguous gets `unavailable`, never another brand's number.
+// An application may hold several numbers. A request may name one of them;
+// otherwise the application's default speaks, or its only active number.
+//
+// There is no fallback between numbers: a named number that is not the
+// application's or is disabled, a disabled default, or several active numbers
+// with no default all give `unavailable`, never another brand's number.
 
 import { consentWhere } from "@/lib/external-applications/consent-store";
 import { decryptExternalApplicationValue } from "@/lib/external-applications/crypto";
@@ -33,6 +37,7 @@ export type WhatsAppSenderAccount = {
   externalAccountId: string;
   credentialsCiphertext: string | null;
   pairedAt?: Date | null;
+  isDefault?: boolean;
 };
 
 export type WhatsAppSender =
@@ -57,12 +62,19 @@ export type SenderSnapshot = {
 /**
  * Every WhatsApp account the application ever had, active or not: a disabled
  * one still binds the application, so its messages are refused rather than
- * sent from the organization's number.
+ * sent from the organization's number. `requestedId` is the number a request
+ * named; it must be one of these accounts and active.
  */
-export function chooseWhatsAppSender(applicationAccounts: WhatsAppSenderAccount[]): WhatsAppSender {
+export function chooseWhatsAppSender(applicationAccounts: WhatsAppSenderAccount[], requestedId?: string | null): WhatsAppSender {
+  if (requestedId) {
+    const named = applicationAccounts.find((account) => account.id === requestedId);
+    return named?.active ? { kind: "account", account: named } : { kind: "unavailable" };
+  }
   if (applicationAccounts.length === 0) return { kind: "organization" };
   const active = applicationAccounts.filter((account) => account.active);
-  return active.length === 1 ? { kind: "account", account: active[0] } : { kind: "unavailable" };
+  if (active.length === 1) return { kind: "account", account: active[0] };
+  const defaults = active.filter((account) => account.isDefault);
+  return defaults.length === 1 ? { kind: "account", account: defaults[0] } : { kind: "unavailable" };
 }
 
 export function summarizeWhatsAppSender(applicationAccounts: WhatsAppSenderAccount[]): WhatsAppSenderSummary {
@@ -96,16 +108,39 @@ export const APPLICATION_WHATSAPP_ACCOUNTS = {
     externalAccountId: true,
     credentialsCiphertext: true,
     pairedAt: true,
+    isDefault: true,
   } as const,
 };
 
-export async function resolveWhatsAppSender(organizationId: string, applicationId: string | null): Promise<WhatsAppSender> {
-  if (!applicationId) return { kind: "organization" };
+/**
+ * `requestedId` is the number a request named. A key with no application has
+ * no numbers to name: naming one is refused rather than ignored.
+ */
+export async function resolveWhatsAppSender(
+  organizationId: string,
+  applicationId: string | null,
+  requestedId?: string | null,
+): Promise<WhatsAppSender> {
+  if (!applicationId) return requestedId ? { kind: "unavailable" } : { kind: "organization" };
   const accounts = await prisma.providerAccount.findMany({
     where: { organizationId, applicationId, ...APPLICATION_WHATSAPP_ACCOUNTS.where },
     select: APPLICATION_WHATSAPP_ACCOUNTS.select,
   });
-  return chooseWhatsAppSender(accounts);
+  return chooseWhatsAppSender(accounts, requestedId);
+}
+
+/**
+ * Whether `sender_id` names one of the application's WhatsApp numbers, active
+ * or not. Unknown, another application's, or a key with no application: the
+ * request is refused up front (422) rather than recorded as a failed send, so
+ * a typo is never mistaken for an outage.
+ */
+export async function isApplicationNumber(organizationId: string, applicationId: string | null, accountId: string) {
+  if (!applicationId) return false;
+  const found = await prisma.providerAccount.count({
+    where: { organizationId, applicationId, id: accountId, ...APPLICATION_WHATSAPP_ACCOUNTS.where },
+  });
+  return found > 0;
 }
 
 /**

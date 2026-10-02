@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { MessageSquare, Pencil, Plus, Power, PowerOff, QrCode } from "lucide-react";
 
@@ -64,13 +65,11 @@ export function ProviderAccountSection({
   }
 
   function transportButton(transport: WhatsAppTransport, account: ProviderAccountView | null) {
-    const blocked = activeTransport !== null && activeTransport !== transport;
     return (
       <Button
         key={transport}
         variant={activeTransport === transport ? "default" : "outline"}
         className="h-11 w-full sm:w-auto"
-        disabled={blocked}
         onClick={() => setEditing(transport)}
       >
         {account ? <Pencil className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
@@ -90,7 +89,6 @@ export function ProviderAccountSection({
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               className="h-11 w-full sm:w-auto"
-              disabled={activeTransport === "META"}
               onClick={() => setPairing(true)}
             >
               <QrCode className="h-3.5 w-3.5" />
@@ -105,10 +103,13 @@ export function ProviderAccountSection({
       {saved ? <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">Compte WhatsApp enregistré.</p> : null}
       {error ? <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p> : null}
 
-      {canManage && activeTransport !== null ? (
+      {canManage ? (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          Une application ne peut avoir qu&apos;un seul compte WhatsApp actif. Désactivez le compte{" "}
-          {TRANSPORT_LABEL[activeTransport]} ci-dessous pour basculer sur l&apos;autre transport.
+          Une application peut avoir plusieurs numéros. Choisissez celui par défaut, renommez-les ou ajoutez-en dans{" "}
+          <Link href="/dashboard/messaging/numeros" className="text-orange-500 hover:text-orange-400">
+            Messagerie › Numéros WhatsApp
+          </Link>
+          .
         </p>
       ) : null}
 
@@ -222,7 +223,7 @@ export function ProviderAccountSection({
       {pairing ? (
         <WhatsAppPairingDialog
           applicationId={applicationId}
-          replacing={baileysAccount !== null}
+          replaceAccountId={baileysAccount?.id ?? null}
           onClose={() => setPairing(false)}
         />
       ) : null}

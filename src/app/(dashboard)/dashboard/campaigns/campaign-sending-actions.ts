@@ -60,7 +60,7 @@ export async function updateOrangeSmsConfiguration(
       smsSenderName: parsed.data.senderName,
     },
   });
-  revalidatePath("/dashboard/sms");
+  revalidatePath("/dashboard/messaging/sms");
   return { success: true };
 }
 

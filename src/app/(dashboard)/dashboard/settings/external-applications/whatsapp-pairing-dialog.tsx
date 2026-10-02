@@ -26,13 +26,15 @@ function qrSource(qr: string) {
 
 export function WhatsAppPairingDialog({
   applicationId,
-  replacing,
+  replaceAccountId,
   onClose,
 }: {
   applicationId: string;
-  replacing: boolean;
+  /** The number whose instance the scan replaces; null adds a new number. */
+  replaceAccountId: string | null;
   onClose: () => void;
 }) {
+  const replacing = replaceAccountId !== null;
   const router = useRouter();
   const [view, setView] = useState<View>({ kind: "starting" });
   const instanceRef = useRef<string | null>(null);
@@ -84,7 +86,7 @@ export function WhatsAppPairingDialog({
     async function tick() {
       const instanceName = instanceRef.current;
       if (instanceName) {
-        const status = await pollApplicationWhatsAppPairing(applicationId, instanceName);
+        const status = await pollApplicationWhatsAppPairing(applicationId, instanceName, replaceAccountId);
         if (stopped) return;
         if ("error" in status) {
           setView({ kind: "error", message: status.error });
@@ -106,17 +108,19 @@ export function WhatsAppPairingDialog({
       stopped = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [waiting, applicationId, router]);
+  }, [waiting, applicationId, replaceAccountId, router]);
 
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{replacing ? "Remplacer le numéro WhatsApp" : "Connecter un numéro WhatsApp"}</DialogTitle>
+          <DialogTitle>{replacing ? "Remplacer le numéro WhatsApp" : "Ajouter un numéro WhatsApp"}</DialogTitle>
           <DialogDescription>
             Sur le téléphone de l&apos;établissement : WhatsApp › Appareils connectés › Connecter un appareil, puis
             scannez le code.
-            {replacing ? " L'ancien numéro sera déconnecté une fois le nouveau relié." : ""}
+            {replacing
+              ? " L'ancien téléphone sera déconnecté une fois le nouveau relié ; le nom et l'historique du numéro restent."
+              : " Le numéro s'ajoute à ceux de l'application."}
           </DialogDescription>
         </DialogHeader>
 

@@ -1100,6 +1100,10 @@ model ProviderAccount {
   // follow a tighter rate for 30 days after it. Null for a number linked by
   // hand, which predates this rule.
   pairedAt              DateTime?
+  // The number an application's messages leave from when the request names
+  // none. At most one per application (partial unique index in SQL). An
+  // application with a single active number needs none.
+  isDefault             Boolean      @default(false)
   active                Boolean      @default(true)
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt

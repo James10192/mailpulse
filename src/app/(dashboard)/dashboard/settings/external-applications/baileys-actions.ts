@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { setDefaultNumber, setNumberActive, settleDefaultNumber, WhatsAppNumberError } from "@/lib/external-applications/whatsapp-numbers";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
@@ -8,7 +10,6 @@ import { API_KEY_NAME_MAX_LENGTH } from "@/lib/mailpulse/api-key-name";
 import { encryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import {
   assertInstanceNameUnambiguous,
-  assertSingleActiveWhatsAppAccount,
   BAILEYS_PROVIDER,
   ensureEncryptionConfigured,
   generateCredentialMaterial,
@@ -21,6 +22,8 @@ import { pointInstanceAtApplication } from "./pairing-webhook";
 import { isPairingInstanceOf } from "@/lib/external-applications/whatsapp-pairing";
 
 const PAGE_PATH = "/dashboard/settings/external-applications";
+const NUMBERS_PATH = "/dashboard/messaging/numeros";
+const MESSAGING_PATH = "/dashboard/messaging";
 const INBOUND_PURPOSE = "INBOUND_FORWARD" as const;
 
 const baileysAccountSchema = z.object({
@@ -76,64 +79,76 @@ export async function setBaileysProviderAccount(
     }
 
     await assertInstanceNameUnambiguous(instanceName, existing?.id);
-    await assertSingleActiveWhatsAppAccount(applicationId, existing?.id);
 
-    if (existing) {
-      await prisma.providerAccount.update({
-        where: { id: existing.id },
-        data: { applicationId, senderId: senderId ?? null, active: true },
-      });
-    } else {
-      await prisma.providerAccount.create({
-        data: {
-          organizationId: org.id,
-          applicationId,
-          channel: "WHATSAPP",
-          provider: BAILEYS_PROVIDER,
-          externalAccountId: instanceName,
-          senderId: senderId ?? null,
-          // Evolution credentials are global env configuration, so nothing
-          // tenant-specific is stored on the account.
-          credentialsCiphertext: null,
-          active: true,
-        },
-      });
-    }
-
+    // The account and the default it may settle are written together: no
+    // moment where the application has two active numbers and no default.
+    await prisma.$transaction(async (tx) => {
+      if (existing) {
+        await tx.providerAccount.update({
+          where: { id: existing.id },
+          data: { applicationId, senderId: senderId ?? null, active: true },
+        });
+      } else {
+        await tx.providerAccount.create({
+          data: {
+            organizationId: org.id,
+            applicationId,
+            channel: "WHATSAPP",
+            provider: BAILEYS_PROVIDER,
+            externalAccountId: instanceName,
+            senderId: senderId ?? null,
+            // Evolution credentials are global env configuration, so nothing
+            // tenant-specific is stored on the account.
+            credentialsCiphertext: null,
+            active: true,
+          },
+        });
+      }
+      await settleDefaultNumber(tx, { organizationId: org.id, applicationId });
+    });
     revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
+    revalidatePath(MESSAGING_PATH);
     return { success: true };
   } catch (error) {
     return toActionError(error);
   }
 }
 
-/** Frees the application so the other transport can be connected. */
+/**
+ * Stops or resumes sending from a number. Disabling the default hands the role
+ * to another active number of the application (settleDefaultNumber).
+ */
 export async function setProviderAccountActive(applicationId: string, accountId: string, active: boolean) {
   try {
     const { org } = await requireOrganizationManager();
     await requireApplication(org.id, applicationId);
-
-    if (active) await assertSingleActiveWhatsAppAccount(applicationId, accountId);
-
-    const updated = await prisma.providerAccount.updateMany({
-      where: {
-        id: accountId,
-        applicationId,
-        organizationId: org.id,
-        channel: "WHATSAPP",
-        provider: { in: WHATSAPP_PROVIDERS },
-      },
-      data: { active },
-    });
-    if (updated.count === 0) return { error: "Compte WhatsApp introuvable pour cette application." };
-
+    await prisma.$transaction((tx) => setNumberActive(tx, { organizationId: org.id, applicationId }, accountId, active));
     revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
+    revalidatePath(MESSAGING_PATH);
     return { success: true };
   } catch (error) {
+    if (error instanceof WhatsAppNumberError) return { error: error.message };
     return toActionError(error);
   }
 }
 
+/** Makes an active number the one requests use when they name none. */
+export async function setDefaultProviderAccount(applicationId: string, accountId: string) {
+  try {
+    const { org } = await requireOrganizationManager();
+    await requireApplication(org.id, applicationId);
+    await prisma.$transaction((tx) => setDefaultNumber(tx, { organizationId: org.id, applicationId }, accountId));
+    revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
+    revalidatePath(MESSAGING_PATH);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof WhatsAppNumberError) return { error: error.message };
+    return toActionError(error);
+  }
+}
 
 /**
  * Names the number ("ESBTP Yakro"): shown wherever messages are traced and
@@ -155,6 +170,8 @@ export async function renameProviderAccount(applicationId: string, accountId: st
     if (updated.count === 0) return { error: "Compte WhatsApp introuvable pour cette application." };
 
     revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
+    revalidatePath(MESSAGING_PATH);
     return { success: true };
   } catch (error) {
     return toActionError(error);
@@ -196,6 +213,8 @@ export async function rotateInboundToken(applicationId: string) {
     await repointPairedInstances(org.id, applicationId);
 
     revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
+    revalidatePath(MESSAGING_PATH);
     return { keyId: material.keyId, secret: material.secret, version: credential.version };
   } catch (error) {
     return toActionError(error);
@@ -214,6 +233,8 @@ export async function revokeInboundToken(applicationId: string, credentialId: st
     if (revoked.count === 0) return { error: "Ce jeton est introuvable ou déjà révoqué." };
 
     revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
+    revalidatePath(MESSAGING_PATH);
     return { success: true };
   } catch (error) {
     return toActionError(error);

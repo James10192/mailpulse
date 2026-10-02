@@ -107,7 +107,7 @@ export async function closeReconciliationItem(
 
   if (!closed) return { error: "Cet élément n'est plus dans un état incertain." };
 
-  revalidatePath("/dashboard/sms");
+  revalidatePath("/dashboard/messaging/sms");
   return { success: true };
 }
 

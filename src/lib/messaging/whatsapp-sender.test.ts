@@ -113,6 +113,26 @@ test("other channels record no WhatsApp identity", () => {
   assert.deepEqual(messageRouting(null, ORGANIZATION), { refused: false, mode: "BAILEYS", senderAccountId: null, senderSnapshot: null });
 });
 
+test("with several active numbers the default speaks", () => {
+  const yakro = baileys({ isDefault: true });
+  assert.deepEqual(chooseWhatsAppSender([meta(), yakro, baileys({ id: "pa-bouake", externalAccountId: "mp-bouake" })]), { kind: "account", account: yakro });
+});
+
+test("a disabled default is not replaced by another number", () => {
+  assert.deepEqual(chooseWhatsAppSender([baileys({ isDefault: true, active: false }), meta(), baileys({ id: "pa-b" })]), { kind: "unavailable" });
+});
+
+test("a request may name one of the application's active numbers", () => {
+  const abidjan = meta();
+  assert.deepEqual(chooseWhatsAppSender([baileys({ isDefault: true }), abidjan], "pa-abidjan"), { kind: "account", account: abidjan });
+});
+
+test("a named number that is disabled or not the application's is refused", () => {
+  assert.deepEqual(chooseWhatsAppSender([baileys(), meta({ active: false })], "pa-abidjan"), { kind: "unavailable" });
+  assert.deepEqual(chooseWhatsAppSender([baileys()], "pa-other-brand"), { kind: "unavailable" });
+  assert.deepEqual(chooseWhatsAppSender([], "pa-yakro"), { kind: "unavailable" });
+});
+
 test("a screen says which number an application's messages leave from", () => {
   assert.deepEqual(summarizeWhatsAppSender([]), { state: "organization" });
   assert.deepEqual(summarizeWhatsAppSender([baileys()]), { state: "own", label: "ESBTP Yakro" });

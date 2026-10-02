@@ -1,13 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { settleDefaultNumber } from "@/lib/external-applications/whatsapp-numbers";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { encryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import {
   assertSenderIdUnambiguous,
-  assertSingleActiveWhatsAppAccount,
   ensureEncryptionConfigured,
   generateCredentialMaterial,
   META_PROVIDER,
@@ -172,41 +173,42 @@ export async function setMetaProviderAccount(
     }
 
     await assertSenderIdUnambiguous(phoneNumberId, existing?.id);
-    // Writing this account would otherwise leave two active WhatsApp accounts on
-    // the application, which makes the outbound transport resolution fail closed.
-    await assertSingleActiveWhatsAppAccount(applicationId, existing?.id);
 
-    if (existing) {
-      const credentialsCiphertext =
-        providedSecrets === 3
-          ? encryptExternalApplicationValue(JSON.stringify({ accessToken, appSecret, verifyToken }))
-          : null;
-      await prisma.providerAccount.update({
-        where: { id: existing.id },
-        data: {
-          senderId: phoneNumberId,
-          applicationId,
-          active: true,
-          ...(credentialsCiphertext ? { credentialsCiphertext } : {}),
-        },
-      });
-    } else {
-      await prisma.providerAccount.create({
-        data: {
-          organizationId: org.id,
-          applicationId,
-          channel: "WHATSAPP",
-          provider: META_PROVIDER,
-          externalAccountId: waba,
-          senderId: phoneNumberId,
-          credentialsCiphertext: encryptExternalApplicationValue(
-            JSON.stringify({ accessToken, appSecret, verifyToken }),
-          ),
-          active: true,
-        },
-      });
-    }
-
+    // The account and the default it may settle are written together: no
+    // moment where the application has two active numbers and no default.
+    await prisma.$transaction(async (tx) => {
+      if (existing) {
+        const credentialsCiphertext =
+          providedSecrets === 3
+            ? encryptExternalApplicationValue(JSON.stringify({ accessToken, appSecret, verifyToken }))
+            : null;
+        await tx.providerAccount.update({
+          where: { id: existing.id },
+          data: {
+            senderId: phoneNumberId,
+            applicationId,
+            active: true,
+            ...(credentialsCiphertext ? { credentialsCiphertext } : {}),
+          },
+        });
+      } else {
+        await tx.providerAccount.create({
+          data: {
+            organizationId: org.id,
+            applicationId,
+            channel: "WHATSAPP",
+            provider: META_PROVIDER,
+            externalAccountId: waba,
+            senderId: phoneNumberId,
+            credentialsCiphertext: encryptExternalApplicationValue(
+              JSON.stringify({ accessToken, appSecret, verifyToken }),
+            ),
+            active: true,
+          },
+        });
+      }
+      await settleDefaultNumber(tx, { organizationId: org.id, applicationId });
+    });
     revalidatePath(PAGE_PATH);
     return { success: true };
   } catch (error) {

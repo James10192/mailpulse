@@ -23,7 +23,10 @@ curl -X POST $MAILPULSE_URL/api/v1/verifications \
 
 `to` must be international (`+…` or `00…`). `locale` is `fr` (default) or `en`;
 any other value is rejected.
-`reference` is optional and echoed back. Response `201`:
+`reference` is optional and echoed back. `sender_id`, optional, names one of the
+key's application numbers (`GET /api/v1/whatsapp/numbers`); without it, the
+default number sends, or another WhatsApp Web number of the application when the
+default is on Meta. Response `201`:
 
 ```json
 {

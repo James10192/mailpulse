@@ -5,7 +5,7 @@ import { errorResponse, startReverseVerificationResponse, startVerificationRespo
 import { startReverseVerification, startVerification } from "@/lib/verifications/service";
 import { createPrismaVerificationStore } from "@/lib/verifications/store";
 import { verificationTransportFor } from "@/lib/verifications/transport";
-import { recipientRefusedApplicationNumber } from "@/lib/messaging/whatsapp-sender";
+import { isApplicationNumber, recipientRefusedApplicationNumber } from "@/lib/messaging/whatsapp-sender";
 
 const store = createPrismaVerificationStore(prisma);
 
@@ -16,10 +16,13 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = startVerificationSchema.safeParse(body);
   if (!parsed.success) return validationError(parsed.error);
+  if (parsed.data.sender_id && !await isApplicationNumber(auth.organizationId, auth.applicationId, parsed.data.sender_id)) {
+    return errorResponse("sender_id_inconnu", 422);
+  }
 
   const secret = verificationSecretOrResponse();
   if (secret instanceof Response) return secret;
-  const transport = await verificationTransportFor(auth.organizationId, auth.applicationId, auth.organization);
+  const transport = await verificationTransportFor(auth.organizationId, auth.applicationId, auth.organization, parsed.data.sender_id);
   if (!transport) return errorResponse("whatsapp_indisponible", 409);
 
   if (parsed.data.mode === "reverse") {

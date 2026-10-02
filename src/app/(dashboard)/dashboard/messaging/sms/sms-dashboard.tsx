@@ -4,8 +4,8 @@ import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Clock3, LockKeyhole, MessageSquareText, Send, Settings2, Smartphone, Users } from "lucide-react";
 
-import { createCampaign } from "../campaigns/actions";
-import { updateOrangeSmsConfiguration } from "../campaigns/campaign-sending-actions";
+import { createCampaign } from "../../campaigns/actions";
+import { updateOrangeSmsConfiguration } from "../../campaigns/campaign-sending-actions";
 import type { ActionState } from "@/types/action-state";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";

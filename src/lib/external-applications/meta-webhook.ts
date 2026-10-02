@@ -6,6 +6,7 @@ import { processBoundedCallbackBatch } from "@/lib/external-applications/callbac
 import {
   resolveExternalApplicationRequestTarget,
   resolveMetaApplicationBySenderHmac,
+  matchesMetaVerifyToken,
   resolveMetaProviderAccount,
   type ExternalApplicationContext,
 } from "@/lib/external-applications/application";
@@ -59,8 +60,7 @@ export async function verifyMetaWebhook(application: ExternalApplicationContext,
   const verifyToken = params.get("hub.verify_token");
   if (mode !== "subscribe" || !challenge || !verifyToken) return null;
 
-  const provider = await resolveMetaProviderAccount(application);
-  return provider?.verifyToken === verifyToken ? challenge : null;
+  return (await matchesMetaVerifyToken(application, verifyToken)) ? challenge : null;
 }
 
 export async function verifyMetaWebhookRequest(request: Request, applicationKey: string) {
