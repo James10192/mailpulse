@@ -9,7 +9,7 @@ process.env.EXTERNAL_APPLICATION_KEK ??= Buffer.alloc(32, 7).toString("base64");
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 const { prisma } = await import("@/lib/prisma");
-const { recordPairedNumber, setDefaultNumber, setNumberActive, WhatsAppNumberError } = await import("./whatsapp-numbers");
+const { moveNumber, recordPairedNumber, setDefaultNumber, setNumberActive, WhatsAppNumberError } = await import("./whatsapp-numbers");
 const { resolveWhatsAppSender } = await import("../messaging/whatsapp-sender");
 const { resolveWhatsAppProvider } = await import("./application");
 
@@ -27,6 +27,9 @@ before(async () => {
 
 after(async () => {
   if (!hasDatabase) return;
+  await prisma.externalRecipientConsent.deleteMany({ where: { organizationId } });
+  await prisma.externalConversationWindow.deleteMany({ where: { organizationId } });
+  await prisma.applicationForwardEndpoint.deleteMany({ where: { organizationId } });
   await prisma.providerAccount.deleteMany({ where: { organizationId } });
   await prisma.externalApplication.deleteMany({ where: { organizationId } });
   await prisma.organization.deleteMany({ where: { id: organizationId } });
@@ -140,4 +143,67 @@ test("two first pairings at once leave exactly one default", { skip: !hasDatabas
     prisma.$transaction((tx) => recordPairedNumber(tx, { ...target, instanceName: `mp-r2-${run}`, senderId: "2250700000102" })),
   ]);
   assert.equal(await prisma.providerAccount.count({ where: { organizationId, applicationId: fresh, isDefault: true } }), 1);
+});
+
+const move = (accountId: string, from: string, to: string) =>
+  prisma.$transaction((tx) => moveNumber(tx, { organizationId, applicationId: from, toApplicationId: to }, accountId));
+
+test("moving a number hands it, its refusals and its windows to the other application", { skip: !hasDatabase }, async () => {
+  const source = (await prisma.externalApplication.create({ data: { organizationId, key: `mv-src-${run}`, name: "Source" } })).id;
+  const target = (await prisma.externalApplication.create({ data: { organizationId, key: `mv-dst-${run}`, name: "Target" } })).id;
+  const at = { organizationId, applicationId: source };
+  await prisma.$transaction((tx) => recordPairedNumber(tx, { ...at, instanceName: `mp-mv1-${run}`, senderId: "2250700000201" }));
+  await prisma.$transaction((tx) => recordPairedNumber(tx, { ...at, instanceName: `mp-mv2-${run}`, senderId: "2250700000202" }));
+  const first = await accountOf(`mp-mv1-${run}`);
+  assert.equal(first.isDefault, true);
+
+  await prisma.externalRecipientConsent.create({
+    data: { organizationId, applicationId: source, providerAccountId: first.id, recipientHash: `h-${run}`, recipientCiphertext: "x", status: "REFUSED", refusedAt: new Date() },
+  });
+  await prisma.externalConversationWindow.create({
+    data: { organizationId, applicationId: source, providerAccountId: first.id, channel: "WHATSAPP", recipientHash: `h-${run}`, lastInboundAt: new Date(), expiresAt: new Date(Date.now() + 3_600_000) },
+  });
+
+  await move(first.id, source, target);
+
+  const moved = await accountOf(`mp-mv1-${run}`);
+  assert.equal(moved.applicationId, target);
+  assert.equal(moved.isDefault, true, "the lone number of the target becomes its default");
+  assert.equal((await accountOf(`mp-mv2-${run}`)).isDefault, true, "the source hands the role to its remaining number");
+  const consent = await prisma.externalRecipientConsent.findFirstOrThrow({ where: { organizationId, providerAccountId: first.id } });
+  assert.equal(consent.applicationId, target, "a STOP follows the phone it was sent to");
+  const window = await prisma.externalConversationWindow.findFirstOrThrow({ where: { organizationId, providerAccountId: first.id } });
+  assert.equal(window.applicationId, target);
+
+  const sender = await resolveWhatsAppSender(organizationId, source, first.id);
+  assert.deepEqual(sender, { kind: "unavailable" }, "the source can no longer name it");
+});
+
+test("a number joining an application with a default does not take its place", { skip: !hasDatabase }, async () => {
+  const source = (await prisma.externalApplication.create({ data: { organizationId, key: `mv2-src-${run}`, name: "S2" } })).id;
+  const target = (await prisma.externalApplication.create({ data: { organizationId, key: `mv2-dst-${run}`, name: "T2" } })).id;
+  await prisma.$transaction((tx) => recordPairedNumber(tx, { organizationId, applicationId: source, instanceName: `mp-mv3-${run}`, senderId: "2250700000203" }));
+  await prisma.$transaction((tx) => recordPairedNumber(tx, { organizationId, applicationId: target, instanceName: `mp-mv4-${run}`, senderId: "2250700000204" }));
+  const joining = await accountOf(`mp-mv3-${run}`);
+  await move(joining.id, source, target);
+  assert.equal((await accountOf(`mp-mv3-${run}`)).isDefault, false);
+  assert.equal((await accountOf(`mp-mv4-${run}`)).isDefault, true);
+});
+
+test("a move is refused to an inactive application, to itself, or under a pinned endpoint", { skip: !hasDatabase }, async () => {
+  const source = (await prisma.externalApplication.create({ data: { organizationId, key: `mv3-src-${run}`, name: "S3" } })).id;
+  const off = (await prisma.externalApplication.create({ data: { organizationId, key: `mv3-off-${run}`, name: "Off", active: false } })).id;
+  const target = (await prisma.externalApplication.create({ data: { organizationId, key: `mv3-dst-${run}`, name: "T3" } })).id;
+  await prisma.$transaction((tx) => recordPairedNumber(tx, { organizationId, applicationId: source, instanceName: `mp-mv5-${run}`, senderId: "2250700000205" }));
+  const account = await accountOf(`mp-mv5-${run}`);
+
+  await assert.rejects(move(account.id, source, off), WhatsAppNumberError);
+  await assert.rejects(move(account.id, source, source), WhatsAppNumberError);
+  await assert.rejects(move(account.id, target, source), WhatsAppNumberError, "a number is only moved from its own application");
+
+  await prisma.applicationForwardEndpoint.create({
+    data: { organizationId, applicationId: source, providerAccountId: account.id, url: `https://example.test/${run}`, keyId: "k", secretCiphertext: "x", events: ["message.inbound"] },
+  });
+  await assert.rejects(move(account.id, source, target), WhatsAppNumberError);
+  assert.equal((await accountOf(`mp-mv5-${run}`)).applicationId, source, "a refused move changes nothing");
 });

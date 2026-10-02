@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Copy, Gauge, MoreHorizontal, Phone, Plus, QrCode, Star } from "lucide-react";
+import { ArrowRightLeft, Copy, Gauge, MoreHorizontal, Phone, Plus, QrCode, Star } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  moveProviderAccount,
   renameProviderAccount,
   setDefaultProviderAccount,
   setProviderAccountActive,
@@ -67,6 +68,7 @@ export function NumbersClient({
   const [pending, startTransition] = useTransition();
   const [pairing, setPairing] = useState<{ applicationId: string; replaceAccountId: string | null } | null>(null);
   const [renaming, setRenaming] = useState<{ applicationId: string; number: NumberView } | null>(null);
+  const [moving, setMoving] = useState<{ applicationId: string; number: NumberView } | null>(null);
 
   function run(action: () => Promise<ActionResult>, success: string) {
     startTransition(async () => {
@@ -233,6 +235,12 @@ export function NumbersClient({
                             Remplacer le téléphone
                           </DropdownMenuItem>
                         ) : null}
+                        {applications.length > 1 ? (
+                          <DropdownMenuItem onSelect={() => setMoving({ applicationId: application.id, number })}>
+                            <ArrowRightLeft className="size-4" />
+                            Déplacer vers une autre application
+                          </DropdownMenuItem>
+                        ) : null}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className={number.active ? "text-red-600 focus:text-red-600" : undefined}
@@ -281,8 +289,114 @@ export function NumbersClient({
           }}
         />
       ) : null}
+
+      {moving ? (
+        <MoveDialog
+          number={moving.number}
+          targets={applications.filter((candidate) => candidate.id !== moving.applicationId)}
+          onClose={() => setMoving(null)}
+          onMove={(targetId, targetName) => {
+            const source = moving;
+            setMoving(null);
+            run(
+              () => moveProviderAccount(source.applicationId, source.number.id, targetId),
+              `Numéro déplacé vers ${targetName}`,
+            );
+          }}
+        />
+      ) : null}
     </div>
   );
+}
+
+function MoveDialog({
+  number,
+  targets,
+  onClose,
+  onMove,
+}: {
+  number: NumberView;
+  targets: ApplicationNumbers[];
+  onClose: () => void;
+  onMove: (applicationId: string, name: string) => void;
+}) {
+  const [targetId, setTargetId] = useState<string | null>(null);
+  const target = targets.find((candidate) => candidate.id === targetId) ?? null;
+  return (
+    <Dialog open onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (target) onMove(target.id, target.name);
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Déplacer « {number.label} »</DialogTitle>
+            <DialogDescription>
+              Le numéro enverra pour l&apos;application choisie et ses réponses y arriveront. Les refus déjà reçus
+              (STOP) le suivent ; l&apos;historique des envois reste dans l&apos;application actuelle.
+            </DialogDescription>
+          </DialogHeader>
+          <fieldset className="my-4 space-y-2">
+            <legend className="mb-2 text-sm font-medium text-zinc-950 dark:text-zinc-50">Application de destination</legend>
+            {targets.map((candidate) => (
+              <label
+                key={candidate.id}
+                className={`flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${
+                  candidate.id === targetId
+                    ? "border-orange-500 bg-orange-500/10"
+                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    name="move-target"
+                    value={candidate.id}
+                    checked={candidate.id === targetId}
+                    onChange={() => setTargetId(candidate.id)}
+                    className="accent-orange-500"
+                  />
+                  <span>
+                    <span className="block font-medium text-zinc-950 dark:text-zinc-50">{candidate.name}</span>
+                    <span className="block font-mono text-xs text-zinc-500">{candidate.key}</span>
+                  </span>
+                </span>
+                <span className="shrink-0 text-xs text-zinc-500">
+                  {activeCountLabel(candidate.numbers)}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          {target ? (
+            <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
+              {!number.active
+                ? "Le numéro reste désactivé après le déplacement."
+                : target.numbers.some((candidate) => candidate.active)
+                  ? `${target.name} garde son numéro par défaut ; celui-ci s'ajoute à côté.`
+                  : `Ce sera le numéro par défaut de ${target.name}.`}
+              {number.speaking ? " L'application actuelle passe sur un autre de ses numéros, s'il en reste." : ""}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" className="h-11" onClick={onClose}>
+              Annuler
+            </Button>
+            <Button type="submit" className="h-11" disabled={!target}>
+              Déplacer
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function activeCountLabel(numbers: NumberView[]) {
+  const active = numbers.filter((number) => number.active).length;
+  if (active > 0) return `${active} numéro${active > 1 ? "s" : ""} actif${active > 1 ? "s" : ""}`;
+  return numbers.length === 0 ? "Aucun numéro" : "Aucun numéro actif";
 }
 
 function RenameDialog({ number, onClose, onSave }: { number: NumberView; onClose: () => void; onSave: (label: string) => void }) {

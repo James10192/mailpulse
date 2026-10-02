@@ -128,8 +128,11 @@ n'est pas vérifiée à l'avance : une session déconnectée se révèle à l'en
 comme un échec d'envoi.
 
 Les numéros se gèrent dans Messagerie, onglet Numéros : ajout par QR code,
-numéro par défaut, nom, désactivation, et l'identifiant à passer en
-`sender_id`. Le rattachement d'une clé à une application se fait dans
+numéro par défaut, nom, désactivation, déplacement vers une autre application,
+et l'identifiant à passer en `sender_id`. Un numéro déplacé garde son
+identifiant : la nouvelle application l'utilise avec le même `sender_id`,
+l'ancienne ne peut plus le nommer. Ses réponses et les refus déjà reçus (STOP)
+le suivent ; l'historique de ses envois reste dans l'ancienne application. Le rattachement d'une clé à une application se fait dans
 Plateforme, onglet Clés API et intégrations. Seuls les propriétaires et
 administrateurs de l'organisation peuvent changer une clé, un expéditeur ou un
 numéro.

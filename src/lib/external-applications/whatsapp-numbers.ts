@@ -148,3 +148,64 @@ export async function setNumberActive(tx: Tx, scope: Scope, accountId: string, a
   await tx.providerAccount.update({ where: { id: accountId }, data: active ? { active } : { active, isDefault: false } });
   await settleDefaultNumber(tx, scope);
 }
+
+/** Operations that are still being sent: a number cannot change hands under them. */
+const IN_FLIGHT_OPERATIONS = ["PENDING", "PROCESSING", "SUBMISSION_UNKNOWN", "HELD"];
+
+/**
+ * Hands a number from one application to another of the same organization.
+ *
+ * What travels with the number: the recipients' consents and refusals (a parent
+ * who answered STOP to this phone must stay refused, whichever application now
+ * speaks through it) and the open conversation windows. What stays behind: the
+ * history (operations, messages) of the application that sent them.
+ *
+ * Refused while a send is in flight, or while a forwarding endpoint or a
+ * template is pinned to the number: those belong to the source application.
+ */
+export async function moveNumber(tx: Tx, scope: Scope & { toApplicationId: string }, accountId: string) {
+  const { organizationId, applicationId: fromApplicationId, toApplicationId } = scope;
+  if (fromApplicationId === toApplicationId) throw new WhatsAppNumberError("Ce numéro appartient déjà à cette application.");
+
+  // Always lock in the same order, so two opposite moves cannot deadlock.
+  for (const id of [fromApplicationId, toApplicationId].sort()) await lockApplicationNumbers(tx, id);
+
+  const account = await requireNumber(tx, scope, accountId);
+  const target = await tx.externalApplication.findFirst({
+    where: { id: toApplicationId, organizationId },
+    select: { active: true },
+  });
+  if (!target) throw new WhatsAppNumberError("Application de destination introuvable.");
+  if (!target.active) throw new WhatsAppNumberError("L'application de destination est désactivée : réactivez-la d'abord.");
+
+  const [inFlight, pendingConsents, endpoints, templates] = await Promise.all([
+    tx.externalTransportOperation.count({ where: { organizationId, providerAccountId: accountId, status: { in: IN_FLIGHT_OPERATIONS } } }),
+    tx.externalRecipientConsent.count({ where: { organizationId, providerAccountId: accountId, status: "PENDING" } }),
+    tx.applicationForwardEndpoint.count({ where: { organizationId, providerAccountId: accountId } }),
+    tx.applicationTemplateConfig.count({ where: { organizationId, providerAccountId: accountId } }),
+  ]);
+  if (inFlight > 0 || pendingConsents > 0) {
+    throw new WhatsAppNumberError("Des envois partent encore de ce numéro. Réessayez une fois qu'ils sont terminés.");
+  }
+  if (endpoints > 0 || templates > 0) {
+    throw new WhatsAppNumberError(
+      "Une adresse de transfert ou un modèle de message de l'application est rattaché à ce numéro. Détachez-les dans les réglages de l'application avant de le déplacer.",
+    );
+  }
+
+  await tx.providerAccount.update({
+    where: { id: account.id },
+    data: { applicationId: toApplicationId, isDefault: false },
+  });
+  await tx.externalRecipientConsent.updateMany({
+    where: { organizationId, applicationId: fromApplicationId, providerAccountId: accountId },
+    data: { applicationId: toApplicationId },
+  });
+  await tx.externalConversationWindow.updateMany({
+    where: { organizationId, applicationId: fromApplicationId, providerAccountId: accountId },
+    data: { applicationId: toApplicationId },
+  });
+
+  await settleDefaultNumber(tx, { organizationId, applicationId: fromApplicationId });
+  await settleDefaultNumber(tx, { organizationId, applicationId: toApplicationId });
+}

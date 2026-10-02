@@ -13,7 +13,7 @@ import {
   requireOrganizationManager,
   toActionError,
 } from "./guards";
-import { pointInstanceAtApplication } from "./pairing-webhook";
+import { isOrganizationPairingInstance, pointInstanceAtApplication } from "./pairing-webhook";
 import { recordPairedNumber, WhatsAppNumberError } from "@/lib/external-applications/whatsapp-numbers";
 
 const PAGE_PATH = "/dashboard/settings/external-applications";
@@ -86,9 +86,10 @@ export async function pollApplicationWhatsAppPairing(
       recordPairedNumber(tx, { organizationId: org.id, applicationId, instanceName, senderId, replaceAccountId }),
     );
 
-    // Only an instance MailPulse created for this application is retired: one
-    // linked by hand may serve something else.
-    if (previous && previous !== instanceName && isPairingInstanceOf(previous, applicationId)) {
+    // Only an instance MailPulse created is retired (possibly for another of the
+    // organization's applications, when the number was moved): one linked by
+    // hand may serve something else.
+    if (previous && previous !== instanceName && (await isOrganizationPairingInstance(org.id, previous))) {
       await baileys.logoutInstance(previous).catch(() => {});
       await baileys.deleteInstance(previous).catch(() => {});
     }

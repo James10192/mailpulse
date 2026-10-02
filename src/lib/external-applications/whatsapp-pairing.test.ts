@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { inboundWebhookUrl, isPairingInstanceOf, ownerNumberOf, pairingInstanceName } from "./whatsapp-pairing";
+import { inboundWebhookUrl, isPairingInstanceOf, ownerNumberOf, pairingApplicationOf, pairingInstanceName } from "./whatsapp-pairing";
 
 test("a pairing instance belongs to its application only", () => {
   const name = pairingInstanceName("cmapp123", Date.UTC(2026, 9, 1));
@@ -11,6 +11,13 @@ test("a pairing instance belongs to its application only", () => {
   assert.equal(isPairingInstanceOf(name, "cmapp12"), false, "a prefix of another id does not match");
   assert.equal(isPairingInstanceOf("mp-cmorg-abc", "cmapp123"), false, "the organization's own instance is never ours");
   assert.equal(isPairingInstanceOf("mpa-cmapp123-../x", "cmapp123"), false);
+});
+
+test("a moved number still tells which application it was paired for", () => {
+  assert.equal(pairingApplicationOf(pairingInstanceName("cmapp123")), "cmapp123");
+  assert.equal(pairingApplicationOf("mp-cmorg-abc"), null);
+  assert.equal(pairingApplicationOf("mpa-cmapp123-../x"), null);
+  assert.equal(pairingApplicationOf("ecole-yakro"), null, "an instance linked by hand is not ours");
 });
 
 test("the connected number is read from any Evolution version", () => {
