@@ -222,7 +222,7 @@ export function ProviderAccountSection({
       {pairing ? (
         <WhatsAppPairingDialog
           applicationId={applicationId}
-          replacing={baileysAccount !== null}
+          replaceAccountId={baileysAccount?.id ?? null}
           onClose={() => setPairing(false)}
         />
       ) : null}

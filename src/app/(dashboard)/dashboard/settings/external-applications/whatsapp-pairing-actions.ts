@@ -9,12 +9,12 @@ import { isPairingInstanceOf, ownerNumberOf, pairingInstanceName } from "@/lib/e
 import {
   ActionGuardError,
   BAILEYS_PROVIDER,
-  META_PROVIDER,
   requireApplication,
   requireOrganizationManager,
   toActionError,
 } from "./guards";
 import { pointInstanceAtApplication } from "./pairing-webhook";
+import { recordPairedNumber, WhatsAppNumberError } from "@/lib/external-applications/whatsapp-numbers";
 
 const PAGE_PATH = "/dashboard/settings/external-applications";
 
@@ -37,14 +37,7 @@ function requireOwnInstance(instanceName: string, applicationId: string) {
  */
 export async function startApplicationWhatsAppPairing(applicationId: string): Promise<{ instanceName: string } | { error: string }> {
   try {
-    const { org } = await requirePairingContext(applicationId);
-    const metaActive = await prisma.providerAccount.count({
-      where: { organizationId: org.id, applicationId, channel: "WHATSAPP", provider: META_PROVIDER, active: true },
-    });
-    if (metaActive > 0) {
-      return { error: "Cette application envoie déjà par l'API officielle de Meta. Désactivez ce compte avant de connecter un numéro par QR code." };
-    }
-
+    await requirePairingContext(applicationId);
     const instanceName = pairingInstanceName(applicationId);
     await baileys.createInstance(instanceName);
     try {
@@ -66,10 +59,15 @@ export type PairingStatus =
 
 /**
  * Polled while the QR code is on screen. Once the phone has scanned it, the
- * instance becomes the application's sending number: it replaces the previous
- * one, which is then logged out if MailPulse created it.
+ * instance becomes one of the application's numbers: added beside the others,
+ * or, with `replaceAccountId`, swapped under that number, whose old instance is
+ * then logged out if MailPulse created it.
  */
-export async function pollApplicationWhatsAppPairing(applicationId: string, instanceName: string): Promise<PairingStatus> {
+export async function pollApplicationWhatsAppPairing(
+  applicationId: string,
+  instanceName: string,
+  replaceAccountId?: string | null,
+): Promise<PairingStatus> {
   try {
     const { org } = await requirePairingContext(applicationId);
     requireOwnInstance(instanceName, applicationId);
@@ -84,36 +82,9 @@ export async function pollApplicationWhatsAppPairing(applicationId: string, inst
     }
 
     const senderId = ownerNumberOf((await baileys.fetchInstance(instanceName).catch(() => null)) ?? {});
-    const previous = await prisma.$transaction(async (tx) => {
-      const current = await tx.providerAccount.findFirst({
-        where: { organizationId: org.id, applicationId, channel: "WHATSAPP", provider: BAILEYS_PROVIDER },
-        orderBy: { updatedAt: "desc" },
-        select: { id: true, externalAccountId: true },
-      });
-      if (current) {
-        // Same account, new instance: its name and history stay, messages
-        // already sent keep the snapshot taken when they were created.
-        await tx.providerAccount.update({
-          where: { id: current.id },
-          data: { externalAccountId: instanceName, senderId, active: true, pairedAt: new Date() },
-        });
-        return current.externalAccountId;
-      }
-      await tx.providerAccount.create({
-        data: {
-          organizationId: org.id,
-          applicationId,
-          channel: "WHATSAPP",
-          provider: BAILEYS_PROVIDER,
-          externalAccountId: instanceName,
-          senderId,
-          credentialsCiphertext: null,
-          pairedAt: new Date(),
-          active: true,
-        },
-      });
-      return null;
-    });
+    const previous = await prisma.$transaction((tx) =>
+      recordPairedNumber(tx, { organizationId: org.id, applicationId, instanceName, senderId, replaceAccountId }),
+    );
 
     // Only an instance MailPulse created for this application is retired: one
     // linked by hand may serve something else.
@@ -125,6 +96,7 @@ export async function pollApplicationWhatsAppPairing(applicationId: string, inst
     revalidatePath(PAGE_PATH);
     return { state: "open", senderId };
   } catch (error) {
+    if (error instanceof WhatsAppNumberError) return { error: error.message };
     return toActionError(error);
   }
 }

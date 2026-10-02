@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { setDefaultNumber, setNumberActive, settleDefaultNumber, WhatsAppNumberError } from "@/lib/external-applications/whatsapp-numbers";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
@@ -8,7 +10,6 @@ import { API_KEY_NAME_MAX_LENGTH } from "@/lib/mailpulse/api-key-name";
 import { encryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import {
   assertInstanceNameUnambiguous,
-  assertSingleActiveWhatsAppAccount,
   BAILEYS_PROVIDER,
   ensureEncryptionConfigured,
   generateCredentialMaterial,
@@ -76,7 +77,6 @@ export async function setBaileysProviderAccount(
     }
 
     await assertInstanceNameUnambiguous(instanceName, existing?.id);
-    await assertSingleActiveWhatsAppAccount(applicationId, existing?.id);
 
     if (existing) {
       await prisma.providerAccount.update({
@@ -100,6 +100,7 @@ export async function setBaileysProviderAccount(
       });
     }
 
+    await prisma.$transaction((tx) => settleDefaultNumber(tx, { organizationId: org.id, applicationId }));
     revalidatePath(PAGE_PATH);
     return { success: true };
   } catch (error) {
@@ -107,33 +108,36 @@ export async function setBaileysProviderAccount(
   }
 }
 
-/** Frees the application so the other transport can be connected. */
+/**
+ * Stops or resumes sending from a number. Disabling the default hands the role
+ * to another active number of the application (settleDefaultNumber).
+ */
 export async function setProviderAccountActive(applicationId: string, accountId: string, active: boolean) {
   try {
     const { org } = await requireOrganizationManager();
     await requireApplication(org.id, applicationId);
-
-    if (active) await assertSingleActiveWhatsAppAccount(applicationId, accountId);
-
-    const updated = await prisma.providerAccount.updateMany({
-      where: {
-        id: accountId,
-        applicationId,
-        organizationId: org.id,
-        channel: "WHATSAPP",
-        provider: { in: WHATSAPP_PROVIDERS },
-      },
-      data: { active },
-    });
-    if (updated.count === 0) return { error: "Compte WhatsApp introuvable pour cette application." };
-
+    await prisma.$transaction((tx) => setNumberActive(tx, { organizationId: org.id, applicationId }, accountId, active));
     revalidatePath(PAGE_PATH);
     return { success: true };
   } catch (error) {
+    if (error instanceof WhatsAppNumberError) return { error: error.message };
     return toActionError(error);
   }
 }
 
+/** Makes an active number the one requests use when they name none. */
+export async function setDefaultProviderAccount(applicationId: string, accountId: string) {
+  try {
+    const { org } = await requireOrganizationManager();
+    await requireApplication(org.id, applicationId);
+    await prisma.$transaction((tx) => setDefaultNumber(tx, { organizationId: org.id, applicationId }, accountId));
+    revalidatePath(PAGE_PATH);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof WhatsAppNumberError) return { error: error.message };
+    return toActionError(error);
+  }
+}
 
 /**
  * Names the number ("ESBTP Yakro"): shown wherever messages are traced and
