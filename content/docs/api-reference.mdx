@@ -132,7 +132,11 @@ numéro par défaut, nom, désactivation, déplacement vers une autre applicatio
 et l'identifiant à passer en `sender_id`. Un numéro déplacé garde son
 identifiant : la nouvelle application l'utilise avec le même `sender_id`,
 l'ancienne ne peut plus le nommer. Ses réponses et les refus déjà reçus (STOP)
-le suivent ; l'historique de ses envois reste dans l'ancienne application. Le rattachement d'une clé à une application se fait dans
+le suivent ; l'historique de ses envois reste dans l'ancienne application.
+Si des envois de ce numéro n'ont pas abouti, la fenêtre de déplacement les
+liste et propose de les arrêter : une commande jamais partie est refusée avec
+`sender_moved` (l'application reçoit `message.failed`), une demande d'accord
+sans réponse expire, un envoi à l'issue inconnue est clos sans être renvoyé. Le rattachement d'une clé à une application se fait dans
 Plateforme, onglet Clés API et intégrations. Seuls les propriétaires et
 administrateurs de l'organisation peuvent changer une clé, un expéditeur ou un
 numéro.

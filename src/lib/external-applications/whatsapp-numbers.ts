@@ -7,6 +7,8 @@
 
 import type { Prisma } from "@/generated/prisma";
 
+import { abandonPendingConsent } from "@/lib/external-applications/consent-settlement";
+
 export const BAILEYS_WHATSAPP = "BAILEYS_WHATSAPP";
 
 type Tx = Prisma.TransactionClient;
@@ -149,8 +151,112 @@ export async function setNumberActive(tx: Tx, scope: Scope, accountId: string, a
   await settleDefaultNumber(tx, scope);
 }
 
-/** Operations that are still being sent: a number cannot change hands under them. */
-const IN_FLIGHT_OPERATIONS = ["PENDING", "PROCESSING", "SUBMISSION_UNKNOWN", "HELD"];
+/**
+ * Outbound commands of a number that have not reached an outcome yet. QUEUED is
+ * a command released by a consent and waiting for the number's pace;
+ * CONSENT_PENDING one held until the recipient answers.
+ */
+const OPEN_OUTBOUND = ["PENDING", "PROCESSING", "SUBMISSION_UNKNOWN", "QUEUED", "CONSENT_PENDING"];
+export const SENDER_MOVED_CODE = "sender_moved";
+
+export type OpenSend = {
+  id: string;
+  kind: "operation" | "consent";
+  status: string;
+  operationKey: string | null;
+  createdAt: Date;
+  /** False while a worker holds it: it may be leaving right now. */
+  stoppable: boolean;
+};
+
+/** What still runs on a number, oldest first. */
+export async function openSendsOf(db: Tx, organizationId: string, accountId: string, now = new Date()): Promise<OpenSend[]> {
+  const [operations, consents] = await Promise.all([
+    db.externalTransportOperation.findMany({
+      where: { organizationId, providerAccountId: accountId, direction: "OUTBOUND", status: { in: OPEN_OUTBOUND } },
+      orderBy: { createdAt: "asc" },
+      take: 200,
+      select: { id: true, status: true, operationKey: true, createdAt: true, leaseExpiresAt: true },
+    }),
+    db.externalRecipientConsent.findMany({
+      where: { organizationId, providerAccountId: accountId, status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      take: 200,
+      select: { id: true, createdAt: true },
+    }),
+  ]);
+  return [
+    ...operations.map((operation) => ({
+      id: operation.id,
+      kind: "operation" as const,
+      status: operation.status,
+      operationKey: operation.operationKey,
+      createdAt: operation.createdAt,
+      stoppable: !(operation.leaseExpiresAt && operation.leaseExpiresAt > now),
+    })),
+    ...consents.map((consent) => ({
+      id: consent.id,
+      kind: "consent" as const,
+      status: "PENDING",
+      operationKey: null,
+      createdAt: consent.createdAt,
+      stoppable: true,
+    })),
+  ].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+}
+
+/** The number still has sends without an outcome; the caller may offer to stop them. */
+export class NumberBusyError extends WhatsAppNumberError {
+  readonly sends: OpenSend[];
+  constructor(sends: OpenSend[]) {
+    super("Des envois de ce numéro n'ont pas encore abouti.");
+    this.sends = sends;
+  }
+}
+
+/**
+ * Closes what still runs on a number before it changes hands, the way each
+ * kind is closed elsewhere: an unanswered consent request expires and the
+ * content held behind it is rejected; a command whose outcome is unknown is
+ * reconciled without further action, as an operator would in SMS › À vérifier;
+ * a command that never left is rejected with `sender_moved`. Returns the
+ * rejected commands, whose client is told after commit.
+ */
+async function stopOpenSends(tx: Tx, organizationId: string, sends: OpenSend[], actorId: string, now: Date) {
+  const rejected: string[] = [];
+  for (const send of sends.filter((item) => item.kind === "consent")) {
+    rejected.push(...((await abandonPendingConsent(tx, send.id, SENDER_MOVED_CODE, now)) ?? []));
+  }
+  const operations = sends.filter((item) => item.kind === "operation");
+  const unknown = operations.filter((item) => item.status === "SUBMISSION_UNKNOWN").map((item) => item.id);
+  const neverLeft = operations.filter((item) => item.status !== "SUBMISSION_UNKNOWN").map((item) => item.id);
+
+  if (unknown.length > 0) {
+    await tx.externalTransportOperation.updateMany({
+      where: { organizationId, id: { in: unknown }, status: "SUBMISSION_UNKNOWN" },
+      data: {
+        status: "RECONCILED",
+        reconciliationDecision: "NO_FURTHER_ACTION",
+        reconciledAt: now,
+        reconciledById: actorId,
+        leaseToken: null,
+        leaseExpiresAt: null,
+      },
+    });
+  }
+  if (neverLeft.length > 0) {
+    await tx.externalConsentHeldContent.updateMany({
+      where: { operationId: { in: neverLeft }, status: "HELD" },
+      data: { status: "CANCELLED", settledAt: now },
+    });
+    const closed = await tx.externalTransportOperation.updateMany({
+      where: { organizationId, id: { in: neverLeft }, status: { in: OPEN_OUTBOUND.filter((status) => status !== "SUBMISSION_UNKNOWN") } },
+      data: { status: "REJECTED", rejectionCode: SENDER_MOVED_CODE, failedAt: now, leaseToken: null, leaseExpiresAt: null },
+    });
+    if (closed.count > 0) rejected.push(...neverLeft);
+  }
+  return rejected;
+}
 
 /**
  * Hands a number from one application to another of the same organization.
@@ -160,11 +266,19 @@ const IN_FLIGHT_OPERATIONS = ["PENDING", "PROCESSING", "SUBMISSION_UNKNOWN", "HE
  * speaks through it) and the open conversation windows. What stays behind: the
  * history (operations, messages) of the application that sent them.
  *
- * Refused while a send is in flight, or while a forwarding endpoint or a
- * template is pinned to the number: those belong to the source application.
+ * Sends without an outcome block the move (NumberBusyError) unless
+ * `stopOpenSends` names the person stopping them; one a worker holds right now
+ * always blocks. A forwarding endpoint or a template pinned to the number
+ * belongs to the source application and blocks too.
  */
-export async function moveNumber(tx: Tx, scope: Scope & { toApplicationId: string }, accountId: string) {
+export async function moveNumber(
+  tx: Tx,
+  scope: Scope & { toApplicationId: string },
+  accountId: string,
+  options: { stopOpenSendsBy?: string; now?: Date } = {},
+): Promise<{ stopped: number; rejectedOperationIds: string[] }> {
   const { organizationId, applicationId: fromApplicationId, toApplicationId } = scope;
+  const now = options.now ?? new Date();
   if (fromApplicationId === toApplicationId) throw new WhatsAppNumberError("Ce numéro appartient déjà à cette application.");
 
   // Always lock in the same order, so two opposite moves cannot deadlock.
@@ -178,19 +292,24 @@ export async function moveNumber(tx: Tx, scope: Scope & { toApplicationId: strin
   if (!target) throw new WhatsAppNumberError("Application de destination introuvable.");
   if (!target.active) throw new WhatsAppNumberError("L'application de destination est désactivée : réactivez-la d'abord.");
 
-  const [inFlight, pendingConsents, endpoints, templates] = await Promise.all([
-    tx.externalTransportOperation.count({ where: { organizationId, providerAccountId: accountId, status: { in: IN_FLIGHT_OPERATIONS } } }),
-    tx.externalRecipientConsent.count({ where: { organizationId, providerAccountId: accountId, status: "PENDING" } }),
+  const [endpoints, templates] = await Promise.all([
     tx.applicationForwardEndpoint.count({ where: { organizationId, providerAccountId: accountId } }),
     tx.applicationTemplateConfig.count({ where: { organizationId, providerAccountId: accountId } }),
   ]);
-  if (inFlight > 0 || pendingConsents > 0) {
-    throw new WhatsAppNumberError("Des envois partent encore de ce numéro. Réessayez une fois qu'ils sont terminés.");
-  }
   if (endpoints > 0 || templates > 0) {
     throw new WhatsAppNumberError(
       "Une adresse de transfert ou un modèle de message de l'application est rattaché à ce numéro. Détachez-les dans les réglages de l'application avant de le déplacer.",
     );
+  }
+
+  const open = await openSendsOf(tx, organizationId, accountId, now);
+  let rejectedOperationIds: string[] = [];
+  if (open.length > 0) {
+    if (!options.stopOpenSendsBy) throw new NumberBusyError(open);
+    if (open.some((send) => !send.stoppable)) {
+      throw new WhatsAppNumberError("Un envoi part de ce numéro en ce moment même. Réessayez dans une minute.");
+    }
+    rejectedOperationIds = await stopOpenSends(tx, organizationId, open, options.stopOpenSendsBy, now);
   }
 
   await tx.providerAccount.update({
@@ -208,4 +327,5 @@ export async function moveNumber(tx: Tx, scope: Scope & { toApplicationId: strin
 
   await settleDefaultNumber(tx, { organizationId, applicationId: fromApplicationId });
   await settleDefaultNumber(tx, { organizationId, applicationId: toApplicationId });
+  return { stopped: open.length, rejectedOperationIds };
 }

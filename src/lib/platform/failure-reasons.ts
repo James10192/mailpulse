@@ -24,6 +24,7 @@ const REASONS: Record<string, Omit<FailureReason, "code">> = {
   consent_expired: { family: "consent", label: "Demande d'accord expirée", remediation: "Relancez la demande d'accord si le message reste utile." },
   consent_request_failed: { family: "consent", label: "Demande d'accord non envoyée", remediation: "Vérifiez le numéro d'envoi de l'application." },
   sender_unavailable: { family: "sender", label: "Numéro d'envoi indisponible", remediation: "Réactivez le numéro de l'application dans Applications externes, ou n'en laissez qu'un actif." },
+  sender_moved: { family: "sender", label: "Numéro déplacé avant l'envoi", remediation: "Le numéro a changé d'application avant le départ : renvoyez le message s'il reste utile." },
   channel_not_configured: { family: "configuration", label: "Canal non configuré", remediation: "Connectez WhatsApp à l'organisation, ou rattachez la clé à une application qui a un numéro." },
   sms_not_authorized: { family: "configuration", label: "SMS non autorisé", remediation: "Le SMS n'est pas ouvert pour cette organisation : contactez le support." },
   template_not_approved: { family: "template", label: "Modèle non approuvé", remediation: "Faites approuver le modèle par Meta avant de l'envoyer." },

@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   moveProviderAccount,
+  type OpenSendView,
   renameProviderAccount,
   setDefaultProviderAccount,
   setProviderAccountActive,
@@ -292,16 +293,14 @@ export function NumbersClient({
 
       {moving ? (
         <MoveDialog
+          sourceApplicationId={moving.applicationId}
           number={moving.number}
           targets={applications.filter((candidate) => candidate.id !== moving.applicationId)}
           onClose={() => setMoving(null)}
-          onMove={(targetId, targetName) => {
-            const source = moving;
+          onMoved={(message) => {
             setMoving(null);
-            run(
-              () => moveProviderAccount(source.applicationId, source.number.id, targetId),
-              `Numéro déplacé vers ${targetName}`,
-            );
+            toast.success(message);
+            router.refresh();
           }}
         />
       ) : null}
@@ -309,26 +308,76 @@ export function NumbersClient({
   );
 }
 
+const OPEN_SEND_LABEL: Record<string, string> = {
+  PENDING: "pas encore parti",
+  QUEUED: "en file d'attente",
+  CONSENT_PENDING: "attend l'accord du destinataire",
+  PROCESSING: "bloqué en cours d'envoi",
+  SUBMISSION_UNKNOWN: "issue inconnue",
+};
+
+/** Same kind, same state: one line with a count and the oldest date. */
+function groupOpenSends(sends: OpenSendView[]) {
+  const groups = new Map<string, { label: string; detail: string | null; count: number; oldest: string }>();
+  for (const send of sends) {
+    const label = send.kind === "consent" ? "Demande d'accord sans réponse" : `Envoi ${OPEN_SEND_LABEL[send.status] ?? send.status.toLowerCase()}`;
+    const key = `${label}|${send.operationKey ?? ""}`;
+    const group = groups.get(key);
+    if (group) {
+      group.count += 1;
+      if (send.createdAt < group.oldest) group.oldest = send.createdAt;
+    } else {
+      groups.set(key, { label, detail: send.operationKey, count: 1, oldest: send.createdAt });
+    }
+  }
+  return [...groups.values()];
+}
+
 function MoveDialog({
+  sourceApplicationId,
   number,
   targets,
   onClose,
-  onMove,
+  onMoved,
 }: {
+  sourceApplicationId: string;
   number: NumberView;
   targets: ApplicationNumbers[];
   onClose: () => void;
-  onMove: (applicationId: string, name: string) => void;
+  onMoved: (message: string) => void;
 }) {
   const [targetId, setTargetId] = useState<string | null>(null);
+  const [busy, setBusy] = useState<OpenSendView[] | null>(null);
+  const [pending, startTransition] = useTransition();
   const target = targets.find((candidate) => candidate.id === targetId) ?? null;
+
+  function submit(stopOpenSends: boolean) {
+    if (!target) return;
+    startTransition(async () => {
+      const result = await moveProviderAccount(sourceApplicationId, number.id, target.id, stopOpenSends);
+      if ("busy" in result) {
+        setBusy(result.busy);
+        return;
+      }
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      onMoved(
+        result.stopped > 0
+          ? `Numéro déplacé vers ${target.name}, ${result.stopped} envoi${result.stopped > 1 ? "s" : ""} arrêté${result.stopped > 1 ? "s" : ""}`
+          : `Numéro déplacé vers ${target.name}`,
+      );
+    });
+  }
+
   return (
-    <Dialog open onOpenChange={(next) => !next && onClose()}>
+    <Dialog open onOpenChange={(next) => !next && !pending && onClose()}>
       <DialogContent className="sm:max-w-md">
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (target) onMove(target.id, target.name);
+            submit(busy !== null);
           }}
         >
           <DialogHeader>
@@ -338,7 +387,7 @@ function MoveDialog({
               (STOP) le suivent ; l&apos;historique des envois reste dans l&apos;application actuelle.
             </DialogDescription>
           </DialogHeader>
-          <fieldset className="my-4 space-y-2">
+          <fieldset className="my-4 space-y-2" disabled={pending}>
             <legend className="mb-2 text-sm font-medium text-zinc-950 dark:text-zinc-50">Application de destination</legend>
             {targets.map((candidate) => (
               <label
@@ -363,13 +412,11 @@ function MoveDialog({
                     <span className="block font-mono text-xs text-zinc-500">{candidate.key}</span>
                   </span>
                 </span>
-                <span className="shrink-0 text-xs text-zinc-500">
-                  {activeCountLabel(candidate.numbers)}
-                </span>
+                <span className="shrink-0 text-xs text-zinc-500">{activeCountLabel(candidate.numbers)}</span>
               </label>
             ))}
           </fieldset>
-          {target ? (
+          {target && !busy ? (
             <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
               {!number.active
                 ? "Le numéro reste désactivé après le déplacement."
@@ -379,12 +426,35 @@ function MoveDialog({
               {number.speaking ? " L'application actuelle passe sur un autre de ses numéros, s'il en reste." : ""}
             </p>
           ) : null}
+          {busy ? (
+            <div className="mb-4 space-y-3 rounded-lg border border-orange-500/40 bg-orange-500/5 p-3 text-sm">
+              <p className="font-medium text-zinc-950 dark:text-zinc-50">
+                {busy.length} envoi{busy.length > 1 ? "s" : ""} de ce numéro n&apos;{busy.length > 1 ? "ont" : "a"} pas abouti
+              </p>
+              <ul className="space-y-1.5">
+                {groupOpenSends(busy).map((group) => (
+                  <li key={`${group.label}|${group.detail}`} className="flex flex-wrap items-baseline justify-between gap-x-3 text-zinc-600 dark:text-zinc-300">
+                    <span>
+                      {group.count > 1 ? `${group.count} × ` : ""}
+                      {group.label}
+                      {group.detail ? <span className="ml-1 font-mono text-xs text-zinc-500">{group.detail}</span> : null}
+                    </span>
+                    <span className="text-xs text-zinc-500">depuis le {dateFormat.format(new Date(group.oldest))}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Les arrêter : ce qui n&apos;est pas parti est annulé et l&apos;application en est prévenue ; un envoi à
+                l&apos;issue inconnue est clos sans être renvoyé.
+              </p>
+            </div>
+          ) : null}
           <DialogFooter>
-            <Button type="button" variant="outline" className="h-11" onClick={onClose}>
+            <Button type="button" variant="outline" className="h-11" onClick={onClose} disabled={pending}>
               Annuler
             </Button>
-            <Button type="submit" className="h-11" disabled={!target}>
-              Déplacer
+            <Button type="submit" className="h-11" disabled={!target || pending}>
+              {pending ? "Déplacement…" : busy ? "Arrêter ces envois et déplacer" : "Déplacer"}
             </Button>
           </DialogFooter>
         </form>

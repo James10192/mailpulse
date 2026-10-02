@@ -2,7 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 
-import { moveNumber, setDefaultNumber, setNumberActive, settleDefaultNumber, WhatsAppNumberError } from "@/lib/external-applications/whatsapp-numbers";
+import {
+  moveNumber,
+  NumberBusyError,
+  SENDER_MOVED_CODE,
+  setDefaultNumber,
+  setNumberActive,
+  settleDefaultNumber,
+  WhatsAppNumberError,
+} from "@/lib/external-applications/whatsapp-numbers";
+import { recordEventsAfterCommit, recordOperationEvents } from "@/lib/external-applications/events";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
@@ -150,16 +159,26 @@ export async function setDefaultProviderAccount(applicationId: string, accountId
   }
 }
 
+export type OpenSendView = { id: string; kind: "operation" | "consent"; status: string; operationKey: string | null; createdAt: string };
+
 /**
  * Hands a number to another application of the organization. Its replies and
  * delivery receipts follow it: a Baileys instance is re-pointed at the new
  * application's webhook inside the move, so a failed re-point moves nothing
  * and replies never reach an application that no longer holds the number.
+ *
+ * Sends still without an outcome are returned (`busy`) for the person to see;
+ * calling again with `stopOpenSends` closes them and moves in one step.
  */
-export async function moveProviderAccount(applicationId: string, accountId: string, targetApplicationId: string) {
+export async function moveProviderAccount(
+  applicationId: string,
+  accountId: string,
+  targetApplicationId: string,
+  stopOpenSends = false,
+): Promise<{ success: true; stopped: number } | { busy: OpenSendView[] } | { error: string }> {
   let repointed: string | null = null;
   try {
-    const { org } = await requireOrganizationManager();
+    const { user, org } = await requireOrganizationManager();
     await requireApplication(org.id, applicationId);
     await requireApplication(org.id, targetApplicationId);
 
@@ -169,10 +188,27 @@ export async function moveProviderAccount(applicationId: string, accountId: stri
     });
     if (!account) return { error: "Compte WhatsApp introuvable pour cette application." };
 
+    let outcome: Awaited<ReturnType<typeof moveNumber>>;
     try {
-      await prisma.$transaction(
+      outcome = await prisma.$transaction(
         async (tx) => {
-          await moveNumber(tx, { organizationId: org.id, applicationId, toApplicationId: targetApplicationId }, accountId);
+          const moved = await moveNumber(
+            tx,
+            { organizationId: org.id, applicationId, toApplicationId: targetApplicationId },
+            accountId,
+            { stopOpenSendsBy: stopOpenSends ? user.id : undefined },
+          );
+          await tx.auditLog.create({
+            data: {
+              actorType: "user",
+              actorId: user.id,
+              action: "WHATSAPP_NUMBER_MOVED",
+              resourceType: "provider_account",
+              resourceId: accountId,
+              metadata: { fromApplicationId: applicationId, toApplicationId: targetApplicationId, stoppedSends: moved.stopped },
+              organizationId: org.id,
+            },
+          });
           if (account.provider === BAILEYS_PROVIDER) {
             await pointInstanceAtApplication(account.externalAccountId, targetApplicationId).catch((error: unknown) => {
               if (error instanceof ActionGuardError) throw error;
@@ -184,6 +220,7 @@ export async function moveProviderAccount(applicationId: string, accountId: stri
             });
             repointed = account.externalAccountId;
           }
+          return moved;
         },
         { timeout: 20_000 },
       );
@@ -193,11 +230,33 @@ export async function moveProviderAccount(applicationId: string, accountId: stri
       throw error;
     }
 
+    // The source application's client learns that the commands it sent will not leave.
+    if (outcome.rejectedOperationIds.length > 0) {
+      await recordEventsAfterCommit("message.failed", () => recordOperationEvents(
+        prisma,
+        { organizationId: org.id, applicationId, providerAccountId: accountId },
+        "message.failed",
+        outcome.rejectedOperationIds,
+        { occurredAt: new Date(), failureCode: SENDER_MOVED_CODE },
+      ));
+    }
+
     revalidatePath(PAGE_PATH);
     revalidatePath(NUMBERS_PATH);
     revalidatePath(MESSAGING_PATH);
-    return { success: true };
+    return { success: true, stopped: outcome.stopped };
   } catch (error) {
+    if (error instanceof NumberBusyError) {
+      return {
+        busy: error.sends.map((send) => ({
+          id: send.id,
+          kind: send.kind,
+          status: send.status,
+          operationKey: send.operationKey,
+          createdAt: send.createdAt.toISOString(),
+        })),
+      };
+    }
     if (error instanceof WhatsAppNumberError) return { error: error.message };
     return toActionError(error);
   }
