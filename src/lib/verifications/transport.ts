@@ -1,5 +1,13 @@
 import { directProvider } from "@/lib/mailpulse/direct-provider";
-import { accountMode, providerConfigForAccount, resolveWhatsAppSender } from "@/lib/messaging/whatsapp-sender";
+import {
+  accountMode,
+  APPLICATION_WHATSAPP_ACCOUNTS,
+  BAILEYS_WHATSAPP_PROVIDER,
+  providerConfigForAccount,
+  resolveWhatsAppSender,
+  type WhatsAppSenderAccount,
+} from "@/lib/messaging/whatsapp-sender";
+import { prisma } from "@/lib/prisma";
 import { baileys, sendWhatsApp, sendWhatsAppWith, type WhatsAppMode } from "@/lib/whatsapp";
 
 export type OrganizationWhatsApp = {
@@ -60,30 +68,59 @@ export function whatsAppVerificationTransport(org: OrganizationWhatsApp): Verifi
 }
 
 /**
- * The transport for a key: its application's number when the application has
- * one, the organization's otherwise. Null when no code can leave: a disabled or
- * ambiguous application number is refused, never replaced by the
- * organization's, and only a WhatsApp Web (Baileys) number can carry a code.
+ * The transport for a key: the number it names, else its application's
+ * default, else the organization's when the application has no number. Only a
+ * WhatsApp Web (Baileys) number can carry a code, so with no number named, an
+ * application whose default cannot (Meta) uses another of its own active
+ * numbers that can. Never another application's, never the organization's in
+ * place of the application's.
  */
 export async function verificationTransportFor(
   organizationId: string,
   applicationId: string | null,
   org: OrganizationWhatsApp,
+  requestedId?: string | null,
 ): Promise<VerificationTransport | null> {
-  const sender = await resolveWhatsAppSender(organizationId, applicationId);
+  const sender = await resolveWhatsAppSender(organizationId, applicationId, requestedId);
   if (sender.kind === "organization") return canSendVerificationCodes(org) ? whatsAppVerificationTransport(org) : null;
   if (sender.kind === "unavailable") return null;
 
-  const config = providerConfigForAccount(sender.account);
+  const carrier = transportForAccount(sender.account)
+    ?? (requestedId || !applicationId ? null : await otherCodeCarrier(organizationId, applicationId, sender.account.id));
+  return carrier;
+}
+
+function transportForAccount(account: WhatsAppSenderAccount): VerificationTransport | null {
+  const config = providerConfigForAccount(account);
   if (!config || config.mode !== "BAILEYS" || !baileys.isConfigured()) return null;
   return {
-    provider: directProvider("WHATSAPP", accountMode(sender.account)),
-    senderAccountId: sender.account.id,
-    senderPairedAt: sender.account.pairedAt ?? null,
-    senderNumber: sender.account.senderId?.replace(/\D/g, "") || null,
+    provider: directProvider("WHATSAPP", accountMode(account)),
+    senderAccountId: account.id,
+    senderPairedAt: account.pairedAt ?? null,
+    senderNumber: account.senderId?.replace(/\D/g, "") || null,
     async send(to, text) {
       const result = await sendWhatsAppWith(config, to, text, { fallbacks: false, priority: "interactive" });
       return { messageId: result.messageId ?? null };
     },
   };
+}
+
+async function otherCodeCarrier(organizationId: string, applicationId: string, excludeId: string) {
+  const accounts = await prisma.providerAccount.findMany({
+    where: {
+      organizationId,
+      applicationId,
+      ...APPLICATION_WHATSAPP_ACCOUNTS.where,
+      active: true,
+      provider: BAILEYS_WHATSAPP_PROVIDER,
+      NOT: { id: excludeId },
+    },
+    orderBy: { createdAt: "asc" },
+    select: APPLICATION_WHATSAPP_ACCOUNTS.select,
+  });
+  for (const account of accounts) {
+    const transport = transportForAccount(account);
+    if (transport) return transport;
+  }
+  return null;
 }

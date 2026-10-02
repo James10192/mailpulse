@@ -22,6 +22,9 @@ export const startVerificationSchema = z.object({
   // "send": MailPulse sends the code. "reverse": the person sends it to the
   // number from the returned wa.me link.
   mode: z.enum(["send", "reverse"]).optional(),
+  // One of the application's numbers. Absent, the default, or else another of
+  // the application's numbers able to carry a code.
+  sender_id: z.string().trim().min(1).max(64).optional(),
 });
 
 export const checkVerificationSchema = z.object({

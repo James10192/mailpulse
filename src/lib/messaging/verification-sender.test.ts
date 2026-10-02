@@ -82,3 +82,29 @@ test("an organization without an open WhatsApp Web session refuses codes", async
   installAccounts([]);
   assert.equal(await verificationTransportFor("org-a", null, { ...ORG, evoInstanceStatus: "close" }), null);
 });
+
+const META_DEFAULT: Account & { isDefault: boolean } = {
+  ...YAKRO,
+  id: "pa-meta",
+  provider: "META_WHATSAPP",
+  senderId: "1098765432",
+  isDefault: true,
+};
+
+test("with a Meta default, a code leaves from another of the school's own numbers", async () => {
+  installAccounts([META_DEFAULT, YAKRO]);
+  const transport = await verificationTransportFor("org-a", "app-yakro", ORG);
+  assert.equal(transport?.senderAccountId, "pa-yakro");
+});
+
+test("a named number is used as is, never swapped for another", async () => {
+  installAccounts([META_DEFAULT, YAKRO]);
+  assert.equal((await verificationTransportFor("org-a", "app-yakro", ORG, "pa-yakro"))?.senderAccountId, "pa-yakro");
+  assert.equal(await verificationTransportFor("org-a", "app-yakro", ORG, "pa-meta"), null);
+  assert.equal(await verificationTransportFor("org-a", "app-yakro", ORG, "pa-other-school"), null);
+});
+
+test("a key without an application cannot name a number", async () => {
+  installAccounts([YAKRO]);
+  assert.equal(await verificationTransportFor("org-a", null, ORG, "pa-yakro"), null);
+});

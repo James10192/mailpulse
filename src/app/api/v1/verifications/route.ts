@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
   const secret = verificationSecretOrResponse();
   if (secret instanceof Response) return secret;
-  const transport = await verificationTransportFor(auth.organizationId, auth.applicationId, auth.organization);
+  const transport = await verificationTransportFor(auth.organizationId, auth.applicationId, auth.organization, parsed.data.sender_id);
   if (!transport) return errorResponse("whatsapp_indisponible", 409);
 
   if (parsed.data.mode === "reverse") {

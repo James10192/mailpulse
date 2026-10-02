@@ -112,7 +112,12 @@ export const createMessageSchema = z.object({
   content: messageContentSchema,
   metadata: metadataSchema,
   idempotency_key: z.string().min(1).optional(),
+  // WhatsApp only: one of the application's numbers. Absent, its default speaks.
+  sender_id: z.string().trim().min(1).max(64).optional(),
 }).superRefine((value, ctx) => {
+  if (value.sender_id && value.channel !== "whatsapp") {
+    ctx.addIssue({ code: "custom", path: ["sender_id"], message: "sender_id ne s'applique qu'au canal whatsapp." });
+  }
   const expectedRecipient = value.channel === "email" ? "email" : "phone";
   if (value.recipient.type !== expectedRecipient) {
     ctx.addIssue({
