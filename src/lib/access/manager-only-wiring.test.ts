@@ -28,6 +28,17 @@ const GUARDED: Record<string, string[]> = {
     "switchWhatsAppMode",
     "disconnectWhatsApp",
   ],
+  "src/app/(dashboard)/dashboard/settings/external-applications/baileys-actions.ts": [
+    "setBaileysProviderAccount",
+    "setProviderAccountActive",
+    "setDefaultProviderAccount",
+    "renameProviderAccount",
+  ],
+  "src/app/(dashboard)/dashboard/settings/external-applications/whatsapp-pairing-actions.ts": [
+    "startApplicationWhatsAppPairing",
+    "pollApplicationWhatsAppPairing",
+    "cancelApplicationWhatsAppPairing",
+  ],
 };
 
 test("the webhook actions' helper refuses non-managers", () => {
@@ -46,9 +57,15 @@ for (const [file, actions] of Object.entries(GUARDED)) {
       const next = source.indexOf("\nexport async function ", start + 1);
       const body = source.slice(start, next === -1 ? undefined : next);
       // Either the guard itself, or this file's helper that applies it first.
-      const guard = Math.max(body.indexOf("managerOnlyRefusal(context)"), body.indexOf("managedOrganization()"));
+      const guard = Math.max(
+        body.indexOf("managerOnlyRefusal(context)"),
+        body.indexOf("managedOrganization()"),
+        body.indexOf("requireOrganizationManager()"),
+        // Pairing's helper, which calls requireOrganizationManager first.
+        body.indexOf("requirePairingContext("),
+      );
       // Direct writes, transaction writes, and the helpers that write for an action.
-      const write = body.search(/(prisma|tx)\.\w+\.(create|update|updateMany|delete|deleteMany|upsert)\(|prisma\.\$transaction\(|createFreshBaileysInstance|baileys\.\w+\(|renameIntegrationApiKey\(|rotateWebhookSecret\(|resendWebhookDelivery\(/);
+      const write = body.search(/(prisma|tx)\.\w+\.(create|update|updateMany|delete|deleteMany|upsert)\(|prisma\.\$transaction\(|createFreshBaileysInstance|baileys\.\w+\(|renameIntegrationApiKey\(|rotateWebhookSecret\(|resendWebhookDelivery\(|setNumberActive|setDefaultNumber|recordPairedNumber/);
       assert.ok(guard > 0, `${action} has no manager guard`);
       assert.ok(write > 0, `${action}: no write found, the check would prove nothing`);
       assert.ok(write === -1 || guard < write, `${action} writes before checking the role`);

@@ -130,6 +130,20 @@ export async function resolveWhatsAppSender(
 }
 
 /**
+ * Whether `sender_id` names one of the application's WhatsApp numbers, active
+ * or not. Unknown, another application's, or a key with no application: the
+ * request is refused up front (422) rather than recorded as a failed send, so
+ * a typo is never mistaken for an outage.
+ */
+export async function isApplicationNumber(organizationId: string, applicationId: string | null, accountId: string) {
+  if (!applicationId) return false;
+  const found = await prisma.providerAccount.count({
+    where: { organizationId, applicationId, id: accountId, ...APPLICATION_WHATSAPP_ACCOUNTS.where },
+  });
+  return found > 0;
+}
+
+/**
  * A NON or STOP sent to an application's number binds every message from that
  * number, whichever rail asks: the signed commands refuse it, so must the API.
  * Scoped like the commands' consent: application, number, recipient.

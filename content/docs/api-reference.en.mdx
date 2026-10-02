@@ -86,10 +86,10 @@ lists the numbers the key may name:
 ```
 
 The message becomes `failed` with `error_code` `sender_unavailable` if the
-named number is not an active number of the key's application, or if, with no
-number named, none can speak (default disabled while several numbers are
-active). MailPulse never sends from another application's number. `sender_id`
-on another channel answers `400`. A recipient who answered NO or STOP to one of
+named number is disabled, or if, with no
+number named, all of the application's numbers are disabled. MailPulse never sends from another application's number. A `sender_id`
+that is unknown, another application's, or given by a key with no
+application answers `422` `sender_id_inconnu`; on another channel, `400`. A recipient who answered NO or STOP to one of
 the application's numbers receives nothing more from that number, whether the
 message comes from the API or a signed command: `error_code` `consent_refused`.
 

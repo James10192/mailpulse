@@ -110,10 +110,11 @@ liste les numéros que la clé peut nommer :
 ```
 
 Le message passe en `failed` avec `error_code` `sender_unavailable` si le numéro
-nommé n'est pas un numéro actif de l'application de la clé, ou si, sans numéro
-nommé, aucun ne peut partir (défaut désactivé avec plusieurs numéros actifs).
-MailPulse n'envoie jamais depuis le numéro d'une autre application. `sender_id`
-sur un autre canal répond `400`. Un destinataire qui a répondu NON ou STOP à un
+nommé est désactivé, ou si, sans numéro
+nommé, tous les numéros de l'application sont désactivés.
+MailPulse n'envoie jamais depuis le numéro d'une autre application. Un
+`sender_id` inconnu, d'une autre application, ou donné par une clé sans
+application répond `422` `sender_id_inconnu` ; sur un autre canal, `400`. Un destinataire qui a répondu NON ou STOP à un
 numéro de l'application ne reçoit plus rien de ce numéro, que le message vienne
 de l'API ou d'une commande signée : `error_code` `consent_refused`.
 

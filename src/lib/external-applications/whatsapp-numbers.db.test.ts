@@ -106,3 +106,28 @@ test("the database refuses two defaults for one application", { skip: !hasDataba
     prisma.providerAccount.updateMany({ where: { organizationId, applicationId }, data: { isDefault: true } }),
   );
 });
+
+test("polling the same scan twice records it once", { skip: !hasDatabase }, async () => {
+  const before = await prisma.providerAccount.count({ where: { organizationId, applicationId } });
+  await prisma.$transaction((tx) => recordPairedNumber(tx, { ...scope(), instanceName: `mp-twice-${run}`, senderId: null }));
+  await prisma.$transaction((tx) => recordPairedNumber(tx, { ...scope(), instanceName: `mp-twice-${run}`, senderId: null }));
+  assert.equal(await prisma.providerAccount.count({ where: { organizationId, applicationId } }), before + 1);
+});
+
+test("replacing with a phone already held by another number is refused", { skip: !hasDatabase }, async () => {
+  const a = await accountOf(`mp-a2-${run}`);
+  await assert.rejects(
+    prisma.$transaction((tx) => recordPairedNumber(tx, { ...scope(), instanceName: `mp-dup-${run}`, senderId: "2250700000003", replaceAccountId: a.id })),
+    WhatsAppNumberError,
+  );
+});
+
+test("two first pairings at once leave exactly one default", { skip: !hasDatabase }, async () => {
+  const fresh = (await prisma.externalApplication.create({ data: { organizationId, key: `race-${run}`, name: "Race" } })).id;
+  const target = { organizationId, applicationId: fresh };
+  await Promise.all([
+    prisma.$transaction((tx) => recordPairedNumber(tx, { ...target, instanceName: `mp-r1-${run}`, senderId: "2250700000101" })),
+    prisma.$transaction((tx) => recordPairedNumber(tx, { ...target, instanceName: `mp-r2-${run}`, senderId: "2250700000102" })),
+  ]);
+  assert.equal(await prisma.providerAccount.count({ where: { organizationId, applicationId: fresh, isDefault: true } }), 1);
+});

@@ -79,8 +79,8 @@ export default async function ExternalApplicationsPage() {
       active: account.active,
       updatedAt: account.updatedAt.toISOString(),
     }));
-    // A second active account is refused on write, so the first one is the
-    // transport actually in use.
+    // Several numbers may be active; this section shows the first one, the
+    // full list and the default live in Messagerie › Numéros.
     const activeAccount = providerAccounts.find((account) => account.active) ?? null;
 
     return {

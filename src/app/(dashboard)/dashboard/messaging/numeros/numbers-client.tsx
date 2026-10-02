@@ -47,7 +47,8 @@ export type ApplicationNumbers = {
 
 type ActionResult = { success?: boolean; error?: string } | { error: string };
 
-const dateFormat = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long" });
+// UTC on both sides: the server renders in UTC, a reader in Benin (UTC+1) must see the same day.
+const dateFormat = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" });
 
 export function NumbersClient({
   applications,

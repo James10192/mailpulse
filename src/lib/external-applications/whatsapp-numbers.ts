@@ -14,6 +14,15 @@ type Scope = { organizationId: string; applicationId: string };
 
 export class WhatsAppNumberError extends Error {}
 
+/**
+ * Serializes the writes of one application's numbers: two pairings or a
+ * default change racing a deactivation would otherwise both see "no default"
+ * and trip the one-default unique index. Held until the transaction ends.
+ */
+export async function lockApplicationNumbers(tx: Tx, applicationId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`whatsapp-numbers:${applicationId}`}))`;
+}
+
 function whatsappOf(scope: Scope) {
   return { organizationId: scope.organizationId, applicationId: scope.applicationId, channel: "WHATSAPP" as const };
 }
@@ -24,6 +33,7 @@ function whatsappOf(scope: Scope) {
  * second number is added beside it.
  */
 export async function settleDefaultNumber(tx: Tx, scope: Scope) {
+  await lockApplicationNumbers(tx, scope.applicationId);
   const active = await tx.providerAccount.findMany({
     where: { ...whatsappOf(scope), active: true },
     orderBy: { createdAt: "asc" },
@@ -43,7 +53,26 @@ export async function recordPairedNumber(
   tx: Tx,
   scope: Scope & { instanceName: string; senderId: string | null; replaceAccountId?: string | null },
 ): Promise<string | null> {
+  await lockApplicationNumbers(tx, scope.applicationId);
   const now = new Date();
+
+  // The same scan seen twice (a poll retried, a second tab): already recorded.
+  const sameInstance = await tx.providerAccount.findFirst({
+    where: { ...whatsappOf(scope), provider: BAILEYS_WHATSAPP, externalAccountId: scope.instanceName },
+    select: { id: true },
+  });
+  if (sameInstance) return null;
+
+  if (scope.senderId) {
+    const holder = await tx.providerAccount.findFirst({
+      where: { ...whatsappOf(scope), provider: BAILEYS_WHATSAPP, senderId: scope.senderId },
+      select: { id: true },
+    });
+    if (holder && scope.replaceAccountId && holder.id !== scope.replaceAccountId) {
+      throw new WhatsAppNumberError("Ce téléphone est déjà un autre numéro de cette application. Remplacez celui-là, ou désactivez-le d'abord.");
+    }
+  }
+
   if (scope.replaceAccountId) {
     const current = await tx.providerAccount.findFirst({
       where: { ...whatsappOf(scope), id: scope.replaceAccountId, provider: BAILEYS_WHATSAPP },
@@ -101,6 +130,7 @@ async function requireNumber(tx: Tx, scope: Scope, accountId: string) {
 
 /** Makes an active number the one requests use when they name none. */
 export async function setDefaultNumber(tx: Tx, scope: Scope, accountId: string) {
+  await lockApplicationNumbers(tx, scope.applicationId);
   const account = await requireNumber(tx, scope, accountId);
   if (!account.active) throw new WhatsAppNumberError("Réactivez ce numéro avant d'en faire le numéro par défaut.");
   await tx.providerAccount.updateMany({ where: { ...whatsappOf(scope), isDefault: true, NOT: { id: accountId } }, data: { isDefault: false } });
@@ -113,6 +143,7 @@ export async function setDefaultNumber(tx: Tx, scope: Scope, accountId: string) 
  * WhatsApp sends rather than falling back to the organization's number.
  */
 export async function setNumberActive(tx: Tx, scope: Scope, accountId: string, active: boolean) {
+  await lockApplicationNumbers(tx, scope.applicationId);
   await requireNumber(tx, scope, accountId);
   await tx.providerAccount.update({ where: { id: accountId }, data: active ? { active } : { active, isDefault: false } });
   await settleDefaultNumber(tx, scope);

@@ -360,7 +360,7 @@ export async function switchWhatsAppMode(mode: WhatsAppMode): Promise<ActionStat
 async function resolveDashboardSender(organizationId: string, senderAccountId: string | null | undefined) {
   if (!senderAccountId) return { ok: true as const, applicationId: undefined, senderId: undefined };
   const account = await prisma.providerAccount.findFirst({
-    where: { organizationId, id: senderAccountId, channel: "WHATSAPP", active: true, applicationId: { not: null } },
+    where: { organizationId, id: senderAccountId, channel: "WHATSAPP", active: true, application: { is: { active: true } } },
     select: { id: true, applicationId: true },
   });
   if (!account?.applicationId) return { ok: false as const, error: "Ce numéro n'est plus disponible. Choisissez-en un autre." };
