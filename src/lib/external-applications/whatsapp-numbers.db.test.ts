@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 process.env.EXTERNAL_APPLICATION_KEK ??= Buffer.alloc(32, 7).toString("base64");
 const hasDatabase = Boolean(process.env.DATABASE_URL);
@@ -102,6 +104,14 @@ test("replacing swaps the instance under the same number and keeps its name", { 
 });
 
 test("the database refuses two defaults for one application", { skip: !hasDatabase }, async () => {
+  // CI builds its schema with `prisma db push`, which skips partial indexes:
+  // apply the migration's own statement, so the SQL that ships is what is tested.
+  const migration = readFileSync(
+    resolve(process.cwd(), "prisma/migrations/20261002090000_add_provider_account_is_default/migration.sql"),
+    "utf8",
+  );
+  const createIndex = migration.slice(migration.indexOf('CREATE UNIQUE INDEX "provider_account_whatsapp_default_key"'));
+  await prisma.$executeRawUnsafe(createIndex.replace("CREATE UNIQUE INDEX", "CREATE UNIQUE INDEX IF NOT EXISTS").replace(/;\s*$/, ""));
   await assert.rejects(
     prisma.providerAccount.updateMany({ where: { organizationId, applicationId }, data: { isDefault: true } }),
   );
