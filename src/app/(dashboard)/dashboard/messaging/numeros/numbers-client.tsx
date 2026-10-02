@@ -313,7 +313,7 @@ const OPEN_SEND_LABEL: Record<string, string> = {
   QUEUED: "en file d'attente",
   CONSENT_PENDING: "attend l'accord du destinataire",
   PROCESSING: "bloqué en cours d'envoi",
-  SUBMISSION_UNKNOWN: "issue inconnue",
+  SUBMISSION_UNKNOWN: "à l'issue inconnue",
 };
 
 /** Same kind, same state: one line with a count and the oldest date. */
