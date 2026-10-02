@@ -54,32 +54,61 @@ change the status: the message stays `sent` while the provider retries.
 
 ### WhatsApp sending number
 
-A WhatsApp message leaves from the number of the application the key is
-attached to. A key without an application, or attached to an application that
-never had a number, sends from the organization's number. The number belongs to
-the application, not to the key: a new key created under the same name as an
-attached key joins the same application, so a rotation keeps the number.
+A WhatsApp message leaves from a number of the application the key is attached
+to. An application can hold several numbers (a school, its departments); one of
+them is the default. A key without an application, or attached to an
+application that never had a number, sends from the organization's number. The
+numbers belong to the application, not to the key: a new key created under the
+same name as an attached key joins the same application, so a rotation keeps
+the numbers.
 
-If the application's number is disabled, or if it has two active numbers, the
-message becomes `failed` with `error_code` `sender_unavailable`. MailPulse never
-sends from another number instead. A recipient who answered NO or STOP to the
-application's number receives nothing more from it, whether the message comes
-from the API or a signed command: `error_code` `consent_refused`.
+To choose the number, pass `sender_id` (WhatsApp only):
 
-Verification codes (`/api/v1/verifications`) follow the same rule: they leave
-from the key's application number, otherwise from the organization's. Only a
-WhatsApp Web number can send a code; a disabled, ambiguous or Meta number
-answers `whatsapp_indisponible`. For an application number, the WhatsApp Web
-session is not checked beforehand: a disconnected session shows up at send time,
-as a send failure.
+```json
+{
+  "channel": "whatsapp",
+  "recipient": { "type": "phone", "value": "+2250700000000" },
+  "content": { "type": "text", "text": "Hello" },
+  "sender_id": "cmabc123number"
+}
+```
 
-A key is attached to an application in Platform, API keys and integrations tab,
-Application column, which also shows the sending number. Only the
+Without `sender_id`, the default number speaks. `GET /api/v1/whatsapp/numbers`
+lists the numbers the key may name:
+
+```json
+{
+  "numbers": [
+    { "id": "cmabc123number", "label": "Registrar", "transport": "whatsapp_web", "active": true, "default": true }
+  ],
+  "default_sender_id": "cmabc123number"
+}
+```
+
+The message becomes `failed` with `error_code` `sender_unavailable` if the
+named number is not an active number of the key's application, or if, with no
+number named, none can speak (default disabled while several numbers are
+active). MailPulse never sends from another application's number. `sender_id`
+on another channel answers `400`. A recipient who answered NO or STOP to one of
+the application's numbers receives nothing more from that number, whether the
+message comes from the API or a signed command: `error_code` `consent_refused`.
+
+Verification codes (`/api/v1/verifications`) follow the same rule and accept
+`sender_id` too. Only a WhatsApp Web number can send a code: without
+`sender_id`, if the default number is on Meta, the code leaves from another
+WhatsApp Web number of the same application; a named number that cannot send a
+code, or no capable number at all, answers `whatsapp_indisponible`. For an
+application number, the WhatsApp Web session is not checked beforehand: a
+disconnected session shows up at send time, as a send failure.
+
+Numbers are managed in Messaging, Numbers tab: QR pairing, default number,
+name, deactivation, and the identifier to pass as `sender_id`. A key is
+attached to an application in Platform, API keys and integrations tab. Only the
 organization's owners and admins can change a key, a sender or a number.
 
 The number used is recorded on the message when it is created: a replay leaves
-from that number, and the history does not change if the application's number
-changes later.
+from that number, and the history does not change if the default number changes
+later.
 
 ### Replaying a request
 

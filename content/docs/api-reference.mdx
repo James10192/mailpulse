@@ -78,34 +78,64 @@ le fournisseur réessaie.
 
 ### Numéro WhatsApp d'envoi
 
-Un message WhatsApp part du numéro de l'application à laquelle la clé est
-rattachée. Une clé sans application, ou rattachée à une application qui n'a
-jamais eu de numéro, envoie depuis le numéro de l'organisation. Le numéro
-appartient à l'application, pas à la clé : une nouvelle clé créée sous le même
-nom qu'une clé rattachée rejoint la même application, et une rotation garde donc
-le numéro.
+Un message WhatsApp part d'un numéro de l'application à laquelle la clé est
+rattachée. Une application peut avoir plusieurs numéros (une école, ses
+services) ; l'un d'eux est le numéro par défaut. Une clé sans application, ou
+rattachée à une application qui n'a jamais eu de numéro, envoie depuis le
+numéro de l'organisation. Les numéros appartiennent à l'application, pas à la
+clé : une nouvelle clé créée sous le même nom qu'une clé rattachée rejoint la
+même application, et une rotation garde donc les numéros.
 
-Si le numéro de l'application est désactivé, ou si elle en a deux actifs, le
-message passe en `failed` avec `error_code` `sender_unavailable`. MailPulse
-n'envoie jamais depuis un autre numéro à la place. Un destinataire qui a répondu
-NON ou STOP au numéro de l'application ne reçoit plus rien de ce numéro, que le
-message vienne de l'API ou d'une commande signée : `error_code` `consent_refused`.
+Pour choisir le numéro, passez `sender_id` (WhatsApp seulement) :
 
-Les codes de vérification (`/api/v1/verifications`) suivent la même règle : ils
-partent du numéro de l'application de la clé, sinon de celui de l'organisation.
-Seul un numéro WhatsApp Web peut envoyer un code ; un numéro désactivé, ambigu
-ou Meta répond `whatsapp_indisponible`. Pour un numéro d'application, la session
-WhatsApp Web n'est pas vérifiée à l'avance : une session déconnectée se révèle à
-l'envoi, comme un échec d'envoi.
+```json
+{
+  "channel": "whatsapp",
+  "recipient": { "type": "phone", "value": "+2250700000000" },
+  "content": { "type": "text", "text": "Bonjour" },
+  "sender_id": "cmabc123numero"
+}
+```
 
-Le rattachement d'une clé à une application se fait dans Plateforme, onglet
-Clés API et intégrations, colonne Application, qui affiche aussi le numéro
-d'envoi. Seuls les propriétaires et administrateurs de l'organisation peuvent
-changer une clé, un expéditeur ou un numéro.
+Sans `sender_id`, le numéro par défaut part. `GET /api/v1/whatsapp/numbers`
+liste les numéros que la clé peut nommer :
+
+```json
+{
+  "numbers": [
+    { "id": "cmabc123numero", "label": "Scolarité", "transport": "whatsapp_web", "active": true, "default": true }
+  ],
+  "default_sender_id": "cmabc123numero"
+}
+```
+
+Le message passe en `failed` avec `error_code` `sender_unavailable` si le numéro
+nommé n'est pas un numéro actif de l'application de la clé, ou si, sans numéro
+nommé, aucun ne peut partir (défaut désactivé avec plusieurs numéros actifs).
+MailPulse n'envoie jamais depuis le numéro d'une autre application. `sender_id`
+sur un autre canal répond `400`. Un destinataire qui a répondu NON ou STOP à un
+numéro de l'application ne reçoit plus rien de ce numéro, que le message vienne
+de l'API ou d'une commande signée : `error_code` `consent_refused`.
+
+Les codes de vérification (`/api/v1/verifications`) suivent la même règle et
+acceptent aussi `sender_id`. Seul un numéro WhatsApp Web peut envoyer un code :
+sans `sender_id`, si le numéro par défaut est sur Meta, le code part d'un autre
+numéro WhatsApp Web de la même application ; un numéro nommé qui ne peut pas
+envoyer de code, ou l'absence de tout numéro capable, répond
+`whatsapp_indisponible`. Pour un numéro d'application, la session WhatsApp Web
+n'est pas vérifiée à l'avance : une session déconnectée se révèle à l'envoi,
+comme un échec d'envoi.
+
+Les numéros se gèrent dans Messagerie, onglet Numéros : ajout par QR code,
+numéro par défaut, nom, désactivation, et l'identifiant à passer en
+`sender_id`. Le rattachement d'une clé à une application se fait dans
+Plateforme, onglet Clés API et intégrations. Seuls les propriétaires et
+administrateurs de l'organisation peuvent changer une clé, un expéditeur ou un
+numéro.
 
 Le numéro utilisé est enregistré sur le message au moment de sa création : un
-rejeu repart de ce numéro, et l'historique ne change pas si le numéro de
-l'application change ensuite.
+rejeu repart de ce numéro, et l'historique ne change pas si le numéro par défaut
+change ensuite.
 
 ### Rejouer une requête
 

@@ -6,6 +6,9 @@ All notable changes to MailPulse will be documented in this file.
 
 ### Added
 
+- **Several WhatsApp numbers per application**, with a default one: Messaging › Numbers lists each application's numbers (default, 30-day warm-up, identifier) and lets owners and admins add one by QR code, replace a phone, rename, set the default and deactivate. `sender_id` on `POST /api/v1/messages` and `POST /api/v1/verifications` picks one of the key's application numbers; `GET /api/v1/whatsapp/numbers` lists them. Disabling the default hands the role to another active number of the same application, never to another application's. Migration `20261002090000_add_provider_account_is_default` drops the one-active-number index and adds a one-default index.
+- The WhatsApp send form offers « Envoyer depuis »: the organization's number or any active application number.
+
 - **Reverse WhatsApp verification**: `POST /api/v1/verifications` with `"mode": "reverse"` returns a `wa.me` link; the person sends the code to the application's own number, MailPulse approves the verification on that inbound message, answers them, and keeps the message away from the chatbot. Nothing is sent to a stranger, so it does not count against the number's pace. `check` refuses a reverse verification. Migration `20261001190000_add_phone_verification_mode`.
 - **Per-number pacing for WhatsApp verification codes**: each sending number is capped on its own (one code every 5 s, 6 a minute, 80 an hour, 500 a day), a number paired by QR code less than 30 days ago gets a tighter profile (one every 10 s, 3 a minute, 30 an hour, 150 a day), and a number WhatsApp throttles gets no code for 30 minutes. One recipient now gets at most 3 codes an hour and 5 a day. Migration `20261001171427_add_provider_account_paired_at`.
 - **One WhatsApp number per external application, paired by QR code**: Settings › External applications › « Connecter un numéro WhatsApp » creates the Evolution instance, points its inbound webhook at the application, and records the number as the application's active sender once scanned. « Remplacer le numéro » logs the previous instance out only after the new one is linked.
@@ -25,6 +28,7 @@ All notable changes to MailPulse will be documented in this file.
 - The overview, the message registry and the webhook log refresh every 30 seconds while the page is in front of you; a switch turns it off.
 
 ### Changed
+- **Messaging** replaces the WhatsApp and SMS menu entries: one page with WhatsApp, SMS and Numbers tabs; `/dashboard/sms` redirects to `/dashboard/messaging/sms`.
 - Creating, renaming or revoking an API key (MailPulse or Filon), changing an email sender and configuring or pairing the organization's WhatsApp are reserved to owners and admins; other members keep sending.
 - `ConfirmDialog`, `ContactDialog` and `HelpModal` are built on the shadcn Dialog/AlertDialog: focus trap, Escape to close, screen-reader roles. Their props are unchanged.
 - The platform tab is kept in the URL (`?tab=`), so links and reloads land on the right tab.

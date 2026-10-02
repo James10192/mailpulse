@@ -41,6 +41,7 @@ curl -X POST $MAILPULSE_URL/api/v1/verifications \
 | `to` | oui | Numéro au format international (`+225…` ou `00225…`). Espaces, points et tirets acceptés. |
 | `locale` | non | `fr` (par défaut) ou `en`, langue du message. Toute autre valeur est refusée. |
 | `reference` | non | Votre identifiant, 191 caractères au plus, renvoyé tel quel. |
+| `sender_id` | non | Un des numéros de l'application de la clé (`GET /api/v1/whatsapp/numbers`). Absent : le numéro par défaut, ou un autre numéro WhatsApp Web de l'application si le défaut est sur Meta. |
 
 Réponse `201` :
 
