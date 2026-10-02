@@ -9,7 +9,7 @@ process.env.EXTERNAL_APPLICATION_KEK ??= Buffer.alloc(32, 7).toString("base64");
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 const { prisma } = await import("@/lib/prisma");
-const { moveNumber, recordPairedNumber, setDefaultNumber, setNumberActive, WhatsAppNumberError } = await import("./whatsapp-numbers");
+const { moveNumber, NumberBusyError, recordPairedNumber, setDefaultNumber, setNumberActive, WhatsAppNumberError } = await import("./whatsapp-numbers");
 const { resolveWhatsAppSender } = await import("../messaging/whatsapp-sender");
 const { resolveWhatsAppProvider } = await import("./application");
 
@@ -27,6 +27,8 @@ before(async () => {
 
 after(async () => {
   if (!hasDatabase) return;
+  await prisma.auditLog.deleteMany({ where: { organizationId } });
+  await prisma.externalTransportOperation.deleteMany({ where: { organizationId } });
   await prisma.externalRecipientConsent.deleteMany({ where: { organizationId } });
   await prisma.externalConversationWindow.deleteMany({ where: { organizationId } });
   await prisma.applicationForwardEndpoint.deleteMany({ where: { organizationId } });
@@ -206,4 +208,47 @@ test("a move is refused to an inactive application, to itself, or under a pinned
   });
   await assert.rejects(move(account.id, source, target), WhatsAppNumberError);
   assert.equal((await accountOf(`mp-mv5-${run}`)).applicationId, source, "a refused move changes nothing");
+});
+
+test("sends without an outcome are shown, then stopped by the person who moves the number", { skip: !hasDatabase }, async () => {
+  const source = (await prisma.externalApplication.create({ data: { organizationId, key: `mv4-src-${run}`, name: "S4" } })).id;
+  const target = (await prisma.externalApplication.create({ data: { organizationId, key: `mv4-dst-${run}`, name: "T4" } })).id;
+  await prisma.$transaction((tx) => recordPairedNumber(tx, { organizationId, applicationId: source, instanceName: `mp-mv6-${run}`, senderId: "2250700000206" }));
+  const account = await accountOf(`mp-mv6-${run}`);
+  const operation = (status: string, key: string, leaseExpiresAt: Date | null = null) =>
+    prisma.externalTransportOperation.create({
+      data: { organizationId, applicationId: source, providerAccountId: account.id, direction: "OUTBOUND", operationKey: "parent_chatbot.reply", idempotencyKey: `${key}-${run}`, status, leaseExpiresAt },
+    });
+  const unknown = await operation("SUBMISSION_UNKNOWN", "u");
+  const queued = await operation("QUEUED", "q");
+  const done = await operation("COMPLETED", "c");
+
+  const busy = await move(account.id, source, target).catch((error: unknown) => error);
+  assert.ok(busy instanceof NumberBusyError);
+  assert.deepEqual(busy.sends.map((send) => send.id).sort(), [unknown.id, queued.id].sort(), "finished sends are not listed");
+  assert.equal((await accountOf(`mp-mv6-${run}`)).applicationId, source);
+
+  const leased = await operation("PROCESSING", "p", new Date(Date.now() + 60_000));
+  await assert.rejects(
+    prisma.$transaction((tx) => moveNumber(tx, { organizationId, applicationId: source, toApplicationId: target }, account.id, { stopOpenSendsBy: "user-test" })),
+    (error: unknown) => error instanceof WhatsAppNumberError && !(error instanceof NumberBusyError),
+    "a send a worker holds right now is never stopped",
+  );
+  await prisma.externalTransportOperation.update({ where: { id: leased.id }, data: { leaseExpiresAt: new Date(Date.now() - 60_000) } });
+
+  const outcome = await prisma.$transaction((tx) =>
+    moveNumber(tx, { organizationId, applicationId: source, toApplicationId: target }, account.id, { stopOpenSendsBy: "user-test" }),
+  );
+  assert.equal(outcome.stopped, 3);
+  assert.deepEqual(outcome.rejectedOperationIds.sort(), [queued.id, leased.id].sort());
+  const statuses = Object.fromEntries(
+    (await prisma.externalTransportOperation.findMany({ where: { id: { in: [unknown.id, queued.id, done.id, leased.id] } } })).map((row) => [row.id, row]),
+  );
+  assert.equal(statuses[unknown.id].status, "RECONCILED");
+  assert.equal(statuses[unknown.id].reconciliationDecision, "NO_FURTHER_ACTION");
+  assert.equal(statuses[queued.id].status, "REJECTED");
+  assert.equal(statuses[queued.id].rejectionCode, "sender_moved");
+  assert.equal(statuses[leased.id].status, "REJECTED");
+  assert.equal(statuses[done.id].status, "COMPLETED", "history is untouched");
+  assert.equal((await accountOf(`mp-mv6-${run}`)).applicationId, target);
 });

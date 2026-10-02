@@ -106,7 +106,11 @@ name, deactivation, moving to another application, and the identifier to pass
 as `sender_id`. A moved number keeps its identifier: the new application uses
 it with the same `sender_id`, the old one can no longer name it. Its replies
 and the refusals already received (STOP) follow it; the history of its sends
-stays with the old application. A key is
+stays with the old application. If sends from the number have not reached an
+outcome, the move dialog lists them and offers to stop them: a command that
+never left is rejected with `sender_moved` (the application receives
+`message.failed`), an unanswered consent request expires, and a send whose
+outcome is unknown is closed without being sent again. A key is
 attached to an application in Platform, API keys and integrations tab. Only the
 organization's owners and admins can change a key, a sender or a number.
 
