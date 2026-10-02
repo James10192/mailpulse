@@ -73,11 +73,6 @@ export async function assertSenderIdUnambiguous(senderId: string, excludeAccount
   }
 }
 
-const TRANSPORT_LABEL: Record<string, string> = {
-  [META_PROVIDER]: "Meta Cloud API",
-  [BAILEYS_PROVIDER]: "Baileys (Evolution API)",
-};
-
 /**
  * Evolution posts webhooks without a signature, so the instance name is the only
  * routing hint. Two active accounts sharing it would make inbound resolution

@@ -22,6 +22,17 @@ export function isPairingInstanceOf(instanceName: string, applicationId: string)
 }
 
 /**
+ * The application an instance was created for, when MailPulse created it.
+ * A number moved to another application keeps its instance name, so callers
+ * that act on "an instance we created" check that this application belongs to
+ * the same organization rather than requiring it to be the current one.
+ */
+export function pairingApplicationOf(instanceName: string): string | null {
+  const match = /^mpa-([a-z0-9]+)-([a-z0-9]+)$/.exec(instanceName);
+  return match ? match[1] : null;
+}
+
+/**
  * The connected number as Evolution reports it on the instance: `owner` (1.x)
  * or `ownerJid` (2.x), a JID like "2250701020304@s.whatsapp.net", or `number`.
  */

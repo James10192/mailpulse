@@ -102,7 +102,11 @@ application number, the WhatsApp Web session is not checked beforehand: a
 disconnected session shows up at send time, as a send failure.
 
 Numbers are managed in Messaging, Numbers tab: QR pairing, default number,
-name, deactivation, and the identifier to pass as `sender_id`. A key is
+name, deactivation, moving to another application, and the identifier to pass
+as `sender_id`. A moved number keeps its identifier: the new application uses
+it with the same `sender_id`, the old one can no longer name it. Its replies
+and the refusals already received (STOP) follow it; the history of its sends
+stays with the old application. A key is
 attached to an application in Platform, API keys and integrations tab. Only the
 organization's owners and admins can change a key, a sender or a number.
 

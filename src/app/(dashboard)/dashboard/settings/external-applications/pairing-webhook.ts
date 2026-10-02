@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { baileys } from "@/lib/whatsapp";
 import { decryptExternalApplicationValue, encryptExternalApplicationValue } from "@/lib/external-applications/crypto";
-import { inboundWebhookUrl } from "@/lib/external-applications/whatsapp-pairing";
+import { inboundWebhookUrl, pairingApplicationOf } from "@/lib/external-applications/whatsapp-pairing";
 import { ActionGuardError, ensureEncryptionConfigured, generateCredentialMaterial } from "./guards";
 
 // Not a server action module: callers check the role first. Exporting these
@@ -53,4 +53,18 @@ export async function pointInstanceAtApplication(instanceName: string, applicati
   if (!url) throw new ActionGuardError("L'adresse publique de MailPulse n'est pas configurée : WhatsApp ne pourrait pas lui transmettre les réponses.");
   const secret = await inboundSecret(applicationId);
   await baileys.setWebhook(instanceName, url, { Authorization: `Bearer ${secret}` });
+}
+
+/**
+ * True for an instance MailPulse created for one of this organization's
+ * applications. A number moved between applications keeps its instance name
+ * (it carries the application it was first paired for), so ownership is
+ * checked against the organization, never against the current application.
+ * An instance linked by hand is not ours to repoint or retire.
+ */
+export async function isOrganizationPairingInstance(organizationId: string, instanceName: string) {
+  const applicationId = pairingApplicationOf(instanceName);
+  if (!applicationId) return false;
+  const owner = await prisma.externalApplication.findFirst({ where: { id: applicationId, organizationId }, select: { id: true } });
+  return Boolean(owner);
 }

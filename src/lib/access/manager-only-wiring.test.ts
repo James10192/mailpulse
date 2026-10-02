@@ -33,6 +33,7 @@ const GUARDED: Record<string, string[]> = {
     "setProviderAccountActive",
     "setDefaultProviderAccount",
     "renameProviderAccount",
+    "moveProviderAccount",
   ],
   "src/app/(dashboard)/dashboard/settings/external-applications/whatsapp-pairing-actions.ts": [
     "startApplicationWhatsAppPairing",
@@ -65,7 +66,7 @@ for (const [file, actions] of Object.entries(GUARDED)) {
         body.indexOf("requirePairingContext("),
       );
       // Direct writes, transaction writes, and the helpers that write for an action.
-      const write = body.search(/(prisma|tx)\.\w+\.(create|update|updateMany|delete|deleteMany|upsert)\(|prisma\.\$transaction\(|createFreshBaileysInstance|baileys\.\w+\(|renameIntegrationApiKey\(|rotateWebhookSecret\(|resendWebhookDelivery\(|setNumberActive|setDefaultNumber|recordPairedNumber/);
+      const write = body.search(/(prisma|tx)\.\w+\.(create|update|updateMany|delete|deleteMany|upsert)\(|prisma\.\$transaction\(|createFreshBaileysInstance|baileys\.\w+\(|renameIntegrationApiKey\(|rotateWebhookSecret\(|resendWebhookDelivery\(|setNumberActive|setDefaultNumber|recordPairedNumber|moveNumber/);
       assert.ok(guard > 0, `${action} has no manager guard`);
       assert.ok(write > 0, `${action}: no write found, the check would prove nothing`);
       assert.ok(write === -1 || guard < write, `${action} writes before checking the role`);

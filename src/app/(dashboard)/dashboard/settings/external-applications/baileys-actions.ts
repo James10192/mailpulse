@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import { setDefaultNumber, setNumberActive, settleDefaultNumber, WhatsAppNumberError } from "@/lib/external-applications/whatsapp-numbers";
+import { moveNumber, setDefaultNumber, setNumberActive, settleDefaultNumber, WhatsAppNumberError } from "@/lib/external-applications/whatsapp-numbers";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { API_KEY_NAME_MAX_LENGTH } from "@/lib/mailpulse/api-key-name";
 import { encryptExternalApplicationValue } from "@/lib/external-applications/crypto";
 import {
+  ActionGuardError,
   assertInstanceNameUnambiguous,
   BAILEYS_PROVIDER,
   ensureEncryptionConfigured,
@@ -18,8 +19,7 @@ import {
   toActionError,
   WHATSAPP_PROVIDERS,
 } from "./guards";
-import { pointInstanceAtApplication } from "./pairing-webhook";
-import { isPairingInstanceOf } from "@/lib/external-applications/whatsapp-pairing";
+import { isOrganizationPairingInstance, pointInstanceAtApplication } from "./pairing-webhook";
 
 const PAGE_PATH = "/dashboard/settings/external-applications";
 const NUMBERS_PATH = "/dashboard/messaging/numeros";
@@ -75,7 +75,7 @@ export async function setBaileysProviderAccount(
     });
     // Re-parenting would reroute the other application's inbound messages here.
     if (existing?.applicationId && existing.applicationId !== applicationId) {
-      return { error: "Cette instance Evolution est déjà rattachée à une autre application externe. Détachez-la avant de la réutiliser." };
+      return { error: "Cette instance Evolution est déjà rattachée à une autre application externe. Déplacez le numéro depuis Messagerie › Numéros." };
     }
 
     await assertInstanceNameUnambiguous(instanceName, existing?.id);
@@ -140,6 +140,59 @@ export async function setDefaultProviderAccount(applicationId: string, accountId
     const { org } = await requireOrganizationManager();
     await requireApplication(org.id, applicationId);
     await prisma.$transaction((tx) => setDefaultNumber(tx, { organizationId: org.id, applicationId }, accountId));
+    revalidatePath(PAGE_PATH);
+    revalidatePath(NUMBERS_PATH);
+    revalidatePath(MESSAGING_PATH);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof WhatsAppNumberError) return { error: error.message };
+    return toActionError(error);
+  }
+}
+
+/**
+ * Hands a number to another application of the organization. Its replies and
+ * delivery receipts follow it: a Baileys instance is re-pointed at the new
+ * application's webhook inside the move, so a failed re-point moves nothing
+ * and replies never reach an application that no longer holds the number.
+ */
+export async function moveProviderAccount(applicationId: string, accountId: string, targetApplicationId: string) {
+  let repointed: string | null = null;
+  try {
+    const { org } = await requireOrganizationManager();
+    await requireApplication(org.id, applicationId);
+    await requireApplication(org.id, targetApplicationId);
+
+    const account = await prisma.providerAccount.findFirst({
+      where: { id: accountId, organizationId: org.id, applicationId, channel: "WHATSAPP", provider: { in: WHATSAPP_PROVIDERS } },
+      select: { provider: true, externalAccountId: true },
+    });
+    if (!account) return { error: "Compte WhatsApp introuvable pour cette application." };
+
+    try {
+      await prisma.$transaction(
+        async (tx) => {
+          await moveNumber(tx, { organizationId: org.id, applicationId, toApplicationId: targetApplicationId }, accountId);
+          if (account.provider === BAILEYS_PROVIDER) {
+            await pointInstanceAtApplication(account.externalAccountId, targetApplicationId).catch((error: unknown) => {
+              if (error instanceof ActionGuardError) throw error;
+              console.error("[external-applications] webhook non repointé, déplacement annulé", {
+                applicationId: targetApplicationId,
+                error: error instanceof Error ? error.message : "unknown",
+              });
+              throw new ActionGuardError("WhatsApp n'a pas pu être redirigé vers cette application : le numéro n'a pas été déplacé. Réessayez dans quelques instants.");
+            });
+            repointed = account.externalAccountId;
+          }
+        },
+        { timeout: 20_000 },
+      );
+    } catch (error) {
+      // The webhook moved but the move did not commit: point it back.
+      if (repointed) await pointInstanceAtApplication(repointed, applicationId).catch(() => {});
+      throw error;
+    }
+
     revalidatePath(PAGE_PATH);
     revalidatePath(NUMBERS_PATH);
     revalidatePath(MESSAGING_PATH);
@@ -247,7 +300,7 @@ async function repointPairedInstances(organizationId: string, applicationId: str
     select: { externalAccountId: true },
   });
   for (const { externalAccountId } of accounts) {
-    if (!isPairingInstanceOf(externalAccountId, applicationId)) continue;
+    if (!(await isOrganizationPairingInstance(organizationId, externalAccountId))) continue;
     await pointInstanceAtApplication(externalAccountId, applicationId).catch((error: unknown) => {
       console.error("[external-applications] webhook non repointé", { applicationId, error: error instanceof Error ? error.message : "unknown" });
     });
