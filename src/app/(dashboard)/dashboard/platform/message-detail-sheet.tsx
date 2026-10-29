@@ -25,6 +25,7 @@ import {
   stringifyJson,
 } from "./message-formatters";
 import type { ApiMessageDetail } from "./message-types";
+import { EmailHtmlPreview } from "./email-html-preview";
 import { messageOriginLabel } from "./message-origin";
 
 export function MessageDetailSheet({
@@ -113,6 +114,7 @@ function MessageDetailContent({ message }: { message: ApiMessageDetail }) {
                 ["Locale", message.content.locale ?? "Non renseigné"],
               ]}
             />
+            {message.channel === "email" ? <EmailHtmlPreview metadata={message.metadata} /> : null}
             {message.content.text ? <CodeBlock title="Message" value={message.content.text} /> : null}
             <CodeBlock title="Variables" value={stringifyJson(message.content.variables)} />
             <CodeBlock title="Métadonnées" value={stringifyJson(message.metadata)} />
