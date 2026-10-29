@@ -157,7 +157,7 @@ function StatusNotice({ message }: { message: ApiMessageDetail }) {
           Le fournisseur a accepté cet e-mail, mais le serveur du destinataire retarde sa réception.
           Ne le renvoyez pas pendant les tentatives automatiques ; le statut « Envoyé » ne confirme pas la délivrance.
         </p>
-        <p className="mt-1 text-xs">{message.delivery_delays.length} avis de retard enregistré{message.delivery_delays.length > 1 ? "s" : ""}.</p>
+        <p className="mt-1 text-xs">{(message.delivery_delays?.length ?? 0)} avis de retard enregistré{(message.delivery_delays?.length ?? 0) > 1 ? "s" : ""}.</p>
       </div>
     );
   }
