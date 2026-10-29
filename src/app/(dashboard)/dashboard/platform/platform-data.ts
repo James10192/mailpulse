@@ -22,6 +22,7 @@ const MESSAGE_INCLUDE = {
   template: { select: { templateKey: true, name: true, providerTemplateId: true } },
   apiKey: { select: { id: true, name: true, environment: true, revokedAt: true } },
   webhookDeliveries: { orderBy: { createdAt: "desc" as const }, take: 5, include: { endpoint: { select: { name: true } } } },
+  events: { where: { type: "DELIVERY_DELAYED" as const }, orderBy: { occurredAt: "desc" as const }, take: 20, select: { occurredAt: true } },
 } satisfies Prisma.CommunicationMessageInclude;
 
 type RegistryMessage = Prisma.CommunicationMessageGetPayload<{ include: typeof MESSAGE_INCLUDE }>;
@@ -30,6 +31,7 @@ function toDetail(message: RegistryMessage, canSeePersonalData: boolean): ApiMes
   return presentRegistryMessage(
     {
       ...serializeMessage(message),
+      delivery_delays: message.events.map((event) => ({ occurred_at: event.occurredAt.toISOString() })),
       sender: senderSnapshotLabel(message.senderSnapshot),
       origin: message.origin === "API" ? "api" : message.origin === "PLATFORM" ? "platform" : "legacy",
       api_key: message.apiKey ? { id: message.apiKey.id, name: message.apiKey.name, environment: message.apiKey.environment, revoked: Boolean(message.apiKey.revokedAt) } : null,
