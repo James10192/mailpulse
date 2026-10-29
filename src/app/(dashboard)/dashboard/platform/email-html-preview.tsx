@@ -28,7 +28,7 @@ export function EmailHtmlPreview({ metadata }: { metadata: unknown }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <div>
-          <CardTitle className="text-sm">Aperçu réel de l'e-mail HTML</CardTitle>
+          <CardTitle className="text-sm">Aperçu réel du courriel HTML</CardTitle>
           <p className="mt-1 text-xs text-muted-foreground">Aperçu isolé, sans scripts ni formulaires ; aucune réexpédition.</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => setShowSource((v) => !v)}>
