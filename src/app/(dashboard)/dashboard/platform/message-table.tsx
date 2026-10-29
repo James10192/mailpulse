@@ -91,7 +91,9 @@ export function MessageTable({
                     <p className="truncate text-sm" title={messagePreview(message)}>{messagePreview(message)}</p>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={messageStatusVariant(message.status)}>{messageStatusLabel(message.status)}</Badge>
+                    <Badge variant={message.status === "sent" && (message.delivery_delays?.length ?? 0) > 0 ? "warning" : messageStatusVariant(message.status)}>
+                      {message.status === "sent" && (message.delivery_delays?.length ?? 0) > 0 ? "Livraison retardée" : messageStatusLabel(message.status)}
+                    </Badge>
                     {error ? <p className="mt-1 truncate text-xs text-destructive" title={error}>{error}</p> : null}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
