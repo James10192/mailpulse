@@ -146,6 +146,22 @@ function StatusNotice({ message }: { message: ApiMessageDetail }) {
     );
   }
 
+  if ((message.delivery_delays?.length ?? 0) > 0 && message.status === "sent") {
+    return (
+      <div role="status" className="mt-4 rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+        <div className="flex items-center gap-2 font-medium">
+          <Clock3 className="size-4" aria-hidden="true" />
+          Livraison temporairement différée
+        </div>
+        <p className="mt-1">
+          Le fournisseur a accepté cet e-mail, mais le serveur du destinataire retarde sa réception.
+          Ne le renvoyez pas pendant les tentatives automatiques ; le statut « Envoyé » ne confirme pas la délivrance.
+        </p>
+        <p className="mt-1 text-xs">{(message.delivery_delays?.length ?? 0)} avis de retard enregistré{(message.delivery_delays?.length ?? 0) > 1 ? "s" : ""}.</p>
+      </div>
+    );
+  }
+
   const outcome = MESSAGE_STATUSES[message.status.toUpperCase() as MessageStatusCode]?.outcome;
   if (!outcome) return null;
   const info = MESSAGE_OUTCOMES[outcome];
@@ -240,6 +256,12 @@ function TimelineRows({ message }: { message: ApiMessageDetail }) {
   const steps: Step[] = [
     { label: "Créé", at: message.created_at, icon: Sparkles, tone: "done" as const },
     message.sent_at ? { label: "Remis au fournisseur", at: message.sent_at, icon: Send, tone: "done" as const } : null,
+    ...((message.delivery_delays ?? []).map((delay) => ({
+      label: "Livraison retardée par le destinataire (nouvel essai du fournisseur)",
+      at: delay.occurred_at,
+      icon: Clock3,
+      tone: "planned" as const,
+    }))),
     message.delivered_at ? { label: "Délivré au destinataire", at: message.delivered_at, icon: CheckCircle2, tone: "done" as const } : null,
     message.read_at ? { label: "Lu", at: message.read_at, icon: Eye, tone: "done" as const } : null,
     message.failed_at ? { label: "Échec", at: message.failed_at, icon: XCircle, tone: "failed" as const } : null,

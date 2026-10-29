@@ -16,6 +16,8 @@ export type ApiMessageDetail = {
     variables: unknown;
   };
   status: string;
+  /** Avis de retard remontés par le fournisseur, sans fausse confirmation de réception. */
+  delivery_delays?: { occurred_at: string }[];
   metadata: unknown;
   external_user_id: string | null;
   external_event_id: string | null;
