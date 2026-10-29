@@ -114,7 +114,7 @@ function MessageDetailContent({ message }: { message: ApiMessageDetail }) {
                 ["Locale", message.content.locale ?? "Non renseigné"],
               ]}
             />
-            {message.channel === "email" ? <EmailHtmlPreview metadata={message.metadata} /> : null}
+            {message.channel === "email" ? <EmailHtmlPreview metadata={message.metadata} text={message.content.text} /> : null}
             {message.content.text ? <CodeBlock title="Message" value={message.content.text} /> : null}
             <CodeBlock title="Variables" value={stringifyJson(message.content.variables)} />
             <CodeBlock title="Métadonnées" value={stringifyJson(message.metadata)} />
