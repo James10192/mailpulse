@@ -6,6 +6,8 @@ All notable changes to MailPulse will be documented in this file.
 
 ### Added
 
+- **Read-only recovery of uncertain KLASSCI announcement submissions:** `GET /api/v1/messages/by-idempotency-key?key=...&tenant=...` checks original API-key ID, organization, school, message purpose and stable reference before returning minimal delivery status; it cannot create or resend email. Missing means unknown, never safe to resend by itself.
+
 - **KLASSCI announcement delivery callbacks:** verified Resend outcomes now enter MailPulse's existing signed organizational webhook outbox (delivery, delay, bounce, failure, complaint, suppression), with strict origin/provider/tenant/message correlation and minimum necessary payload. No retransmission of email, provider event retries remain idempotent at the KLASSCI receiver. Requires an enabled webhook subscription per institution.
 
 - **Preview for every email in Platform message details:** recorded HTML is shown in an isolated frame; historic text-only messages use the same escaped text-to-HTML fallback as dispatch, explicitly labelled as text (not a reconstructed branded template). Email details now open on the Content tab.

@@ -11,3 +11,9 @@ MailPulse signs the *exact raw JSON* with `mailpulse-timestamp` and `mailpulse-s
 A delay is transient. Delivered/read require provider evidence; bounced, complained and suppressed are terminal and **must not trigger a new email**. Replayed provider callbacks may create a duplicate webhook delivery if they coincide with a crash, but KLASSCI applies a conditional status update that cannot regress terminal outcomes. Missed events are still reconciled by KLASSCI's authenticated GET /api/v1/messages/{messageId} polling. Do not enable broad retries of emails or replay a historical campaign.
 
 Rollout: test sandbox signed callbacks for two institutions, provider failures and delayed delivery; configure the per-school webhook and verify MailPulse `POST /api/cron/process-webhooks` plus KLASSCI scheduled reconciliation. Neither a green CI nor a successful Resend HTTP response is proof of user delivery.
+
+## Read-only lookup after a lost submission response
+
+`GET /api/v1/messages/by-idempotency-key?key=<original_key>&tenant=<school_code>` (Bearer API key) returns the minimal current message result only if the **exact original API key**, organization, `external_tenant_id`, source and `external_reference` all match. A 404 cannot prove that a pending, lost, or in-flight submission was never accepted. Key rotations may make old submissions unavailable through this endpoint; do not pretend a new key owns historical sends. No request to this endpoint can send or retry a message.
+
+A code tenant of `default` is disallowed. A reused idempotency key across several schools in the same MailPulse organization may collide; keep separate organizations/API keys per institution until the tenant-namespaced immutable attempt ledger has been migrated. Never modify historical idempotency keys in place.
