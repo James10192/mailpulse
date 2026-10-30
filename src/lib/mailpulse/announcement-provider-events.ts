@@ -6,7 +6,7 @@ import type { ResendWebhookEvent } from "./resend-webhook-payload";
 export type AnnouncementEmailMessage = {
   id: string;
   organizationId: string;
-  origin: string;
+  origin: string | null;
   channel: string;
   recipientType: string;
   recipientValue: string;
