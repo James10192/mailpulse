@@ -51,3 +51,13 @@ test("delays remain transient, hard bounce and complaints stay failed, opened an
   assert.equal(announcementProviderEvent(event("email.opened"), { ...message, status: "READ" }), null);
   assert.equal(announcementProviderEvent(event("email.sent"), { ...message, status: "SENT" }), null);
 });
+
+test("provider event rejects tenant mismatch for versioned school references", () => {
+  const ref = "klassci-v2-esbtp-abidjan-annonce-1-courriel-7";
+  const data = { ...message, metadata: {
+    source: "klassci", workflow_event: "announcement_email", external_reference: ref,
+  } };
+  assert.equal(announcementProviderEvent(event("email.delivered"), data)?.data.message.metadata.external_reference, ref);
+  assert.equal(announcementProviderEvent(event("email.delivered"), { ...data, externalTenantId: "esbtp-yakro" }), null);
+  assert.equal(announcementProviderEvent(event("email.delivered"), { ...data, externalTenantId: "default" }), null);
+});

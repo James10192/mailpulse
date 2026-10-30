@@ -6,6 +6,8 @@ All notable changes to MailPulse will be documented in this file.
 
 ### Added
 
+- **KLASSCI tenant-qualified announcement references:** new `klassci-v2-<tenant>-annonce-<id>-courriel-<id>` is accepted by signed provider events and read-only status lookup; historical keys remain intact and readable. The school embedded in a v2 reference must match the external tenant.
+
 - **Read-only recovery of uncertain KLASSCI announcement submissions:** `GET /api/v1/messages/by-idempotency-key?key=...&tenant=...` checks original API-key ID, organization, school, message purpose and stable reference before returning minimal delivery status; it cannot create or resend email. Missing means unknown, never safe to resend by itself.
 
 - **KLASSCI announcement delivery callbacks:** verified Resend outcomes now enter MailPulse's existing signed organizational webhook outbox (delivery, delay, bounce, failure, complaint, suppression), with strict origin/provider/tenant/message correlation and minimum necessary payload. No retransmission of email, provider event retries remain idempotent at the KLASSCI receiver. Requires an enabled webhook subscription per institution.

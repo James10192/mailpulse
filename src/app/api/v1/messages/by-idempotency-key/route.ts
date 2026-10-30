@@ -1,3 +1,4 @@
+import { referenceBelongsToTenant } from "@/lib/mailpulse/announcement-reference";
 import { authenticateApiRequest } from "@/lib/mailpulse/api-keys";
 import { isAnnouncementLookupMatch } from "@/lib/mailpulse/announcement-message-lookup";
 import { DELIVERY_DELAYS_INCLUDE } from "@/lib/mailpulse/message-delivery-delays";
@@ -14,9 +15,8 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const key = url.searchParams.get("key") ?? "";
   const tenant = url.searchParams.get("tenant") ?? "";
-  if (!/^klassci-annonce-[1-9][0-9]*-courriel-[1-9][0-9]*$/.test(key)
-      || key.length > 255 || tenant.trim() !== tenant || !tenant
-      || tenant === "default" || tenant.length > 191) {
+  if (!referenceBelongsToTenant(key, tenant)
+      || key.length > 191 || tenant.trim() !== tenant || tenant.length > 191) {
     return Response.json({ error: "Invalid lookup parameters" }, { status: 422 });
   }
 

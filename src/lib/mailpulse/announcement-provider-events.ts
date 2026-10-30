@@ -1,3 +1,4 @@
+import { referenceBelongsToTenant } from "./announcement-reference";
 import type { ResendWebhookEvent } from "./resend-webhook-payload";
 
 /** A minimal provider-confirmed outcome for the institution that submitted it.
@@ -39,7 +40,7 @@ export function announcementProviderEvent(event: ResendWebhookEvent, message: An
   const externalReference = values.external_reference;
   if (values.source !== "klassci" || values.workflow_event !== "announcement_email"
       || typeof externalReference !== "string"
-      || !/^klassci-annonce-[1-9][0-9]*-courriel-[1-9][0-9]*$/.test(externalReference)) return null;
+      || !referenceBelongsToTenant(externalReference, message.externalTenantId)) return null;
 
   const matched = Object.prototype.hasOwnProperty.call(PROVIDER_EVENTS, event.type)
     ? PROVIDER_EVENTS[event.type as keyof typeof PROVIDER_EVENTS] : null;

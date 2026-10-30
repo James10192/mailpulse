@@ -24,3 +24,14 @@ test("never share another institution, sender, purpose or idempotency reference"
   ]) assert.equal(isAnnouncementLookupMatch({ ...message, ...changes }, key, "esbtp-abidjan"), false);
   assert.equal(isAnnouncementLookupMatch(message, key, "esbtp-yakro"), false);
 });
+
+test("versioned lookup references never authorize another school", () => {
+  const ref = "klassci-v2-esbtp-abidjan-annonce-1-courriel-2";
+  const target = {
+    ...message, idempotencyKey: ref,
+    metadata: { ...message.metadata, external_reference: ref },
+  };
+  assert.equal(isAnnouncementLookupMatch(target, ref, "esbtp-abidjan"), true);
+  assert.equal(isAnnouncementLookupMatch(target, ref, "esbtp-yakro"), false);
+  assert.equal(isAnnouncementLookupMatch({ ...target, externalTenantId: "esbtp-yakro" }, ref, "esbtp-yakro"), false);
+});
