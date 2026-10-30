@@ -6,6 +6,8 @@ All notable changes to MailPulse will be documented in this file.
 
 ### Added
 
+- **KLASSCI announcement delivery callbacks:** verified Resend outcomes now enter MailPulse's existing signed organizational webhook outbox (delivery, delay, bounce, failure, complaint, suppression), with strict origin/provider/tenant/message correlation and minimum necessary payload. No retransmission of email, provider event retries remain idempotent at the KLASSCI receiver. Requires an enabled webhook subscription per institution.
+
 - **Preview for every email in Platform message details:** recorded HTML is shown in an isolated frame; historic text-only messages use the same escaped text-to-HTML fallback as dispatch, explicitly labelled as text (not a reconstructed branded template). Email details now open on the Content tab.
 
 - **Several WhatsApp numbers per application**, with a default one: Messaging › Numbers lists each application's numbers (default, 30-day warm-up, identifier) and lets owners and admins add one by QR code, replace a phone, rename, set the default and deactivate. `sender_id` on `POST /api/v1/messages` and `POST /api/v1/verifications` picks one of the key's application numbers; `GET /api/v1/whatsapp/numbers` lists them. Disabling the default hands the role to another active number of the same application, never to another application's. Migration `20261002090000_add_provider_account_is_default` drops the one-active-number index and adds a one-default index.

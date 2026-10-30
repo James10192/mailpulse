@@ -2,6 +2,10 @@ import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
 
 import { recalculateCampaignAnalytics } from "@/lib/campaign-analytics";
+import { prisma } from "@/lib/prisma";
+import { announcementProviderEvent } from "@/lib/mailpulse/announcement-provider-events";
+import { emitWebhookEvent } from "@/lib/mailpulse/webhooks";
+import { resendEventTag } from "@/lib/mailpulse/resend-webhook-payload";
 import { convexServer } from "@/lib/convex-server";
 import { parseResendWebhookPayload, type ResendEventType } from "@/lib/mailpulse/resend-webhook-payload";
 import type { ResendDelivery } from "@/lib/mailpulse/resend-webhook-processing";
@@ -66,7 +70,34 @@ function readDelivery(payload: unknown, deliveryId: string): ResendDelivery | Re
 
 async function processDelivery(delivery: ResendDelivery) {
   const result = await applyResendDelivery(delivery);
+  // The provider outcome was persisted before this step. Use MailPulse's
+  // existing durable outbound webhook deliveries (with cron retries), never
+  // submit the original email again. On outbox storage failure, Resend should
+  // retry its inbound event; a duplicate status is harmless downstream.
+  await publishAnnouncementProviderEvent(delivery);
   if (result.changed) await syncExternalEffects(delivery.event.type, result.organizationId, result.campaignId);
+}
+
+async function publishAnnouncementProviderEvent(delivery: ResendDelivery) {
+  const event = delivery.event;
+  const messageId = resendEventTag(event, "message_id");
+  const message = await prisma.communicationMessage.findFirst({
+    where: {
+      ...(messageId ? { id: messageId } : {}),
+      channel: "EMAIL",
+      origin: "API",
+      provider: "RESEND",
+      providerMessageId: event.data.email_id,
+    },
+    select: {
+      id: true, organizationId: true, origin: true, channel: true,
+      recipientType: true, recipientValue: true, provider: true,
+      providerMessageId: true, status: true, externalTenantId: true,
+      metadata: true,
+    },
+  });
+  const webhook = announcementProviderEvent(event, message);
+  if (webhook) await emitWebhookEvent(webhook);
 }
 
 async function syncExternalEffects(
