@@ -35,3 +35,14 @@ test("versioned lookup references never authorize another school", () => {
   assert.equal(isAnnouncementLookupMatch(target, ref, "esbtp-yakro"), false);
   assert.equal(isAnnouncementLookupMatch({ ...target, externalTenantId: "esbtp-yakro" }, ref, "esbtp-yakro"), false);
 });
+
+test("a v3 attempt can only be read by its tenant and exact idempotency key", () => {
+  const key = "klassci-v3-esbtp-abidjan-annonce-1-courriel-2-essai-2";
+  const retry = {
+    ...message, idempotencyKey: key,
+    metadata: { ...message.metadata, external_reference: key, retry_of: "klassci-v2-esbtp-abidjan-annonce-1-courriel-2" },
+  };
+  assert.equal(isAnnouncementLookupMatch(retry, key, "esbtp-abidjan"), true);
+  assert.equal(isAnnouncementLookupMatch(retry, key, "esbtp-yakro"), false);
+  assert.equal(isAnnouncementLookupMatch(retry, message.idempotencyKey, "esbtp-abidjan"), false);
+});
