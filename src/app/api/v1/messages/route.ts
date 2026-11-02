@@ -42,6 +42,9 @@ export async function POST(request: Request) {
   // Never rerun a delivery_delayed, bounce, suppression or unknown outcome.
   // Existing claims replay unchanged, even when the message is now terminal.
   const parsedAnnouncement = parseAnnouncementReference(idempotencyKey);
+  if (idempotencyKey.startsWith("klassci-v3-") && parsedAnnouncement?.version !== 3) {
+    return Response.json({ error: "Invalid announcement retry reference", code: "invalid_retry_reference" }, { status: 422 });
+  }
   if (!existingClaim && parsedAnnouncement?.version === 3) {
     const previousKey = precedingAnnouncementReference(idempotencyKey);
     const metadata = parsed.data.metadata;
