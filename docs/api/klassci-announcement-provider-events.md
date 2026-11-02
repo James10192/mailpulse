@@ -25,3 +25,7 @@ Existing `klassci-annonce-12-courriel-581` keys stay readable and unchanged. For
 ## KLASSCI retry attempt references v3
 
 A **new, approved** recipient attempt uses `klassci-v3-<tenant>-annonce-<id>-courriel-<id>-essai-<number>` with a positive, canonical attempt number. Original legacy/v2 message references and events remain readable and are **never renamed or replayed**. V3 references are accepted by the read-only GET-by-key and signed event relay only when the exact API key, organisation, tenant and metadata match. **The v3 format does not authorize a retry by itself:** KLASSCI must use an immutable attempt ledger, explicit permissions and provider/suppression checks; bounces/complaints remain terminal. Deploy this parser before KLASSCI begins issuing v3 attempts.
+
+## Read-only Resend suppression gate
+
+`GET /api/v1/messages/recipient-eligibility?email=...&tenant=...` requires the same authenticated MailPulse API key. It checks the authenticated environment's Resend suppression list without transmitting any email. 200 = suppressed, 404 = not listed. Other HTTP errors are 503 and MUST fail closed. It does not authorize a new send unless KLASSCI checks tenant, recipient identity, historical bounce, permission, idempotency and confirmed publication status. **Do not remove suppressions automatically.**
