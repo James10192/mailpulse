@@ -21,3 +21,7 @@ A code tenant of `default` is disallowed. A reused idempotency key across severa
 ## Versioned school-qualified references
 
 Existing `klassci-annonce-12-courriel-581` keys stay readable and unchanged. For new messages KLASSCI can submit `klassci-v2-<tenant_code>-annonce-12-courriel-581`. The reference parser rejects `default`, invalid school codes, zero IDs, and suffixes; both the provider-event relay and read-only lookup compare the embedded school with `external_tenant_id`. Thus two institutions using the same MailPulse organization no longer collide on the same numeric announcement and delivery IDs. This does **not** replace per-institution API key and webhook configuration, and must not trigger re-submission of legacy messages.
+
+## KLASSCI retry attempt references v3
+
+A **new, approved** recipient attempt uses `klassci-v3-<tenant>-annonce-<id>-courriel-<id>-essai-<number>` with a positive, canonical attempt number. Original legacy/v2 message references and events remain readable and are **never renamed or replayed**. V3 references are accepted by the read-only GET-by-key and signed event relay only when the exact API key, organisation, tenant and metadata match. **The v3 format does not authorize a retry by itself:** KLASSCI must use an immutable attempt ledger, explicit permissions and provider/suppression checks; bounces/complaints remain terminal. Deploy this parser before KLASSCI begins issuing v3 attempts.
