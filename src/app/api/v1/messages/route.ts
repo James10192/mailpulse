@@ -1,4 +1,7 @@
 import { authenticateApiRequest } from "@/lib/mailpulse/api-keys";
+import { parseAnnouncementReference } from "@/lib/mailpulse/announcement-reference";
+import { precedingAnnouncementReference, priorAttemptPermitsRetry } from "@/lib/mailpulse/announcement-retry-gate";
+import { prisma } from "@/lib/prisma";
 import { isApplicationNumber } from "@/lib/messaging/whatsapp-sender";
 import { findIdempotentResponse, idempotentJson } from "@/lib/mailpulse/idempotency";
 import {
@@ -34,6 +37,56 @@ export async function POST(request: Request) {
     method: "POST",
     path: "/api/v1/messages",
   });
+  // A new KLASSCI retry reference cannot be used to evade idempotency:
+  // prove that the immediately preceding attempt failed *before* Resend.
+  // Never rerun a delivery_delayed, bounce, suppression or unknown outcome.
+  // Existing claims replay unchanged, even when the message is now terminal.
+  const parsedAnnouncement = parseAnnouncementReference(idempotencyKey);
+  if (!existingClaim && parsedAnnouncement?.version === 3) {
+    const previousKey = precedingAnnouncementReference(idempotencyKey);
+    const metadata = parsed.data.metadata;
+    const tenant = parsedAnnouncement.tenant;
+    const recipient = parsed.data.recipient.value;
+
+    if (!previousKey || !tenant || parsed.data.channel !== "email"
+        || metadata?.source !== "klassci" || metadata?.workflow_event !== "announcement_email"
+        || metadata?.external_tenant_id !== tenant
+        || metadata?.external_reference !== idempotencyKey
+        || metadata?.retry_of !== previousKey) {
+      return Response.json({ error: "Retry evidence missing or mismatched", code: "retry_not_authorized" }, { status: 409 });
+    }
+
+    const [prior, suppressed] = await Promise.all([
+      prisma.communicationMessage.findFirst({
+        where: {
+          organizationId: auth.organizationId,
+          apiKeyId: auth.id,
+          idempotencyKey: previousKey,
+          externalTenantId: tenant,
+          origin: "API",
+          channel: "EMAIL",
+          recipientType: "EMAIL",
+          recipientValue: recipient,
+        },
+      }),
+      prisma.communicationMessage.findFirst({
+        where: {
+          organizationId: auth.organizationId,
+          channel: "EMAIL",
+          recipientType: "EMAIL",
+          recipientValue: recipient,
+          status: "FAILED",
+          errorCode: { in: ["email_bounced", "email_complained", "email_suppressed"] },
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!priorAttemptPermitsRetry(prior, previousKey, idempotencyKey, tenant, recipient, !!suppressed)) {
+      return Response.json({ error: "Previous attempt not proven safe to retry", code: "retry_not_authorized" }, { status: 409 });
+    }
+  }
+
   if (!existingClaim) {
     const limits = await enforceApiMessageLimits({
       organizationId: auth.organizationId,
