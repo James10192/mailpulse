@@ -1,3 +1,6 @@
+
+## 2026-11-02 — KLASSCI per-attempt references
+- Add tenant-qualified v3 attempt-number references for safe lookup and signed provider events; retain v1/v2 unchanged. No automatic retry or email send enabled.
 # Changelog
 
 All notable changes to MailPulse will be documented in this file.
